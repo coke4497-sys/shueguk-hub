@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>클리닉 · 교사용</title>
+<meta name="description" content="이수경국어 클리닉 교사용 — 학생 신청 링크 / 신청 확인" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23DCE9E4'/%3E%3C/svg%3E" />
+<style>
+  :root{
+    --bg:#E4EFEA; --surface:#FFFFFF;
+    --ink:#2A332F; --ink-soft:#65726B;
+    --accent:#3A6B5E; --icon:#3F4541; --icon-bg:#EBF0ED;
+    --line:#D7E3DD; --line-soft:#E5EDE8; --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+    font-size:16px; line-height:1.75; -webkit-font-smoothing:antialiased; padding:0 0 88px;
+  }
+  .wrap{max-width:560px;margin:0 auto;padding:0 22px;}
+
+  .back{display:inline-flex;align-items:center;gap:6px;margin:26px 0 0;color:var(--ink-soft);text-decoration:none;font-size:.86rem;}
+  .back svg{width:16px;height:16px;}
+  .back:hover{color:var(--accent);}
+
+  header{padding:18px 4px 30px;text-align:center;}
+  .tagline{font-family:"Gowun Batang",serif;font-size:1.5rem;font-weight:700;color:var(--accent);margin:0;letter-spacing:.01em;}
+  .intro{color:var(--ink-soft);font-size:.94rem;margin:10px auto 0;max-width:24em;line-height:1.85;}
+
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(2,1fr);}
+  .card{
+    display:flex;flex-direction:column;align-items:flex-start;
+    background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);
+    padding:24px 22px 22px;text-decoration:none;color:inherit;min-height:176px;
+    transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+  }
+  .card:hover{transform:translateY(-3px);border-color:var(--line);box-shadow:0 12px 28px rgba(42,51,47,.08);}
+  .icon{width:48px;height:48px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:var(--icon-bg);color:var(--icon);margin-bottom:16px;}
+  .icon svg{width:24px;height:24px;}
+  .card h2{font-family:"Gowun Batang",serif;font-size:1.16rem;font-weight:700;margin:0;letter-spacing:-.01em;}
+  .card .desc{margin:7px 0 0;color:var(--ink-soft);font-size:.86rem;line-height:1.55;flex:1;}
+  .actions{margin-top:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .go{display:inline-flex;align-items:center;gap:5px;font-size:.82rem;color:var(--accent);}
+  .go svg{width:15px;height:15px;transition:transform .16s ease;}
+  .card:hover .go svg{transform:translateX(4px);}
+  .copy{
+    display:inline-flex;align-items:center;gap:5px;
+    font:inherit;font-size:.78rem;color:var(--ink-soft);
+    background:#EEF3F0;border:1px solid var(--line-soft);
+    border-radius:9px;padding:5px 10px;cursor:pointer;
+    transition:border-color .15s, color .15s, background .15s;
+  }
+  .copy svg{width:13px;height:13px;}
+  .copy:hover{color:var(--accent);border-color:var(--line);}
+  .copy.done{color:var(--accent);background:#DDEAE2;border-color:#C5DBCF;}
+
+  footer{text-align:center;margin-top:46px;color:var(--ink-soft);font-size:.82rem;line-height:2;}
+
+  @media (max-width:430px){
+    .grid{grid-template-columns:1fr;}
+    .card{min-height:0;}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <a class="back" href="index.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+    교사용 허브
+  </a>
+
+  <header>
+    <p class="tagline">클리닉</p>
+    <p class="intro">학생에게 보낼 신청 링크와 신청 확인을 선택하세요.</p>
+  </header>
+
+  <div class="grid">
+    <!-- 학생 신청 링크 -->
+    <a class="card" href="https://coke4497-sys.github.io/shueguk-clinic/" target="_blank" rel="noopener">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </span>
+      <h2>학생 신청 링크</h2>
+      <p class="desc">학생에게 보낼 클리닉 신청 폼이에요.</p>
+      <span class="actions">
+        <span class="go">폼 열기
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </span>
+        <button type="button" class="copy" id="copyBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          링크 복사
+        </button>
+      </span>
+    </a>
+
+    <!-- 신청 확인 (교사용) -->
+    <a class="card" href="https://coke4497-sys.github.io/shueguk-clinic/teacher.html" target="_blank" rel="noopener">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M16 5h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/><path d="M9 14l2 2 4-4"/></svg>
+      </span>
+      <h2>신청 확인</h2>
+      <p class="desc">신청 현황을 확인해요. (교사용)</p>
+      <span class="actions">
+        <span class="go">열기
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </span>
+      </span>
+    </a>
+  </div>
+
+  <footer>
+    <p>이수경국어 Shueguk · 교사용</p>
+  </footer>
+</main>
+
+<script>
+  // '링크 복사' — 학생 신청 폼 주소를 클립보드에 복사 (카드 이동은 막음)
+  const STUDENT_URL = "https://coke4497-sys.github.io/shueguk-clinic/";
+  const btn = document.getElementById("copyBtn");
+  btn.addEventListener("click", function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    const done = () => {
+      btn.classList.add("done");
+      btn.lastChild.textContent = " 복사됐어요!";
+      setTimeout(() => { btn.classList.remove("done"); btn.lastChild.textContent = " 링크 복사"; }, 1600);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(STUDENT_URL).then(done, fallbackCopy);
+    } else {
+      fallbackCopy();
+    }
+    function fallbackCopy(){
+      const t = document.createElement("textarea");
+      t.value = STUDENT_URL; t.style.position = "fixed"; t.style.opacity = "0";
+      document.body.appendChild(t); t.select();
+      try { document.execCommand("copy"); done(); } catch(_){ prompt("아래 주소를 복사하세요:", STUDENT_URL); }
+      document.body.removeChild(t);
+    }
+  });
+</script>
+</body>
+</html>
