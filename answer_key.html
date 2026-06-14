@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이수경국어 · 회차 정보 입력</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sage:#a9c0b4; --sage-d:#7fa08f;
+    --lav:#b8b0cc; --lav-d:#8d83a8; --lav-bg:#e8e3f0;
+    --ink:#3f3a44; --muted:#8a8590;
+    --line:#e4e0e8; --paper:#f7f6f3; --card:#ffffff;
+    --head:#cdd9e0; --head2:#dcd5e6;
+    --ok:#1b8a3a; --ok-bg:#e3f2e8;
+    --warn:#c98a2b; --warn-bg:#f8efdd;
+    --shadow:0 2px 12px rgba(63,58,68,.07);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  body{
+    font-family:'Gowun Dodum',-apple-system,sans-serif;
+    background:var(--paper); color:var(--ink);
+    max-width:880px; margin:0 auto; padding:0 0 60px; line-height:1.5;
+  }
+  .brand{
+    background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%);
+    padding:20px 24px 16px; border-radius:0 0 22px 22px; box-shadow:var(--shadow);
+    display:flex; align-items:baseline; gap:12px;
+  }
+  .brand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:#473f55; }
+  .brand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#5d5568; letter-spacing:2px; }
+  .title-bar{
+    background:var(--lav-bg); margin:16px; padding:11px 18px; border-radius:10px;
+    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#4a4356; text-align:center;
+  }
+  section{ margin:16px; background:var(--card); border-radius:14px; box-shadow:var(--shadow); padding:18px 20px; }
+  h2{ font-family:'Gowun Batang',serif; font-size:16px; margin:0 0 14px; display:flex; align-items:center; gap:8px; }
+  h2::before{ content:""; width:9px;height:9px;border-radius:2px;background:var(--lav); }
+  label{ display:block; font-size:13px; color:var(--muted); margin:10px 0 5px; }
+  input[type=text], input[type=date]{
+    width:100%; padding:11px 13px; border:1.5px solid var(--line); border-radius:9px;
+    font-size:15px; font-family:inherit; background:#fafafb;
+  }
+  input:focus{ outline:none; border-color:var(--lav); background:#fff; }
+  .row{ display:flex; gap:14px; flex-wrap:wrap; }
+  .row > div{ flex:1; min-width:160px; }
+  .cut-row{ display:flex; gap:8px; align-items:center; }
+  .cut-row span{ font-size:13px; color:var(--muted); width:90px; }
+  .cut-row input{ width:60px; text-align:center; padding:8px; }
+
+  /* 과목 탭 */
+  .tabs{ display:flex; gap:8px; margin:0 16px; }
+  .tabs button{
+    flex:1; padding:12px; border:1.5px solid var(--line); background:var(--card);
+    border-radius:10px 10px 0 0; font-family:'Gowun Batang',serif; font-size:15px; font-weight:700;
+    color:var(--muted); cursor:pointer; border-bottom:none;
+  }
+  .tabs button.on{ background:var(--lav); color:#fff; border-color:var(--lav); }
+
+  /* 영역 팔레트 */
+  .palette{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  .palette button{
+    padding:7px 12px; border:1.5px solid var(--line); background:#fafafb;
+    border-radius:20px; font-size:13px; font-family:inherit; cursor:pointer; color:var(--ink);
+  }
+  .palette button.on{ background:var(--sage-d); color:#fff; border-color:var(--sage-d); }
+  .hint{ font-size:12px; color:var(--muted); background:var(--lav-bg); padding:9px 12px; border-radius:8px; margin-bottom:12px; }
+
+  /* 문항 그리드 */
+  .qgrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:8px; }
+  .qcard{ border:1.5px solid var(--line); border-radius:10px; padding:8px 9px; background:#fafafb; }
+  .qcard.sel-area{ cursor:pointer; }
+  .qcard.sel-area:hover{ border-color:var(--sage); }
+  .qhead{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+  .qhead .qno{ font-family:'Gowun Batang',serif; font-weight:700; font-size:15px; }
+  .qhead .pt{ font-size:11px; padding:2px 7px; border-radius:10px; background:#eee; color:var(--muted); cursor:pointer; user-select:none; }
+  .qhead .pt.p3{ background:var(--warn-bg); color:var(--warn); font-weight:700; }
+  .choices{ display:flex; gap:3px; margin-bottom:5px; }
+  .choices button{
+    flex:1; aspect-ratio:1; border:1.3px solid var(--line); background:#fff; border-radius:50%;
+    font-size:13px; color:var(--muted); font-family:'Gowun Batang',serif; cursor:pointer; padding:0;
+  }
+  .choices button.sel{ background:var(--sage-d); color:#fff; border-color:var(--sage-d); font-weight:700; }
+  .qarea{ font-size:11.5px; color:var(--lav-d); text-align:center; min-height:15px; cursor:pointer; }
+  .qarea.empty{ color:#ccc; }
+  .qcard.common{ background:#f4f6f7; }
+
+  .toolbar{ display:flex; gap:8px; flex-wrap:wrap; margin:16px; }
+  .toolbar button{
+    padding:13px 20px; border:none; border-radius:11px; font-family:'Gowun Batang',serif;
+    font-size:15px; font-weight:700; cursor:pointer; letter-spacing:1px;
+  }
+  #genBtn{ background:var(--lav-d); color:#fff; box-shadow:0 4px 14px rgba(141,131,168,.35); flex:1; }
+  #copyBtn{ background:var(--sage-d); color:#fff; }
+  .secbar{ display:flex; align-items:center; justify-content:space-between; }
+  .secbar .mini{ font-size:12px; color:var(--muted); }
+  /* 출력 */
+  #out{ margin:16px; }
+  #out textarea{
+    width:100%; height:200px; border:1.5px solid var(--line); border-radius:10px;
+    font-family:ui-monospace,monospace; font-size:12px; padding:12px; background:#fff; resize:vertical;
+  }
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:#fff; padding:11px 22px; border-radius:99px; font-size:13px;
+    opacity:0; transition:all .25s; pointer-events:none; z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .summary{ font-size:13px; color:var(--muted); margin-top:8px; }
+  .summary b{ color:var(--lav-d); }
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <span class="name">이수경국어</span><span class="sub">Shueguk · 회차 정보 입력</span>
+</div>
+<div class="title-bar">성적표용 정답·영역·배점·등급컷 입력</div>
+
+<!-- 시험 정보 -->
+<section>
+  <h2>시험 정보</h2>
+  <div class="row">
+    <div><label>시험지 이름 / 회차 코드</label><input type="text" id="code" placeholder="예: 260516-260517"></div>
+    <div><label>시행일</label><input type="date" id="date"></div>
+    <div><label>학년</label><input type="text" id="grade" placeholder="3" value="3"></div>
+  </div>
+  <div class="row" style="margin-top:6px;">
+    <div>
+      <label>화법과작문 등급컷 (1·2·3·4등급)</label>
+      <div class="cut-row"><span>화작</span>
+        <input type="text" id="cutHwa1" placeholder="90"><input type="text" id="cutHwa2" placeholder="83">
+        <input type="text" id="cutHwa3" placeholder="74"><input type="text" id="cutHwa4" placeholder="64">
+      </div>
+    </div>
+    <div>
+      <label>언어와매체 등급컷 (1·2·3·4등급)</label>
+      <div class="cut-row"><span>언매</span>
+        <input type="text" id="cutEon1" placeholder="84"><input type="text" id="cutEon2" placeholder="77">
+        <input type="text" id="cutEon3" placeholder="68"><input type="text" id="cutEon4" placeholder="58">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 과목 탭 -->
+<div class="tabs">
+  <button id="tabCommon" class="on" onclick="switchTab('common')">공통 1–34</button>
+  <button id="tabHwa" onclick="switchTab('hwa')">화법과작문 35–45</button>
+  <button id="tabEon" onclick="switchTab('eon')">언어와매체 35–45</button>
+</div>
+
+<section style="border-radius:0 0 14px 14px;">
+  <div class="secbar">
+    <h2 id="secTitle">공통 과목 (1–34번)</h2>
+    <span class="mini" id="secMini"></span>
+  </div>
+  <div class="hint" id="hint"></div>
+  <div class="palette" id="palette"></div>
+  <div class="qgrid" id="qgrid"></div>
+</section>
+
+<div class="toolbar">
+  <button id="genBtn" onclick="generate()">성적표용 데이터 생성</button>
+  <button id="copyBtn" onclick="copyOut()">복사</button>
+</div>
+<div id="out" style="display:none;">
+  <textarea id="outText" readonly></textarea>
+  <div class="summary" id="summary"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ─────────── 데이터 모델 ─────────── */
+// 공통 1~34, 선택 35~45 (화작/언매 별도)
+const AREAS_COMMON = ["독서론","인문예술","사회문화","과학기술","고전시가","고전소설","현대시","현대소설","갈래복합"];
+const AREAS_HWA = [];
+const AREAS_EON = [];
+
+// 상태: 각 문항 {ans, area, p3}
+const data = {
+  common: makeBlock(1,34),
+  hwa: makeBlock(35,45),
+  eon: makeBlock(35,45),
+};
+function makeBlock(from,to){
+  const o={};
+  for(let q=from;q<=to;q++) o[q]={ans:null, area:null, p3:false};
+  return o;
+}
+
+let tab='common';
+let brush=null;       // 선택된 영역(범위칠하기용)
+
+function curBlock(){ return data[tab]; }
+function curAreas(){ return tab==='common'?AREAS_COMMON : tab==='hwa'?AREAS_HWA : AREAS_EON; }
+function curRange(){ return tab==='common'?[1,34]:[35,45]; }
+
+/* ─────────── 렌더링 ─────────── */
+function renderPalette(){
+  const pal=document.getElementById('palette');
+  pal.innerHTML='';
+  pal.style.display = (tab==='common')?'flex':'none';
+  curAreas().forEach(a=>{
+    const b=document.createElement('button');
+    b.textContent=a;
+    if(a===brush) b.classList.add('on');
+    b.onclick=()=>{ brush=(brush===a?null:a); renderPalette(); updateHint(); };
+    pal.appendChild(b);
+  });
+}
+function updateHint(){
+  const h=document.getElementById('hint');
+  if(tab!=='common'){
+    h.innerHTML='선택과목은 영역 지정이 필요 없습니다. <b>정답과 배점(2점/3점)</b>만 입력하세요.';
+    return;
+  }
+  if(brush) h.innerHTML=`<b>「${brush}」</b> 영역 선택됨 — 해당하는 문항의 영역칸을 누르면 일괄 지정됩니다. 다시 누르면 해제.`;
+  else h.textContent='먼저 위에서 영역을 고른 뒤, 문항의 영역칸을 눌러 지정하세요. 배점은 [2점] 뱃지를 눌러 [3점]으로 토글합니다.';
+}
+function render(){
+  const [from,to]=curRange();
+  const blk=curBlock();
+  const grid=document.getElementById('qgrid');
+  grid.innerHTML='';
+  for(let q=from;q<=to;q++){
+    const d=blk[q];
+    const card=document.createElement('div');
+    card.className='qcard';
+    // 정답 버튼
+    let choices='<div class="choices">';
+    for(let j=1;j<=5;j++) choices+=`<button class="${d.ans===j?'sel':''}" onclick="setAns(${q},${j})">${j}</button>`;
+    choices+='</div>';
+    const isCommon = (tab==='common');
+    card.innerHTML=`
+      <div class="qhead">
+        <span class="qno">${q}번</span>
+        <span class="pt ${d.p3?'p3':''}" onclick="togglePt(${q})">${d.p3?'3점':'2점'}</span>
+      </div>
+      ${choices}
+      ${isCommon ? `<div class="qarea ${d.area?'':'empty'}" onclick="paintArea(${q})">${d.area||'영역 미지정'}</div>` : ''}`;
+    grid.appendChild(card);
+  }
+  // 헤더 정보
+  document.getElementById('secTitle').textContent =
+    tab==='common'?'공통 과목 (1–34번)':tab==='hwa'?'화법과작문 (35–45번)':'언어와매체 (35–45번)';
+  updateMini();
+}
+function updateMini(){
+  const [from,to]=curRange(); const blk=curBlock();
+  let ans=0, area=0, p3=0, sum=0;
+  for(let q=from;q<=to;q++){ const d=blk[q];
+    if(d.ans) ans++; if(d.area) area++; if(d.p3) p3++;
+    sum += d.p3?3:2;
+  }
+  const n=to-from+1;
+  const areaPart = (tab==='common') ? ` · 영역 ${area}/${n}` : '';
+  document.getElementById('secMini').textContent =
+    `정답 ${ans}/${n}${areaPart} · 3점 ${p3}개 · 배점합 ${sum}`;
+}
+
+/* ─────────── 조작 ─────────── */
+function setAns(q,j){ curBlock()[q].ans=j; render(); }
+function togglePt(q){ curBlock()[q].p3=!curBlock()[q].p3; render(); }
+function paintArea(q){
+  if(!brush){ toast('먼저 위에서 영역을 선택하세요'); return; }
+  const d=curBlock()[q];
+  d.area=(d.area===brush?null:brush);
+  render();
+}
+function switchTab(t){
+  tab=t; brush=null;
+  ['common','hwa','eon'].forEach(x=>
+    document.getElementById('tab'+x[0].toUpperCase()+x.slice(1)).classList.toggle('on',x===t));
+  renderPalette(); updateHint(); render();
+}
+
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2000); }
+
+/* ─────────── 데이터 생성 ─────────── */
+function buildExam(subjectKey){
+  // 공통 + 해당 선택과목 합치기
+  const subjBlock = subjectKey==='hwa'?data.hwa:data.eon;
+  const subjectName = subjectKey==='hwa'?'화법과작문':'언어와 매체';
+  const answers={}, points={}, areaMap={};
+  function add(q,d,forceArea){
+    answers[q]=d.ans; points[q]=d.p3?3:2;
+    const area=forceArea || d.area || '미지정';
+    if(!areaMap[area]) areaMap[area]={name:area, qs:[]};
+    areaMap[area].qs.push(q);
+  }
+  for(let q=1;q<=34;q++) add(q, data.common[q]);
+  for(let q=35;q<=45;q++) add(q, subjBlock[q], subjectName);  // 선택과목 영역 자동
+
+  // 큰분류 매핑
+  const CAT={ "독서론":"독서","인문예술":"독서","사회문화":"독서","과학기술":"독서",
+    "고전소설":"문학","현대시":"문학","현대소설":"문학","고전시가":"문학","갈래복합":"문학",
+    "화법과작문":"선택과목","언어와 매체":"선택과목","언어와매체":"선택과목" };
+  const cuts = subjectKey==='hwa'
+    ? [val('cutHwa1'),val('cutHwa2'),val('cutHwa3'),val('cutHwa4')]
+    : [val('cutEon1'),val('cutEon2'),val('cutEon3'),val('cutEon4')];
+
+  const areas = Object.values(areaMap).map(a=>({
+    cat: CAT[a.name]||'기타', name:a.name, qs:a.qs
+  }));
+  return {
+    code: val('code'), date: val('date'), grade: val('grade'),
+    subject: subjectName, cuts: cuts.map(Number),
+    answers, points, areas
+  };
+}
+function val(id){ return document.getElementById(id).value.trim(); }
+
+function validate(){
+  const problems=[];
+  // 공통 정답/영역
+  for(let q=1;q<=34;q++){ const d=data.common[q];
+    if(!d.ans) problems.push(`공통 ${q}번 정답 미입력`);
+    if(!d.area) problems.push(`공통 ${q}번 영역 미지정`);
+  }
+  ['hwa','eon'].forEach(k=>{ const nm=k==='hwa'?'화작':'언매';
+    for(let q=35;q<=45;q++){ const d=data[k][q];
+      if(!d.ans) problems.push(`${nm} ${q}번 정답 미입력`);
+    }
+  });
+  return problems;
+}
+
+function generate(){
+  const probs=validate();
+  if(probs.length){
+    toast(`미입력 ${probs.length}건 — ${probs[0]}${probs.length>1?' 외':''}`);
+    // 그래도 부분 출력은 허용하되 경고
+  }
+  const exam = { 화법과작문: buildExam('hwa'), 언어와매체: buildExam('eon') };
+  const out=document.getElementById('out');
+  out.style.display='block';
+  document.getElementById('outText').value = JSON.stringify(exam, null, 2);
+
+  // 요약
+  const sH=sumPts('hwa'), sE=sumPts('eon');
+  document.getElementById('summary').innerHTML =
+    `배점 합계 — 화작 <b>${sH}점</b>, 언매 <b>${sE}점</b>` +
+    (probs.length?` · <span style="color:var(--warn)">미입력 ${probs.length}건 확인 필요</span>`:` · <span style="color:var(--ok)">입력 완료</span>`);
+  out.scrollIntoView({behavior:'smooth'});
+}
+function sumPts(k){ let s=0; for(let q=1;q<=34;q++)s+=data.common[q].p3?3:2;
+  for(let q=35;q<=45;q++)s+=data[k][q].p3?3:2; return s; }
+
+function copyOut(){
+  const t=document.getElementById('outText');
+  if(!t.value){ toast('먼저 데이터를 생성하세요'); return; }
+  navigator.clipboard.writeText(t.value).then(()=>toast('클립보드에 복사되었습니다'));
+}
+
+/* init */
+renderPalette(); updateHint(); render();
+</script>
+</body>
+</html>
