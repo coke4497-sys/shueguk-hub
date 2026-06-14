@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#4f46e5" />
+<title>SHUEGUK 허브 · 학습 대시보드</title>
+<meta name="description" content="SHUEGUK 영어 학습 도구를 한곳에서 — 어휘, 문법, 숙제, 주말테스트, 리포트, 클리닉" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%9A%3C/text%3E%3C/svg%3E" />
+<style>
+  :root{
+    --bg:#0f1226;
+    --bg2:#171a35;
+    --card:#1e2244;
+    --card-hover:#262b53;
+    --text:#eef0ff;
+    --muted:#9aa0c7;
+    --accent:#7c83ff;
+    --border:rgba(255,255,255,.08);
+    --shadow:0 10px 30px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%,#2a2f63 0%,var(--bg) 55%) fixed,var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:max(24px,env(safe-area-inset-top)) 20px calc(40px + env(safe-area-inset-bottom));
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:980px;margin:0 auto}
+  header{text-align:center;padding:28px 0 34px}
+  .logo{
+    display:inline-flex;align-items:center;gap:10px;
+    font-size:13px;letter-spacing:.18em;font-weight:700;color:var(--accent);
+    text-transform:uppercase;margin-bottom:14px;
+  }
+  .logo .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+  h1{font-size:clamp(26px,6vw,40px);font-weight:800;letter-spacing:-.02em;line-height:1.15}
+  h1 .accent{background:linear-gradient(90deg,#7c83ff,#b388ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sub{margin-top:12px;color:var(--muted);font-size:15px;line-height:1.6}
+  .grid{
+    display:grid;gap:16px;margin-top:8px;
+    grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+  }
+  .card{
+    position:relative;display:flex;flex-direction:column;
+    background:var(--card);border:1px solid var(--border);border-radius:18px;
+    padding:22px 20px;text-decoration:none;color:inherit;
+    transition:transform .18s ease,background .18s ease,border-color .18s ease,box-shadow .18s ease;
+    overflow:hidden;
+  }
+  .card::before{
+    content:"";position:absolute;inset:0;border-radius:18px;padding:1px;
+    background:linear-gradient(135deg,var(--g1),var(--g2));
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;
+    opacity:0;transition:opacity .18s ease;
+  }
+  .card:hover{transform:translateY(-4px);background:var(--card-hover);box-shadow:var(--shadow)}
+  .card:hover::before{opacity:.9}
+  .icon{
+    width:52px;height:52px;border-radius:14px;display:grid;place-items:center;
+    font-size:26px;margin-bottom:16px;
+    background:linear-gradient(135deg,var(--g1),var(--g2));
+    box-shadow:0 8px 20px rgba(0,0,0,.25);
+  }
+  .card h2{font-size:18px;font-weight:700;letter-spacing:-.01em}
+  .card .ko{color:var(--muted);font-size:13px;margin-top:3px;font-weight:500}
+  .card p{margin-top:12px;color:var(--muted);font-size:13.5px;line-height:1.55;flex:1}
+  .go{
+    margin-top:16px;display:inline-flex;align-items:center;gap:6px;
+    font-size:13px;font-weight:600;color:var(--accent);
+  }
+  .go svg{transition:transform .18s ease}
+  .card:hover .go svg{transform:translateX(4px)}
+  footer{text-align:center;margin-top:40px;color:var(--muted);font-size:12.5px;line-height:1.7}
+  footer a{color:var(--accent);text-decoration:none}
+  @media (max-width:480px){
+    .grid{grid-template-columns:1fr}
+    body{padding-left:16px;padding-right:16px}
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo"><span class="dot"></span> SHUEGUK LEARNING</div>
+      <h1>SHUEGUK <span class="accent">학습 허브</span></h1>
+      <p class="sub">모든 SHUEGUK 학습 도구를 한곳에서 — 카드를 눌러 바로 이동하세요.</p>
+    </header>
+
+    <main class="grid" id="grid"></main>
+
+    <footer>
+      <p>SHUEGUK 학습 허브 · 모든 도구는 GitHub Pages로 제공됩니다</p>
+      <p>관리: <a href="https://github.com/coke4497-sys" target="_blank" rel="noopener">@coke4497-sys</a></p>
+    </footer>
+  </div>
+
+<script>
+  // 각 프로젝트 정보 — 순서는 학습 흐름(어휘→문법→숙제→테스트→리포트→클리닉)
+  const projects = [
+    {
+      title:"어휘", ko:"Vocabulary", repo:"shueguk-voca", icon:"📖",
+      desc:"단어 암기와 복습. \"어휘, 시작이 반이다\"",
+      g1:"#6366f1", g2:"#8b5cf6"
+    },
+    {
+      title:"문법", ko:"Grammar", repo:"shueguk-gramma", icon:"✏️",
+      desc:"문법 개념 학습과 연습 문제.",
+      g1:"#0ea5e9", g2:"#22d3ee"
+    },
+    {
+      title:"숙제", ko:"Homework", repo:"shueguk-h-work", icon:"📝",
+      desc:"숙제 확인과 제출 관리.",
+      g1:"#10b981", g2:"#34d399"
+    },
+    {
+      title:"주말 테스트", ko:"Weekend Test", repo:"shuegukweekendtest", icon:"🗓️",
+      desc:"주말 점검 테스트로 한 주 마무리.",
+      g1:"#f59e0b", g2:"#fbbf24"
+    },
+    {
+      title:"리포트", ko:"Report", repo:"shueguk-report", icon:"📊",
+      desc:"성적·학습 리포트 확인.",
+      g1:"#ef4444", g2:"#f97316"
+    },
+    {
+      title:"클리닉", ko:"Clinic", repo:"shueguk-clinic", icon:"🩺",
+      desc:"오답·약점 보완 클리닉.",
+      g1:"#ec4899", g2:"#f472b6"
+    },
+  ];
+
+  const owner = "coke4497-sys";
+  const grid = document.getElementById("grid");
+
+  projects.forEach(p=>{
+    const a = document.createElement("a");
+    a.className = "card";
+    a.href = `https://${owner}.github.io/${p.repo}/`;
+    a.style.setProperty("--g1", p.g1);
+    a.style.setProperty("--g2", p.g2);
+    a.innerHTML = `
+      <div class="icon">${p.icon}</div>
+      <h2>${p.title}</h2>
+      <div class="ko">${p.ko}</div>
+      <p>${p.desc}</p>
+      <span class="go">열기
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </span>`;
+    grid.appendChild(a);
+  });
+</script>
+</body>
+</html>
