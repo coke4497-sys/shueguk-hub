@@ -98,8 +98,8 @@
       </span>
     </a>
 
-    <!-- 학생 응시 링크 (OMR) -->
-    <a class="card" href="https://script.google.com/macros/s/AKfycbz9zrKktb_Ouu-OzQ692cUlmaoRCLEpYT3NKbUt6N9HaXcA4NKSlW3oMRiSqEAHzeN0Eg/exec" target="_blank" rel="noopener">
+    <!-- 학생 응시 링크 (배너 없는 래퍼 omr.html) -->
+    <a class="card" href="omr.html" target="_blank" rel="noopener">
       <span class="icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
       </span>
@@ -141,8 +141,8 @@
 </main>
 
 <script>
-  // '링크 복사' — 학생에게 보낼 OMR 응시 주소를 복사 (카드 이동은 막음)
-  const STUDENT_URL = "https://script.google.com/macros/s/AKfycbz9zrKktb_Ouu-OzQ692cUlmaoRCLEpYT3NKbUt6N9HaXcA4NKSlW3oMRiSqEAHzeN0Eg/exec";
+  // '링크 복사' — 학생에게 보낼 깨끗한 OMR 주소(omr.html)를 복사 (카드 이동은 막음)
+  const STUDENT_URL = "https://coke4497-sys.github.io/shueguk-hub/omr.html";
   const btn = document.getElementById("copyBtn");
   btn.addEventListener("click", function(e){
     e.preventDefault();
