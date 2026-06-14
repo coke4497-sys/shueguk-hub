@@ -1,0 +1,17 @@
+{
+  "name": "슈국 티쳐스 페이지",
+  "short_name": "슈국 티쳐스",
+  "description": "이수경국어 Shueguk 교사용 운영 도구 모음",
+  "lang": "ko",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#E4EFEA",
+  "theme_color": "#E4EFEA",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
