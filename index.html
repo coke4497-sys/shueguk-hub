@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-<title>Shueguk · 교사용 허브</title>
+<title>슈국 티쳐스 페이지</title>
 <meta name="description" content="이수경국어 Shueguk 교사용 운영 도구 — 어휘·문법 테스트, H WORK, 주말 실전모의고사, 클리닉 신청 현황, 지필고사 리포트" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -27,10 +27,9 @@
 
   /* Header */
   header{padding:64px 22px 36px;text-align:center;}
-  .logo{width:124px;height:124px;object-fit:contain;margin:0 auto 4px;display:block;}
-  .brand-fallback{display:none;}
-  .brand-fallback .script{font-family:"Sacramento",cursive;font-size:4.2rem;line-height:1;color:var(--ink);font-weight:400;}
-  .tagline{font-family:"Gowun Batang",serif;font-size:1.16rem;font-weight:700;color:var(--accent);margin:18px 0 0;letter-spacing:.01em;}
+  .brand{margin:0 auto 2px;}
+  .brand .script{font-family:"Sacramento",cursive;font-size:4.6rem;line-height:1;color:var(--ink);font-weight:400;}
+  .tagline{font-family:"Gowun Batang",serif;font-size:1.16rem;font-weight:700;color:var(--accent);margin:14px 0 0;letter-spacing:.01em;}
   .intro{color:var(--ink-soft);font-size:.94rem;margin:12px auto 0;max-width:28em;line-height:1.85;}
 
   /* Grid 3 × 2 */
@@ -60,7 +59,7 @@
   @media (max-width:560px){.grid{grid-template-columns:repeat(2,1fr);}}
   @media (max-width:380px){
     header{padding:48px 22px 26px;}
-    .logo{width:104px;height:104px;}
+    .brand .script{font-size:3.7rem;}
     .grid{grid-template-columns:1fr;}
     .card{min-height:0;}
   }
@@ -69,10 +68,8 @@
 </head>
 <body>
 <header>
-  <!-- 로고 파일(logo.png)을 같은 폴더에 올리면 표시됩니다. 없으면 손글씨 대체 표시 -->
-  <img class="logo" src="logo.png" alt="Shueguk" onerror="this.style.display='none';document.getElementById('bf').style.display='block';" />
-  <div class="brand-fallback" id="bf"><span class="script">Shueguk</span></div>
-  <p class="tagline">교사용 허브</p>
+  <div class="brand"><span class="script">Shueguk</span></div>
+  <p class="tagline">슈국 티쳐스 페이지</p>
   <p class="intro">이수경국어 수업 운영 도구를 한곳에 모았습니다.<br />필요한 메뉴를 선택하세요.</p>
 </header>
 
