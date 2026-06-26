@@ -31,6 +31,14 @@
   }
   .brand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:#473f55; }
   .brand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#5d5568; letter-spacing:2px; }
+  .brand .home{
+    margin-left:auto; align-self:center; display:inline-flex; align-items:center; gap:5px;
+    background:rgba(255,255,255,.55); color:#473f55; text-decoration:none;
+    font-family:'Gowun Batang',serif; font-weight:700; font-size:13px;
+    padding:8px 14px; border-radius:10px; white-space:nowrap; transition:background .15s;
+  }
+  .brand .home:hover{ background:rgba(255,255,255,.85); }
+  .brand .home svg{ width:15px; height:15px; }
   .title-bar{
     background:var(--lav-bg); margin:16px; padding:11px 18px; border-radius:10px;
     font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#4a4356; text-align:center;
@@ -116,6 +124,10 @@
 
 <div class="brand">
   <span class="name">이수경국어</span><span class="sub">Shueguk · 회차 정보 입력</span>
+  <a class="home" href="index.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+    티쳐스 메인
+  </a>
 </div>
 <div class="title-bar">성적표용 정답·영역·배점·등급컷 입력</div>
 
