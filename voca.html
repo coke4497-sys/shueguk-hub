@@ -52,15 +52,20 @@
 
   footer{text-align:center;margin-top:46px;color:var(--ink-soft);font-size:.82rem;line-height:2;}
 
-  /* 어휘 켜기/끄기 토글 */
-  .toggle-box{display:flex;align-items:center;justify-content:space-between;gap:14px;
-    background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);
+  /* 어휘 켜기/끄기 토글 + 주차 선택 */
+  .toggle-box{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);
     padding:18px 20px;margin-bottom:16px;}
-  .t-info{min-width:0;}
   .t-label{font-family:"Gowun Batang",serif;font-weight:700;font-size:1.05rem;margin:0;color:var(--ink);}
   .t-state{margin:4px 0 0;font-size:.84rem;color:var(--ink-soft);line-height:1.5;}
   .t-state.on{color:var(--accent);}
   .t-state.off{color:#B4544A;}
+  .t-controls{display:flex;align-items:flex-end;gap:10px;margin-top:14px;}
+  .t-week{flex:1;min-width:0;font-size:.78rem;font-weight:700;color:var(--ink-soft);display:flex;flex-direction:column;gap:5px;}
+  .t-week select{font:inherit;font-size:.95rem;font-weight:700;color:var(--ink);background:#fff;
+    border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;-webkit-appearance:none;appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2365726B' stroke-width='1.6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 12px center;padding-right:34px;}
+  .t-week select:disabled{opacity:.55;}
   .t-btn{flex:none;border:none;border-radius:11px;padding:11px 22px;font:inherit;font-weight:700;
     font-size:.92rem;cursor:pointer;color:#fff;background:var(--accent);transition:opacity .15s, background .15s;}
   .t-btn.off{background:#B4544A;}
@@ -82,13 +87,16 @@
     <p class="intro">학생에게 보낼 발송 링크와 결과 확인을 선택하세요.</p>
   </header>
 
-  <!-- 학생 페이지 어휘 테스트 켜기/끄기 -->
+  <!-- 학생 페이지 어휘 테스트 켜기/끄기 + 열린 주차 선택 -->
   <div class="toggle-box">
-    <div class="t-info">
-      <p class="t-label">학생 페이지 어휘 테스트</p>
-      <p class="t-state" id="vocaState">상태 불러오는 중…</p>
+    <p class="t-label">학생 페이지 어휘 테스트</p>
+    <p class="t-state" id="vocaState">상태 불러오는 중…</p>
+    <div class="t-controls">
+      <label class="t-week" for="vocaWeekSel">열린 주차
+        <select id="vocaWeekSel" disabled><option>…</option></select>
+      </label>
+      <button type="button" class="t-btn" id="vocaBtn" disabled>…</button>
     </div>
-    <button type="button" class="t-btn" id="vocaBtn" disabled>…</button>
   </div>
 
   <div class="list">
@@ -125,47 +133,84 @@
 </main>
 
 <script>
-  // 리포트 백엔드(어휘 켜기/끄기 상태 저장). s.html 과 동일한 엔드포인트.
+  // 리포트 백엔드(어휘 켜기/끄기 + 열린 주차 저장). s.html 과 동일한 엔드포인트.
   var REPORT_URL = "https://script.google.com/macros/s/AKfycbzhCncBwn-JlqXARC3wfrWUCuNHzlNK2df0bdhx-w78Xr8mzYUcIYZOJdRi9N4bHtsb/exec";
+  var MAX_WEEK = 40;
   var stateEl = document.getElementById("vocaState");
   var btnEl = document.getElementById("vocaBtn");
-  var vocaOpen = null;
+  var weekSel = document.getElementById("vocaWeekSel");
+  var vocaOpen = null, vocaWeek = null, savedPw = null;
+
+  // 주차 드롭다운 채우기 (미설정 + 1~MAX_WEEK주차)
+  (function fillWeeks(){
+    var html = '<option value="">주차 미설정</option>';
+    for(var i=1;i<=MAX_WEEK;i++) html += '<option value="'+i+'">'+i+'주차</option>';
+    weekSel.innerHTML = html;
+  })();
 
   function render(){
     if(vocaOpen === null){
       stateEl.textContent = "상태를 불러올 수 없어요"; stateEl.className = "t-state";
-      btnEl.textContent = "다시 시도"; btnEl.className = "t-btn"; btnEl.disabled = false; return;
+      btnEl.textContent = "다시 시도"; btnEl.className = "t-btn"; btnEl.disabled = false;
+      weekSel.disabled = true; return;
     }
+    var wkTxt = (vocaWeek >= 1) ? (vocaWeek + "주차") : "주차 미설정";
     stateEl.textContent = vocaOpen
-      ? "지금 켜져 있어요 — 학생이 응시할 수 있어요"
+      ? ("지금 켜져 있어요 — 학생은 " + wkTxt + " 시험만 열려요")
       : "지금 꺼져 있어요 — 학생 카드가 '준비 중'으로 보여요";
     stateEl.className = "t-state " + (vocaOpen ? "on" : "off");
     btnEl.textContent = vocaOpen ? "끄기" : "켜기";
     btnEl.className = "t-btn " + (vocaOpen ? "off" : "");
     btnEl.disabled = false;
+    weekSel.value = (vocaWeek >= 1) ? String(vocaWeek) : "";
+    weekSel.disabled = false;
   }
+
   function load(){
-    btnEl.disabled = true; btnEl.textContent = "…";
+    btnEl.disabled = true; btnEl.textContent = "…"; weekSel.disabled = true;
     fetch(REPORT_URL + "?action=vocaStatus&t=" + Date.now())
       .then(function(r){ return r.json(); })
-      .then(function(d){ vocaOpen = (d && d.result === "success") ? !!d.open : null; render(); })
+      .then(function(d){
+        if(d && d.result === "success"){ vocaOpen = !!d.open; vocaWeek = d.week || null; }
+        else { vocaOpen = null; }
+        render();
+      })
       .catch(function(){ vocaOpen = null; render(); });
   }
+
+  // 비밀번호: 한 번 맞으면 세션 동안 기억(매번 묻지 않음)
+  function getPw(){ return savedPw !== null ? savedPw : prompt("비밀번호를 입력하세요"); }
+
   btnEl.addEventListener("click", function(){
     if(vocaOpen === null){ load(); return; }
-    var pw = prompt("비밀번호를 입력하세요");
-    if(pw === null) return;
+    var pw = getPw(); if(pw === null || pw === "") return;
     var target = vocaOpen ? 0 : 1;
     btnEl.disabled = true; btnEl.textContent = "처리 중…";
     fetch(REPORT_URL + "?action=setVoca&open=" + target + "&pw=" + encodeURIComponent(pw) + "&t=" + Date.now())
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(d && d.result === "success"){ vocaOpen = !!d.open; render(); }
-        else if(d && d.message === "unauthorized"){ alert("비밀번호가 틀렸어요."); render(); }
+        if(d && d.result === "success"){ savedPw = pw; vocaOpen = !!d.open; render(); }
+        else if(d && d.message === "unauthorized"){ savedPw = null; alert("비밀번호가 틀렸어요."); render(); }
         else { alert("문제가 생겼어요. 다시 시도해 주세요."); render(); }
       })
       .catch(function(){ alert("연결에 실패했어요."); render(); });
   });
+
+  weekSel.addEventListener("change", function(){
+    var w = weekSel.value;
+    if(!w){ render(); return; }   // '주차 미설정' 선택은 되돌림
+    var pw = getPw(); if(pw === null || pw === ""){ render(); return; }
+    weekSel.disabled = true;
+    fetch(REPORT_URL + "?action=setVocaWeek&w=" + encodeURIComponent(w) + "&pw=" + encodeURIComponent(pw) + "&t=" + Date.now())
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(d && d.result === "success"){ savedPw = pw; vocaWeek = d.week; render(); }
+        else if(d && d.message === "unauthorized"){ savedPw = null; alert("비밀번호가 틀렸어요."); render(); }
+        else { alert("문제가 생겼어요. 다시 시도해 주세요."); render(); }
+      })
+      .catch(function(){ alert("연결에 실패했어요."); render(); });
+  });
+
   load();
 </script>
 </body>
