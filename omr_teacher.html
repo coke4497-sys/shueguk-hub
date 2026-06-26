@@ -9,18 +9,16 @@
   html,body{margin:0;padding:0;height:100%;background:#f7f6f3;}
   body{overflow:hidden;display:flex;flex-direction:column;}
   .appbar{
-    flex:none;display:flex;align-items:center;gap:8px;padding:8px 14px;
-    background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%);
-    box-shadow:0 1px 6px rgba(63,58,68,.12);
+    flex:none;display:flex;align-items:center;gap:8px;padding:12px 16px;
+    background:#E4EFEA;border-bottom:1px solid #D7E3DD;
   }
-  .appbar a.home{
-    display:inline-flex;align-items:center;gap:5px;color:#473f55;text-decoration:none;
-    font-family:'Gowun Batang',serif,-apple-system,sans-serif;font-weight:700;font-size:13.5px;
-    background:rgba(255,255,255,.55);padding:7px 13px;border-radius:10px;transition:background .15s;
+  .appbar a.back{
+    display:inline-flex;align-items:center;gap:6px;color:#65726B;text-decoration:none;
+    font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:14px;
   }
-  .appbar a.home:hover{ background:rgba(255,255,255,.85); }
-  .appbar a.home svg{ width:15px; height:15px; }
-  .appbar .ttl{ margin-left:auto; font-family:'Gowun Batang',serif; font-size:12.5px; color:#5d5568; letter-spacing:1px; }
+  .appbar a.back:hover{ color:#3A6B5E; }
+  .appbar a.back svg{ width:16px; height:16px; }
+  .appbar .ttl{ margin-left:auto; font-family:'Gowun Batang',serif; font-size:12.5px; color:#65726B; letter-spacing:1px; }
   .stage{ position:relative; flex:1; min-height:0; }
   iframe{width:100%;height:100%;border:0;display:block;}
   .loading{
@@ -32,9 +30,9 @@
 </head>
 <body>
   <div class="appbar">
-    <a class="home" href="index.html">
+    <a class="back" href="index.html">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
-      티쳐스 메인
+      티쳐스 메인 페이지로 가기
     </a>
     <span class="ttl">성적 대시보드</span>
   </div>
