@@ -65,26 +65,11 @@
   footer{text-align:center;margin-top:48px;color:var(--ink-soft);font-size:.82rem;line-height:2;}
   footer a{color:var(--accent);text-decoration:none;}
 
-  /* 하위 메뉴가 있는 카드(지필고사 리포트) */
-  button.card{width:100%;text-align:left;font-family:inherit;cursor:pointer;background:var(--surface);}
-  button.card:hover{transform:translateY(-3px);border-color:var(--line);box-shadow:0 12px 28px rgba(42,51,47,.08);}
-  .card.group .go svg{transition:transform .18s ease;}
-  .card.group.open{border-color:var(--accent);}
-  .card.group.open .go svg{transform:rotate(180deg);}
-  /* 펼쳐지는 하위 메뉴 패널 (한 줄 전체 차지) */
-  .subpanel{grid-column:1 / -1;display:none;gap:14px;grid-template-columns:repeat(3,1fr);
-    padding:4px 0 2px;}
-  .subpanel.open{display:grid;}
-  .subpanel .card{min-height:0;background:#F4F8F6;border-color:var(--line-soft);}
-  .subpanel .card .icon{width:40px;height:40px;border-radius:11px;margin-bottom:12px;}
-  .subpanel .card h2{font-size:1rem;}
-
-  @media (max-width:560px){.grid{grid-template-columns:repeat(2,1fr);} .subpanel{grid-template-columns:repeat(2,1fr);}}
+  @media (max-width:560px){.grid{grid-template-columns:repeat(2,1fr);}}
   @media (max-width:380px){
     header{padding:48px 22px 26px;}
     .brand .script{font-size:3.7rem;}
     .grid{grid-template-columns:1fr;}
-    .subpanel{grid-template-columns:1fr;}
     .card{min-height:0;}
   }
   @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
@@ -126,48 +111,20 @@
     { title:"H WORK",            icon:"clipboard", url:"hwork.html",    desc:"출제 · 제출 확인" },
     { title:"주말 실전모의고사", icon:"paper",     url:"weekend.html",  desc:"출제 · 응시 · 성적" },
     { title:"클리닉",            icon:"pulse",     url:"clinic.html",   desc:"신청 링크 · 신청 확인" },
-    // 지필고사 리포트 — 하위 3개 메뉴 (누르면 펼쳐짐)
-    { title:"지필고사 리포트",   icon:"chart",     desc:"제작 · 수정 · 배정 · 확인", children:[
-      { title:"지필고사 리포트 제작",        icon:"pencil",    url:REPORT+"m.html",        desc:"새 분석지(리포트) 만들기" },
-      { title:"리포트 수정 및 학생 배정",    icon:"clipboard", url:REPORT+"analyses.html", desc:"내용 수정 · 학생 배정" },
-      { title:"학생 작성 리포트 확인",       icon:"chart",     url:REPORT+"t.html",        desc:"학생 복기 · 리포트 제작" },
-    ] },
+    // 지필고사 리포트 — 누르면 하위 3메뉴 페이지(report.html)로 이동
+    { title:"지필고사 리포트",   icon:"chart",     url:"report.html", desc:"제작 · 수정·배정 · 학생작성 확인" },
     { title:"공지 보내기",       icon:"bell",      url:REPORT+"notice.html", desc:"알려드립니다 공지 작성·관리" },
   ];
 
   const grid = document.getElementById("grid");
   const svg = inner => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
   const ARROW = svg('<path d="M5 12h14M13 6l6 6-6 6"/>');
-  const CHEV  = svg('<path d="M6 9l6 6 6-6"/>');
 
   function cardInner(p, go){
     return `<span class="icon">${svg(ICON[p.icon])}</span><h2>${p.title}</h2><p class="desc">${p.desc}</p>${go}`;
   }
 
   projects.forEach(p => {
-    // 하위 메뉴가 있는 항목 → 펼쳐지는 그룹 카드
-    if (p.children){
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.className = "card group";
-      btn.innerHTML = cardInner(p, `<span class="go">하위 메뉴 ${CHEV}</span>`);
-      const panel = document.createElement("div");
-      panel.className = "subpanel";
-      p.children.forEach(c => {
-        const a = document.createElement("a");
-        a.className = "card sub";
-        a.href = c.url;
-        a.innerHTML = cardInner(c, `<span class="go">열기 ${ARROW}</span>`);
-        panel.appendChild(a);
-      });
-      btn.addEventListener("click", () => {
-        const open = panel.classList.toggle("open");
-        btn.classList.toggle("open", open);
-      });
-      grid.appendChild(btn);
-      grid.appendChild(panel);
-      return;
-    }
     let el;
     if (p.pending){
       el = document.createElement("div");
