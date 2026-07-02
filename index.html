@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>슈국 티쳐스 페이지</title>
-<meta name="description" content="이수경국어 Shueguk 교사용 운영 도구 — 어휘·문법 테스트, H WORK, 주말 실전모의고사, 클리닉 신청 현황, 지필고사 리포트" />
+<meta name="description" content="이수경국어 Shueguk 교사용 운영 도구 — 어휘·문법 테스트, H WORK, 주말 실전모의고사, 클리닉, 지필고사 리포트, 공지 보내기" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Sacramento&display=swap" rel="stylesheet" />
@@ -92,7 +92,7 @@
 </main>
 
 <script>
-  // 배치(3 × 2) ─ 1줄: 어휘 테스트·문법 테스트·H WORK / 2줄: 주말 실전모의고사·클리닉 신청 현황·지필고사 리포트
+  // 메뉴 카드 목록 (3열 그리드, 항목 수만큼 줄바꿈) — 어휘·문법·H WORK / 주말·클리닉·지필고사 리포트 / 공지 보내기
   // url 빈값 + pending:true → '준비 중' 비활성 카드
   const ICON = {
     book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
