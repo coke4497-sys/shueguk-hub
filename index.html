@@ -101,7 +101,8 @@
     paper:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/>',
     pulse:'<path d="M22 12h-4l-3 8L9 4l-3 8H2"/>',
     chart:'<line x1="6" y1="21" x2="6" y2="15"/><line x1="12" y1="21" x2="12" y2="9"/><line x1="18" y1="21" x2="18" y2="4"/>',
-    bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'
+    bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+    star:'<path d="M12 2l2.9 6.2 6.8.8-5 4.7 1.3 6.7L12 17.1 6 20.4l1.3-6.7-5-4.7 6.8-.8z"/>'
   };
 
   const REPORT = "https://coke4497-sys.github.io/shueguk-report/";
@@ -114,6 +115,7 @@
     // 지필고사 리포트 — 누르면 하위 3메뉴 페이지(report.html)로 이동
     { title:"지필고사 리포트",   icon:"chart",     url:"report.html", desc:"제작 · 수정·배정 · 학생작성 확인" },
     { title:"공지 보내기",       icon:"bell",      url:REPORT+"notice.html", desc:"알려드립니다 공지 작성·관리" },
+    { title:"슈퍼스타 별 주기",  icon:"star",      url:REPORT+"star.html",   desc:"깜짝 보너스 별 선물" },
   ];
 
   const grid = document.getElementById("grid");
