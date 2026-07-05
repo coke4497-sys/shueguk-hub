@@ -172,6 +172,7 @@
 
 <div class="toolbar">
   <button id="genBtn" onclick="generate()">성적표용 데이터 생성</button>
+  <button id="saveBtn" onclick="saveToSheet()">시트에 바로 저장</button>
   <button id="copyBtn" onclick="copyOut()">복사</button>
 </div>
 <div id="out" style="display:none;">
@@ -358,6 +359,35 @@ function generate(){
 }
 function sumPts(k){ let s=0; for(let q=1;q<=34;q++)s+=data.common[q].p3?3:2;
   for(let q=35;q<=45;q++)s+=data[k][q].p3?3:2; return s; }
+
+/* '시트에 바로 저장' — OMR 백엔드 '회차정답' 탭에 기록 (같은 회차 이름이면 덮어쓰기).
+ * 저장되면 학생용 OMR 회차 목록에 바로 나타난다. */
+var OMR_API = "https://script.google.com/macros/s/AKfycbyUHMdCH_u35Oeu6lEmx3yOYscoKLwEB8TC0QHGBOaCXZ4rbAnkMpP9_Na4l3QLOajGPA/exec";
+function saveToSheet(){
+  const name = val('code');
+  if(!name){ toast('시험지 이름/회차 코드를 먼저 입력하세요'); document.getElementById('code').focus(); return; }
+  generate();   // 최신 입력으로 데이터 생성(검증 포함)
+  const jsonStr = document.getElementById('outText').value;
+  if(!jsonStr){ toast('데이터 생성에 실패했어요'); return; }
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true; const label = btn.textContent; btn.textContent = '저장 중…';
+  fetch(OMR_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },   // CORS 프리플라이트 회피
+    body: JSON.stringify({ action: 'saveExam', pw: 'sh', name: name, json: jsonStr })
+  })
+  .then(r => r.json())
+  .then(res => {
+    btn.disabled = false; btn.textContent = label;
+    if(res && res.result === 'success'){
+      toast(res.updated ? `'${name}' 회차를 수정 저장했습니다 — 학생 OMR에 반영됨`
+                        : `'${name}' 회차를 저장했습니다 — 학생 OMR에 바로 나타납니다`);
+    } else {
+      toast('저장 실패: ' + ((res && res.message) || '알 수 없는 오류'));
+    }
+  })
+  .catch(() => { btn.disabled = false; btn.textContent = label; toast('저장 실패 — 인터넷 연결을 확인하세요'); });
+}
 
 function copyOut(){
   const t=document.getElementById('outText');
