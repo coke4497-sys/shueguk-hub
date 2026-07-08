@@ -19,10 +19,23 @@
 </head>
 <body>
   <div class="loading" id="loading">이수경국어 OMR 불러오는 중…</div>
-  <iframe
-    src="https://script.google.com/macros/s/AKfycbyUHMdCH_u35Oeu6lEmx3yOYscoKLwEB8TC0QHGBOaCXZ4rbAnkMpP9_Na4l3QLOajGPA/exec"
+  <iframe id="omrFrame"
     allow="clipboard-write"
     title="이수경국어 OMR"
     onload="var l=document.getElementById('loading'); if(l) l.style.display='none';"></iframe>
+  <script>
+    // 학생 개별 페이지(s.html)에서 nm·sc·gr·sid 로 학생 정보를 실어 보내면
+    // OMR 화면(omr_student)에 그대로 전달해 이름·학교·학년·학부모8자리가 자동 입력된다.
+    (function(){
+      var BASE = "https://script.google.com/macros/s/AKfycbyUHMdCH_u35Oeu6lEmx3yOYscoKLwEB8TC0QHGBOaCXZ4rbAnkMpP9_Na4l3QLOajGPA/exec";
+      var q = new URLSearchParams(location.search);
+      var pass = [];
+      [["nm","name"],["sc","school"],["gr","grade"],["sid","sid"]].forEach(function(p){
+        var v = q.get(p[0]);
+        if(v) pass.push(p[1] + "=" + encodeURIComponent(v));
+      });
+      document.getElementById("omrFrame").src = BASE + (pass.length ? "?" + pass.join("&") : "");
+    })();
+  </script>
 </body>
 </html>
