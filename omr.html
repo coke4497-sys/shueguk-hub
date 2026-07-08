@@ -7,28 +7,53 @@
 <meta name="theme-color" content="#c4d4cc" />
 <style>
   html,body{margin:0;padding:0;height:100%;background:#f7f6f3;}
-  body{overflow:hidden;}
+  body{overflow:hidden;display:flex;flex-direction:column;}
+  /* 교사용 상단 바 — ?t=1 로 열었을 때만 표시 (학생 링크에는 안 보임) */
+  .appbar{
+    flex:none;display:none;align-items:center;gap:8px;padding:12px 16px;
+    background:#E4EFEA;border-bottom:1px solid #D7E3DD;
+  }
+  .appbar.on{ display:flex; }
+  .appbar a.back{
+    display:inline-flex;align-items:center;gap:6px;color:#65726B;text-decoration:none;
+    font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:14px;
+  }
+  .appbar a.back:hover{ color:#3A6B5E; }
+  .appbar a.back svg{ width:16px; height:16px; }
+  .appbar .ttl{ margin-left:auto; font-family:'Gowun Batang',serif; font-size:12.5px; color:#65726B; letter-spacing:1px; }
+  .stage{ position:relative; flex:1; min-height:0; }
   iframe{width:100%;height:100%;border:0;display:block;}
   /* 로딩 표시 */
   .loading{
-    position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     font-family:'Gowun Batang',serif,-apple-system,sans-serif;color:#8d83a8;font-size:15px;
     background:#f7f6f3;letter-spacing:1px;z-index:1;
   }
 </style>
 </head>
 <body>
-  <div class="loading" id="loading">이수경국어 OMR 불러오는 중…</div>
-  <iframe id="omrFrame"
-    allow="clipboard-write"
-    title="이수경국어 OMR"
-    onload="var l=document.getElementById('loading'); if(l) l.style.display='none';"></iframe>
+  <div class="appbar" id="appbar">
+    <a class="back" href="weekend.html">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+      주말 실전 모의고사로 가기
+    </a>
+    <span class="ttl">학생 OMR</span>
+  </div>
+  <div class="stage">
+    <div class="loading" id="loading">이수경국어 OMR 불러오는 중…</div>
+    <iframe id="omrFrame"
+      allow="clipboard-write"
+      title="이수경국어 OMR"
+      onload="var l=document.getElementById('loading'); if(l) l.style.display='none';"></iframe>
+  </div>
   <script>
     // 학생 개별 페이지(s.html)에서 nm·sc·gr·sid 로 학생 정보를 실어 보내면
     // OMR 화면(omr_student)에 그대로 전달해 이름·학교·학년·학부모8자리가 자동 입력된다.
+    // ?t=1 은 티쳐스 페이지에서 연 경우 — 상단에 돌아가기 바를 보여준다 (학생 링크에는 없음).
     (function(){
       var BASE = "https://script.google.com/macros/s/AKfycbyUHMdCH_u35Oeu6lEmx3yOYscoKLwEB8TC0QHGBOaCXZ4rbAnkMpP9_Na4l3QLOajGPA/exec";
       var q = new URLSearchParams(location.search);
+      if (q.get("t") === "1") document.getElementById("appbar").classList.add("on");
       var pass = [];
       [["nm","name"],["sc","school"],["gr","grade"],["sid","sid"]].forEach(function(p){
         var v = q.get(p[0]);
