@@ -196,9 +196,7 @@
       .catch(function(){ alert("연결에 실패했어요."); render(); });
   });
 
-  weekSel.addEventListener("change", function(){
-    var w = weekSel.value;
-    if(!w){ render(); return; }   // '주차 미설정' 선택은 되돌림
+  function saveWeek(w){
     var pw = getPw(); if(pw === null || pw === ""){ render(); return; }
     weekSel.disabled = true;
     fetch(REPORT_URL + "?action=setVocaWeek&w=" + encodeURIComponent(w) + "&pw=" + encodeURIComponent(pw) + "&t=" + Date.now())
@@ -209,6 +207,43 @@
         else { alert("문제가 생겼어요. 다시 시도해 주세요."); render(); }
       })
       .catch(function(){ alert("연결에 실패했어요."); render(); });
+  }
+
+  weekSel.addEventListener("change", function(){
+    var w = weekSel.value;
+    if(!w){ render(); return; }   // '주차 미설정' 선택은 되돌림
+    weekSel.disabled = true;
+
+    // 저장 전에 서버의 현재 설정을 새로 확인 — 오래된 화면이 최신 값을 덮어쓰지 않도록.
+    fetch(REPORT_URL + "?action=vocaStatus&t=" + Date.now(), { cache: "no-store" })
+      .then(function(r){ return r.json(); })
+      .then(function(st){
+        if(!(st && st.result === "success")) throw new Error("status");
+        var serverWeek = st.week || null;
+        vocaOpen = !!st.open;
+
+        if(String(serverWeek || "") !== String(vocaWeek || "")){
+          // 이 화면이 낡았음 — 저장하지 않고 최신 상태로 갱신만.
+          vocaWeek = serverWeek;
+          render();
+          alert("이 화면이 오래되어 최신 설정과 달랐어요.\n현재 설정(" + (serverWeek >= 1 ? serverWeek + "주차" : "주차 미설정") + ")으로 새로고침했어요.\n바꾸시려면 다시 선택해 주세요.");
+          return;
+        }
+        if(String(w) === String(serverWeek)){ render(); return; }  // 이미 그 주차
+
+        var curTxt = (vocaWeek >= 1) ? (vocaWeek + "주차") : "주차 미설정";
+        if(!confirm("어휘 주차를 " + curTxt + " → " + w + "주차로 변경할까요?\n학생 페이지에 바로 반영됩니다.")){ render(); return; }
+        saveWeek(w);
+      })
+      .catch(function(){
+        if(confirm("현재 설정을 확인하지 못했어요.\n그래도 " + w + "주차로 변경할까요?")) saveWeek(w);
+        else render();
+      });
+  });
+
+  // 다른 탭/기기에 갔다가 돌아오면 최신 설정을 다시 불러온다 (낡은 화면 방지)
+  document.addEventListener("visibilitychange", function(){
+    if(document.visibilityState === "visible") load();
   });
 
   load();
