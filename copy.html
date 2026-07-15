@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>코드 복사 도우미 · 슈국 티쳐스</title>
+<meta name="description" content="재배포용 백엔드 코드를 버튼 한 번으로 복사해요 (교사용)" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23DCE9E4'/%3E%3C/svg%3E" />
+<style>
+  :root{
+    --bg:#E4EFEA; --surface:#FFFFFF;
+    --ink:#2A332F; --ink-soft:#65726B;
+    --accent:#3A6B5E; --line:#D7E3DD; --line-soft:#E5EDE8; --radius:18px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+    font-size:16px; line-height:1.75; -webkit-font-smoothing:antialiased; padding:0 0 88px;
+  }
+  .wrap{max-width:600px;margin:0 auto;padding:0 22px;}
+  .back{display:inline-flex;align-items:center;gap:6px;margin:26px 0 0;color:var(--ink-soft);text-decoration:none;font-size:.86rem;}
+  .back svg{width:16px;height:16px;}
+  .back:hover{color:var(--accent);}
+  header{padding:18px 4px 26px;text-align:center;}
+  .tagline{font-family:"Gowun Batang",serif;font-size:1.5rem;font-weight:700;color:var(--accent);margin:0;}
+  .intro{color:var(--ink-soft);font-size:.94rem;margin:10px auto 0;max-width:26em;line-height:1.85;}
+
+  .list{display:flex;flex-direction:column;gap:14px;}
+  .card{background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);padding:18px 20px;}
+  .card h2{font-family:"Gowun Batang",serif;font-size:1.08rem;font-weight:700;margin:0;}
+  .card .desc{margin:3px 0 0;color:var(--ink-soft);font-size:.85rem;line-height:1.6;}
+  .row{display:flex;align-items:center;gap:10px;margin-top:12px;}
+  .cbtn{flex:none;border:none;border-radius:11px;padding:11px 20px;font:inherit;font-weight:700;
+    font-size:.92rem;cursor:pointer;color:#fff;background:var(--accent);transition:opacity .15s;}
+  .cbtn:disabled{opacity:.55;cursor:default;}
+  .cbtn:active{opacity:.85;}
+  .stat{font-size:.82rem;color:var(--ink-soft);min-height:1.2em;}
+  .stat.ok{color:var(--accent);font-weight:700;}
+  .stat.err{color:#B4544A;}
+  .fallback{width:100%;margin-top:10px;height:110px;font-size:11px;border:1.5px solid var(--line);border-radius:10px;padding:8px;display:none;}
+
+  .note{background:#FBF6E7;border:1px solid #EFE3BE;border-radius:var(--radius);padding:16px 18px;margin:22px 0 0;font-size:.86rem;color:#6B5E37;line-height:1.8;}
+  footer{text-align:center;margin-top:46px;color:var(--ink-soft);font-size:.82rem;line-height:2;}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <a class="back" href="index.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+    티쳐스 메인 페이지로 가기
+  </a>
+
+  <header>
+    <p class="tagline">코드 복사 도우미</p>
+    <p class="intro">버튼 한 번이면 최신 코드 전체가 복사돼요.<br>Apps Script에 붙여넣고 새 버전으로 배포하세요.</p>
+  </header>
+
+  <div class="list" id="fileList"></div>
+
+  <div class="note">
+    <b>붙여넣는 방법</b> — 복사 후 해당 시트 → 확장 프로그램 → Apps Script → 파일 내용 전체 선택·삭제 → 붙여넣기 → 저장 → 배포 관리 → 기존 배포 <b>편집(연필)</b> → <b>새 버전</b> → 배포.<br>
+    휴대폰에서는 브라우저 메뉴의 <b>'데스크톱 사이트 보기'</b>를 켜면 Apps Script 편집기가 열려요.
+  </div>
+
+  <footer><p>이수경국어 Shueguk · 교사용</p></footer>
+</main>
+
+<script>
+  var FILES = [
+    { name: '리포트 백엔드', file: 'backend-createReport.gs',
+      desc: '지필고사 리포트 시트의 Apps Script. 별·공지·개인 페이지·순위.',
+      url: 'https://raw.githubusercontent.com/coke4497-sys/shueguk-report/main/backend-createReport.gs' },
+    { name: '모의고사 OMR 백엔드', file: 'omr_code.gs',
+      desc: '주말 모의고사 점수 시트의 Apps Script (Code.gs 자리).',
+      url: 'https://raw.githubusercontent.com/coke4497-sys/shuegukweekendtest/main/omr_code.gs' },
+    { name: '모의고사 학생 OMR 화면', file: 'omr_student.html',
+      desc: '같은 Apps Script 안의 omr_student 파일에 통째로 붙여넣기.',
+      url: 'https://raw.githubusercontent.com/coke4497-sys/shuegukweekendtest/main/omr_student.html' },
+    { name: '모의고사 성적 대시보드', file: 'teacher.html',
+      desc: '같은 Apps Script 안의 teacher 파일에 통째로 붙여넣기.',
+      url: 'https://raw.githubusercontent.com/coke4497-sys/shuegukweekendtest/main/teacher.html' },
+    { name: '모의고사 신청 백엔드', file: 'signup_code.gs',
+      desc: '주말 모의고사 신청 시트의 Apps Script.',
+      url: 'https://raw.githubusercontent.com/coke4497-sys/shuegukweekendtest/main/signup_code.gs' },
+    { name: '클리닉 백엔드', file: 'Code.gs',
+      desc: '클리닉 응답 시트의 Apps Script.',
+      url: 'https://raw.githubusercontent.com/coke4497-sys/shueguk-clinic/main/Code.gs' }
+  ];
+
+  var list = document.getElementById('fileList');
+  list.innerHTML = FILES.map(function(f, i){
+    return '<div class="card">' +
+      '<h2>' + f.name + '</h2>' +
+      '<p class="desc">' + f.desc + '</p>' +
+      '<div class="row">' +
+        '<button type="button" class="cbtn" data-i="' + i + '">전체 복사</button>' +
+        '<span class="stat" id="stat' + i + '"></span>' +
+      '</div>' +
+      '<textarea class="fallback" id="fb' + i + '" readonly></textarea>' +
+    '</div>';
+  }).join('');
+
+  list.addEventListener('click', function(e){
+    var btn = e.target.closest('.cbtn'); if(!btn) return;
+    var i = +btn.getAttribute('data-i'), f = FILES[i];
+    var stat = document.getElementById('stat' + i);
+    btn.disabled = true; stat.className = 'stat'; stat.textContent = '불러오는 중…';
+    fetch(f.url + '?t=' + Date.now(), { cache: 'no-store' })
+      .then(function(r){ if(!r.ok) throw new Error('http'); return r.text(); })
+      .then(function(code){
+        function done(){ stat.className='stat ok'; stat.textContent='✓ 복사됨 · ' + code.length.toLocaleString() + '자'; btn.disabled=false; }
+        function fallback(){
+          var fb = document.getElementById('fb' + i);
+          fb.style.display = 'block'; fb.value = code; fb.focus(); fb.select();
+          try { document.execCommand('copy'); done(); }
+          catch(err){ stat.className='stat err'; stat.textContent='자동 복사 실패 — 아래 상자를 길게 눌러 전체 선택 후 복사하세요'; btn.disabled=false; }
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code).then(done, fallback);
+        } else { fallback(); }
+      })
+      .catch(function(){ stat.className='stat err'; stat.textContent='불러오지 못했어요. 인터넷 확인 후 다시 시도해 주세요.'; btn.disabled=false; });
+  });
+</script>
+</body>
+</html>
