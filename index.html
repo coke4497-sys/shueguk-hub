@@ -104,7 +104,8 @@
     bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
     star:'<path d="M12 2l2.9 6.2 6.8.8-5 4.7 1.3 6.7L12 17.1 6 20.4l1.3-6.7-5-4.7 6.8-.8z"/>',
     search:'<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/>',
-    copy:'<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'
+    copy:'<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    exit:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" y1="8" x2="22" y2="13"/><line x1="22" y1="8" x2="17" y2="13"/>'
   };
 
   const REPORT = "https://coke4497-sys.github.io/shueguk-report/";
@@ -120,6 +121,7 @@
     { title:"슈퍼스타 별 더하기", icon:"star",     url:REPORT+"star.html",   desc:"별 선물 · TOP 10 순위" },
     { title:"학생 페이지 링크",  icon:"search",    url:REPORT+"links.html",  desc:"학생 개인 페이지 주소 검색·복사" },
     { title:"코드 복사 도우미",  icon:"copy",      url:"copy.html",          desc:"재배포용 백엔드 코드 원클릭 복사" },
+    { title:"퇴원 정리",         icon:"exit",      url:REPORT+"exit.html",   desc:"퇴원생 기록 전체 검색·일괄 삭제" },
   ];
 
   const grid = document.getElementById("grid");
