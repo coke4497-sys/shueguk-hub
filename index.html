@@ -41,8 +41,8 @@
   .tagline{font-family:"Gowun Batang",serif;font-size:1.16rem;font-weight:700;color:var(--accent);margin:14px 0 0;letter-spacing:.01em;}
   .intro{color:var(--ink-soft);font-size:.94rem;margin:12px auto 0;max-width:28em;line-height:1.85;}
 
-  /* Grid 3 × 2 */
-  .grid{display:grid;gap:14px;margin-top:14px;grid-template-columns:repeat(3,1fr);}
+  /* Grid 2 × 2 — 메인 4메뉴 */
+  .grid{display:grid;gap:14px;margin-top:14px;grid-template-columns:repeat(2,1fr);}
   .card{
     display:flex;flex-direction:column;align-items:flex-start;
     background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);
@@ -107,23 +107,18 @@
     search:'<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/>',
     copy:'<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
     exit:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="17" y1="8" x2="22" y2="13"/><line x1="22" y1="8" x2="17" y2="13"/>',
-    newstu:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/>'
+    newstu:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/>',
+    calendar:'<rect x="3" y="4" width="18" height="17" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="9.5" x2="21" y2="9.5"/>',
+    gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/>'
   };
 
   const REPORT = "https://coke4497-sys.github.io/shueguk-report/";
+  // 메인 4메뉴 — 학습 관리·슈국 운영은 하위 메뉴 페이지(study.html / ops.html)로 이동
   const projects = [
-    // 슈퍼스타 관리 — 맨 앞(좌측 상단): 신입 슈스 등록 / 아웃 슈스 정리 / 슈스 링크 (탭)
-    { title:"슈퍼스타 관리",     icon:"newstu",    url:REPORT+"superstar.html", desc:"신입·아웃 슈스 · 링크 · 별 더하기" },
-    { title:"어휘 테스트",       icon:"book",      url:"voca.html",     desc:"링크 발송 · 결과 확인" },
-    { title:"문법 테스트",       icon:"pencil",    url:"gramma.html",   desc:"링크 발송 · 결과 확인" },
-    { title:"H WORK",            icon:"clipboard", url:"hwork.html",    desc:"출제 · 제출 확인" },
-    { title:"숙제 검사",         icon:"check",     url:REPORT+"hwcheck.html", desc:"정규 수업 과제 검사 · 미제출 대책" },
-    { title:"주말 실전모의고사", icon:"paper",     url:"weekend.html",  desc:"출제 · 응시 · 성적" },
-    { title:"클리닉",            icon:"pulse",     url:"clinic.html",   desc:"신청 링크 · 신청 확인" },
-    // 지필고사 리포트 — 누르면 하위 3메뉴 페이지(report.html)로 이동
-    { title:"지필고사 리포트",   icon:"chart",     url:"report.html", desc:"제작 · 수정·배정 · 학생작성 확인" },
-    { title:"공지 보내기",       icon:"bell",      url:REPORT+"notice.html", desc:"알려드립니다 공지 작성·관리" },
-    { title:"코드 복사 도우미",  icon:"copy",      url:"copy.html",          desc:"재배포용 백엔드 코드 원클릭 복사" },
+    { title:"슈국 스케쥴",   icon:"calendar", url:REPORT+"timetable.html", desc:"정규·내신 시간표 · 오늘의 출석 · 학생 이동" },
+    { title:"슈퍼스타 관리", icon:"newstu",   url:REPORT+"superstar.html", desc:"신입·아웃 슈스 · 링크 · 별 더하기" },
+    { title:"학습 관리",     icon:"book",     url:"study.html", desc:"어휘·문법 테스트 · H WORK · 숙제 검사 · 모의고사 · 클리닉 · 지필고사 리포트" },
+    { title:"슈국 운영",     icon:"gear",     url:"ops.html",   desc:"공지 보내기 · 코드 복사 도우미" },
   ];
 
   const grid = document.getElementById("grid");
