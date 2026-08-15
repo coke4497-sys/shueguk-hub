@@ -54,6 +54,15 @@
   .cut-row span{ font-size:13px; color:var(--muted); width:90px; }
   .cut-row input{ width:60px; text-align:center; padding:8px; }
 
+  /* 시험 형식 선택 */
+  .fmt{ display:flex; gap:8px; }
+  .fmt button{
+    flex:1; padding:11px 12px; border:1.5px solid var(--line); background:#fafafb;
+    border-radius:9px; font-family:'Gowun Batang',serif; font-size:14px; font-weight:700;
+    color:var(--muted); cursor:pointer;
+  }
+  .fmt button.on{ background:var(--sage-d); color:#fff; border-color:var(--sage-d); }
+
   /* 과목 탭 */
   .tabs{ display:flex; gap:8px; margin:0 16px; }
   .tabs button{
@@ -131,11 +140,20 @@
 <section>
   <h2>시험 정보</h2>
   <div class="row">
+    <div style="flex:2;">
+      <label>시험 형식</label>
+      <div class="fmt">
+        <button type="button" id="fmtInt" onclick="switchMode('int')">통합형 · 1–45 공통 (고1·고2식)</button>
+        <button type="button" id="fmtG3" class="on" onclick="switchMode('g3')">고3형 · 공통+선택과목</button>
+      </div>
+    </div>
+  </div>
+  <div class="row" style="margin-top:6px;">
     <div><label>시험지 이름 / 회차 코드</label><input type="text" id="code" placeholder="예: 260516-260517"></div>
     <div><label>시행일</label><input type="date" id="date"></div>
     <div><label>학년</label><input type="text" id="grade" placeholder="3" value="3"></div>
   </div>
-  <div class="row" style="margin-top:6px;">
+  <div class="row" id="cutsG3" style="margin-top:6px;">
     <div>
       <label>화법과작문 등급컷 (1·2·3·4등급)</label>
       <div class="cut-row"><span>화작</span>
@@ -151,10 +169,19 @@
       </div>
     </div>
   </div>
+  <div class="row" id="cutsInt" style="margin-top:6px;display:none;">
+    <div>
+      <label>등급컷 (1·2·3·4등급) — 이 시험의 컷</label>
+      <div class="cut-row"><span>공통</span>
+        <input type="text" id="cutInt1" placeholder="90"><input type="text" id="cutInt2" placeholder="83">
+        <input type="text" id="cutInt3" placeholder="74"><input type="text" id="cutInt4" placeholder="64">
+      </div>
+    </div>
+  </div>
 </section>
 
-<!-- 과목 탭 -->
-<div class="tabs">
+<!-- 과목 탭 (고3형 전용) -->
+<div class="tabs" id="subjTabs">
   <button id="tabCommon" class="on" onclick="switchTab('common')">공통 1–34</button>
   <button id="tabHwa" onclick="switchTab('hwa')">화법과작문 35–45</button>
   <button id="tabEon" onclick="switchTab('eon')">언어와매체 35–45</button>
@@ -184,8 +211,10 @@
 
 <script>
 /* ─────────── 데이터 모델 ─────────── */
-// 공통 1~34, 선택 35~45 (화작/언매 별도)
+// [고3형] 공통 1~34, 선택 35~45 (화작/언매 별도)
+// [통합형] 1~45 전체 공통 (선택과목 없음 — 고1·고2식, 내년부터 전 학년)
 const AREAS_COMMON = ["독서론","인문예술","사회문화","과학기술","고전시가","고전소설","현대시","현대소설","갈래복합"];
+const AREAS_INT = ["화법","문법","독서","작문","현대시","현대소설","고전시가","고전소설","갈래복합"];
 const AREAS_HWA = [];
 const AREAS_EON = [];
 
@@ -194,6 +223,7 @@ const data = {
   common: makeBlock(1,34),
   hwa: makeBlock(35,45),
   eon: makeBlock(35,45),
+  int: makeBlock(1,45),
 };
 function makeBlock(from,to){
   const o={};
@@ -201,18 +231,20 @@ function makeBlock(from,to){
   return o;
 }
 
+let mode='g3';        // 'g3'=고3형(공통+선택), 'int'=통합형(1~45 공통)
 let tab='common';
 let brush=null;       // 선택된 영역(범위칠하기용)
 
-function curBlock(){ return data[tab]; }
-function curAreas(){ return tab==='common'?AREAS_COMMON : tab==='hwa'?AREAS_HWA : AREAS_EON; }
-function curRange(){ return tab==='common'?[1,34]:[35,45]; }
+function curBlock(){ return mode==='int' ? data.int : data[tab]; }
+function curAreas(){ return mode==='int' ? AREAS_INT : (tab==='common'?AREAS_COMMON : tab==='hwa'?AREAS_HWA : AREAS_EON); }
+function curRange(){ return mode==='int' ? [1,45] : (tab==='common'?[1,34]:[35,45]); }
+function areaNeeded(){ return mode==='int' || tab==='common'; }   // 영역칸을 그릴지
 
 /* ─────────── 렌더링 ─────────── */
 function renderPalette(){
   const pal=document.getElementById('palette');
   pal.innerHTML='';
-  pal.style.display = (tab==='common')?'flex':'none';
+  pal.style.display = areaNeeded()?'flex':'none';
   curAreas().forEach(a=>{
     const b=document.createElement('button');
     b.textContent=a;
@@ -223,7 +255,7 @@ function renderPalette(){
 }
 function updateHint(){
   const h=document.getElementById('hint');
-  if(tab!=='common'){
+  if(!areaNeeded()){
     h.innerHTML='선택과목은 영역 지정이 필요 없습니다. <b>정답과 배점(2점/3점)</b>만 입력하세요.';
     return;
   }
@@ -243,7 +275,7 @@ function render(){
     let choices='<div class="choices">';
     for(let j=1;j<=5;j++) choices+=`<button class="${d.ans===j?'sel':''}" onclick="setAns(${q},${j})">${j}</button>`;
     choices+='</div>';
-    const isCommon = (tab==='common');
+    const isCommon = areaNeeded();
     card.innerHTML=`
       <div class="qhead">
         <span class="qno">${q}번</span>
@@ -255,6 +287,7 @@ function render(){
   }
   // 헤더 정보
   document.getElementById('secTitle').textContent =
+    mode==='int' ? '통합형 공통 (1–45번)' :
     tab==='common'?'공통 과목 (1–34번)':tab==='hwa'?'화법과작문 (35–45번)':'언어와매체 (35–45번)';
   updateMini();
 }
@@ -266,7 +299,7 @@ function updateMini(){
     sum += d.p3?3:2;
   }
   const n=to-from+1;
-  const areaPart = (tab==='common') ? ` · 영역 ${area}/${n}` : '';
+  const areaPart = areaNeeded() ? ` · 영역 ${area}/${n}` : '';
   document.getElementById('secMini').textContent =
     `정답 ${ans}/${n}${areaPart} · 3점 ${p3}개 · 배점합 ${sum}`;
 }
@@ -284,6 +317,16 @@ function switchTab(t){
   tab=t; brush=null;
   ['common','hwa','eon'].forEach(x=>
     document.getElementById('tab'+x[0].toUpperCase()+x.slice(1)).classList.toggle('on',x===t));
+  renderPalette(); updateHint(); render();
+}
+function switchMode(m){
+  mode=m; brush=null;
+  document.getElementById('fmtInt').classList.toggle('on', m==='int');
+  document.getElementById('fmtG3').classList.toggle('on', m==='g3');
+  document.getElementById('subjTabs').style.display = m==='int' ? 'none' : 'flex';
+  document.getElementById('cutsG3').style.display = m==='int' ? 'none' : 'flex';
+  document.getElementById('cutsInt').style.display = m==='int' ? 'flex' : 'none';
+  document.getElementById('out').style.display='none';   // 형식이 바뀌면 이전 생성 결과는 무효
   renderPalette(); updateHint(); render();
 }
 
@@ -324,8 +367,37 @@ function buildExam(subjectKey){
 }
 function val(id){ return document.getElementById(id).value.trim(); }
 
+/* 통합형(1~45 공통) 데이터 — 선택과목 없음, 등급컷 1세트(시험마다 입력) */
+function buildExamInt(){
+  const answers={}, points={}, areaMap={};
+  for(let q=1;q<=45;q++){
+    const d=data.int[q];
+    answers[q]=d.ans; points[q]=d.p3?3:2;
+    const area=d.area||'미지정';
+    if(!areaMap[area]) areaMap[area]={name:area, qs:[]};
+    areaMap[area].qs.push(q);
+  }
+  // 성적표 큰분류 (영역별 성취도 표의 왼쪽 묶음)
+  const CAT={ "화법":"화작","작문":"화작","문법":"문법","독서":"독서",
+    "고전소설":"문학","현대시":"문학","현대소설":"문학","고전시가":"문학","갈래복합":"문학" };
+  const areas = Object.values(areaMap).map(a=>({ cat: CAT[a.name]||'기타', name:a.name, qs:a.qs }));
+  return {
+    code: val('code'), date: val('date'), grade: val('grade'),
+    subject: '공통',
+    cuts: [val('cutInt1'),val('cutInt2'),val('cutInt3'),val('cutInt4')].map(Number),
+    answers, points, areas
+  };
+}
+
 function validate(){
   const problems=[];
+  if(mode==='int'){
+    for(let q=1;q<=45;q++){ const d=data.int[q];
+      if(!d.ans) problems.push(`${q}번 정답 미입력`);
+      if(!d.area) problems.push(`${q}번 영역 미지정`);
+    }
+    return problems;
+  }
   // 공통 정답/영역
   for(let q=1;q<=34;q++){ const d=data.common[q];
     if(!d.ans) problems.push(`공통 ${q}번 정답 미입력`);
@@ -345,8 +417,20 @@ function generate(){
     toast(`미입력 ${probs.length}건 — ${probs[0]}${probs.length>1?' 외':''}`);
     // 그래도 부분 출력은 허용하되 경고
   }
-  const exam = { 화법과작문: buildExam('hwa'), 언어와매체: buildExam('eon') };
   const out=document.getElementById('out');
+  if(mode==='int'){
+    // 통합형: mode 표시 + '통합' 키 하나 (채점 백엔드가 이 키를 보면 선택과목 없이 채점)
+    const exam = { mode:'통합', 통합: buildExamInt() };
+    out.style.display='block';
+    document.getElementById('outText').value = JSON.stringify(exam, null, 2);
+    const s=sumPtsInt();
+    document.getElementById('summary').innerHTML =
+      `배점 합계 <b>${s}점</b>` +
+      (probs.length?` · <span style="color:var(--warn)">미입력 ${probs.length}건 확인 필요</span>`:` · <span style="color:var(--ok)">입력 완료</span>`);
+    out.scrollIntoView({behavior:'smooth'});
+    return;
+  }
+  const exam = { 화법과작문: buildExam('hwa'), 언어와매체: buildExam('eon') };
   out.style.display='block';
   document.getElementById('outText').value = JSON.stringify(exam, null, 2);
 
@@ -359,6 +443,7 @@ function generate(){
 }
 function sumPts(k){ let s=0; for(let q=1;q<=34;q++)s+=data.common[q].p3?3:2;
   for(let q=35;q<=45;q++)s+=data[k][q].p3?3:2; return s; }
+function sumPtsInt(){ let s=0; for(let q=1;q<=45;q++)s+=data.int[q].p3?3:2; return s; }
 
 /* '시트에 바로 저장' — OMR 백엔드 '회차정답' 탭에 기록 (같은 회차 이름이면 덮어쓰기).
  * 저장되면 학생용 OMR 회차 목록에 바로 나타난다. */
