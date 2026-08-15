@@ -33,11 +33,12 @@
   .tagline{font-family:"Gowun Batang",serif;font-size:1.5rem;font-weight:700;color:var(--accent);margin:0;letter-spacing:.01em;}
   .intro{color:var(--ink-soft);font-size:.94rem;margin:10px auto 0;max-width:25em;line-height:1.85;}
 
-  .list{display:flex;flex-direction:column;gap:14px;}
+  .list{display:grid;grid-template-columns:1fr 1fr;gap:12px;}   /* 2칸 4줄 (좁은 화면은 1칸) */
+  @media (max-width:560px){ .list{grid-template-columns:1fr;gap:14px;} }
   .card{
-    display:flex;align-items:center;gap:18px;
+    display:flex;align-items:center;gap:14px;
     background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);
-    padding:20px 22px;text-decoration:none;color:inherit;
+    padding:18px 18px;text-decoration:none;color:inherit;
     transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
   }
   .card:hover{transform:translateY(-2px);border-color:var(--line);box-shadow:0 10px 26px rgba(42,51,47,.07);}
@@ -90,6 +91,7 @@
     { title:"문법 테스트",       icon:"pencil",    url:"gramma.html",         desc:"링크 발송 · 결과 확인" },
     { title:"H WORK",            icon:"clipboard", url:"hwork.html",          desc:"출제 · 제출 확인" },
     { title:"숙제 검사",         icon:"check",     url:REPORT+"hwcheck.html", desc:"정규 수업 과제 검사 · 미제출 대책" },
+    { title:"내신대비 피드백",   icon:"pencil",    url:REPORT+"naeshin.html", desc:"내신반 주차별 진도·과제 · 학생 피드백" },
     { title:"주말 실전모의고사", icon:"paper",     url:"weekend.html",        desc:"출제 · 응시 · 성적" },
     { title:"클리닉",            icon:"pulse",     url:"clinic.html",         desc:"신청 링크 · 신청 확인" },
     { title:"지필고사 리포트",   icon:"chart",     url:"report.html",         desc:"제작 · 수정·배정 · 학생작성 확인 · 제출 분석" },
