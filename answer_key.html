@@ -214,7 +214,7 @@
 // [고3형] 공통 1~34, 선택 35~45 (화작/언매 별도)
 // [통합형] 1~45 전체 공통 (선택과목 없음 — 고1·고2식, 내년부터 전 학년)
 const AREAS_COMMON = ["독서론","인문예술","사회문화","과학기술","고전시가","고전소설","현대시","현대소설","갈래복합"];
-const AREAS_INT = ["화법","문법","독서","작문","현대시","현대소설","고전시가","고전소설","갈래복합"];
+const AREAS_INT = ["화법","문법","인문예술","사회문화","과학기술","작문","현대시","현대소설","고전시가","고전소설","갈래복합"];
 const AREAS_HWA = [];
 const AREAS_EON = [];
 
@@ -230,6 +230,9 @@ function makeBlock(from,to){
   for(let q=from;q<=to;q++) o[q]={ans:null, area:null, p3:false};
   return o;
 }
+// 통합형 기본 영역: 1~6번 화법, 7~10번 문법 (통상 배치 — 영역칸을 눌러 언제든 변경 가능)
+for(let q=1;q<=6;q++) data.int[q].area='화법';
+for(let q=7;q<=10;q++) data.int[q].area='문법';
 
 let mode='g3';        // 'g3'=고3형(공통+선택), 'int'=통합형(1~45 공통)
 let tab='common';
@@ -378,7 +381,8 @@ function buildExamInt(){
     areaMap[area].qs.push(q);
   }
   // 성적표 큰분류 (영역별 성취도 표의 왼쪽 묶음)
-  const CAT={ "화법":"화작","작문":"화작","문법":"문법","독서":"독서",
+  const CAT={ "화법":"화작","작문":"화작","문법":"문법",
+    "인문예술":"독서","사회문화":"독서","과학기술":"독서",
     "고전소설":"문학","현대시":"문학","현대소설":"문학","고전시가":"문학","갈래복합":"문학" };
   const areas = Object.values(areaMap).map(a=>({ cat: CAT[a.name]||'기타', name:a.name, qs:a.qs }));
   return {
