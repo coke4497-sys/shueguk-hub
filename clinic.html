@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>클리닉 · 슈국 티쳐스</title>
-<meta name="description" content="이수경국어 클리닉 교사용 — 학생 신청 링크 / 신청 확인" />
+<meta name="description" content="이수경국어 클리닉 교사용 — 배정·현황 / 신청 확인" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet" />
@@ -51,17 +51,6 @@
   .go{display:inline-flex;align-items:center;gap:5px;font-size:.82rem;color:var(--accent);}
   .go svg{width:15px;height:15px;transition:transform .16s ease;}
   .card:hover .go svg{transform:translateX(4px);}
-  .copy{
-    display:inline-flex;align-items:center;gap:5px;
-    font:inherit;font-size:.78rem;color:var(--ink-soft);
-    background:#EEF3F0;border:1px solid var(--line-soft);
-    border-radius:9px;padding:5px 10px;cursor:pointer;
-    transition:border-color .15s, color .15s, background .15s;
-  }
-  .copy svg{width:13px;height:13px;}
-  .copy:hover{color:var(--accent);border-color:var(--line);}
-  .copy.done{color:var(--accent);background:#E0EAE7;border-color:#C6D5D2;}
-
   footer{text-align:center;margin-top:46px;color:var(--ink-soft);font-size:.82rem;line-height:2;}
 
   @media (max-width:430px){
@@ -79,30 +68,10 @@
 
   <header>
     <p class="tagline">클리닉</p>
-    <p class="intro">학생에게 보낼 신청 링크와 신청 확인을 선택하세요.</p>
+    <p class="intro">배정·현황과 신청 확인을 선택하세요.<br>학생 신청은 학생 개인 페이지의 클리닉 카드에서 해요.</p>
   </header>
 
   <div class="list">
-    <!-- 학생 신청 링크 -->
-    <a class="card" href="https://coke4497-sys.github.io/shueguk-clinic/" target="_blank" rel="noopener">
-      <span class="icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      </span>
-      <span class="body">
-        <h2>학생 신청 링크</h2>
-        <p class="desc">학생에게 보낼 클리닉 신청 폼이에요.</p>
-        <span class="actions">
-          <span class="go">폼 열기
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-          </span>
-          <button type="button" class="copy" id="copyBtn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-            링크 복사
-          </button>
-        </span>
-      </span>
-    </a>
-
     <!-- 배정·현황 (교사용) -->
     <a class="card" href="https://coke4497-sys.github.io/shueguk-clinic/clinic_assign.html" target="_blank" rel="noopener">
       <span class="icon">
@@ -141,31 +110,5 @@
   </footer>
 </main>
 
-<script>
-  // '링크 복사' — 학생 신청 폼 주소를 클립보드에 복사 (카드 이동은 막음)
-  const STUDENT_URL = "https://coke4497-sys.github.io/shueguk-clinic/";
-  const btn = document.getElementById("copyBtn");
-  btn.addEventListener("click", function(e){
-    e.preventDefault();
-    e.stopPropagation();
-    const done = () => {
-      btn.classList.add("done");
-      btn.lastChild.textContent = " 복사됐어요!";
-      setTimeout(() => { btn.classList.remove("done"); btn.lastChild.textContent = " 링크 복사"; }, 1600);
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText){
-      navigator.clipboard.writeText(STUDENT_URL).then(done, fallbackCopy);
-    } else {
-      fallbackCopy();
-    }
-    function fallbackCopy(){
-      const t = document.createElement("textarea");
-      t.value = STUDENT_URL; t.style.position = "fixed"; t.style.opacity = "0";
-      document.body.appendChild(t); t.select();
-      try { document.execCommand("copy"); done(); } catch(_){ prompt("아래 주소를 복사하세요:", STUDENT_URL); }
-      document.body.removeChild(t);
-    }
-  });
-</script>
 </body>
 </html>
