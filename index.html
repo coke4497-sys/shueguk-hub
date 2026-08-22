@@ -52,6 +52,11 @@
   a.card:hover{transform:translateY(-3px);border-color:var(--line);box-shadow:0 12px 28px rgba(42,51,47,.08);}
   .icon{width:46px;height:46px;border-radius:13px;display:flex;align-items:center;justify-content:center;background:var(--icon-bg);color:var(--icon);margin-bottom:16px;}
   .icon svg{width:23px;height:23px;}
+  /* 파스텔 포인트 — 아이콘 타일에만 색 (2026-08-22 사용자 확정 시안 A: 민트 기본 + 메뉴별 파스텔 한 점) */
+  .card.t-yel .icon{background:#F9EFD0;color:#9B8046;}
+  .card.t-pnk .icon{background:#F7E2DE;color:#B0736A;}
+  .card.t-lav .icon{background:#EDE4F4;color:#8D83A8;}
+  .card.t-mnt .icon{background:#E3EDE7;color:#4C6E66;}
   .card h2{font-family:"Gowun Batang",serif;font-size:1.1rem;font-weight:700;margin:0;letter-spacing:-.01em;line-height:1.35;}
   .card .desc{margin:6px 0 0;color:var(--ink-soft);font-size:.84rem;line-height:1.55;flex:1;}
   .go{margin-top:14px;display:inline-flex;align-items:center;gap:5px;font-size:.8rem;color:var(--accent);}
@@ -114,10 +119,10 @@
   const REPORT = "https://coke4497-sys.github.io/shueguk-report/";
   // 메인 4메뉴 — 학습 관리·슈국 운영은 하위 메뉴 페이지(study.html / ops.html)로 이동
   const projects = [
-    { title:"슈국 스케쥴",   icon:"calendar", url:REPORT+"timetable.html", desc:"정규·내신 시간표 · 오늘의 출석 · 학생 이동" },
-    { title:"슈퍼스타 관리", icon:"newstu",   url:REPORT+"superstar.html", desc:"신입·아웃 슈스 · 링크 · 별 더하기" },
-    { title:"학습 관리",     icon:"book",     url:"study.html", desc:"어휘·문법 테스트 · H WORK · 숙제 검사 · 모의고사 · 클리닉 · 지필고사 리포트" },
-    { title:"슈국 운영",     icon:"gear",     url:"ops.html",   desc:"공지 보내기" },
+    { title:"슈국 스케쥴",   icon:"calendar", tone:"yel", url:REPORT+"timetable.html", desc:"정규·내신 시간표 · 오늘의 출석 · 학생 이동" },
+    { title:"슈퍼스타 관리", icon:"newstu",   tone:"pnk", url:REPORT+"superstar.html", desc:"신입·아웃 슈스 · 링크 · 별 더하기" },
+    { title:"학습 관리",     icon:"book",     tone:"lav", url:"study.html", desc:"어휘·문법 테스트 · H WORK · 숙제 검사 · 모의고사 · 클리닉 · 지필고사 리포트" },
+    { title:"슈국 운영",     icon:"gear",     tone:"mnt", url:"ops.html",   desc:"공지 보내기" },
   ];
 
   const grid = document.getElementById("grid");
@@ -130,13 +135,14 @@
 
   projects.forEach(p => {
     let el;
+    const tone = p.tone ? " t-" + p.tone : "";
     if (p.pending){
       el = document.createElement("div");
-      el.className = "card pending";
+      el.className = "card pending" + tone;
       el.innerHTML = cardInner(p, `<span class="tag">준비 중</span>`);
     } else {
       el = document.createElement("a");
-      el.className = "card";
+      el.className = "card" + tone;
       el.href = p.url;
       el.innerHTML = cardInner(p, `<span class="go">열기 ${ARROW}</span>`);
     }
