@@ -4,7 +4,7 @@
   "description": "이수경국어 Shueguk 교사용 운영 도구 모음",
   "lang": "ko",
   "start_url": "./index.html",
-  "scope": "./",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#E4EFEA",
