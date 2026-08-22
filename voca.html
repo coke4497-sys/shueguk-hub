@@ -181,6 +181,20 @@
   // 비밀번호: 한 번 맞으면 세션 동안 기억(매번 묻지 않음)
   function getPw(){ return savedPw !== null ? savedPw : prompt("비밀번호를 입력하세요"); }
 
+  /* 수파베이스 미러 (2026-08-23 DB 이전) — 어휘 설정을 미러(report_config)에도 반영
+   * (학생 페이지 s.html이 읽음). 실패해도 무해 — 일일 점검이 복구. */
+  function sbMirrorVocaConfig(key, value){
+    try {
+      var K = "sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT";
+      fetch("https://bangdbhqpphqqdwcledg.supabase.co/rest/v1/report_config?on_conflict=key", {
+        method: "POST",
+        headers: { "apikey": K, "Authorization": "Bearer " + K, "Content-Type": "application/json",
+                   "Prefer": "resolution=merge-duplicates,return=minimal" },
+        body: JSON.stringify([{ key: key, value: String(value) }])
+      }).catch(function(){});
+    } catch (e) {}
+  }
+
   btnEl.addEventListener("click", function(){
     if(vocaOpen === null){ load(); return; }
     var pw = getPw(); if(pw === null || pw === "") return;
@@ -189,7 +203,7 @@
     fetch(REPORT_URL + "?action=setVoca&open=" + target + "&pw=" + encodeURIComponent(pw) + "&t=" + Date.now())
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(d && d.result === "success"){ savedPw = pw; vocaOpen = !!d.open; render(); }
+        if(d && d.result === "success"){ savedPw = pw; vocaOpen = !!d.open; sbMirrorVocaConfig("어휘 테스트", d.open ? "열림" : "중단"); render(); }
         else if(d && d.message === "unauthorized"){ savedPw = null; alert("비밀번호가 틀렸어요."); render(); }
         else { alert("문제가 생겼어요. 다시 시도해 주세요."); render(); }
       })
@@ -202,7 +216,7 @@
     fetch(REPORT_URL + "?action=setVocaWeek&w=" + encodeURIComponent(w) + "&pw=" + encodeURIComponent(pw) + "&t=" + Date.now())
       .then(function(r){ return r.json(); })
       .then(function(d){
-        if(d && d.result === "success"){ savedPw = pw; vocaWeek = d.week; render(); }
+        if(d && d.result === "success"){ savedPw = pw; vocaWeek = d.week; sbMirrorVocaConfig("어휘 주차", d.week == null ? "" : d.week); render(); }
         else if(d && d.message === "unauthorized"){ savedPw = null; alert("비밀번호가 틀렸어요."); render(); }
         else { alert("문제가 생겼어요. 다시 시도해 주세요."); render(); }
       })
