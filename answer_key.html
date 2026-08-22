@@ -210,6 +210,54 @@
 <div class="toast" id="toast"></div>
 
 <script>
+/* ══ 수파베이스 미러 연결부 (주말 모의고사 출제 — 2026-08-23) ═══════════
+ * 출제 저장·삭제는 기존 OMR 백엔드 그대로. 성공하면 수파베이스 미러
+ * (omr_exams)를 함께 갱신한다. 실패해도 저장에는 영향 없음(일일 점검이 복구). */
+(function(){
+  if (window.__sbAdapter) return; window.__sbAdapter = true;
+  var SB = 'https://bangdbhqpphqqdwcledg.supabase.co/rest/v1';
+  var SB_KEY = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  var OMR_SIG = 'script.google.com/macros/s/AKfycbyUHMdCH';
+  var rawFetch = window.fetch.bind(window);
+  function sb(method, path, body){
+    return rawFetch(SB + path, { method: method,
+      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json',
+                 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+      body: body == null ? undefined : JSON.stringify(body) })
+      .then(function(r){ if (!r.ok) throw new Error('sb ' + r.status); });
+  }
+  var AFTER = {
+    saveExam: function(b){
+      sb('POST', '/omr_exams?on_conflict=name',
+         [{ name: String(b.name || '').trim(), data: String(b.json || ''),
+            mode: /"mode"\s*:\s*"통합"/.test(String(b.json || '')) ? '통합' : '' }])
+        .catch(function(e){ console.warn('회차 미러 실패 — 일일 점검이 복구', e); });
+    },
+    deleteExam: function(b){
+      sb('DELETE', '/omr_exams?name=eq.' + encodeURIComponent(String(b.name || '').trim()))
+        .catch(function(e){ console.warn('회차 삭제 미러 실패 — 일일 점검이 복구', e); });
+    }
+  };
+  window.fetch = function(url, opts){
+    if (typeof url !== 'string' || url.indexOf(OMR_SIG) < 0 ||
+        !opts || String(opts.method || '').toUpperCase() !== 'POST')
+      return rawFetch(url, opts);
+    var body = null;
+    try { body = JSON.parse(opts.body); } catch (e) {}
+    var after = body && AFTER[body.action];
+    if (!after) return rawFetch(url, opts);
+    return rawFetch(url, opts).then(function(r){
+      return r.json().then(function(res){
+        try { if (res && res.result === 'success') after(body); } catch (e) {}
+        return { ok: true, status: 200, json: function(){ return Promise.resolve(res); },
+                 text: function(){ return Promise.resolve(JSON.stringify(res)); } };
+      }, function(){ return r; });
+    });
+  };
+})();
+</script>
+
+<script>
 /* ─────────── 데이터 모델 ─────────── */
 // [고3형] 공통 1~34, 선택 35~45 (화작/언매 별도)
 // [통합형] 1~45 전체 공통 (선택과목 없음 — 고1·고2식, 내년부터 전 학년)
