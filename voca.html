@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>어휘 테스트 · 슈국 티쳐스</title>
-<meta name="description" content="이수경국어 어휘 테스트 교사용 — 학생 발송 링크 / 결과 확인" />
+<meta name="description" content="이수경국어 어휘 테스트 교사용 — 결과 확인 / 종합 문제 출제" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet" />
@@ -41,7 +41,7 @@
     transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
   }
   .card:hover{transform:translateY(-2px);border-color:var(--line);box-shadow:0 10px 26px rgba(42,51,47,.07);}
-  .icon{width:48px;height:48px;flex:none;border-radius:13px;display:flex;align-items:center;justify-content:center;background:var(--icon-bg);color:var(--icon);}
+  .icon{width:48px;height:48px;flex:none;border-radius:13px;display:flex;align-items:center;justify-content:center;background:#F9EFD0;color:#9B8046;}   /* 어휘 포인트 = 연노랑 */
   .icon svg{width:24px;height:24px;}
   .body{flex:1;min-width:0;}
   .card h2{font-family:"Gowun Batang",serif;font-size:1.16rem;font-weight:700;margin:0;letter-spacing:-.01em;}
@@ -84,7 +84,7 @@
 
   <header>
     <p class="tagline">어휘 테스트</p>
-    <p class="intro">학생에게 보낼 발송 링크와 결과 확인을 선택하세요.</p>
+    <p class="intro">결과 확인과 종합 문제 출제를 선택하세요.</p>
   </header>
 
   <!-- 학생 페이지 어휘 테스트 켜기/끄기 + 열린 주차 선택 -->
@@ -100,20 +100,6 @@
   </div>
 
   <div class="list">
-    <!-- 링크 발송 -->
-    <a class="card" href="https://coke4497-sys.github.io/shueguk-voca/links.html" target="_blank" rel="noopener">
-      <span class="icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-      </span>
-      <span class="body">
-        <h2>링크 발송</h2>
-        <p class="desc">학년·주차별 학생 응시 링크를 복사해요.</p>
-        <span class="go">열기
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </span>
-      </span>
-    </a>
-
     <!-- 결과 확인 -->
     <a class="card" href="https://coke4497-sys.github.io/shueguk-voca/shueguk-teacher-dashboard.html" target="_blank" rel="noopener">
       <span class="icon">
