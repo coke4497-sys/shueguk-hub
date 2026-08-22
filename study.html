@@ -44,6 +44,11 @@
   .card:hover{transform:translateY(-2px);border-color:var(--line);box-shadow:0 10px 26px rgba(42,51,47,.07);}
   .icon{width:48px;height:48px;flex:none;border-radius:13px;display:flex;align-items:center;justify-content:center;background:var(--icon-bg);color:var(--icon);}
   .icon svg{width:24px;height:24px;}
+  /* 파스텔 포인트 — 아이콘 타일에만 색, 도구 성격별 묶음 (2026-08-22 사용자 확정) */
+  .card.t-yel .icon{background:#F9EFD0;color:#9B8046;}
+  .card.t-pnk .icon{background:#F7E2DE;color:#B0736A;}
+  .card.t-lav .icon{background:#EDE4F4;color:#8D83A8;}
+  .card.t-mnt .icon{background:#E3EDE7;color:#4C6E66;}
   .body{flex:1;min-width:0;}
   .card h2{font-family:"Gowun Batang",serif;font-size:1.16rem;font-weight:700;margin:0;letter-spacing:-.01em;}
   .card .desc{margin:3px 0 0;color:var(--ink-soft);font-size:.88rem;line-height:1.5;}
@@ -87,19 +92,19 @@
   };
   const REPORT = "https://coke4497-sys.github.io/shueguk-report/";
   const menus = [
-    { title:"어휘 테스트",       icon:"book",      url:"voca.html",           desc:"링크 발송 · 결과 확인" },
-    { title:"문법 테스트",       icon:"pencil",    url:"gramma.html",         desc:"링크 발송 · 결과 확인" },
-    { title:"H WORK",            icon:"clipboard", url:"hwork.html",          desc:"출제 · 제출 확인" },
-    { title:"숙제 검사",         icon:"check",     url:REPORT+"hwcheck.html", desc:"정규 수업 과제 검사 · 미제출 대책" },
-    { title:"내신대비 피드백",   icon:"pencil",    url:REPORT+"naeshin.html", desc:"내신반 주차별 진도·과제 · 학생 피드백" },
-    { title:"주말 실전모의고사", icon:"paper",     url:"weekend.html",        desc:"출제 · 응시 · 성적" },
-    { title:"지필고사 리포트",   icon:"chart",     url:"report.html",         desc:"제작 · 수정·배정 · 학생작성 확인 · 제출 분석" },
-    { title:"클리닉",            icon:"pulse",     url:"clinic.html",         desc:"신청 링크 · 신청 확인" },
+    { title:"어휘 테스트",       icon:"book",      tone:"yel",      url:"voca.html",           desc:"링크 발송 · 결과 확인" },
+    { title:"문법 테스트",       icon:"pencil",    tone:"yel",    url:"gramma.html",         desc:"링크 발송 · 결과 확인" },
+    { title:"H WORK",            icon:"clipboard", tone:"mnt", url:"hwork.html",          desc:"출제 · 제출 확인" },
+    { title:"숙제 검사",         icon:"check",     tone:"mnt",     url:REPORT+"hwcheck.html", desc:"정규 수업 과제 검사 · 미제출 대책" },
+    { title:"내신대비 피드백",   icon:"pencil",    tone:"lav",    url:REPORT+"naeshin.html", desc:"내신반 주차별 진도·과제 · 학생 피드백" },
+    { title:"주말 실전모의고사", icon:"paper",     tone:"lav",     url:"weekend.html",        desc:"출제 · 응시 · 성적" },
+    { title:"지필고사 리포트",   icon:"chart",     tone:"pnk",     url:"report.html",         desc:"제작 · 수정·배정 · 학생작성 확인 · 제출 분석" },
+    { title:"클리닉",            icon:"pulse",     tone:"pnk",     url:"clinic.html",         desc:"신청 링크 · 신청 확인" },
   ];
   const svg = inner => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
   const ARROW = svg('<path d="M5 12h14M13 6l6 6-6 6"/>');
   document.getElementById("list").innerHTML = menus.map(m =>
-    `<a class="card" href="${m.url}">
+    `<a class="card${m.tone ? ' t-'+m.tone : ''}" href="${m.url}">
       <span class="icon">${svg(ICON[m.icon])}</span>
       <span class="body"><h2>${m.title}</h2><p class="desc">${m.desc}</p><span class="go">열기 ${ARROW}</span></span>
     </a>`).join("");
