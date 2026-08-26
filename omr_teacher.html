@@ -1,48 +1,434 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>이수경국어 · 성적 관리</title>
-<meta name="theme-color" content="#c4d4cc" />
+<!-- 이수경국어 성적 관리 — 정적 페이지 (2026-08-26 수파베이스 전환)
+     옛 구조: 앱스스크립트 안의 teacher.html(iframe·google.script.run).
+     지금: 목록·삭제는 원본(omr_responses)에서 바로, 성적표는 omr_report_by_id 함수
+     (리포트 저장소 supabase/migrations/017 — 교사 신분 전용)가 다시 채점해 준다.
+     삭제하면 옛 OMR 백엔드의 응답 시트 사본에서도 같은 제출을 지운다(이중 삭제).
+     UI·성적표 렌더는 shuegukweekendtest/teacher.html에서 그대로 가져왔다(그쪽은 이제 리다이렉트만). -->
+<link rel="preconnect" href="https://bangdbhqpphqqdwcledg.supabase.co">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
 <style>
-  html,body{margin:0;padding:0;height:100%;background:#f7f6f3;}
-  body{overflow:hidden;display:flex;flex-direction:column;}
-  .appbar{
-    flex:none;display:flex;align-items:center;gap:8px;padding:12px 16px;
-    background:#E4EFEA;border-bottom:1px solid #D7E3DD;
+  :root{
+    --sage:#a9c0b4; --sage-d:#7fa08f;
+    --lav:#b8b0cc; --lav-d:#8d83a8; --lav-bg:#e8e3f0;
+    --ink:#3f3a44; --muted:#8a8590;
+    --line:#e4e0e8; --paper:#f7f6f3; --card:#ffffff;
+    --head:#cdd9e0; --head2:#dcd5e6;
+    --ok:#1b8a3a; --ok-bg:#e3f2e8; --bad:#d0473f; --bar:#9b8fb5;
+    --shadow:0 2px 12px rgba(63,58,68,.07);
   }
-  .appbar a.back{
-    display:inline-flex;align-items:center;gap:6px;color:#65726B;text-decoration:none;
-    font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:14px;
-  }
-  .appbar a.back:hover{ color:#3A6B5E; }
-  .appbar a.back svg{ width:16px; height:16px; }
-  .appbar .ttl{ margin-left:auto; font-family:'Gowun Batang',serif; font-size:12.5px; color:#65726B; letter-spacing:1px; }
-  .stage{ position:relative; flex:1; min-height:0; }
-  iframe{width:100%;height:100%;border:0;display:block;}
-  .loading{
-    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    font-family:'Gowun Batang',serif,-apple-system,sans-serif;color:#8d83a8;font-size:15px;
-    background:#f7f6f3;letter-spacing:1px;z-index:1;
-  }
+  *{box-sizing:border-box;}
+  body{ font-family:'Gowun Dodum',-apple-system,sans-serif; background:var(--paper); color:var(--ink);
+    max-width:760px; margin:0 auto; padding:0 0 50px; line-height:1.5; }
+  .brand{ background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%);
+    padding:20px 24px 16px; border-radius:0 0 22px 22px; box-shadow:var(--shadow);
+    display:flex; align-items:baseline; gap:12px; }
+  .brand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:#473f55; }
+  .brand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#5d5568; letter-spacing:2px; }
+  .title-bar{ background:var(--lav-bg); margin:16px; padding:11px 18px; border-radius:10px;
+    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#4a4356; text-align:center; }
+
+  /* 필터바 */
+  .filter{ margin:16px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .filter input, .filter select{ padding:10px 12px; border:1.5px solid var(--line); border-radius:9px;
+    font-size:14px; font-family:inherit; background:#fff; }
+  .filter input{ flex:1; min-width:140px; }
+  .filter button{ padding:10px 16px; border:none; border-radius:9px; background:var(--lav-d); color:#fff;
+    font-family:'Gowun Batang',serif; font-weight:700; font-size:14px; cursor:pointer; }
+
+  /* 목록 테이블 */
+  .list-wrap{ margin:16px; background:var(--card); border-radius:12px; box-shadow:var(--shadow); overflow-x:auto; }
+  table.list{ width:100%; border-collapse:collapse; }
+  table.list th{ background:var(--head2); color:#473f55; font-size:13px; padding:11px 8px; white-space:nowrap; }
+  table.list td{ padding:11px 8px; font-size:13.5px; text-align:center; border-bottom:1px solid var(--line); white-space:nowrap; }
+  table.list tr.r{ cursor:pointer; }
+  table.list tr.r:hover{ background:var(--lav-bg); }
+  table.list .nm{ font-weight:700; color:var(--ink); }
+  table.list .sc{ color:var(--lav-d); font-weight:700; }
+  .empty{ padding:40px; text-align:center; color:var(--muted); font-size:14px; }
+  .loading{ padding:30px; text-align:center; color:var(--muted); }
+
+  /* 중복 제출 표시 + 삭제 버튼 */
+  .dup{ display:inline-block; font-size:11px; font-weight:700; background:#fcebea; color:var(--bad);
+    border-radius:20px; padding:1px 8px; margin-left:5px; vertical-align:1px; }
+  table.list td.delc{ padding:6px 8px; }
+  .del-btn{ border:1.5px solid var(--line); background:#fff; color:var(--bad); font-family:inherit;
+    font-size:12px; font-weight:700; padding:5px 11px; border-radius:8px; cursor:pointer; }
+  .del-btn:hover{ background:#fcebea; border-color:#e8b6b2; }
+  .del-btn:disabled{ opacity:.5; cursor:default; }
+
+  /* 성적표 (학생용과 동일) */
+  #report{ display:none; margin-top:8px; }
+  #report .back{ margin:16px; }
+  #report .back button{ padding:9px 16px; border:1.5px solid var(--lav); background:#fff; color:var(--lav-d);
+    border-radius:9px; font-family:'Gowun Batang',serif; font-weight:700; cursor:pointer; font-size:14px; }
+  #report .rbrand{ background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%);
+    padding:22px; display:flex; align-items:center; justify-content:space-between; border-radius:14px; box-shadow:var(--shadow); margin:16px; }
+  #report .rbrand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:#473f55; }
+  #report .rbrand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#5d5568; letter-spacing:2px; margin-top:4px; }
+  #report .rbrand .logo{ width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.55);
+    display:flex;align-items:center;justify-content:center;font-family:'Gowun Batang',serif;font-size:11px;color:#6b6280; }
+  #report .tbar{ background:#e8e3f0; margin:16px; padding:11px 18px; border-radius:10px;
+    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#4a4356; text-align:center; }
+  #report section{ margin:16px; }
+  #report h2{ font-family:'Gowun Batang',serif; font-size:16px; margin:0 0 10px; display:flex; align-items:center; gap:8px; }
+  #report h2::before{ content:""; width:9px;height:9px;border-radius:2px;background:var(--lav); }
+  #report table.rt{ width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; box-shadow:var(--shadow); }
+  #report table.rt th,#report table.rt td{ padding:11px 8px; text-align:center; font-size:14px; }
+  #report .info th{ background:#cdd9e0; color:#3c4a52; font-weight:700; }
+  #report .info td{ background:#efeef1; }
+  #report .score th{ background:#cdd9e0; color:#3c4a52; }
+  #report .score td{ background:#efeef1; font-size:15px; }
+  #report .score .big{ font-family:'Gowun Batang',serif; font-size:22px; font-weight:700; color:var(--lav-d); }
+  #report table.areatbl th{ background:#dcd5e6; color:#473f55; font-size:13px; padding:9px 6px; }
+  #report table.areatbl td{ padding:9px 6px; font-size:13.5px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  #report table.areatbl td.areaname{ text-align:left; padding-left:14px; }
+  #report table.areatbl .cat{ color:var(--muted); font-size:12px; font-weight:700; }
+  #report table.areatbl .hit{ color:var(--lav-d); font-weight:700; }
+  #report table.areatbl tr.total td{ background:#efeef1; font-weight:700; }
+  #report .chart{ background:#fff; border-radius:10px; box-shadow:var(--shadow); padding:14px 10px 8px; margin-top:14px; }
+  #report .grid-wrap{ overflow-x:auto; background:#fff; border-radius:10px; box-shadow:var(--shadow); padding:4px; }
+  #report table.scoretbl{ min-width:480px; border-collapse:collapse; }
+  #report table.scoretbl th,#report table.scoretbl td{ padding:7px 5px; font-size:12.5px; border:1px solid #eee; text-align:center; }
+  #report .rowlabel{ background:#dcd5e6; color:#473f55; font-weight:700; white-space:nowrap; font-size:12px; }
+  #report .qn{ background:#e8e3f0; font-weight:700; color:#4a4356; }
+  #report td.o{ color:var(--ok); font-weight:700; }
+  #report td.x{ color:var(--bad); font-weight:700; background:#fcebea; }
+  #report .legend{ font-size:12px; color:var(--muted); margin-top:8px; text-align:right; }
+  .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:#fff; padding:11px 22px; border-radius:99px; font-size:13px;
+    opacity:0; transition:all .25s; pointer-events:none; z-index:50; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
-  <div class="appbar">
-    <a class="back" href="weekend.html">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
-      주말 실전 모의고사로 가기
-    </a>
-    <span class="ttl">성적 대시보드</span>
+
+<div class="brand">
+  <span class="name">이수경국어</span><span class="sub">Shueguk · 성적 관리</span>
+</div>
+<div class="title-bar">제출된 답안 · 성적표 조회</div>
+
+<!-- 목록 화면 -->
+<div id="listView">
+  <div class="filter">
+    <input type="text" id="q" placeholder="이름·학교 검색" oninput="applyFilter()">
+    <select id="fExam" onchange="applyFilter()"><option value="">전체 회차</option></select>
+    <button onclick="reload()">새로고침</button>
   </div>
-  <div class="stage">
-    <div class="loading" id="loading">성적 관리 불러오는 중…</div>
-    <iframe
-      src="https://script.google.com/macros/s/AKfycbyUHMdCH_u35Oeu6lEmx3yOYscoKLwEB8TC0QHGBOaCXZ4rbAnkMpP9_Na4l3QLOajGPA/exec?page=teacher"
-      allow="clipboard-write"
-      title="이수경국어 성적 관리"
-      onload="var l=document.getElementById('loading'); if(l) l.style.display='none';"></iframe>
+  <div class="list-wrap">
+    <div class="loading" id="loading">불러오는 중…</div>
+    <table class="list" id="listTbl" style="display:none;">
+      <thead><tr><th>응시일</th><th>회차</th><th>이름</th><th>학교</th><th>학년</th><th>과목</th><th>점수</th><th>등급</th><th>삭제</th></tr></thead>
+      <tbody id="listBody"></tbody>
+    </table>
+    <div class="empty" id="empty" style="display:none;">제출된 답안이 없습니다.</div>
   </div>
+</div>
+
+<!-- 성적표 화면 -->
+<div id="report"></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══ 교사 페이지 조용한 인증 (2026-08-25, 3단계) ═══════════════════════
+ * 이 아래 연결부들이 수파베이스에 보내는 요청에 '교사 신분'을 붙인다.
+ * 화면에 로그인 창은 없다 — 페이지가 열릴 때 알아서 받아 온다.
+ *
+ * 왜 필요한가:
+ *   공개 키(sb_publishable_…)는 학생이 여는 페이지에도 들어 있어서, 그 키로 표를
+ *   직접 읽을 수 있으면 전교생 명단(학생ID=비밀번호·접근코드)이 새어 나간다.
+ *   그래서 공개 키에서는 표 접근을 없애고(anon), 표는 이 신분(authenticated)만
+ *   읽고 쓰도록 나눴다. 학생 화면은 표 대신 함수(student_bundle 등)를 쓴다.
+ *
+ * 주의:
+ *   · 이 조각은 **교사용 페이지에만** 넣는다. 학생이 여는 페이지(s·r·클리닉 신청·
+ *     모의고사 신청·H WORK 제출)에는 절대 넣지 말 것 — 넣는 순간 위 보호가 무의미해진다.
+ *   · 아래 연결부들이 시작할 때 window.fetch 를 붙잡아 두므로, 이 조각은 **그것들보다
+ *     먼저** 실행돼야 한다. 페이지의 첫 스크립트 자리를 지킬 것.
+ *   · 인증이 실패하면 예전처럼 공개 키로 보낸다(권한을 회수하기 전까지는 그래도 동작). */
+(function(){
+  var SB_URL = 'https://bangdbhqpphqqdwcledg.supabase.co';
+  var SB_KEY = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  var T_ID = 'teachers@shueguk.internal';
+  var T_PW = 'shg_FCePWvnawH44SV8kYB9BHRKi6aag';
+  var tok = null, until = 0, pending = null;
+  var raw = window.fetch.bind(window);
+
+  function auth(){
+    if (tok && Date.now() < until) return Promise.resolve(tok);
+    if (pending) return pending;
+    pending = raw(SB_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: T_ID, password: T_PW })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      pending = null;
+      if (!d || !d.access_token) throw new Error('teacher auth');
+      tok = d.access_token;
+      until = Date.now() + Math.max(60, (d.expires_in || 3600) - 300) * 1000;   // 만료 5분 전에 다시 받는다
+      return tok;
+    }, function(e){ pending = null; throw e; });
+    return pending;
+  }
+  function withAuth(url, opts, t){
+    var src = (opts && opts.headers) || {}, h = {};
+    if (src.forEach && !src.hasOwnProperty) src.forEach(function(v, k){ h[k] = v; });
+    else for (var k in src) h[k] = src[k];
+    h['apikey'] = SB_KEY;
+    h['Authorization'] = 'Bearer ' + t;
+    var o = {}; for (var k2 in (opts || {})) o[k2] = opts[k2];
+    o.headers = h;
+    return o;
+  }
+  window.fetch = function(url, opts){
+    var u = (typeof url === 'string') ? url : ((url && url.url) || '');
+    if (u.indexOf(SB_URL + '/rest/v1') !== 0) return raw(url, opts);
+    return auth().then(function(t){
+      return raw(url, withAuth(url, opts, t)).then(function(r){
+        if (r.status !== 401) return r;
+        tok = null; until = 0;                       // 만료가 겹쳤으면 한 번만 다시 받아 재시도
+        return auth().then(function(t2){ return raw(url, withAuth(url, opts, t2)); });
+      });
+    }, function(){ return raw(url, opts); });
+  };
+})();
+</script>
+<script>
+  let ALL=[];    // 전체 응답 목록
+  let VIEW=[];   // 현재 필터로 표시 중인 목록 (삭제 버튼 인덱스용)
+  const SERVER_PW='sh';
+
+  function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
+    clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
+
+  // 진단 메시지 표시 안 함 (운영용)
+  function diag(msg){ /* no-op */ }
+
+  // 응시일을 한국 시간 기준 'M월 d일'로 간결하게
+  function fmtDate(v){
+    if(!v) return '';
+    if(/[월일]/.test(v)) return v;                 // 이미 'M월 d일' 형식이면 그대로
+    const d = new Date(v);
+    if(isNaN(d.getTime())) return v;               // 날짜로 못 읽으면 원본 그대로
+    return d.toLocaleDateString('ko-KR', { timeZone:'Asia/Seoul', month:'long', day:'numeric' });
+  }
+
+  // 제출시각을 한국 시간 기준 'M월 d일 H시 m분'으로
+  function fmtDateTime(v){
+    if(!v) return '';
+    const d = new Date(v);
+    if(isNaN(d.getTime())) return v;
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone:'Asia/Seoul', month:'numeric', day:'numeric',
+      hour:'numeric', minute:'2-digit', hour12:false
+    }).formatToParts(d);
+    const get = t => (parts.find(p=>p.type===t)||{}).value || '';
+    return `${get('month')}월 ${get('day')}일 ${get('hour')}시 ${get('minute')}분`;
+  }
+
+  /* ── 수파베이스 연결 (2026-08-26 전환 — 원본) ── */
+  const SB_REST = 'https://bangdbhqpphqqdwcledg.supabase.co/rest/v1';
+  const SB_KEY = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  // 옛 OMR 백엔드 — 응답 시트 '사본'의 행 번호 조회·이중 삭제용
+  const OMR_LEGACY = 'https://script.google.com/macros/s/AKfycbyUHMdCH_u35Oeu6lEmx3yOYscoKLwEB8TC0QHGBOaCXZ4rbAnkMpP9_Na4l3QLOajGPA/exec';
+  let SHEET_ROWS = [];   // 시트 사본 행(행 번호·시각·이름) — 이중 삭제 대조용
+  function sbHdr(extra){
+    const h = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY };
+    if (extra) for (const k in extra) h[k] = extra[k];
+    return h;
+  }
+  function sbRpc(fn, args){
+    return fetch(SB_REST + '/rpc/' + fn, { method:'POST',
+      headers: sbHdr({ 'Content-Type':'application/json' }), body: JSON.stringify(args || {}) })
+      .then(r => { if(!r.ok) throw new Error('sb rpc ' + r.status); return r.json(); });
+  }
+  // 시트 사본의 행 번호 목록(레거시 action=responses, JSONP) — 실패해도 무해(이중 삭제만 건너뜀)
+  function loadSheetRows(){
+    const cb = 'shuegukResp' + Date.now();
+    const s = document.createElement('script');
+    window[cb] = function(d){
+      window[cb] = undefined; if (s.parentNode) s.parentNode.removeChild(s);
+      if (d && d.result === 'success') SHEET_ROWS = d.rows || [];
+    };
+    s.onerror = function(){ window[cb] = undefined; if (s.parentNode) s.parentNode.removeChild(s); };
+    s.src = OMR_LEGACY + '?action=responses&pw=sh&callback=' + cb + '&t=' + Date.now();
+    document.body.appendChild(s);
+  }
+  // 분 단위 비교값 — KST 문자열로 맞춘 뒤 세므로 표기·시간대 차이에 영향받지 않는다
+  function tsMins(v){
+    const s = String(v == null ? '' : v).trim();
+    let n = s;
+    if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(s)){
+      const tm = Date.parse(/[TZ+]/.test(s) ? s : s.replace(' ', 'T'));
+      if (isNaN(tm)) return null;
+      const d = new Date(tm + 9 * 3600000);
+      n = d.getUTCFullYear() + '-' + String(d.getUTCMonth()+1).padStart(2,'0') + '-' + String(d.getUTCDate()).padStart(2,'0')
+        + ' ' + String(d.getUTCHours()).padStart(2,'0') + ':' + String(d.getUTCMinutes()).padStart(2,'0');
+    }
+    const m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})/.exec(n);
+    return m ? Date.UTC(+m[1], +m[2]-1, +m[3], +m[4], +m[5]) / 60000 : null;
+  }
+  // 목록 불러오기 — 원본(수파베이스)에서 바로
+  function reload(){
+    document.getElementById('loading').style.display='block';
+    document.getElementById('listTbl').style.display='none';
+    document.getElementById('empty').style.display='none';
+    fetch(SB_REST + '/omr_responses?select=id,submitted_at,exam,exam_date,name,school,grade,subject,got,level&order=id.desc&limit=8000',
+      { headers: sbHdr(), cache: 'no-store' })
+      .then(r => { if(!r.ok) throw new Error('sb ' + r.status); return r.json(); })
+      .then(rows => {
+        onList(rows.map(r => ({
+          id: r.id, submittedAt: r.submitted_at, examName: r.exam, examDate: r.exam_date,
+          name: r.name, school: r.school, grade: r.grade, subject: r.subject,
+          got: r.got, gradeLevel: r.level
+        })));
+      })
+      .catch(e => { toast('목록을 불러오지 못했습니다: ' + e.message); document.getElementById('loading').style.display='none'; });
+    loadSheetRows();
+  }
+  function onList(list){
+    ALL=list||[];
+    const exams=[...new Set(ALL.map(r=>r.examName))];
+    const sel=document.getElementById('fExam');
+    sel.innerHTML='<option value="">전체 회차</option>'+exams.map(e=>`<option value="${e}">${e}</option>`).join('');
+    document.getElementById('loading').style.display='none';
+    applyFilter();
+  }
+  function applyFilter(){
+    const q=document.getElementById('q').value.trim();
+    const ex=document.getElementById('fExam').value;
+    let rows=ALL.filter(r=>(!ex||r.examName===ex)&&(!q||(r.name||'').includes(q)||(r.school||'').includes(q)));
+    const tbl=document.getElementById('listTbl'), body=document.getElementById('listBody'), empty=document.getElementById('empty');
+    if(!rows.length){ tbl.style.display='none'; empty.style.display='block'; VIEW=[]; return; }
+    empty.style.display='none'; tbl.style.display='table';
+    VIEW=rows;
+    // 같은 학생(이름+학교)·같은 회차의 제출이 2건 이상이면 '중복' 표시
+    const dup={};
+    ALL.forEach(r=>{ const k=(r.name||'')+'|'+(r.school||'')+'|'+(r.examName||''); dup[k]=(dup[k]||0)+1; });
+    body.innerHTML=rows.map((r,i)=>{
+      const k=(r.name||'')+'|'+(r.school||'')+'|'+(r.examName||'');
+      const dupTag = dup[k]>1 ? '<span class="dup">중복</span>' : '';
+      return `<tr class="r" onclick="openReport(${r.id})">
+      <td>${fmtDateTime(r.submittedAt)}</td><td>${r.examName||''}</td><td class="nm">${r.name||''}${dupTag}</td>
+      <td>${r.school||''}</td><td>${r.grade||''}</td><td>${r.subject||''}</td>
+      <td class="sc">${r.got}</td><td>${r.gradeLevel||''}</td>
+      <td class="delc"><button type="button" class="del-btn" onclick="delRow(event,${i})">삭제</button></td></tr>`;
+    }).join('');
+  }
+
+  // 제출 삭제 — 원본(수파베이스) id로 지우고, 시트 사본에서도 같은 제출을 지운다
+  // (이름·회차가 같고 제출시각이 3분 이내인 행 — 사본 기록이 늦어 분이 어긋날 수 있음)
+  function delRow(ev,i){
+    ev.stopPropagation();   // 행 클릭(성적표 열기)로 번지지 않게
+    const r=VIEW[i]; if(!r) return;
+    if(!confirm(`${r.name} · ${r.examName} · ${fmtDateTime(r.submittedAt)} 제출을 삭제할까요?\n시트에서 해당 행이 지워지며 되돌릴 수 없어요.`)) return;
+    const btn=ev.target; btn.disabled=true; btn.textContent='삭제 중…';
+    fetch(SB_REST + '/omr_responses?id=eq.' + r.id, { method:'DELETE', headers: sbHdr({ 'Prefer':'return=minimal' }) })
+      .then(resp => {
+        if(!resp.ok) throw new Error('sb ' + resp.status);
+        toast('삭제했습니다');
+        sheetDeleteCopy(r);
+        ALL = ALL.filter(x => x.id !== r.id);
+        applyFilter();
+      })
+      .catch(e => { toast('삭제 실패: ' + e.message); btn.disabled=false; btn.textContent='삭제'; });
+  }
+  // 시트 사본에서 같은 제출을 찾아 지운다 — 응답을 기다리지 않는 뒷정리(실패해도 무해, 새벽 점검이 보고)
+  function sheetDeleteCopy(r){
+    const m = tsMins(r.submittedAt);
+    let best = null, bestGap = 4;   // 3분 이내만
+    (SHEET_ROWS || []).forEach(c => {
+      if (c.used) return;
+      if (String(c.name||'').trim() !== String(r.name||'').trim()) return;
+      if (String(c.exam||'') !== String(r.examName||'')) return;
+      const cm = tsMins(c.ts);
+      const gap = (m == null || cm == null) ? 99 : Math.abs(cm - m);
+      if (gap < bestGap){ bestGap = gap; best = c; }
+    });
+    if (!best){ loadSheetRows(); return; }
+    best.used = true;
+    const cb = 'shuegukDelCp' + Date.now();
+    const s = document.createElement('script');
+    const fin = () => { window[cb] = undefined; if (s.parentNode) s.parentNode.removeChild(s); loadSheetRows(); };
+    window[cb] = fin; s.onerror = fin;
+    s.src = OMR_LEGACY + '?action=deleteResponse&pw=sh&row=' + encodeURIComponent(best.row)
+          + '&name=' + encodeURIComponent(best.name) + '&ts=' + encodeURIComponent(best.ts)
+          + '&callback=' + cb + '&t=' + Date.now();
+    document.body.appendChild(s);
+  }
+
+  // 성적표 열기 — 저장된 답안을 원본 회차 정답으로 다시 채점해 그린다(교사 신분 전용 함수)
+  function openReport(id){
+    toast('성적표 불러오는 중…');
+    sbRpc('omr_report_by_id', { p: { id: id } })
+      .then(res => {
+        if(res && res.ok){ renderReport(res); }
+        else{ toast('성적표 오류: ' + (res && res.error ? res.error : '알 수 없음')); }
+      })
+      .catch(e => toast('성적표를 불러오지 못했습니다: ' + e.message));
+  }
+
+  /* ─── 성적표 렌더링 (학생용과 동일) ─── */
+  function renderReport(res){
+    const st=res.student, exam=res.exam, r=res.result;
+    const catCount={}; r.areas.forEach(a=>catCount[a.cat]=(catCount[a.cat]||0)+1);
+    const catSeen={}; let areaRows='';
+    r.areas.forEach(a=>{ const first=!catSeen[a.cat]; catSeen[a.cat]=true;
+      areaRows+=`<tr>${first?`<td class="cat" rowspan="${catCount[a.cat]}">${a.cat}</td>`:''}
+        <td class="areaname">${a.name}</td><td>${a.full}</td><td class="hit">${a.score}</td><td>${a.rate}</td></tr>`; });
+    function block(s,e){
+      let qn='<tr><td class="rowlabel">문항</td>',an='<tr><td class="rowlabel">정답</td>',
+          my='<tr><td class="rowlabel">학생답안</td>',ox='<tr><td class="rowlabel">정오</td>';
+      for(let q=s;q<=e;q++){ const d=r.detail[q];
+        qn+=`<td class="qn">${q}</td>`; an+=`<td>${d.ans}</td>`;
+        my+=`<td class="${d.ok?'':'x'}">${d.mine}</td>`; ox+=`<td class="${d.ok?'o':'x'}">${d.ok?d.pt:0}</td>`; }
+      return `<table class="scoretbl">${qn}</tr>${an}</tr>${my}</tr>${ox}</tr></table>`;
+    }
+    const PLOT=160;
+    const bars=r.areas.map(a=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">${a.rate}</div>
+      <div style="width:58%;height:${a.rate/100*PLOT}px;background:var(--bar);border-radius:3px 3px 0 0;"></div></div>`).join('');
+    const labels=r.areas.map(a=>`<div style="flex:1;text-align:center;font-size:10.5px;color:var(--ink);line-height:1.2;word-break:keep-all;padding:0 2px;">${a.name}</div>`).join('');
+    const chart=`<div style="display:flex;align-items:flex-end;gap:4px;height:${PLOT+20}px;border-bottom:1.5px solid var(--line);padding:0 6px;">${bars}</div>
+      <div style="display:flex;gap:4px;padding:7px 6px 0;">${labels}</div>`;
+
+    document.getElementById('report').innerHTML=`
+      <div class="back"><button onclick="closeReport()">← 목록으로</button></div>
+      <div class="rbrand"><div><div class="name">이수경국어</div><div class="sub">Shueguk</div></div><div class="logo">Shueguk</div></div>
+      <div class="tbar">2026 주간 모의고사 성적표 · ${exam.code}</div>
+      <section><h2>1. 학생정보</h2>
+        <table class="rt info"><tr><th>성명</th><th>학교</th><th>학년</th><th>선택과목</th><th>응시일</th></tr>
+        <tr><td>${st.name}</td><td>${st.school}</td><td>${st.grade}</td><td>${exam.subject}</td><td>${fmtDate(st.examDate)}</td></tr></table></section>
+      <section><h2>2. 성적</h2>
+        <table class="rt score"><tr><th>점수(100점 만점)</th><th>등급</th><th>등급컷</th></tr>
+        <tr><td class="big">${r.got}</td><td class="big">${r.grade}</td><td>${exam.cuts.join('-')}</td></tr></table></section>
+      <section><h2>3. 영역분류별 성취도 분석</h2>
+        <table class="rt areatbl"><tr><th>분류</th><th>영역</th><th>배점</th><th>득점</th><th>성취도(%)</th></tr>
+        ${areaRows}
+        <tr class="total"><td colspan="2">합계</td><td>${r.total}</td><td>${r.got}</td><td>${Math.round(r.got/r.total*100)}</td></tr></table>
+        <div class="chart">${chart}</div></section>
+      <section><h2>4. 문항 채점표</h2>
+        <div class="grid-wrap">${block(1,15)}${block(16,30)}${block(31,45)}</div>
+        <div class="legend">정오 칸의 숫자 = 획득 배점 · 0 = 오답</div></section>`;
+    document.getElementById('listView').style.display='none';
+    document.getElementById('report').style.display='block';
+    window.scrollTo(0,0);
+  }
+  function closeReport(){
+    document.getElementById('report').style.display='none';
+    document.getElementById('listView').style.display='block';
+    window.scrollTo(0,0);
+  }
+
+  reload();  // 시작 시 목록 로드
+</script>
 </body>
 </html>
