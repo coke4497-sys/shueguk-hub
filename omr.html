@@ -1,69 +1,548 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
-<title>이수경국어 OMR</title>
-<meta name="theme-color" content="#c4d4cc" />
-<!-- OMR 화면(앱스스크립트)과의 연결을 미리 열어 둔다 — iframe 로딩 단축 -->
-<link rel="preconnect" href="https://script.google.com" />
-<link rel="preconnect" href="https://script.googleusercontent.com" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>이수경 국어 · 주간 모의고사 OMR</title>
+<!-- 이수경국어 학생 OMR — 정적 페이지 (2026-08-26 수파베이스 전환)
+     옛 구조: 앱스스크립트 안의 omr_student.html(iframe) — 열리는 데 2~5초.
+     지금: 이 페이지가 UI 원본이고, 회차 목록·제출·채점은 수파베이스 함수
+     (omr_exam_list / omr_submit — 리포트 저장소 supabase/migrations/017)가 담당.
+     제출 성공 시 옛 OMR 백엔드에도 같은 내용을 no-cors로 보내 응답 시트 사본을 맞춘다.
+     UI·성적표 렌더는 shuegukweekendtest/omr_student.html에서 그대로 가져왔다(그쪽은 이제 리다이렉트만). -->
+<link rel="preconnect" href="https://bangdbhqpphqqdwcledg.supabase.co">
+<link rel="preconnect" href="https://script.google.com">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
 <style>
-  html,body{margin:0;padding:0;height:100%;background:#f7f6f3;}
-  body{overflow:hidden;display:flex;flex-direction:column;}
-  /* 교사용 상단 바 — ?t=1 로 열었을 때만 표시 (학생 링크에는 안 보임) */
-  .appbar{
-    flex:none;display:none;align-items:center;gap:8px;padding:12px 16px;
-    background:#E4EFEA;border-bottom:1px solid #D7E3DD;
+  :root{
+    --sage:#A6C1BB; --sage-d:#628C83;
+    --accent:#628C83; --accent-d:#4C6E66;
+    --ink:#2C2F2D; --muted:#8B928C;
+    --line:#D4D8D3; --paper:#FBFAF6; --card:#ffffff;
+    --ok:#3E9B74; --ok-bg:#E4F1EA; --bad:#DB4C39; --bar:#628C83;
+    --shadow:0 2px 10px rgba(44,47,45,.06);
   }
-  .appbar.on{ display:flex; }
-  .appbar a.back{
-    display:inline-flex;align-items:center;gap:6px;color:#65726B;text-decoration:none;
-    font-family:-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:14px;
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Gowun Dodum',-apple-system,sans-serif;
+    background:var(--paper); color:var(--ink);
+    max-width:480px; margin:0 auto; padding:0 0 110px;
+    line-height:1.5;
   }
-  .appbar a.back:hover{ color:#3A6B5E; }
-  .appbar a.back svg{ width:16px; height:16px; }
-  .appbar .ttl{ margin-left:auto; font-family:'Gowun Batang',serif; font-size:12.5px; color:#65726B; letter-spacing:1px; }
-  .stage{ position:relative; flex:1; min-height:0; }
-  iframe{width:100%;height:100%;border:0;display:block;}
-  /* 로딩 표시 */
-  .loading{
-    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    font-family:'Gowun Batang',serif,-apple-system,sans-serif;color:#8d83a8;font-size:15px;
-    background:#f7f6f3;letter-spacing:1px;z-index:1;
+  /* ── 헤더 ── */
+  .brand{
+    background:#C6D5D2;
+    padding:22px 20px 18px; text-align:center;
+    border-radius:0 0 22px 22px; box-shadow:var(--shadow);
   }
+  .brand .name{
+    font-family:'Gowun Batang',serif; font-weight:700;
+    font-size:27px; letter-spacing:3px; color:#2C2F2D;
+  }
+  .brand .sub{ font-family:'Gowun Batang',serif; font-size:14px; color:#3A544E; letter-spacing:4px; margin-top:5px; }
+  .title-bar{
+    background:var(--card); margin:16px 16px 0; padding:13px 18px;
+    border-radius:12px; box-shadow:var(--shadow);
+    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700;
+  }
+  /* ── 학생정보 카드 ── */
+  .card{
+    background:var(--card); margin:16px; padding:18px;
+    border-radius:14px; box-shadow:var(--shadow);
+  }
+  .card h3{
+    margin:0 0 14px; font-size:15px; font-family:'Gowun Batang',serif;
+    display:flex; align-items:center; gap:8px;
+  }
+  .card h3::before{ content:""; width:8px; height:8px; border-radius:50%; background:var(--sage); }
+  label{ display:block; font-size:13px; color:var(--muted); margin:12px 0 5px; }
+  input[type=text]{
+    width:100%; padding:13px 14px; border:1.5px solid var(--line);
+    border-radius:10px; font-size:16px; font-family:inherit; background:#fafafb;
+    transition:border-color .15s;
+  }
+  input[type=text]:focus{ outline:none; border-color:var(--accent); background:#fff; }
+  /* 응시일 드롭다운 */
+  .date-row{ display:flex; align-items:center; gap:8px; margin-top:6px; }
+  .sel{
+    flex:1; padding:13px 12px; border:1.5px solid var(--line); border-radius:10px;
+    font-size:16px; font-family:inherit; background:#fafafb; color:var(--ink);
+    -webkit-appearance:none; appearance:none; text-align:center;
+  }
+  .sel:focus{ outline:none; border-color:var(--accent); background:#fff; }
+  .date-row .unit{ font-size:14px; color:var(--muted); }
+  /* 선택과목 토글 */
+  .subj{ display:flex; gap:10px; margin-top:6px; }
+  .subj button{
+    flex:1; padding:14px 8px; border:1.5px solid var(--line); background:#fafafb;
+    border-radius:10px; font-size:15px; font-family:inherit; color:var(--muted);
+    cursor:pointer; transition:all .15s; font-weight:700;
+  }
+  .subj button.on{
+    background:var(--accent); border-color:var(--accent); color:#fff;
+    box-shadow:0 3px 8px rgba(98,140,131,.35);
+  }
+  /* ── 진행률 ── */
+  .progress-wrap{
+    position:sticky; top:0; z-index:20; background:var(--paper);
+    padding:10px 16px 8px; backdrop-filter:blur(4px);
+  }
+  .progress-info{ display:flex; justify-content:space-between; font-size:12px; color:var(--muted); margin-bottom:6px; }
+  .progress-info b{ color:var(--accent-d); font-size:14px; }
+  .bar{ height:7px; background:var(--line); border-radius:99px; overflow:hidden; }
+  .bar > i{ display:block; height:100%; width:0; background:var(--accent); transition:width .3s; }
+  /* ── 문항 섹션 ── */
+  .sec-label{
+    margin:18px 16px 4px; font-size:12px; letter-spacing:2px; color:var(--accent-d);
+    font-weight:700; display:flex; align-items:center; gap:8px;
+  }
+  .sec-label span{ flex:1; height:1px; background:var(--line); }
+  .q{
+    background:var(--card); margin:8px 16px; padding:12px 14px;
+    border-radius:13px; box-shadow:var(--shadow);
+    display:flex; align-items:center; gap:10px;
+    transition:box-shadow .15s;
+  }
+  .q.answered{ box-shadow:0 0 0 1.5px var(--sage) inset, var(--shadow); }
+  .q .num{
+    width:30px; flex-shrink:0; text-align:center;
+    font-family:'Gowun Batang',serif; font-weight:700; font-size:16px; color:var(--ink);
+  }
+  .choices{ display:flex; gap:7px; flex:1; }
+  .choices button{
+    flex:1; aspect-ratio:1; min-width:0; border:1.5px solid var(--line);
+    background:#fff; border-radius:50%; font-size:15px; color:var(--muted);
+    font-family:'Gowun Batang',serif; cursor:pointer; transition:all .12s;
+  }
+  .choices button:active{ transform:scale(.9); }
+  .choices button.sel{
+    background:var(--sage-d); border-color:var(--sage-d); color:#fff; font-weight:700;
+    box-shadow:0 2px 6px rgba(98,140,131,.4);
+  }
+  /* ── 하단 제출 바 ── */
+  .footer{
+    position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+    width:100%; max-width:480px; padding:12px 16px 22px;
+    background:linear-gradient(to top,var(--paper) 70%,transparent);
+  }
+  #submit{
+    width:100%; padding:17px; border:none; border-radius:13px;
+    background:var(--accent); color:#fff; font-size:17px; font-weight:700;
+    font-family:'Gowun Batang',serif; cursor:pointer; letter-spacing:2px;
+    box-shadow:0 4px 14px rgba(98,140,131,.4); transition:opacity .15s;
+  }
+  #submit:active{ opacity:.85; }
+  #submit:disabled{ background:#E8EAE7; color:#A9AFAC; box-shadow:none; }
+  /* ── 완료 화면 ── */
+  .done{
+    display:none; text-align:center; padding:70px 30px;
+  }
+  .done .check{
+    width:84px; height:84px; margin:0 auto 22px; border-radius:50%;
+    background:var(--ok-bg); display:flex; align-items:center; justify-content:center;
+    font-size:42px; color:var(--ok);
+  }
+  .done h2{ font-family:'Gowun Batang',serif; margin:0 0 8px; }
+  .done p{ color:var(--muted); font-size:14px; }
+  .toast{
+    position:fixed; bottom:96px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:#fff; padding:11px 20px; border-radius:99px;
+    font-size:13px; opacity:0; transition:all .25s; pointer-events:none; z-index:50; white-space:nowrap;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  /* ───── 성적표 영역 ───── */
+  #report{ display:none; }
+  #report .rbrand{ background:#C6D5D2;
+    padding:22px; display:flex; align-items:center; justify-content:space-between;
+    border-radius:0 0 22px 22px; box-shadow:var(--shadow); }
+  #report .rbrand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:#2C2F2D; }
+  #report .rbrand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#3A544E; letter-spacing:2px; margin-top:4px; }
+  #report .rbrand .logo{ width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.55);
+    display:flex;align-items:center;justify-content:center;font-family:'Gowun Batang',serif;font-size:11px;color:#4C6E66; }
+  #report .tbar{ background:#E0EAE7; margin:16px; padding:11px 18px; border-radius:10px;
+    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#3A544E; text-align:center; }
+  #report section{ margin:16px; }
+  #report h2{ font-family:'Gowun Batang',serif; font-size:16px; margin:0 0 10px; display:flex; align-items:center; gap:8px; }
+  #report h2::before{ content:""; width:9px;height:9px;border-radius:2px;background:var(--accent); }
+  #report table{ width:100%; border-collapse:collapse; background:#fff; border-radius:10px; overflow:hidden; box-shadow:var(--shadow); }
+  #report th,#report td{ padding:11px 8px; text-align:center; font-size:14px; }
+  #report .info th{ background:#E0EAE7; color:#3A544E; font-weight:700; }
+  #report .info td{ background:#F4F5F3; }
+  #report .score th{ background:#E0EAE7; color:#3A544E; }
+  #report .score td{ background:#F4F5F3; font-size:15px; }
+  #report .score .big{ font-family:'Gowun Batang',serif; font-size:22px; font-weight:700; color:var(--accent-d); }
+  #report table.areatbl th{ background:#E0EAE7; color:#3A544E; font-size:13px; padding:9px 6px; }
+  #report table.areatbl td{ padding:9px 6px; font-size:13.5px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  #report table.areatbl td.areaname{ text-align:left; padding-left:14px; }
+  #report table.areatbl .cat{ color:var(--muted); font-size:12px; font-weight:700; }
+  #report table.areatbl .hit{ color:var(--accent-d); font-weight:700; }
+  #report table.areatbl tr.total td{ background:#F4F5F3; font-weight:700; }
+  #report .chart{ background:#fff; border-radius:10px; box-shadow:var(--shadow); padding:14px 10px 8px; margin-top:14px; }
+  #report .grid-wrap{ overflow-x:auto; background:#fff; border-radius:10px; box-shadow:var(--shadow); padding:4px; }
+  #report table.scoretbl{ min-width:480px; }
+  #report table.scoretbl th,#report table.scoretbl td{ padding:7px 5px; font-size:12.5px; border:1px solid #EEF0ED; }
+  #report .rowlabel{ background:#E0EAE7; color:#3A544E; font-weight:700; white-space:nowrap; font-size:12px; }
+  #report .qn{ background:#E0EAE7; font-weight:700; color:#3A544E; }
+  #report td.o{ color:var(--ok); font-weight:700; }
+  #report td.x{ color:var(--bad); font-weight:700; background:#FADED9; }
+  #report .legend{ font-size:12px; color:var(--muted); margin-top:8px; text-align:right; }
 </style>
 </head>
 <body>
-  <div class="appbar" id="appbar">
-    <a class="back" href="weekend.html">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
-      주말 실전 모의고사로 가기
-    </a>
-    <span class="ttl">학생 OMR</span>
+
+<!-- 교사용 상단 바 — ?t=1 로 열었을 때만 표시 (학생 링크에는 안 보임) -->
+<div id="appbar" style="display:none;align-items:center;gap:8px;padding:12px 16px;background:#E4EFEA;border-bottom:1px solid #D7E3DD;">
+  <a href="weekend.html" style="display:inline-flex;align-items:center;gap:6px;color:#65726B;text-decoration:none;font-size:14px;">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+    주말 실전 모의고사로 가기
+  </a>
+  <span style="margin-left:auto;font-family:'Gowun Batang',serif;font-size:12.5px;color:#65726B;letter-spacing:1px;">학생 OMR</span>
+</div>
+
+<div id="main">
+  <!-- 헤더 -->
+  <div class="brand">
+    <div class="name">이수경국어</div>
+    <div class="sub">Shueguk</div>
   </div>
-  <div class="stage">
-    <div class="loading" id="loading">이수경국어 OMR 불러오는 중…</div>
-    <iframe id="omrFrame"
-      allow="clipboard-write"
-      title="이수경국어 OMR"
-      onload="var l=document.getElementById('loading'); if(l) l.style.display='none';"></iframe>
+  <div class="title-bar">2026 주간 모의고사 · OMR 답안 입력</div>
+
+  <!-- 학생정보 -->
+  <div class="card">
+    <h3>학생 정보</h3>
+    <label>응시 회차</label>
+    <select id="exam" class="sel" style="width:100%;">
+      <option value="">회차를 선택하세요</option>
+    </select>
+    <label>응시일</label>
+    <div class="date-row">
+      <select id="mon" class="sel"></select>
+      <span class="unit">월</span>
+      <select id="day" class="sel"></select>
+      <span class="unit">일</span>
+    </div>
+    <label>이름</label>
+    <input type="text" id="name" placeholder="이름" autocomplete="off">
+    <label>학교</label>
+    <input type="text" id="school" placeholder="학교명" autocomplete="off">
+    <label>학부모님 연락처 8자리 (010 제외 — 학생 개별 페이지 성적 연결용)</label>
+    <input type="text" id="parentPhone" placeholder="예: 12345678" inputmode="numeric" maxlength="9" autocomplete="off">
+    <label>학년</label>
+    <div class="subj">
+      <button type="button" data-grade="1" onclick="pickGrade(this)">1학년</button>
+      <button type="button" data-grade="2" onclick="pickGrade(this)">2학년</button>
+      <button type="button" data-grade="3" onclick="pickGrade(this)">3학년</button>
+    </div>
+    <div id="subjWrap">
+      <label>선택과목</label>
+      <div class="subj">
+        <button type="button" data-subj="화법과작문" onclick="pickSubj(this)">화법과작문</button>
+        <button type="button" data-subj="언어와매체" onclick="pickSubj(this)">언어와매체</button>
+      </div>
+    </div>
   </div>
-  <script>
-    // 학생 개별 페이지(s.html)에서 nm·sc·gr·sid 로 학생 정보를 실어 보내면
-    // OMR 화면(omr_student)에 그대로 전달해 이름·학교·학년·학부모8자리가 자동 입력된다.
-    // ?t=1 은 티쳐스 페이지에서 연 경우 — 상단에 돌아가기 바를 보여준다 (학생 링크에는 없음).
-    (function(){
-      var BASE = "https://script.google.com/macros/s/AKfycbyUHMdCH_u35Oeu6lEmx3yOYscoKLwEB8TC0QHGBOaCXZ4rbAnkMpP9_Na4l3QLOajGPA/exec";
-      var q = new URLSearchParams(location.search);
-      if (q.get("t") === "1") document.getElementById("appbar").classList.add("on");
-      var pass = [];
-      [["nm","name"],["sc","school"],["gr","grade"],["sid","sid"]].forEach(function(p){
-        var v = q.get(p[0]);
-        if(v) pass.push(p[1] + "=" + encodeURIComponent(v));
-      });
-      document.getElementById("omrFrame").src = BASE + (pass.length ? "?" + pass.join("&") : "");
-    })();
-  </script>
+
+  <!-- 진행률 -->
+  <div class="progress-wrap">
+    <div class="progress-info"><span>답안 작성 현황</span><span><b id="cnt">0</b> / 45</span></div>
+    <div class="bar"><i id="barFill"></i></div>
+  </div>
+
+  <!-- 문항 영역 (스크립트가 영역별로 자동 생성) -->
+  <div id="quiz"></div>
+</div>
+
+<!-- 완료 화면 -->
+<div class="done" id="done">
+  <div class="check">✓</div>
+  <h2>제출이 완료되었습니다</h2>
+  <p id="doneMsg"></p>
+</div>
+
+<!-- 제출 바 -->
+<div class="footer" id="footer">
+  <button id="submit" onclick="submit()">답안 제출하기</button>
+</div>
+
+<!-- 성적표 -->
+<div id="report"></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const TOTAL = 45;
+  // 영역 구분 (성적표 큰 분류와 일치) — 고3형(공통+선택과목)
+  const SECTIONS = [
+    { name:'독서론',  from:1,  to:3  },
+    { name:'독서',    from:4,  to:17 },
+    { name:'문학',    from:18, to:34 },
+    { name:'선택과목', from:35, to:45, select:true }
+  ];
+  // 통합형(고1·고2식) — 1~45 전체 공통, 선택과목 없음
+  const SECTIONS_INT = [ { name:'공통', from:1, to:45 } ];
+  const picks = {};
+  let subject = null;
+  let grade = null;
+  let examModes = {};      // 회차 이름 → '통합' | '' (고3형)
+  let integrated = false;  // 지금 고른 회차가 통합형인지
+
+  // 응시일 드롭다운 채우기 (월 1~12, 일 1~31)
+  (function fillDate(){
+    const mon=document.getElementById('mon'), day=document.getElementById('day');
+    const now=new Date();
+    for(let m=1;m<=12;m++){ const o=document.createElement('option'); o.value=m; o.textContent=m; if(m===now.getMonth()+1)o.selected=true; mon.appendChild(o); }
+    for(let d=1;d<=31;d++){ const o=document.createElement('option'); o.value=d; o.textContent=d; if(d===now.getDate())o.selected=true; day.appendChild(o); }
+  })();
+
+  // 회차 목록 불러오기 (스프레드시트에서 자동)
+  function fillExamList(names){
+    const sel=document.getElementById('exam');
+    sel.innerHTML='<option value="">회차를 선택하세요</option>';
+    names.forEach(n=>{ const o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
+  }
+  /* ── 수파베이스 연결 (2026-08-26 전환 — 원본) ──
+   * 공개 키로 SECURITY DEFINER 함수만 부른다. 회차 목록엔 이름·형식만 있고
+   * 정답은 제출(omr_submit) 후 성적표로만 온다(옛 백엔드와 같은 공개 수준). */
+  const SB_REST = 'https://bangdbhqpphqqdwcledg.supabase.co/rest/v1';
+  const SB_KEY = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  // 옛 OMR 백엔드 — 제출 성공 시 응답 시트 '사본' 기록용(no-cors, 응답은 안 읽음)
+  const OMR_LEGACY = 'https://script.google.com/macros/s/AKfycbyUHMdCH_u35Oeu6lEmx3yOYscoKLwEB8TC0QHGBOaCXZ4rbAnkMpP9_Na4l3QLOajGPA/exec';
+  function sbRpc(fn, args){
+    return fetch(SB_REST + '/rpc/' + fn, {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(args || {})
+    }).then(r => { if(!r.ok) throw new Error('sb rpc ' + r.status); return r.json(); });
+  }
+  (function loadExams(tryN){
+    sbRpc('omr_exam_list', {}).then(function(list){
+      examModes = {};
+      (list || []).forEach(x=>{ examModes[x.name]=x.mode||''; });
+      fillExamList((list || []).map(x=>x.name));
+    }).catch(function(){
+      if(!tryN){ setTimeout(()=>loadExams(1), 2000); return; }   // 한 번은 조용히 재시도
+      toast('회차 목록을 불러오지 못했습니다 — 새로고침 해 주세요');
+    });
+  })();
+
+  // 회차를 고르면 그 형식(통합/고3형)에 맞게 화면 전환
+  document.getElementById('exam').addEventListener('change', function(){
+    const wasIntegrated = integrated;
+    integrated = (examModes[this.value] === '통합');
+    if (integrated === wasIntegrated) return;
+    document.getElementById('subjWrap').style.display = integrated ? 'none' : '';
+    if (integrated) subject = '공통';
+    else { const on=document.querySelector('#subjWrap .subj button.on'); subject = on ? on.dataset.subj : null; }
+    buildQuiz(integrated ? SECTIONS_INT : SECTIONS);   // 답안(picks)은 유지된 채 구획만 다시 그림
+  });
+
+  // 문항 한 개 생성
+  function makeQ(i){
+    const q = document.createElement('div');
+    q.className='q'; q.id='q'+i;
+    q.innerHTML = `<span class="num">${i}</span><div class="choices"></div>`;
+    const ch = q.querySelector('.choices');
+    for(let j=1;j<=5;j++){
+      const b=document.createElement('button');
+      b.textContent=j;
+      b.onclick=()=>choose(i,j,ch,q);
+      ch.appendChild(b);
+    }
+    return q;
+  }
+
+  // 영역별 섹션 렌더링 — 형식이 바뀌면 다시 그리되, 이미 고른 답안(picks)은 복원한다
+  function buildQuiz(sections){
+    const quiz=document.getElementById('quiz');
+    quiz.innerHTML='';
+    (sections||SECTIONS).forEach(sec=>{
+      const label=document.createElement('div');
+      label.className='sec-label';
+      if(sec.select){
+        label.innerHTML=`선택 · <span id="subjLabel" style="flex:0;color:var(--accent-d)">${subject||'과목 미선택'}</span> ${sec.from}–${sec.to}<span></span>`;
+      }else{
+        label.innerHTML=`${sec.name} ${sec.from}–${sec.to}<span></span>`;
+      }
+      quiz.appendChild(label);
+      for(let i=sec.from;i<=sec.to;i++) quiz.appendChild(makeQ(i));
+    });
+    // 고른 답안 복원
+    Object.keys(picks).forEach(function(i){
+      const q=document.getElementById('q'+i); if(!q) return;
+      const ch=q.querySelector('.choices');
+      ch.children[picks[i]-1].classList.add('sel');
+      q.classList.add('answered');
+    });
+    updateProgress();
+  }
+  buildQuiz(SECTIONS);
+
+  function choose(i,j,ch,q){
+    picks[i]=j;
+    ch.querySelectorAll('button').forEach(x=>x.classList.remove('sel'));
+    ch.children[j-1].classList.add('sel');
+    q.classList.add('answered');
+    updateProgress();
+  }
+
+  function updateProgress(){
+    const n=Object.keys(picks).length;
+    document.getElementById('cnt').textContent=n;
+    document.getElementById('barFill').style.width=(n/TOTAL*100)+'%';
+  }
+
+  function pickSubj(btn){
+    subject=btn.dataset.subj;
+    btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+    const lbl=document.getElementById('subjLabel'); if(lbl) lbl.textContent=subject;
+  }
+
+  function pickGrade(btn){
+    grade=btn.dataset.grade;
+    btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');
+  }
+
+  function toast(msg){
+    const t=document.getElementById('toast');
+    t.textContent=msg; t.classList.add('show');
+    clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200);
+  }
+
+  // 학생 개별 페이지에서 넘어온 경우 이름·학교·학년·학부모8자리 자동 입력.
+  // (s.html이 ?nm=&sc=&gr=&sid= 로 보냄 — 옛 파라미터 이름 name/school/grade도 받는다)
+  // ?t=1 은 티쳐스 페이지에서 연 경우 — 상단에 돌아가기 바를 보여준다.
+  (function prefill(){
+    var q = new URLSearchParams(location.search);
+    var v = function(a, b){ return (q.get(a) || q.get(b) || '').trim(); };
+    if (q.get('t') === '1') document.getElementById('appbar').style.display = 'flex';
+    if (v('nm','name'))   document.getElementById('name').value = v('nm','name');
+    if (v('sc','school')) document.getElementById('school').value = v('sc','school');
+    if (v('sid','sid'))   document.getElementById('parentPhone').value = v('sid','sid').replace(/\D/g,'');
+    var g = v('gr','grade');
+    if (g){
+      var b = document.querySelector('.subj button[data-grade="'+g+'"]');
+      if(b) pickGrade(b);
+    }
+  })();
+
+  function submit(){
+    const name=document.getElementById('name').value.trim();
+    const school=document.getElementById('school').value.trim();
+    const studentId=document.getElementById('parentPhone').value.replace(/\D/g,'');
+    const examName=document.getElementById('exam').value;
+    const mon=document.getElementById('mon').value;
+    const day=document.getElementById('day').value;
+    if(!examName){ toast('응시 회차를 선택해 주세요'); window.scrollTo({top:0,behavior:'smooth'}); return; }
+    if(!name){ toast('이름을 입력해 주세요'); document.getElementById('name').focus(); return; }
+    if(!school){ toast('학교를 입력해 주세요'); document.getElementById('school').focus(); return; }
+    if(!/^\d{8}$/.test(studentId)){ toast('학부모님 연락처 8자리를 입력해 주세요 (010 제외)'); document.getElementById('parentPhone').focus(); return; }
+    if(!grade){ toast('학년을 선택해 주세요'); window.scrollTo({top:0,behavior:'smooth'}); return; }
+    if(!integrated && !subject){ toast('선택과목을 골라 주세요'); window.scrollTo({top:0,behavior:'smooth'}); return; }
+
+    const missing=[];
+    for(let i=1;i<=TOTAL;i++) if(!picks[i]) missing.push(i);
+    if(missing.length){
+      if(!confirm(`미응답 ${missing.length}문항이 있습니다 (${missing.slice(0,5).join(', ')}${missing.length>5?'...':''}).\n그대로 제출할까요?`)) return;
+    }
+
+    const payload={
+      examName, name, school, grade, subject,
+      studentId,   // 부모님 8자리 — 응답 시트 '학생ID' 열에 기록(동명이인 구분용)
+      examDate: `${mon}월 ${day}일`,
+      examMonth: Number(mon), examDay: Number(day),
+      answers: Object.fromEntries(Object.entries(picks).map(([q,v])=>[q,String(v)])),
+      submittedAt: new Date().toISOString()
+    };
+
+    const btn=document.getElementById('submit');
+    btn.disabled=true; btn.textContent='채점 중...';
+
+    // 원본(수파베이스)이 채점·저장 후 성적표 데이터를 바로 돌려준다 (0.5초 안팎).
+    // 성공하면 옛 OMR 백엔드에도 같은 답안을 보내 응답 시트 사본을 맞춘다(응답은 안 기다림).
+    sbRpc('omr_submit', { p: payload }).then(function(res){
+      if(res && res.ok){
+        try {
+          fetch(OMR_LEGACY, { method:'POST', mode:'no-cors',
+            headers:{ 'Content-Type':'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action:'submit', payload: payload }) });
+        } catch(e){}
+        onDone(res);
+      }
+      else{ btn.disabled=false; btn.textContent='답안 제출하기'; toast('채점 오류: ' + (res&&res.error?res.error:'알 수 없음')); }
+    }).catch(function(){
+      btn.disabled=false; btn.textContent='답안 제출하기';
+      toast('제출 실패: 인터넷 연결을 확인하고 다시 시도해 주세요');
+    });
+  }
+
+  function onDone(res){
+    document.getElementById('main').style.display='none';
+    document.getElementById('footer').style.display='none';
+    if(res && res.result){
+      renderReport(res);          // 서버 채점 결과 → 성적표
+    }else{
+      // 데모(로컬): 결과가 없으면 완료 메시지만
+      const p=res.student||res;
+      document.getElementById('done').style.display='block';
+      document.getElementById('doneMsg').textContent=
+        `${p.name} · ${p.school} ${p.grade}학년 · ${p.subject} · ${p.examName||''} · ${p.examDate} 응시 제출 완료 (데모: 서버 연동 시 성적표 표시)`;
+      window.scrollTo(0,0);
+    }
+  }
+
+  /* ─── 성적표 렌더링 (서버가 준 결과 res를 그림) ─── */
+  function renderReport(res){
+    const st=res.student, exam=res.exam, r=res.result;
+    const catCount={}; r.areas.forEach(a=>catCount[a.cat]=(catCount[a.cat]||0)+1);
+    const catSeen={}; let areaRows='';
+    r.areas.forEach(a=>{
+      const first=!catSeen[a.cat]; catSeen[a.cat]=true;
+      areaRows+=`<tr>${first?`<td class="cat" rowspan="${catCount[a.cat]}">${a.cat}</td>`:''}
+        <td class="areaname">${a.name}</td><td>${a.full}</td><td class="hit">${a.score}</td><td>${a.rate}</td></tr>`;
+    });
+    function block(s,e){
+      let qn='<tr><td class="rowlabel">문항</td>',an='<tr><td class="rowlabel">정답</td>',
+          my='<tr><td class="rowlabel">학생답안</td>',ox='<tr><td class="rowlabel">정오</td>';
+      for(let q=s;q<=e;q++){ const d=r.detail[q];
+        qn+=`<td class="qn">${q}</td>`; an+=`<td>${d.ans}</td>`;
+        my+=`<td class="${d.ok?'':'x'}">${d.mine}</td>`;
+        ox+=`<td class="${d.ok?'o':'x'}">${d.ok?d.pt:0}</td>`; }
+      return `<table class="scoretbl">${qn}</tr>${an}</tr>${my}</tr>${ox}</tr></table>`;
+    }
+    const PLOT=160;
+    const bars=r.areas.map(a=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">${a.rate}</div>
+      <div style="width:58%;height:${a.rate/100*PLOT}px;background:var(--bar);border-radius:3px 3px 0 0;"></div></div>`).join('');
+    const labels=r.areas.map(a=>`<div style="flex:1;text-align:center;font-size:10.5px;color:var(--ink);line-height:1.2;word-break:keep-all;padding:0 2px;">${a.name}</div>`).join('');
+    const chart=`<div style="display:flex;align-items:flex-end;gap:4px;height:${PLOT+20}px;border-bottom:1.5px solid var(--line);padding:0 6px;">${bars}</div>
+      <div style="display:flex;gap:4px;padding:7px 6px 0;">${labels}</div>`;
+
+    document.getElementById('report').innerHTML=`
+      <div class="rbrand"><div><div class="name">이수경국어</div><div class="sub">Shueguk</div></div><div class="logo">Shueguk</div></div>
+      <div class="tbar">2026 주간 모의고사 성적표 · ${exam.code}</div>
+      <section><h2>1. 학생정보</h2>
+        <table class="info"><tr><th>성명</th><th>학교</th><th>학년</th><th>선택과목</th><th>응시일</th></tr>
+        <tr><td>${st.name}</td><td>${st.school}</td><td>${st.grade}</td><td>${exam.subject}</td><td>${st.examDate}</td></tr></table></section>
+      <section><h2>2. 성적</h2>
+        <table class="score"><tr><th>점수(100점 만점)</th><th>등급</th><th>등급컷</th></tr>
+        <tr><td class="big">${r.got}</td><td class="big">${r.grade}</td><td>${exam.cuts.join('-')}</td></tr></table></section>
+      <section><h2>3. 영역분류별 성취도 분석</h2>
+        <table class="areatbl"><tr><th>분류</th><th>영역</th><th>배점</th><th>득점</th><th>성취도(%)</th></tr>
+        ${areaRows}
+        <tr class="total"><td colspan="2">합계</td><td>${r.total}</td><td>${r.got}</td><td>${Math.round(r.got/r.total*100)}</td></tr></table>
+        <div class="chart">${chart}</div></section>
+      <section><h2>4. 문항 채점표</h2>
+        <div class="grid-wrap">${block(1,15)}${block(16,30)}${block(31,45)}</div>
+        <div class="legend">정오 칸의 숫자 = 획득 배점 · 0 = 오답</div></section>`;
+    document.getElementById('report').style.display='block';
+    window.scrollTo(0,0);
+  }
+</script>
 </body>
 </html>
