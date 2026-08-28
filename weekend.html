@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>주말 실전모의고사 · 슈국 티쳐스</title>
-<meta name="description" content="이수경국어 주말 실전모의고사 교사용 — 출제 / 신청 현황 / 성적 대시보드" />
+<meta name="description" content="이수경국어 주말 실전모의고사 교사용 — 출제 / OMR 입력 / 신청 현황 / 성적 대시보드" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet" />
@@ -78,7 +78,7 @@
 
   <header>
     <p class="tagline">주말 실전모의고사</p>
-    <p class="intro">출제, 신청 현황, 성적 대시보드를 선택하세요.<br>신청·응시는 학생 개인 페이지에서 해요.</p>
+    <p class="intro">출제, OMR 입력, 신청 현황, 성적 대시보드를 선택하세요.<br>신청·응시는 학생 개인 페이지에서 해요.</p>
   </header>
 
   <div class="list">
@@ -92,6 +92,22 @@
         <p class="desc">회차 정답·배점·영역·등급컷을 입력해요.</p>
         <span class="actions">
           <span class="go">도구 열기
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </span>
+      </span>
+    </a>
+
+    <!-- OMR 입력 (omr.html?t=1: 교사용 돌아가기 바 표시) — 출제 후 테스트 제출용, 2026-08-28 복원 -->
+    <a class="card" href="omr.html?t=1" target="_blank" rel="noopener">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><path d="M7 8h2"/><path d="M13 8h4"/><path d="M7 12h2"/><path d="M13 12h4"/><path d="M7 16h2"/><path d="M13 16h4"/></svg>
+      </span>
+      <span class="body">
+        <h2>OMR 입력</h2>
+        <p class="desc">출제한 회차를 테스트로 제출해 봐요. 학생 화면과 같은 OMR이에요.</p>
+        <span class="actions">
+          <span class="go">열기
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </span>
         </span>
