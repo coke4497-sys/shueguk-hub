@@ -1,0 +1,668 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>슈국 캐릭터 스튜디오</title>
+<!--
+  슈국 캐릭터 스튜디오 — 개인용 (파일을 더블클릭하면 브라우저에서 열립니다)
+
+  ① 아래 CONFIG의 따옴표 사이에 열쇠 3개를 붙여넣고 저장하면
+     껐다 켜도 다시 넣을 필요가 없습니다. (따옴표는 지우면 안 됩니다)
+  ② 비워 두면 파일을 열 때 뜨는 창에 넣으면 됩니다.
+     (이 경우 브라우저를 완전히 껐다 켜면 다시 넣어야 합니다)
+
+  ※ 열쇠를 적은 파일은 웹에 올리거나 다른 분께 파일째 보내지 마세요.
+-->
+<script>
+const CONFIG = {
+  SUPABASE_URL:  "",   // 수파베이스 Project URL (https://…supabase.co)
+  SUPABASE_KEY:  "",   // 수파베이스 anon public 키 (eyJ…)
+  GEMINI_KEY:    ""    // 구글 제미나이 API 키 (aistudio.google.com/apikey)
+};
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sage:#5E7F6E; --sage-d:#48685A; --sage-bg:#EEF3EF;
+  --ink:#2E332F; --sub:#6B736D; --line:#E3E6E1; --bg:#F6F5F0; --card:#FFFFFF;
+  --red:#B4544E; --shadow:0 2px 10px rgba(46,51,47,.07);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:'Gowun Dodum',sans-serif;font-size:15px;line-height:1.6}
+h1,h2,h3{font-family:'Gowun Batang',serif;margin:0}
+.wrap{max-width:960px;margin:0 auto;padding:18px 14px 60px}
+header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:6px 2px 14px}
+header h1{font-size:22px;color:var(--sage-d)}
+header .sub{color:var(--sub);font-size:13px}
+header .sp{flex:1}
+.card{background:var(--card);border-radius:14px;box-shadow:var(--shadow);padding:16px 18px;margin-bottom:14px}
+button{font-family:inherit;font-size:14px;border:1px solid var(--line);background:#fff;color:var(--ink);
+  border-radius:9px;padding:7px 14px;cursor:pointer}
+button:hover{border-color:var(--sage)}
+button.pri{background:var(--sage);border-color:var(--sage);color:#fff;font-weight:600}
+button.pri:hover{background:var(--sage-d)}
+button.pri:disabled{background:#AEBFB4;border-color:#AEBFB4;cursor:default}
+button.ghost{border:none;background:none;color:var(--sub);padding:4px 6px}
+button.ghost:hover{color:var(--sage-d)}
+button.danger{color:var(--red)}
+input[type=text],textarea,select{font-family:inherit;font-size:14px;width:100%;
+  border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff;color:var(--ink)}
+textarea{resize:vertical;line-height:1.6}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--sage)}
+label.fl{display:block;font-size:13px;color:var(--sub);margin:12px 0 4px}
+label.fl:first-child{margin-top:0}
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tabs button{border-radius:999px;padding:8px 18px}
+.tabs button.on{background:var(--sage);border-color:var(--sage);color:#fff;font-weight:600}
+.hint{font-size:13px;color:var(--sub)}
+.err{color:var(--red);font-size:13px;white-space:pre-wrap}
+/* 참고 이미지 띠 */
+#refstrip{display:flex;gap:10px;overflow-x:auto;padding:10px 12px;background:var(--sage-bg);
+  border-radius:14px;margin-bottom:14px;min-height:66px;align-items:center}
+#refstrip .rf{position:relative;flex:0 0 auto}
+#refstrip img{height:84px;border-radius:8px;display:block;background:#fff}
+#refstrip .tag{position:absolute;left:4px;top:4px;font-size:11px;background:rgba(94,127,110,.92);
+  color:#fff;border-radius:6px;padding:1px 6px}
+#refstrip .off img{opacity:.35}
+#refstrip .empty{color:var(--sub);font-size:13px;padding:6px 4px}
+/* 장면 만들기 */
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.chk{display:flex;align-items:center;gap:8px;font-size:14px;margin:10px 0 0}
+.chk input{width:16px;height:16px;accent-color:var(--sage)}
+details.pv{margin-top:12px;border:1px dashed var(--line);border-radius:10px;padding:8px 12px}
+details.pv summary{cursor:pointer;font-size:13px;color:var(--sub)}
+details.pv pre{white-space:pre-wrap;font-family:inherit;font-size:13px;color:var(--ink);
+  background:var(--bg);border-radius:8px;padding:10px;margin:8px 0 4px;max-height:300px;overflow:auto}
+#result{text-align:center;display:none}
+#result img{max-width:100%;border-radius:12px;box-shadow:var(--shadow)}
+#result .bar{margin-top:12px;display:flex;gap:10px;justify-content:center}
+/* 최근 장면 */
+#gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
+#gallery .g{background:var(--bg);border-radius:10px;overflow:hidden}
+#gallery img{width:100%;aspect-ratio:1/1;object-fit:cover;display:block;cursor:pointer}
+#gallery .gi{padding:6px 8px;font-size:12px;color:var(--sub);display:flex;justify-content:space-between;align-items:center;gap:4px}
+/* 캐릭터 관리 */
+.cols{display:flex;gap:16px;flex-wrap:wrap}
+.cols .left{flex:0 0 190px;min-width:160px}
+.cols .right{flex:1;min-width:260px}
+#charlist button{display:block;width:100%;text-align:left;margin-bottom:6px}
+#charlist button.on{background:var(--sage-bg);border-color:var(--sage);font-weight:600}
+#imglist .im{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+#imglist img{height:56px;width:56px;object-fit:cover;border-radius:8px;background:var(--bg)}
+#imglist .k{flex:1;font-size:13px}
+#imglist .k .p{color:var(--sub);font-size:12px}
+/* 열쇠 창 */
+#cfgback{position:fixed;inset:0;background:rgba(46,51,47,.45);display:none;
+  align-items:center;justify-content:center;padding:16px;z-index:50}
+#cfgback.show{display:flex}
+#cfg{background:#fff;border-radius:16px;max-width:520px;width:100%;padding:22px 24px;max-height:92vh;overflow:auto}
+#cfg h2{font-size:18px;color:var(--sage-d);margin-bottom:4px}
+#cfg .bar{margin-top:16px;display:flex;gap:10px;justify-content:flex-end}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #fff;border-top-color:transparent;
+  border-radius:50%;vertical-align:-2px;margin-right:6px;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (max-width:640px){ .cols .left{flex:1 1 100%} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>슈국 캐릭터 스튜디오</h1>
+    <span class="sub">캐릭터는 수파베이스에, 그림은 제미나이로</span>
+    <span class="sp"></span>
+    <button class="ghost" onclick="openCfg()">열쇠 설정</button>
+  </header>
+
+  <div id="refstrip"><span class="empty">캐릭터를 고르면 참고 이미지가 여기에 보입니다. 앞의 5장이 매번 자동으로 함께 전송돼요.</span></div>
+
+  <div class="tabs">
+    <button id="tab-scene" class="on" onclick="setTab('scene')">장면 만들기</button>
+    <button id="tab-char" onclick="setTab('char')">캐릭터 관리</button>
+  </div>
+
+  <!-- ============ 장면 만들기 ============ -->
+  <div id="p-scene">
+    <div class="card">
+      <label class="fl">캐릭터</label>
+      <select id="sc-char" onchange="pickChar(this.value)"></select>
+
+      <label class="fl">장면 설명 — 어떤 상황인지 편하게 적어 주세요</label>
+      <textarea id="sc-text" rows="4" placeholder="예) 슈콩이가 책상에 앉아 국어 문제집을 풀다가 기지개를 켜는 장면. 따뜻한 오후 햇살."
+        oninput="preview()"></textarea>
+
+      <div class="chk">
+        <input type="checkbox" id="sc-notext" checked onchange="toggleNoText()">
+        <label for="sc-notext">그림 안에 글자를 넣지 않기 (말풍선은 비워서 나옵니다 — 대사는 캔바에서 얹기)</label>
+      </div>
+      <div id="sc-dialogbox" style="display:none">
+        <label class="fl">그림에 넣을 대사 (선택)</label>
+        <input type="text" id="sc-dialog" placeholder="예) 오늘도 화이팅!" oninput="preview()">
+      </div>
+
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label class="fl" style="margin-top:0">그림 비율</label>
+          <select id="sc-ratio" style="width:auto">
+            <option value="1:1">정사각 (1:1)</option>
+            <option value="4:3">가로 (4:3)</option>
+            <option value="16:9">넓은 가로 (16:9)</option>
+            <option value="3:4">세로 (3:4)</option>
+            <option value="9:16">긴 세로 (9:16)</option>
+          </select>
+        </div>
+        <span class="sp" style="flex:1"></span>
+        <button class="pri" id="sc-go" onclick="generate()" style="align-self:flex-end">이 장면 그리기</button>
+      </div>
+
+      <details class="pv">
+        <summary>제미나이에 실제로 보내는 문장 보기</summary>
+        <pre id="sc-preview"></pre>
+      </details>
+
+      <p id="sc-status" class="hint" style="margin:10px 0 0"></p>
+    </div>
+
+    <div class="card" id="result">
+      <img id="sc-img" alt="만들어진 장면">
+      <div class="bar">
+        <button class="pri" onclick="downloadLast()">이미지 다운로드</button>
+        <button onclick="generate()">같은 장면 다시 그리기</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:16px;margin-bottom:10px">최근 만든 장면</h3>
+      <div id="gallery"></div>
+      <p id="gal-empty" class="hint">아직 만든 장면이 없어요.</p>
+    </div>
+  </div>
+
+  <!-- ============ 캐릭터 관리 ============ -->
+  <div id="p-char" style="display:none">
+    <div class="card">
+      <div class="cols">
+        <div class="left">
+          <div id="charlist"></div>
+          <button style="width:100%" onclick="newChar()">+ 새 캐릭터</button>
+        </div>
+        <div class="right">
+          <label class="fl">이름</label>
+          <input type="text" id="ch-name" placeholder="예) 슈콩이">
+          <label class="fl">캐릭터 설명서 — 장면을 그릴 때마다 이 글이 통째로 함께 전송됩니다</label>
+          <textarea id="ch-sheet" rows="10" placeholder="생김새·비율·색·복장·성격 등을 자세히 적어 주세요."></textarea>
+          <div class="row" style="margin-top:12px">
+            <button class="pri" onclick="saveChar()">저장</button>
+            <button class="danger" id="ch-del" onclick="delChar()" style="display:none">이 캐릭터 지우기</button>
+            <span id="ch-status" class="hint"></span>
+          </div>
+
+          <div id="imgsec" style="display:none">
+            <h3 style="font-size:16px;margin:22px 0 4px">참고 이미지</h3>
+            <p class="hint" style="margin:0 0 10px">앞의 5장까지 매번 자동으로 함께 전송됩니다. 중요한 것(원본·회전시트)이 위로 오게 순서를 정해 주세요.</p>
+            <div class="row">
+              <select id="im-kind" style="width:auto">
+                <option>원본</option><option>회전시트</option><option>표정시트</option><option>기타</option>
+              </select>
+              <input type="file" id="im-file" accept="image/*" multiple style="width:auto;flex:1;min-width:180px">
+              <button onclick="uploadImgs()">올리기</button>
+            </div>
+            <p id="im-status" class="hint" style="margin:8px 0 0"></p>
+            <div id="imglist" style="margin-top:10px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============ 열쇠 창 ============ -->
+<div id="cfgback">
+  <div id="cfg">
+    <h2>열쇠 3개를 넣어 주세요</h2>
+    <p class="hint" style="margin:4px 0 12px">열쇠는 이 브라우저 안에만 저장되고 어디에도 전송되지 않습니다.<br>
+      HTML 파일을 메모장으로 열어 맨 위 CONFIG에 적어 두면 매번 넣지 않아도 됩니다.</p>
+    <label class="fl">수파베이스 Project URL</label>
+    <input type="text" id="cf-url" placeholder="https://xxxx.supabase.co">
+    <label class="fl">수파베이스 anon public 키</label>
+    <input type="text" id="cf-key" placeholder="eyJ…">
+    <p class="hint" style="margin:4px 0 0">둘 다 수파베이스 → Project Settings → API Keys에 있어요.</p>
+    <label class="fl">구글 제미나이 API 키</label>
+    <input type="text" id="cf-gem" placeholder="AIza…">
+    <p class="hint" style="margin:4px 0 0">aistudio.google.com/apikey 에서 Create API key. 결제 카드를 등록해야 이미지 생성이 열립니다.</p>
+    <p id="cf-err" class="err" style="margin:10px 0 0"></p>
+    <div class="bar">
+      <button class="pri" onclick="saveCfg()">저장하고 시작</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+/* ================= 설정(열쇠) ================= */
+let cfg = null;
+const S = { chars:[], imgs:[], scenes:[], charId:null, lastBlob:null, lastName:'장면' };
+
+function loadCfg(){
+  let saved = {};
+  try{ saved = JSON.parse(sessionStorage.getItem('cs_cfg')||'{}'); }catch(e){}
+  const url = (CONFIG.SUPABASE_URL||'').trim() || saved.url || '';
+  const key = (CONFIG.SUPABASE_KEY||'').trim() || saved.key || '';
+  const gem = (CONFIG.GEMINI_KEY ||'').trim() || saved.gem || '';
+  if(url && key && gem){ cfg = {url:url.replace(/\/+$/,''), key, gem}; return true; }
+  return false;
+}
+function openCfg(){
+  const saved = cfg||{};
+  document.getElementById('cf-url').value = saved.url||'';
+  document.getElementById('cf-key').value = saved.key||'';
+  document.getElementById('cf-gem').value = saved.gem||'';
+  document.getElementById('cf-err').textContent = '';
+  document.getElementById('cfgback').classList.add('show');
+}
+async function saveCfg(){
+  const url = document.getElementById('cf-url').value.trim().replace(/\/+$/,'');
+  const key = document.getElementById('cf-key').value.trim();
+  const gem = document.getElementById('cf-gem').value.trim();
+  const err = document.getElementById('cf-err');
+  if(!url || !key || !gem){ err.textContent = '세 칸을 모두 채워 주세요.'; return; }
+  if(!/^https:\/\/.+supabase\.co$/.test(url)){ err.textContent = '수파베이스 URL은 https://…supabase.co 모양이어야 해요.'; return; }
+  cfg = {url, key, gem};
+  try{ sessionStorage.setItem('cs_cfg', JSON.stringify(cfg)); }catch(e){}
+  err.textContent = '연결을 확인하는 중…';
+  try{
+    await db('cs_characters?select=id&limit=1');
+  }catch(e){
+    err.textContent = '수파베이스에 연결하지 못했어요.\n· URL과 anon 키를 다시 확인해 주세요.\n· SQL 설치(1_수파베이스_설치.sql)를 아직 안 했다면 먼저 실행해 주세요.\n\n' + e.message;
+    return;
+  }
+  document.getElementById('cfgback').classList.remove('show');
+  boot();
+}
+
+/* ================= 수파베이스 통신 ================= */
+async function db(path, opt){
+  opt = opt||{};
+  const r = await fetch(cfg.url + '/rest/v1/' + path, Object.assign({}, opt, {
+    headers: Object.assign({
+      apikey: cfg.key, Authorization: 'Bearer '+cfg.key,
+      'Content-Type':'application/json', Prefer:'return=representation'
+    }, opt.headers||{})
+  }));
+  if(!r.ok){
+    let t=''; try{ t = await r.text(); }catch(e){}
+    throw new Error('수파베이스 오류 '+r.status+': '+t.slice(0,300));
+  }
+  const t = await r.text();
+  return t ? JSON.parse(t) : null;
+}
+async function stPut(bucket, path, blob){
+  const r = await fetch(cfg.url + '/storage/v1/object/' + bucket + '/' + path, {
+    method:'POST',
+    headers:{ apikey:cfg.key, Authorization:'Bearer '+cfg.key, 'x-upsert':'true',
+      'Content-Type': blob.type || 'application/octet-stream' },
+    body: blob
+  });
+  if(!r.ok){
+    let t=''; try{ t = await r.text(); }catch(e){}
+    throw new Error('이미지 저장 오류 '+r.status+': '+t.slice(0,300));
+  }
+}
+async function stDel(bucket, path){
+  try{
+    await fetch(cfg.url + '/storage/v1/object/' + bucket + '/' + path, {
+      method:'DELETE', headers:{ apikey:cfg.key, Authorization:'Bearer '+cfg.key }
+    });
+  }catch(e){}
+}
+function pubUrl(bucket, path){
+  return cfg.url + '/storage/v1/object/public/' + bucket + '/' + path;
+}
+
+/* ================= 시작 ================= */
+async function boot(){
+  try{
+    const [chars, imgs, scenes] = await Promise.all([
+      db('cs_characters?select=*&order=created_at.asc'),
+      db('cs_character_images?select=*&order=sort.asc,created_at.asc'),
+      db('cs_scenes?select=*&order=created_at.desc&limit=12')
+    ]);
+    S.chars = chars||[]; S.imgs = imgs||[]; S.scenes = scenes||[];
+  }catch(e){
+    setStatus('sc-status', '수파베이스에서 데이터를 못 읽었어요. [열쇠 설정]에서 URL·키를 확인해 주세요.\n'+e.message, true);
+    return;
+  }
+  if(!S.charId && S.chars.length) S.charId = S.chars[0].id;
+  renderAll();
+}
+function renderAll(){ renderCharSelect(); renderStrip(); renderCharPanel(); renderGallery(); preview(); }
+
+/* ================= 화면 공통 ================= */
+function setTab(t){
+  document.getElementById('tab-scene').classList.toggle('on', t==='scene');
+  document.getElementById('tab-char').classList.toggle('on', t==='char');
+  document.getElementById('p-scene').style.display = t==='scene' ? '' : 'none';
+  document.getElementById('p-char').style.display = t==='char' ? '' : 'none';
+}
+function setStatus(id, msg, isErr){
+  const el = document.getElementById(id);
+  el.textContent = msg||'';
+  el.className = isErr ? 'err' : 'hint';
+}
+function esc(s){ return String(s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function charImgs(cid){ return S.imgs.filter(i=>i.character_id===cid); }
+function curChar(){ return S.chars.find(c=>c.id===S.charId)||null; }
+function pickChar(id){ S.charId = id||null; renderAll(); }
+
+function renderCharSelect(){
+  const sel = document.getElementById('sc-char');
+  sel.innerHTML = S.chars.length
+    ? S.chars.map(c=>'<option value="'+c.id+'"'+(c.id===S.charId?' selected':'')+'>'+esc(c.name)+'</option>').join('')
+    : '<option value="">캐릭터가 아직 없어요 — 캐릭터 관리에서 먼저 등록</option>';
+}
+function renderStrip(){
+  const box = document.getElementById('refstrip');
+  const list = S.charId ? charImgs(S.charId) : [];
+  if(!list.length){
+    box.innerHTML = '<span class="empty">'+(S.charId
+      ? '이 캐릭터의 참고 이미지가 아직 없어요. 캐릭터 관리에서 올려 주세요.'
+      : '캐릭터를 고르면 참고 이미지가 여기에 보입니다.')+'</span>';
+    return;
+  }
+  box.innerHTML = list.map((im,i)=>
+    '<div class="rf'+(i<5?'':' off')+'"><img src="'+pubUrl('cs-refs', im.path)+'" alt="">'+
+    '<span class="tag">'+(i<5 ? (i+1)+' · '+esc(im.kind) : '전송 안 함')+'</span></div>'
+  ).join('');
+}
+
+/* ================= 프롬프트 조립 ================= */
+function buildPrompt(){
+  const ch = curChar();
+  const scene = document.getElementById('sc-text').value.trim();
+  const noText = document.getElementById('sc-notext').checked;
+  const dialog = document.getElementById('sc-dialog').value.trim();
+  const L = [];
+  if(ch && ch.sheet && ch.sheet.trim()){
+    L.push('[캐릭터 설명서]'); L.push(ch.sheet.trim()); L.push('');
+  }
+  L.push('[그릴 장면]');
+  L.push(scene || '(장면 설명을 여기에 적어 주세요)');
+  L.push('');
+  L.push('[지시]');
+  L.push('- 함께 첨부한 참고 이미지 속 캐릭터와 완전히 똑같은 캐릭터로 그려 주세요. 생김새·몸 비율·색·복장·그림체를 그대로 유지합니다.');
+  if(noText){
+    L.push('- 그림 안에 글자·문자·자막·로고를 절대 넣지 마세요. 말풍선이 필요하면 속을 비워 두세요.');
+  }else if(dialog){
+    L.push('- 말풍선에 다음 대사를 한국어로 정확하게 넣어 주세요: "'+dialog+'"');
+  }
+  L.push('- 배경과 소품은 장면 설명에 맞게 그리되, 캐릭터가 주인공이 되게 해 주세요.');
+  return L.join('\n');
+}
+function preview(){ document.getElementById('sc-preview').textContent = buildPrompt(); }
+function toggleNoText(){
+  const no = document.getElementById('sc-notext').checked;
+  document.getElementById('sc-dialogbox').style.display = no ? 'none' : '';
+  preview();
+}
+
+/* ================= 이미지 도구 ================= */
+function blobToB64(blob){
+  return new Promise((res, rej)=>{
+    const fr = new FileReader();
+    fr.onload = ()=>res(String(fr.result).split(',')[1]);
+    fr.onerror = rej;
+    fr.readAsDataURL(blob);
+  });
+}
+async function shrink(blob, max){
+  try{
+    const bmp = await createImageBitmap(blob);
+    if(bmp.width<=max && bmp.height<=max) return blob;
+    const sc = max/Math.max(bmp.width, bmp.height);
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(bmp.width*sc); cv.height = Math.round(bmp.height*sc);
+    cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+    const type = (blob.type==='image/png') ? 'image/png' : 'image/jpeg';
+    return await new Promise(r=>cv.toBlob(b=>r(b||blob), type, 0.92));
+  }catch(e){ return blob; }
+}
+function b64ToBlob(b64, mime){
+  const bin = atob(b64), arr = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i] = bin.charCodeAt(i);
+  return new Blob([arr], {type:mime||'image/png'});
+}
+function saveBlob(blob, name){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 8000);
+}
+function stamp(){
+  const d = new Date(), p = n=>String(n).padStart(2,'0');
+  return d.getFullYear().toString().slice(2)+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
+}
+
+/* ================= 장면 생성 ================= */
+async function refParts(){
+  const list = charImgs(S.charId).slice(0,5);
+  const parts = [];
+  for(const im of list){
+    const r = await fetch(pubUrl('cs-refs', im.path));
+    if(!r.ok) continue;
+    let b = await r.blob();
+    if(b.size > 3.5*1024*1024) b = await shrink(b, 1536);
+    parts.push({ inline_data: { mime_type: b.type||'image/png', data: await blobToB64(b) } });
+  }
+  return parts;
+}
+async function generate(){
+  if(!cfg){ openCfg(); return; }
+  const btn = document.getElementById('sc-go');
+  const scene = document.getElementById('sc-text').value.trim();
+  if(!S.charId){ setStatus('sc-status','캐릭터를 먼저 골라 주세요. (캐릭터 관리 탭에서 등록)', true); return; }
+  if(!scene){ setStatus('sc-status','장면 설명을 적어 주세요.', true); return; }
+  const prompt = buildPrompt();
+  const ratio = document.getElementById('sc-ratio').value;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>그리는 중… (30초쯤 걸려요)';
+  setStatus('sc-status','참고 이미지를 챙기는 중…');
+  try{
+    const imgs = await refParts();
+    setStatus('sc-status','제미나이가 그리는 중…'+(imgs.length? ' (참고 이미지 '+imgs.length+'장 함께 전송)' : ' (참고 이미지 없음 — 설명서만 전송)'));
+    const body = {
+      contents: [{ parts: imgs.concat([{ text: prompt }]) }],
+      generationConfig: { responseModalities: ['TEXT','IMAGE'], imageConfig: { aspectRatio: ratio } }
+    };
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key='+encodeURIComponent(cfg.gem), {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)
+    });
+    const j = await r.json().catch(()=>null);
+    if(!r.ok){
+      const msg = j && j.error && j.error.message ? j.error.message : ('응답 코드 '+r.status);
+      if(r.status===400 && /API key/i.test(msg)) throw new Error('제미나이 열쇠가 맞지 않아요. [열쇠 설정]에서 다시 확인해 주세요.');
+      if(r.status===429) throw new Error('요청이 몰렸어요. 1분쯤 쉬었다가 다시 눌러 주세요.');
+      throw new Error('제미나이 오류: '+msg);
+    }
+    const parts = (((j.candidates||[])[0]||{}).content||{}).parts||[];
+    const imgPart = parts.find(p=>p.inlineData && p.inlineData.data);
+    if(!imgPart){
+      const txt = parts.map(p=>p.text||'').join(' ').trim();
+      throw new Error(txt ? '그림 대신 글이 왔어요: '+txt.slice(0,300) : '그림이 오지 않았어요. 잠시 후 다시 눌러 주세요.');
+    }
+    const mime = imgPart.inlineData.mimeType || 'image/png';
+    const blob = b64ToBlob(imgPart.inlineData.data, mime);
+    S.lastBlob = blob;
+    S.lastName = (curChar()?curChar().name:'장면') + '_' + stamp() + (mime.includes('jpeg')?'.jpg':'.png');
+    const img = document.getElementById('sc-img');
+    if(img.dataset.u) URL.revokeObjectURL(img.dataset.u);
+    img.src = img.dataset.u = URL.createObjectURL(blob);
+    document.getElementById('result').style.display = '';
+    setStatus('sc-status','완성! 아래에서 다운로드하세요.');
+    saveScene(scene, prompt, blob);   // 기록은 뒤에서 (실패해도 그림은 그대로)
+  }catch(e){
+    setStatus('sc-status', e.message, true);
+  }finally{
+    btn.disabled = false;
+    btn.textContent = '이 장면 그리기';
+  }
+}
+function downloadLast(){
+  if(S.lastBlob) saveBlob(S.lastBlob, S.lastName);
+}
+async function saveScene(scene, prompt, blob){
+  try{
+    const path = (S.charId||'etc') + '/' + Date.now() + '.png';
+    await stPut('cs-scenes', path, blob);
+    await db('cs_scenes', { method:'POST', body: JSON.stringify({
+      character_id: S.charId, prompt: scene, full_prompt: prompt, image_path: path
+    })});
+    S.scenes = (await db('cs_scenes?select=*&order=created_at.desc&limit=12'))||S.scenes;
+    renderGallery();
+  }catch(e){ /* 기록 실패는 조용히 넘어감 — 다운로드에는 지장 없음 */ }
+}
+function renderGallery(){
+  const g = document.getElementById('gallery');
+  const empty = document.getElementById('gal-empty');
+  const rows = S.scenes.filter(s=>s.image_path);
+  empty.style.display = rows.length ? 'none' : '';
+  g.innerHTML = rows.map(s=>{
+    const ch = S.chars.find(c=>c.id===s.character_id);
+    const d = new Date(s.created_at);
+    return '<div class="g"><img src="'+pubUrl('cs-scenes', s.image_path)+'" title="'+esc(s.prompt)+'" onclick="galDown(\''+s.id+'\')">'+
+      '<div class="gi"><span>'+esc(ch?ch.name:'')+' · '+(d.getMonth()+1)+'/'+d.getDate()+'</span>'+
+      '<button class="ghost" onclick="galDown(\''+s.id+'\')">저장</button></div></div>';
+  }).join('');
+}
+async function galDown(id){
+  const s = S.scenes.find(x=>x.id===id);
+  if(!s || !s.image_path) return;
+  try{
+    const r = await fetch(pubUrl('cs-scenes', s.image_path));
+    const b = await r.blob();
+    const ch = S.chars.find(c=>c.id===s.character_id);
+    saveBlob(b, (ch?ch.name:'장면')+'_'+stamp()+'.png');
+  }catch(e){ alert('다운로드에 실패했어요: '+e.message); }
+}
+
+/* ================= 캐릭터 관리 ================= */
+function renderCharPanel(){
+  const list = document.getElementById('charlist');
+  list.innerHTML = S.chars.map(c=>
+    '<button class="'+(c.id===S.charId?'on':'')+'" onclick="pickChar(\''+c.id+'\')">'+esc(c.name)+'</button>'
+  ).join('');
+  const ch = curChar();
+  document.getElementById('ch-name').value = ch ? ch.name : '';
+  document.getElementById('ch-sheet').value = ch ? (ch.sheet||'') : '';
+  document.getElementById('ch-del').style.display = ch ? '' : 'none';
+  document.getElementById('imgsec').style.display = ch ? '' : 'none';
+  setStatus('ch-status','');
+  if(ch) renderImgList();
+}
+function newChar(){
+  S.charId = null;
+  renderCharPanel();
+  document.getElementById('ch-name').focus();
+}
+async function saveChar(){
+  const name = document.getElementById('ch-name').value.trim();
+  const sheet = document.getElementById('ch-sheet').value;
+  if(!name){ setStatus('ch-status','이름을 적어 주세요.', true); return; }
+  setStatus('ch-status','저장하는 중…');
+  try{
+    if(S.charId){
+      await db('cs_characters?id=eq.'+S.charId, { method:'PATCH', body: JSON.stringify({name, sheet}) });
+    }else{
+      const rows = await db('cs_characters', { method:'POST', body: JSON.stringify({name, sheet}) });
+      S.charId = rows[0].id;
+    }
+    S.chars = (await db('cs_characters?select=*&order=created_at.asc'))||[];
+    renderAll();
+    setStatus('ch-status','저장했어요.');
+  }catch(e){ setStatus('ch-status', e.message, true); }
+}
+async function delChar(){
+  const ch = curChar();
+  if(!ch) return;
+  if(!confirm('"'+ch.name+'" 캐릭터와 참고 이미지를 모두 지울까요? 되돌릴 수 없어요.')) return;
+  try{
+    for(const im of charImgs(ch.id)) await stDel('cs-refs', im.path);
+    await db('cs_characters?id=eq.'+ch.id, { method:'DELETE' });
+    S.charId = null;
+    await boot();
+  }catch(e){ setStatus('ch-status', e.message, true); }
+}
+function renderImgList(){
+  const box = document.getElementById('imglist');
+  const list = charImgs(S.charId);
+  box.innerHTML = list.map((im,i)=>
+    '<div class="im"><img src="'+pubUrl('cs-refs', im.path)+'" alt="">'+
+    '<div class="k">'+esc(im.kind)+'<div class="p">'+(i<5?(i+1)+'번째로 전송':'전송 안 함 (6번째부터)')+'</div></div>'+
+    '<button class="ghost" onclick="moveImg(\''+im.id+'\',-1)" '+(i===0?'disabled':'')+'>위로</button>'+
+    '<button class="ghost" onclick="moveImg(\''+im.id+'\',1)" '+(i===list.length-1?'disabled':'')+'>아래로</button>'+
+    '<button class="ghost danger" onclick="delImg(\''+im.id+'\')">지우기</button></div>'
+  ).join('');
+}
+async function uploadImgs(){
+  const files = document.getElementById('im-file').files;
+  const kind = document.getElementById('im-kind').value;
+  if(!S.charId){ setStatus('im-status','캐릭터를 먼저 저장해 주세요.', true); return; }
+  if(!files.length){ setStatus('im-status','파일을 골라 주세요.', true); return; }
+  setStatus('im-status','올리는 중…');
+  try{
+    let sort = Math.max(0, ...charImgs(S.charId).map(i=>i.sort)) + 1;
+    for(const f of files){
+      const ext = (f.name.match(/\.(\w+)$/)||[])[1] || 'png';
+      const path = S.charId + '/' + crypto.randomUUID() + '.' + ext.toLowerCase();
+      await stPut('cs-refs', path, f);
+      await db('cs_character_images', { method:'POST', body: JSON.stringify({
+        character_id: S.charId, kind, path, sort: sort++
+      })});
+    }
+    document.getElementById('im-file').value = '';
+    S.imgs = (await db('cs_character_images?select=*&order=sort.asc,created_at.asc'))||[];
+    renderStrip(); renderImgList();
+    setStatus('im-status', files.length+'장 올렸어요.');
+  }catch(e){ setStatus('im-status', e.message, true); }
+}
+async function moveImg(id, dir){
+  const list = charImgs(S.charId);
+  const i = list.findIndex(x=>x.id===id);
+  const j = i + dir;
+  if(i<0 || j<0 || j>=list.length) return;
+  const a = list[i], b = list[j];
+  const sa = a.sort, sb = b.sort;
+  const na = (sa===sb) ? sb + (dir<0?-1:1) : sb;   // 같은 값이면 강제로 벌림
+  try{
+    await db('cs_character_images?id=eq.'+a.id, { method:'PATCH', body: JSON.stringify({sort: na}) });
+    await db('cs_character_images?id=eq.'+b.id, { method:'PATCH', body: JSON.stringify({sort: sa}) });
+    S.imgs = (await db('cs_character_images?select=*&order=sort.asc,created_at.asc'))||[];
+    renderStrip(); renderImgList();
+  }catch(e){ setStatus('im-status', e.message, true); }
+}
+async function delImg(id){
+  const im = S.imgs.find(x=>x.id===id);
+  if(!im) return;
+  if(!confirm('이 참고 이미지를 지울까요?')) return;
+  try{
+    await stDel('cs-refs', im.path);
+    await db('cs_character_images?id=eq.'+id, { method:'DELETE' });
+    S.imgs = S.imgs.filter(x=>x.id!==id);
+    renderStrip(); renderImgList();
+  }catch(e){ setStatus('im-status', e.message, true); }
+}
+
+/* ================= 출발 ================= */
+window.addEventListener('DOMContentLoaded', ()=>{
+  preview();
+  if(loadCfg()) boot();
+  else openCfg();
+});
+</script>
+</body>
+</html>
