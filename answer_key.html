@@ -109,6 +109,18 @@
   #copyBtn{ background:var(--sage-d); color:#fff; }
   .secbar{ display:flex; align-items:center; justify-content:space-between; }
   .secbar .mini{ font-size:12px; color:var(--muted); }
+  /* 저장된 회차 목록 (수정·삭제) */
+  #exlist .mini{ font-size:12.5px; color:var(--muted); }
+  .exrow{ display:flex; align-items:center; gap:10px; border-bottom:1px dashed var(--line); padding:10px 2px; font-size:14px; flex-wrap:wrap; }
+  .exrow:last-child{ border-bottom:none; }
+  .exrow b{ font-family:'Gowun Batang',serif; }
+  .exrow .tag{ font-size:11px; border-radius:6px; padding:1px 8px; background:var(--lav-bg); color:#4a4356; white-space:nowrap; }
+  .exrow .cnt{ font-size:12px; color:var(--muted); white-space:nowrap; }
+  .exrow .sp{ flex:1; }
+  .exrow button{ font-family:inherit; font-size:12.5px; padding:6px 12px; border-radius:8px; border:1.5px solid var(--line); background:#fafafb; cursor:pointer; color:var(--ink); }
+  .exrow button:hover{ border-color:var(--lav); }
+  .exrow button.del{ color:#b0483f; }
+  .exrow button.del:hover{ border-color:#d3a19c; background:#fbf0ee; }
   /* 출력 */
   #out{ margin:16px; }
   #out textarea{
@@ -197,15 +209,21 @@
   <div class="qgrid" id="qgrid"></div>
 </section>
 
+<!-- 저장이 내부에서 데이터 생성·검증까지 한다 — 생성·복사 버튼은 제거 (2026-08-28 사용자 확정 "저장 버튼이면 됩니다") -->
 <div class="toolbar">
-  <button id="genBtn" onclick="generate()">성적표용 데이터 생성</button>
   <button id="saveBtn" onclick="saveToSheet()">시트에 바로 저장</button>
-  <button id="copyBtn" onclick="copyOut()">복사</button>
 </div>
 <div id="out" style="display:none;">
-  <textarea id="outText" readonly></textarea>
+  <textarea id="outText" readonly style="display:none;"></textarea>
   <div class="summary" id="summary"></div>
 </div>
+
+<!-- 저장된 회차 — 불러와 수정·삭제 (2026-08-28 사용자 요청 "출제 페이지 아래에 삭제·수정") -->
+<section>
+  <h2>저장된 회차</h2>
+  <div class="hint" style="margin-bottom:10px;">[불러와서 수정]을 누르면 위 입력칸에 그 회차가 그대로 채워져요 — 고친 뒤 [시트에 바로 저장]을 누르면 같은 이름으로 수정 저장됩니다. 삭제하면 학생 OMR 목록에서 사라져요(이미 제출한 성적 기록은 남습니다).</div>
+  <div id="exlist"><span class="mini">불러오는 중…</span></div>
+</section>
 
 <div class="toast" id="toast"></div>
 
@@ -636,8 +654,119 @@ function copyOut(){
   navigator.clipboard.writeText(t.value).then(()=>toast('클립보드에 복사되었습니다'));
 }
 
+/* ── 저장된 회차 — 불러와 수정·삭제 (2026-08-28 사용자 요청) ─────────────
+ * 원본은 수파베이스 omr_exams(017). 위 '조용한 인증' 조각이 /rest/v1 요청에 교사
+ * 신분을 붙여 목록 조회·삭제가 된다. 삭제는 원본을 먼저 지우고 시트 사본(회차정답
+ * 탭)은 no-cors로 뒤에서 정리(실패해도 새벽 점검이 보고). 수정은 회차를 폼에
+ * 불러온 뒤 기존 [시트에 바로 저장](같은 이름 덮어쓰기)으로 저장한다. */
+const SB_REST = 'https://bangdbhqpphqqdwcledg.supabase.co/rest/v1';
+const SBK2 = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+function sbReq(method, path, extraHeaders){
+  const h = { 'apikey': SBK2, 'Authorization': 'Bearer ' + SBK2, 'Content-Type': 'application/json' };
+  for (const k in (extraHeaders || {})) h[k] = extraHeaders[k];
+  return fetch(SB_REST + path, { method: method, headers: h });
+}
+let exRows = [], exCnt = {};
+function exLoad(){
+  const box = document.getElementById('exlist');
+  Promise.all([
+    sbReq('GET', '/omr_exams?select=name,mode&order=seq.desc').then(r => { if(!r.ok) throw 0; return r.json(); }),
+    sbReq('GET', '/omr_responses?select=exam').then(r => r.ok ? r.json() : [])
+  ]).then(([rows, resp]) => {
+    exRows = rows; exCnt = {};
+    resp.forEach(x => { exCnt[x.exam] = (exCnt[x.exam] || 0) + 1; });
+    exRender();
+  }).catch(() => { box.innerHTML = '<span class="mini">목록을 불러오지 못했어요 — 인터넷을 확인하고 새로고침 해 보세요.</span>'; });
+}
+function escX(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function jsArg(s){ return escX(JSON.stringify(String(s))); }   // onclick 속성 안에 문자열 인자로
+function exRender(){
+  const box = document.getElementById('exlist');
+  if (!exRows.length){ box.innerHTML = '<span class="mini">저장된 회차가 없어요.</span>'; return; }
+  box.innerHTML = exRows.map(x => {
+    const n = exCnt[x.name] || 0;
+    return '<div class="exrow"><b>' + escX(x.name) + '</b>' +
+      '<span class="tag">' + (x.mode === '통합' ? '통합형' : '고3형') + '</span>' +
+      '<span class="cnt">' + (n ? '제출 ' + n + '건' : '제출 없음') + '</span><span class="sp"></span>' +
+      '<button type="button" onclick="exPick(' + jsArg(x.name) + ')">불러와서 수정</button>' +
+      '<button type="button" class="del" onclick="exDel(' + jsArg(x.name) + ')">삭제</button></div>';
+  }).join('');
+}
+function exPick(name){
+  sbReq('GET', '/omr_exams?name=eq.' + encodeURIComponent(name) + '&select=name,data')
+    .then(r => { if(!r.ok) throw 0; return r.json(); })
+    .then(rows => {
+      if (!rows.length){ toast('회차를 찾지 못했어요 — 목록을 새로고침해요'); exLoad(); return; }
+      let pack = null;
+      try { pack = JSON.parse(rows[0].data); } catch(e){}
+      if (!pack){ toast('회차 데이터를 읽지 못했어요'); return; }
+      applyExam(rows[0].name, pack);
+    })
+    .catch(() => toast('불러오지 못했어요 — 잠시 후 다시 시도해 주세요'));
+}
+function applyExam(name, pack){
+  if (pack.mode === '통합' && pack['통합']){
+    switchMode('int');
+    const e = pack['통합'];
+    fillMeta(name, e);
+    setCuts(['cutInt1','cutInt2','cutInt3','cutInt4'], e.cuts);
+    fillBlock(data.int, 1, 45, e, true);
+  } else if (pack['화법과작문'] && pack['언어와매체']){
+    switchMode('g3'); switchTab('common');
+    const h = pack['화법과작문'], m = pack['언어와매체'];
+    fillMeta(name, h);
+    setCuts(['cutHwa1','cutHwa2','cutHwa3','cutHwa4'], h.cuts);
+    setCuts(['cutEon1','cutEon2','cutEon3','cutEon4'], m.cuts);
+    fillBlock(data.common, 1, 34, h, true);
+    fillBlock(data.hwa, 35, 45, h, false);   // 선택과목 영역은 저장 때 자동 지정이라 비워 둔다
+    fillBlock(data.eon, 35, 45, m, false);
+  } else { toast('알 수 없는 회차 형식이에요'); return; }
+  renderPalette(); updateHint(); render();
+  toast("'" + name + "' 회차를 불러왔어요 — 고친 뒤 [시트에 바로 저장]을 누르면 수정 저장돼요");
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function fillMeta(name, e){
+  document.getElementById('code').value = e.code || name;
+  document.getElementById('date').value = e.date || '';
+  document.getElementById('grade').value = e.grade || '';
+}
+function setCuts(ids, cuts){
+  ids.forEach((id, i) => { document.getElementById(id).value = (cuts && cuts[i] != null && cuts[i] !== 0) ? cuts[i] : ''; });
+}
+function fillBlock(blk, from, to, e, useArea){
+  const areaOf = {};
+  (e.areas || []).forEach(a => { (a.qs || []).forEach(q => { areaOf[q] = a.name; }); });
+  for (let q = from; q <= to; q++){
+    const ans = e.answers ? e.answers[q] : null;
+    const pt = e.points ? e.points[q] : 2;
+    const an = areaOf[q];
+    blk[q] = { ans: ans ? +ans : null, area: (useArea && an && an !== '미지정') ? an : null, p3: +pt === 3 };
+  }
+}
+function exDel(name){
+  const n = exCnt[name] || 0;
+  const msg = "'" + name + "' 회차를 삭제할까요?\n\n학생 OMR 목록에서 사라지고 되돌릴 수 없어요." +
+    (n ? '\n이 회차의 제출 ' + n + '건(성적 기록)은 지워지지 않고 남아요.' : '');
+  if (!confirm(msg)) return;
+  sbReq('DELETE', '/omr_exams?name=eq.' + encodeURIComponent(name), { 'Prefer': 'return=representation' })
+    .then(r => { if(!r.ok) throw 0; return r.json(); })
+    .then(rows => {
+      if (!rows.length){ toast('삭제하지 못했어요 — 이미 지워졌거나 권한이 없어요'); exLoad(); return; }
+      toast("'" + name + "' 회차를 삭제했어요 — 학생 OMR 목록에서 사라집니다");
+      // 시트 사본(회차정답 탭)도 뒤에서 정리 — 응답은 기다리지 않는다(실패해도 새벽 점검이 보고)
+      try {
+        fetch(OMR_API, { method: 'POST', mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'deleteExam', pw: 'sh', name: name }) });
+      } catch(e){}
+      exLoad();
+    })
+    .catch(() => toast('삭제하지 못했어요 — 잠시 후 다시 시도해 주세요'));
+}
+
 /* init */
 renderPalette(); updateHint(); render();
+exLoad();
 </script>
 </body>
 </html>
