@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이수경국어 · 모의고사 회차 분석</title>
+<!-- 이수경국어 주말 실전 모의고사 · 회차별 분석 (2026-08-30)
+     원본: omr_exams(회차 정답·배점·영역·등급컷) + omr_responses(제출 답안) — 둘 다 수파베이스.
+     교사 신분(조용한 인증)으로 표를 직접 읽어 화면에서 집계한다(백엔드 변경 없음).
+     점수·등급은 저장값이 아니라 **지금 정답으로 다시 채점**한 값이다(성적 관리의 성적표와 같은 방식).
+     참고: 성적 관리 = omr_teacher.html, 출제 = answer_key.html -->
+<link rel="preconnect" href="https://bangdbhqpphqqdwcledg.supabase.co">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sage:#a9c0b4; --sage-d:#7fa08f;
+    --lav:#b8b0cc; --lav-d:#8d83a8; --lav-bg:#e8e3f0;
+    --ink:#3f3a44; --muted:#8a8590;
+    --line:#e4e0e8; --paper:#f7f6f3; --card:#ffffff;
+    --head2:#dcd5e6;
+    --ok:#1b8a3a; --ok-bg:#e3f2e8; --bad:#d0473f; --bad-bg:#fcebea;
+    --bar:#9b8fb5;
+    --shadow:0 2px 12px rgba(63,58,68,.07);
+  }
+  *{box-sizing:border-box;}
+  body{ font-family:'Gowun Dodum',-apple-system,sans-serif; background:var(--paper); color:var(--ink);
+    max-width:980px; margin:0 auto; padding:0 0 60px; line-height:1.5; }
+  a{color:inherit;}
+  .brand{ background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%);
+    padding:20px 24px 16px; border-radius:0 0 22px 22px; box-shadow:var(--shadow);
+    display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .brand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:#473f55; }
+  .brand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#5d5568; letter-spacing:2px; }
+  .brand .links{ margin-left:auto; display:flex; gap:14px; font-size:13px; }
+  .brand .links a{ color:#4a4356; text-decoration:none; border-bottom:1px solid rgba(74,67,86,.35); }
+  .title-bar{ background:var(--lav-bg); margin:16px; padding:11px 18px; border-radius:10px;
+    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#4a4356; text-align:center; }
+
+  /* 도구줄 */
+  .toolbar{ margin:16px; background:var(--card); border-radius:12px; box-shadow:var(--shadow);
+    padding:14px 16px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .toolbar select{ padding:10px 12px; border:1.5px solid var(--line); border-radius:9px;
+    font-size:14px; font-family:inherit; background:#fff; min-width:190px; max-width:100%; }
+  .toolbar button{ padding:10px 16px; border:none; border-radius:9px; background:var(--lav-d); color:#fff;
+    font-family:'Gowun Batang',serif; font-weight:700; font-size:14px; cursor:pointer; }
+  .toolbar .opts{ display:flex; gap:14px; flex-wrap:wrap; margin-left:auto; font-size:13px; color:#5d5568; }
+  .toolbar label.opt{ display:inline-flex; align-items:center; gap:6px; cursor:pointer; }
+  .toolbar input[type=checkbox]{ width:15px; height:15px; accent-color:var(--lav-d); }
+
+  .note{ margin:0 16px 12px; font-size:12.5px; color:var(--muted); line-height:1.7; }
+  .loading,.empty{ margin:16px; padding:40px; text-align:center; color:var(--muted); font-size:14px;
+    background:var(--card); border-radius:12px; box-shadow:var(--shadow); }
+
+  section{ margin:20px 16px; }
+  section > h2{ font-family:'Gowun Batang',serif; font-size:16px; margin:0 0 10px;
+    display:flex; align-items:center; gap:8px; }
+  section > h2::before{ content:""; width:9px; height:9px; border-radius:2px; background:var(--lav); }
+  section > h2 .hint{ font-family:'Gowun Dodum',sans-serif; font-size:12px; color:var(--muted); font-weight:400; }
+
+  /* 요약 타일 */
+  .tiles{ display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr)); gap:10px; }
+  .tile{ background:var(--card); border-radius:12px; box-shadow:var(--shadow); padding:14px 12px; text-align:center; }
+  .tile .k{ font-size:12px; color:var(--muted); }
+  .tile .v{ font-family:'Gowun Batang',serif; font-size:24px; font-weight:700; color:var(--lav-d); margin-top:3px; }
+  .tile .s{ font-size:11.5px; color:var(--muted); margin-top:2px; }
+
+  /* 공통 표 */
+  .tbl-wrap{ background:var(--card); border-radius:12px; box-shadow:var(--shadow); overflow-x:auto; }
+  table.t{ width:100%; border-collapse:collapse; }
+  table.t th{ background:var(--head2); color:#473f55; font-size:12.5px; padding:10px 8px; white-space:nowrap; }
+  table.t td{ padding:10px 8px; font-size:13.5px; text-align:center; border-bottom:1px solid var(--line); white-space:nowrap; }
+  table.t tr:last-child td{ border-bottom:none; }
+  table.t td.l{ text-align:left; }
+  table.t .big{ font-family:'Gowun Batang',serif; font-size:17px; font-weight:700; color:var(--lav-d); }
+  table.t .sub{ font-size:11.5px; color:var(--muted); }
+
+  /* 등급별 명단 */
+  .glist{ display:flex; flex-direction:column; gap:10px; }
+  .grow{ background:var(--card); border-radius:12px; box-shadow:var(--shadow); padding:13px 15px; }
+  .ghead{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .gname{ font-family:'Gowun Batang',serif; font-weight:700; font-size:15px; min-width:52px; }
+  .gcnt{ font-size:13px; color:var(--lav-d); font-weight:700; }
+  .gpct{ font-size:12px; color:var(--muted); }
+  .gbar{ flex:1; min-width:90px; height:8px; background:#efedf3; border-radius:99px; overflow:hidden; }
+  .gbar i{ display:block; height:100%; background:var(--bar); border-radius:99px; }
+  .gcut{ font-size:12px; color:var(--muted); }
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+  .chip{ background:#f4f2f7; border-radius:7px; padding:5px 9px; font-size:12.5px; }
+  .chip b{ font-weight:700; }
+  .chip .sc{ color:var(--lav-d); font-weight:700; margin-left:4px; }
+  .chip .sch{ color:var(--muted); margin-left:4px; font-size:11.5px; }
+  .chip.hwa{ background:#eef2f6; } .chip.eon{ background:#f3eff5; }
+  .gnone{ font-size:12.5px; color:var(--muted); margin-top:8px; }
+
+  /* 문항 표 */
+  table.q td.pick{ position:relative; padding:6px 4px; min-width:52px; }
+  table.q td.pick .fill{ position:absolute; left:3px; right:3px; bottom:4px; height:4px;
+    background:#ddd8e6; border-radius:99px; }
+  table.q td.pick .fill i{ display:block; height:100%; background:var(--bar); border-radius:99px; }
+  table.q td.pick span{ position:relative; font-size:12.5px; }
+  table.q td.pick.ans{ background:var(--ok-bg); }
+  table.q td.pick.ans span{ color:var(--ok); font-weight:700; }
+  table.q td.pick.ans .fill i{ background:var(--sage-d); }
+  table.q td.pick.top{ color:var(--bad); font-weight:700; }
+  table.q td.rate{ font-weight:700; }
+  table.q td.rate.hot{ color:var(--bad); background:var(--bad-bg); }
+  table.q .qn{ font-family:'Gowun Batang',serif; font-weight:700; }
+  table.q td.rank{ font-family:'Gowun Batang',serif; font-weight:700; color:var(--lav-d); }
+  .qtabs{ display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .qtabs button{ padding:8px 14px; border:1.5px solid var(--line); background:#fff; color:#5d5568;
+    border-radius:9px; font-family:'Gowun Batang',serif; font-weight:700; font-size:13px; cursor:pointer; }
+  .qtabs button.on{ background:var(--lav-bg); border-color:var(--lav); color:#473f55; }
+  .legend{ font-size:12px; color:var(--muted); margin-top:8px; text-align:right; }
+  .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--ink); color:#fff; padding:11px 22px; border-radius:99px; font-size:13px;
+    opacity:0; transition:all .25s; pointer-events:none; z-index:50; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  @media (max-width:600px){
+    .toolbar .opts{ margin-left:0; width:100%; }
+    .tile .v{ font-size:20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="brand">
+  <span class="name">이수경국어</span><span class="sub">Shueguk · 회차 분석</span>
+  <span class="links"><a href="weekend.html">모의고사 메뉴</a><a href="omr_teacher.html">성적 관리</a></span>
+</div>
+<div class="title-bar">주말 실전 모의고사 · 회차별 성적 분석</div>
+
+<div class="toolbar">
+  <select id="fExam" onchange="pickExam()"><option>회차 불러오는 중…</option></select>
+  <button type="button" onclick="reload()">새로고침</button>
+  <span class="opts">
+    <label class="opt"><input type="checkbox" id="optDedup" checked onchange="render()">중복 제출은 최근 것만</label>
+    <label class="opt"><input type="checkbox" id="optTest" checked onchange="render()">테스트 제출 빼기</label>
+  </span>
+</div>
+
+<div id="view"><div class="loading">불러오는 중…</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══ 교사 페이지 조용한 인증 (2026-08-25, 3단계) ═══════════════════════
+ * 이 아래 연결부들이 수파베이스에 보내는 요청에 '교사 신분'을 붙인다.
+ * 화면에 로그인 창은 없다 — 페이지가 열릴 때 알아서 받아 온다.
+ *
+ * 주의:
+ *   · 이 조각은 **교사용 페이지에만** 넣는다. 학생이 여는 페이지에는 절대 넣지 말 것.
+ *   · 아래 연결부들이 시작할 때 window.fetch 를 붙잡아 두므로, 이 조각은 **그것들보다
+ *     먼저** 실행돼야 한다. 페이지의 첫 스크립트 자리를 지킬 것. */
+(function(){
+  var SB_URL = 'https://bangdbhqpphqqdwcledg.supabase.co';
+  var SB_KEY = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  var T_ID = 'teachers@shueguk.internal';
+  var T_PW = 'shg_FCePWvnawH44SV8kYB9BHRKi6aag';
+  var tok = null, until = 0, pending = null;
+  var raw = window.fetch.bind(window);
+
+  function auth(){
+    if (tok && Date.now() < until) return Promise.resolve(tok);
+    if (pending) return pending;
+    pending = raw(SB_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: T_ID, password: T_PW })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      pending = null;
+      if (!d || !d.access_token) throw new Error('teacher auth');
+      tok = d.access_token;
+      until = Date.now() + Math.max(60, (d.expires_in || 3600) - 300) * 1000;   // 만료 5분 전에 다시 받는다
+      return tok;
+    }, function(e){ pending = null; throw e; });
+    return pending;
+  }
+  function withAuth(url, opts, t){
+    var src = (opts && opts.headers) || {}, h = {};
+    if (src.forEach && !src.hasOwnProperty) src.forEach(function(v, k){ h[k] = v; });
+    else for (var k in src) h[k] = src[k];
+    h['apikey'] = SB_KEY;
+    h['Authorization'] = 'Bearer ' + t;
+    var o = {}; for (var k2 in (opts || {})) o[k2] = opts[k2];
+    o.headers = h;
+    return o;
+  }
+  window.fetch = function(url, opts){
+    var u = (typeof url === 'string') ? url : ((url && url.url) || '');
+    if (u.indexOf(SB_URL + '/rest/v1') !== 0) return raw(url, opts);
+    return auth().then(function(t){
+      return raw(url, withAuth(url, opts, t)).then(function(r){
+        if (r.status !== 401) return r;
+        tok = null; until = 0;                       // 만료가 겹쳤으면 한 번만 다시 받아 재시도
+        return auth().then(function(t2){ return raw(url, withAuth(url, opts, t2)); });
+      });
+    }, function(){ return raw(url, opts); });
+  };
+})();
+</script>
+
+<script>
+/* ==ANALYSIS-CORE== 집계 로직 (화면과 분리 — tools/omr-analysis-test.js 가 이 블록만 떼어 검증한다) */
+var CORE = (function(){
+  var SUBJ_ORDER = ['공통','화법과작문','언어와매체'];
+
+  // 응답의 선택과목에 맞는 회차 데이터 — 통합형이면 항상 '통합'
+  function packOf(pack, subject){
+    if (!pack) return null;
+    if (pack['통합']) return pack['통합'];
+    return pack[subject] || null;
+  }
+  // 그 회차에 실제로 쓰이는 과목들 (통합형='공통', 고3형=화작·언매)
+  function subjectsOf(pack){
+    if (!pack) return [];
+    if (pack['통합']) return ['공통'];
+    return SUBJ_ORDER.filter(function(s){ return s !== '공통' && pack[s]; });
+  }
+  // 선택과목 문항 번호 — 영역 분류가 '선택과목'인 문항, 없으면 35번부터로 본다(옛 회차)
+  function selectQs(exam){
+    var s = {};
+    var got = false;
+    (exam && exam.areas || []).forEach(function(a){
+      if (a.cat === '선택과목') (a.qs || []).forEach(function(q){ s[+q] = true; got = true; });
+    });
+    if (!got && exam && exam.subject && exam.subject !== '공통'){
+      for (var q = 35; q <= 45; q++) s[q] = true;
+    }
+    return s;
+  }
+  // 공통 문항 = 어느 과목에서도 선택과목이 아닌 문항
+  function commonQs(pack){
+    var sel = {};
+    subjectsOf(pack).forEach(function(s){
+      var e = packOf(pack, s); if (!e) return;
+      var m = selectQs(e);
+      for (var k in m) sel[k] = true;
+    });
+    var out = [];
+    for (var q = 1; q <= 45; q++) if (!sel[q]) out.push(q);
+    return out;
+  }
+  function areaNameOf(exam){
+    var map = {};
+    (exam && exam.areas || []).forEach(function(a){
+      (a.qs || []).forEach(function(q){ map[+q] = a.name; });
+    });
+    return map;
+  }
+  function ptOf(exam, q){ var p = exam && exam.points ? exam.points[q] : null; return p == null ? 0 : Number(p); }
+  function ansOf(exam, q){ var a = exam && exam.answers ? exam.answers[q] : null; return a == null ? '' : String(a); }
+
+  // 등급 판정 (omr_score_build_ 와 같은 규칙: 컷 이상이면 그 등급, 4등급 컷 미만은 등급외)
+  function gradeOf(got, cuts){
+    cuts = cuts || [];
+    for (var i = 0; i < 4; i++){
+      var c = Number(cuts[i]);
+      if (isFinite(c) && got >= c) return String(i + 1);
+    }
+    return '등급외';
+  }
+
+  function trim(v){ return String(v == null ? '' : v).trim(); }
+
+  // 같은 학생(이름+학교)의 여러 제출 중 마지막 것만 남긴다
+  function dedupe(rows){
+    var last = {};
+    rows.forEach(function(r){
+      var k = trim(r.name) + '|' + trim(r.school);
+      var prev = last[k];
+      if (!prev || String(r.submitted_at) > String(prev.submitted_at)
+          || (String(r.submitted_at) === String(prev.submitted_at) && (r.id || 0) > (prev.id || 0))) last[k] = r;
+    });
+    return rows.filter(function(r){
+      var k = trim(r.name) + '|' + trim(r.school);
+      return last[k] === r;
+    });
+  }
+  function isTestRow(r){ return trim(r.name) === '테스트' || trim(r.school) === '테스트'; }
+
+  function avg(a){ return a.length ? a.reduce(function(x, y){ return x + y; }, 0) / a.length : 0; }
+  function pct(n, d){ return d > 0 ? Math.round(n / d * 1000) / 10 : 0; }
+
+  /* 한 회차 전체 집계
+     pack: 회차 데이터(JSON 파싱본) / rows: omr_responses 행들
+     opts: {dedupe:true, dropTest:true} */
+  function analyze(pack, rows, opts){
+    opts = opts || {};
+    var used = (rows || []).slice();
+    var dropped = { test: 0, dup: 0, nokey: 0 };
+    if (opts.dropTest){
+      var before = used.length;
+      used = used.filter(function(r){ return !isTestRow(r); });
+      dropped.test = before - used.length;
+    }
+    if (opts.dedupe){
+      var b2 = used.length;
+      used = dedupe(used);
+      dropped.dup = b2 - used.length;
+    }
+
+    // ── 학생별 채점 (지금 정답 기준으로 다시 채점) ──
+    var students = [];
+    used.forEach(function(r){
+      var exam = packOf(pack, trim(r.subject));
+      if (!exam){ dropped.nokey++; return; }
+      var subject = pack['통합'] ? '공통' : trim(r.subject);
+      var answers = r.answers || {};
+      var got = 0, total = 0, marks = {};
+      for (var q = 1; q <= 45; q++){
+        var pt = ptOf(exam, q), ans = ansOf(exam, q);
+        var mine = trim(answers[q]);
+        var ok = ans !== '' && mine !== '' && mine === ans;
+        total += pt;
+        if (ok) got += pt;
+        marks[q] = { mine: mine, ans: ans, ok: ok, pt: pt };
+      }
+      students.push({
+        id: r.id, name: trim(r.name), school: trim(r.school), grade: trim(r.grade),
+        subject: subject, submittedAt: r.submitted_at, examDate: trim(r.exam_date),
+        got: got, total: total, level: gradeOf(got, exam.cuts), marks: marks
+      });
+    });
+    students.sort(function(a, b){ return b.got - a.got || a.name.localeCompare(b.name, 'ko'); });
+
+    // ── 과목별 응시 인원·평균 ──
+    var bySubject = subjectsOf(pack).map(function(s){
+      var exam = packOf(pack, s);
+      var list = students.filter(function(x){ return x.subject === s; });
+      var scores = list.map(function(x){ return x.got; });
+      var lv = {};
+      list.forEach(function(x){ lv[x.level] = (lv[x.level] || 0) + 1; });
+      return {
+        subject: s, n: list.length,
+        avg: Math.round(avg(scores) * 10) / 10,
+        max: scores.length ? Math.max.apply(null, scores) : 0,
+        min: scores.length ? Math.min.apply(null, scores) : 0,
+        total: exam ? (function(){ var t = 0; for (var q = 1; q <= 45; q++) t += ptOf(exam, q); return t; })() : 0,
+        cuts: (exam && exam.cuts) || [], levels: lv
+      };
+    });
+
+    // ── 등급별 명단 ──
+    var LV = ['1','2','3','4','등급외'];
+    var byLevel = LV.map(function(l){
+      var list = students.filter(function(x){ return x.level === l; });
+      return { level: l, n: list.length, pct: pct(list.length, students.length), students: list };
+    });
+
+    // ── 문항별 집계 ──
+    // 공통 문항: 전원 대상 / 선택과목 문항: 그 과목 응시자 대상
+    var common = commonQs(pack);
+    var isCommon = {}; common.forEach(function(q){ isCommon[q] = true; });
+
+    function questionStats(qs, list, exam){
+      return qs.map(function(q){
+        var picks = { '1':0,'2':0,'3':0,'4':0,'5':0 }, blank = 0, right = 0;
+        list.forEach(function(st){
+          var m = st.marks[q] || {};
+          var v = m.mine;
+          if (v === '' || picks[v] === undefined) blank++;
+          else picks[v]++;
+          if (m.ok) right++;
+        });
+        var n = list.length;
+        var ans = ansOf(exam, q);
+        // 가장 많이 고른 오답
+        var topWrong = null;
+        ['1','2','3','4','5'].forEach(function(c){
+          if (c === ans) return;
+          if (!topWrong || picks[c] > picks[topWrong]) topWrong = c;
+        });
+        if (topWrong && picks[topWrong] === 0) topWrong = null;
+        return {
+          q: q, area: areaNameOf(exam)[q] || '', pt: ptOf(exam, q), ans: ans,
+          n: n, right: right, wrong: n - right,
+          rightPct: pct(right, n), wrongPct: pct(n - right, n),
+          picks: picks, blank: blank,
+          pickPct: { '1':pct(picks['1'],n), '2':pct(picks['2'],n), '3':pct(picks['3'],n),
+                     '4':pct(picks['4'],n), '5':pct(picks['5'],n) },
+          blankPct: pct(blank, n),
+          topWrong: topWrong, topWrongPct: topWrong ? pct(picks[topWrong], n) : 0
+        };
+      });
+    }
+
+    var firstSubject = subjectsOf(pack)[0] || '';
+    var commonExam = packOf(pack, firstSubject);
+    var commonStats = commonExam ? questionStats(common, students, commonExam) : [];
+    var top10 = commonStats.slice().sort(function(a, b){
+      return b.wrongPct - a.wrongPct || b.wrong - a.wrong || a.q - b.q;
+    }).slice(0, 10);
+
+    var bySubjectQs = subjectsOf(pack).map(function(s){
+      var exam = packOf(pack, s);
+      var qs = [];
+      for (var q = 1; q <= 45; q++) if (!isCommon[q]) qs.push(q);
+      var list = students.filter(function(x){ return x.subject === s; });
+      return { subject: s, stats: exam ? questionStats(qs, list, exam) : [] };
+    }).filter(function(x){ return x.stats.length; });
+
+    // ── 영역별 평균 성취도 (공통 영역은 전원, 선택과목 영역은 그 과목 응시자) ──
+    var areas = [];
+    subjectsOf(pack).forEach(function(s){
+      var exam = packOf(pack, s);
+      (exam && exam.areas || []).forEach(function(a){
+        var qs = (a.qs || []).map(Number);
+        var sel = qs.some(function(q){ return !isCommon[q]; });
+        var key = a.cat + '|' + a.name;
+        if (!sel && areas.some(function(x){ return x.key === key; })) return;   // 공통 영역은 한 번만
+        var list = sel ? students.filter(function(x){ return x.subject === s; }) : students;
+        var full = qs.reduce(function(t, q){ return t + ptOf(exam, q); }, 0);
+        var scores = list.map(function(st){
+          return qs.reduce(function(t, q){ return t + ((st.marks[q] && st.marks[q].ok) ? st.marks[q].pt : 0); }, 0);
+        });
+        areas.push({
+          // 영역 이름이 곧 과목이면(선택과목 영역) 과목을 덧붙이지 않는다 — '언어와 매체'처럼 띄어쓰기만 다른 경우 포함
+          key: key, cat: a.cat,
+          name: a.name + ((sel && a.name.replace(/\s/g, '') !== s.replace(/\s/g, '')) ? ' (' + s + ')' : ''),
+          qs: qs,
+          full: full, n: list.length,
+          avg: Math.round(avg(scores) * 10) / 10,
+          rate: full > 0 ? Math.round(avg(scores) / full * 1000) / 10 : 0
+        });
+      });
+    });
+
+    var allScores = students.map(function(x){ return x.got; });
+    return {
+      n: students.length, dropped: dropped,
+      avg: Math.round(avg(allScores) * 10) / 10,
+      max: allScores.length ? Math.max.apply(null, allScores) : 0,
+      min: allScores.length ? Math.min.apply(null, allScores) : 0,
+      students: students, bySubject: bySubject, byLevel: byLevel,
+      commonQs: common, commonStats: commonStats, top10: top10,
+      bySubjectQs: bySubjectQs, areas: areas
+    };
+  }
+
+  return { analyze: analyze, packOf: packOf, subjectsOf: subjectsOf, commonQs: commonQs,
+           gradeOf: gradeOf, dedupe: dedupe, isTestRow: isTestRow };
+})();
+/* ==/ANALYSIS-CORE== */
+</script>
+
+<script>
+  const SB_REST = 'https://bangdbhqpphqqdwcledg.supabase.co/rest/v1';
+  const SB_KEY  = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  let EXAMS = [], CUR = '', PACK = null, ROWS = [], QTAB = '공통';
+
+  function sbHdr(extra){
+    const h = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY };
+    if (extra) for (const k in extra) h[k] = extra[k];
+    return h;
+  }
+  function sbGet(path){
+    return fetch(SB_REST + path, { headers: sbHdr(), cache:'no-store' })
+      .then(r => { if(!r.ok) throw new Error('sb ' + r.status); return r.json(); });
+  }
+  function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
+    clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2400); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function num(v){ return (Math.round(v*10)/10).toFixed(1).replace(/\.0$/,''); }
+
+  /* ── 회차 목록 ── */
+  function boot(){
+    sbGet('/omr_exams?select=name,mode,seq&order=seq.desc')
+      .then(list => {
+        EXAMS = list || [];
+        const sel = document.getElementById('fExam');
+        if (!EXAMS.length){
+          sel.innerHTML = '<option>등록된 회차가 없습니다</option>';
+          document.getElementById('view').innerHTML = '<div class="empty">출제된 회차가 없습니다. 출제 페이지에서 회차를 먼저 만들어 주세요.</div>';
+          return;
+        }
+        sel.innerHTML = EXAMS.map(e =>
+          `<option value="${esc(e.name)}">${esc(e.name)} · ${e.mode==='통합'?'통합형':'고3형'}</option>`).join('');
+        const want = new URLSearchParams(location.search).get('exam');
+        CUR = (want && EXAMS.some(e => e.name === want)) ? want : EXAMS[0].name;
+        sel.value = CUR;
+        loadExam();
+      })
+      .catch(e => {
+        document.getElementById('view').innerHTML =
+          '<div class="empty">회차 목록을 불러오지 못했습니다.<br>' + esc(e.message) + '</div>';
+      });
+  }
+  function pickExam(){ CUR = document.getElementById('fExam').value; QTAB = '공통'; loadExam(); }
+  function reload(){ boot(); }
+
+  function loadExam(){
+    document.getElementById('view').innerHTML = '<div class="loading">' + esc(CUR) + ' 회차를 집계하는 중…</div>';
+    Promise.all([
+      sbGet('/omr_exams?select=name,mode,data&name=eq.' + encodeURIComponent(CUR)),
+      sbGet('/omr_responses?select=id,submitted_at,exam,exam_date,name,school,grade,subject,answers'
+            + '&exam=eq.' + encodeURIComponent(CUR) + '&order=submitted_at.asc&limit=5000')
+    ]).then(([ex, rows]) => {
+      PACK = null;
+      if (ex && ex[0] && ex[0].data){
+        try { PACK = JSON.parse(ex[0].data); } catch(err){ PACK = null; }
+      }
+      ROWS = rows || [];
+      render();
+    }).catch(e => {
+      document.getElementById('view').innerHTML = '<div class="empty">집계에 실패했습니다.<br>' + esc(e.message) + '</div>';
+    });
+  }
+
+  /* ── 그리기 ── */
+  function render(){
+    const box = document.getElementById('view');
+    if (!PACK){
+      box.innerHTML = '<div class="empty">이 회차의 정답·배점이 없습니다.<br>출제 페이지에서 회차를 저장한 뒤 다시 열어 주세요.</div>';
+      return;
+    }
+    if (!ROWS.length){
+      box.innerHTML = '<div class="empty">' + esc(CUR) + ' 회차의 제출이 아직 없습니다.</div>';
+      return;
+    }
+    const A = CORE.analyze(PACK, ROWS, {
+      dedupe: document.getElementById('optDedup').checked,
+      dropTest: document.getElementById('optTest').checked
+    });
+    if (!A.n){
+      box.innerHTML = '<div class="empty">집계할 제출이 없습니다. (제외 옵션을 꺼 보세요)</div>';
+      return;
+    }
+    box.innerHTML = noteHtml(A) + tilesHtml(A) + subjectHtml(A) + levelHtml(A)
+                  + topHtml(A) + qtabsHtml(A) + areaHtml(A);
+  }
+
+  function noteHtml(A){
+    const d = A.dropped, bits = [];
+    if (d.dup)  bits.push('중복 제출 ' + d.dup + '건 제외');
+    if (d.test) bits.push('테스트 제출 ' + d.test + '건 제외');
+    if (d.nokey) bits.push('정답이 없는 선택과목 ' + d.nokey + '건 제외');
+    return '<p class="note">점수·등급은 <b>지금 저장된 정답</b>으로 다시 채점한 값이에요'
+      + (bits.length ? ' · ' + bits.join(' · ') : '') + '.</p>';
+  }
+
+  function tilesHtml(A){
+    const g12 = A.byLevel.filter(l => l.level==='1'||l.level==='2').reduce((t,l)=>t+l.n, 0);
+    const t = [
+      { k:'응시 인원', v: A.n + '명', s: A.bySubject.map(s => s.subject + ' ' + s.n).join(' · ') },
+      { k:'평균 점수', v: num(A.avg), s: '100점 만점' },
+      { k:'최고 / 최저', v: A.max + ' / ' + A.min, s: '' },
+      { k:'1·2등급', v: g12 + '명', s: (A.n ? Math.round(g12/A.n*100) : 0) + '%' }
+    ];
+    return '<section><h2>회차 요약 <span class="hint">' + esc(CUR) + '</span></h2><div class="tiles">'
+      + t.map(x => `<div class="tile"><div class="k">${x.k}</div><div class="v">${esc(x.v)}</div>`
+        + `<div class="s">${esc(x.s)}</div></div>`).join('') + '</div></section>';
+  }
+
+  function subjectHtml(A){
+    const rows = A.bySubject.map(s => {
+      const lv = ['1','2','3','4','등급외'].map(l => (s.levels[l]||0)).join(' · ');
+      return `<tr><td class="l"><b>${esc(s.subject)}</b></td><td class="big">${s.n}</td>`
+        + `<td class="big">${num(s.avg)}</td><td>${s.max}</td><td>${s.min}</td>`
+        + `<td>${s.cuts && s.cuts.length ? s.cuts.join('-') : '—'}</td>`
+        + `<td class="sub">${lv}</td></tr>`;
+    }).join('');
+    return '<section><h2>과목별 응시 인원 · 평균</h2><div class="tbl-wrap"><table class="t">'
+      + '<thead><tr><th>과목</th><th>응시 인원</th><th>평균</th><th>최고</th><th>최저</th>'
+      + '<th>등급컷</th><th>등급별 인원(1·2·3·4·등급외)</th></tr></thead><tbody>'
+      + rows + '</tbody></table></div></section>';
+  }
+
+  const SHORT = { '화법과작문':'화작', '언어와매체':'언매', '공통':'공통' };
+  function shortSubj(s){ return SHORT[s] || s; }
+
+  function levelHtml(A){
+    const cutLine = {};
+    A.bySubject.forEach(s => {
+      (s.cuts||[]).forEach((c,i) => {
+        const k = String(i+1);
+        cutLine[k] = (cutLine[k] ? cutLine[k] + ' · ' : '') + shortSubj(s.subject) + ' ' + c;
+      });
+    });
+    const body = A.byLevel.map(l => {
+      const chips = l.students.map(st =>
+        `<span class="chip ${st.subject==='화법과작문'?'hwa':st.subject==='언어와매체'?'eon':''}">`
+        + `<b>${esc(st.name)}</b><span class="sch">${esc(st.school)}</span>`
+        + `<span class="sc">${st.got}</span></span>`).join('');
+      return `<div class="grow"><div class="ghead">`
+        + `<span class="gname">${l.level==='등급외'?'등급외':l.level+'등급'}</span>`
+        + `<span class="gcnt">${l.n}명</span><span class="gpct">${num(l.pct)}%</span>`
+        + `<span class="gbar"><i style="width:${l.pct}%"></i></span>`
+        + `<span class="gcut">${cutLine[l.level] ? '컷 ' + esc(cutLine[l.level]) : ''}</span></div>`
+        + (l.n ? `<div class="chips">${chips}</div>` : '<div class="gnone">해당 학생이 없어요.</div>')
+        + `</div>`;
+    }).join('');
+    return '<section><h2>등급별 명단 <span class="hint">이름 · 학교 · 점수</span></h2>'
+      + '<div class="glist">' + body + '</div></section>';
+  }
+
+  // 문항 한 줄 (선지 선택률 포함)
+  function qRow(s, rank){
+    const cells = ['1','2','3','4','5'].map(c => {
+      const p = s.pickPct[c];
+      const cls = 'pick' + (c === s.ans ? ' ans' : '') + (c === s.topWrong ? ' top' : '');
+      return `<td class="${cls}"><span>${num(p)}</span>`
+        + `<span class="fill"><i style="width:${Math.min(100,p)}%"></i></span></td>`;
+    }).join('');
+    const hot = s.wrongPct >= 60 ? ' hot' : '';
+    return `<tr>${rank!=null?`<td class="rank">${rank}</td>`:''}<td class="qn">${s.q}</td>`
+      + `<td class="l sub">${esc(s.area)}</td><td class="sub">${s.pt}</td>`
+      + `<td><b>${esc(s.ans||'—')}</b></td>`
+      + `<td class="rate${hot}">${num(s.wrongPct)}%</td>`
+      + `<td class="sub">${s.right}/${s.n}</td>`
+      + cells
+      + `<td class="sub">${s.blank ? num(s.blankPct)+'%' : '—'}</td></tr>`;
+  }
+  function qTable(stats, ranked){
+    return '<div class="tbl-wrap"><table class="t q"><thead><tr>'
+      + (ranked ? '<th>순위</th>' : '')
+      + '<th>문항</th><th>영역</th><th>배점</th><th>정답</th><th>오답률</th><th>정답 수</th>'
+      + '<th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>무응답</th>'
+      + '</tr></thead><tbody>'
+      + stats.map((s,i) => qRow(s, ranked ? i+1 : null)).join('')
+      + '</tbody></table></div>'
+      + '<div class="legend">선지 칸의 숫자 = 슈국 학생 선택 비율(%) · 초록 = 정답 · 붉은 글씨 = 가장 많이 고른 오답</div>';
+  }
+
+  function topHtml(A){
+    if (!A.top10.length) return '';
+    return '<section><h2>공통 과목 오답률 TOP 10 '
+      + '<span class="hint">' + A.commonQs.length + '개 공통 문항 · 응시 ' + A.n + '명</span></h2>'
+      + qTable(A.top10, true) + '</section>';
+  }
+
+  function qtabsHtml(A){
+    const tabs = [{ key:'공통', stats:A.commonStats }]
+      .concat(A.bySubjectQs.map(x => ({ key:x.subject, stats:x.stats })));
+    if (!tabs.some(t => t.key === QTAB)) QTAB = '공통';
+    const cur = tabs.find(t => t.key === QTAB);
+    return '<section><h2>문항별 정답률 · 선지 선택률</h2>'
+      + '<div class="qtabs">' + tabs.map(t =>
+          `<button type="button" class="${t.key===QTAB?'on':''}" onclick="setQTab('${esc(t.key)}')">`
+          + `${esc(t.key)} <span class="sub">${t.stats.length}문항</span></button>`).join('')
+      + '</div>' + qTable(cur.stats, false) + '</section>';
+  }
+  function setQTab(k){ QTAB = k; render(); }
+
+  function areaHtml(A){
+    if (!A.areas.length) return '';
+    const rows = A.areas.map(a =>
+      `<tr><td class="sub">${esc(a.cat)}</td><td class="l"><b>${esc(a.name)}</b></td>`
+      + `<td class="sub">${a.qs[0]}~${a.qs[a.qs.length-1]}</td><td>${a.full}</td>`
+      + `<td class="big">${num(a.avg)}</td><td>${num(a.rate)}%</td>`
+      + `<td class="gbar" style="min-width:90px"><span class="gbar" style="display:block"><i style="width:${Math.min(100,a.rate)}%"></i></span></td>`
+      + `<td class="sub">${a.n}명</td></tr>`).join('');
+    return '<section><h2>영역별 평균 성취도</h2><div class="tbl-wrap"><table class="t">'
+      + '<thead><tr><th>분류</th><th>영역</th><th>문항</th><th>배점</th><th>평균 득점</th>'
+      + '<th>성취도</th><th></th><th>대상</th></tr></thead><tbody>'
+      + rows + '</tbody></table></div></section>';
+  }
+
+  boot();
+</script>
+</body>
+</html>
