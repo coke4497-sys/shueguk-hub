@@ -29,7 +29,9 @@
     max-width:760px; margin:0 auto; padding:0 0 50px; line-height:1.5; }
   .brand{ background:linear-gradient(135deg,#d8cfe6 0%,#c4d4cc 100%);
     padding:20px 24px 16px; border-radius:0 0 22px 22px; box-shadow:var(--shadow);
-    display:flex; align-items:baseline; gap:12px; }
+    display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .brand .links{ margin-left:auto; display:flex; gap:14px; font-size:13px; }
+  .brand .links a{ color:#4a4356; text-decoration:none; border-bottom:1px solid rgba(74,67,86,.35); }
   .brand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:#473f55; }
   .brand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#5d5568; letter-spacing:2px; }
   .title-bar{ background:var(--lav-bg); margin:16px; padding:11px 18px; border-radius:10px;
@@ -112,6 +114,7 @@
 
 <div class="brand">
   <span class="name">이수경국어</span><span class="sub">Shueguk · 성적 관리</span>
+  <span class="links"><a href="weekend.html">모의고사 메뉴</a><a href="omr_analysis.html">회차 분석</a></span>
 </div>
 <div class="title-bar">제출된 답안 · 성적표 조회</div>
 
