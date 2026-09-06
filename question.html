@@ -195,7 +195,7 @@
     .bar .tip{display:none;}
     .item{grid-template-columns:auto 1fr;padding:12px 14px;}
     .item .acts{grid-column:1 / -1;justify-content:flex-start;}
-    .item.calling .acts{display:none;}
+    body.has-mbar .item.calling .acts{display:none;}   /* 아래 리모컨 줄이 있을 때만 카드 안 버튼을 숨긴다(전체 보기로 둘 이상 호출 중이면 카드 안에 그대로) */
     #mbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:35;background:rgba(232,234,229,.96);backdrop-filter:blur(6px);padding:10px 12px calc(10px + env(safe-area-inset-bottom));flex-wrap:wrap;gap:8px;box-shadow:0 -6px 20px rgba(58,77,69,.08);}
     #mbar:empty{display:none;}
     #mbar .btn.pri{flex:1 0 100%;font-size:17px;padding:16px;}
@@ -418,6 +418,7 @@ function render(){
   }).join('') : '<div class="empty">지금 호출 중인 학생이 없어요.</div>';
   // 휴대폰 리모컨 줄 — 호출 중인 친구가 한 명일 때 화면 아래에 같은 버튼을 고정해 둔다(600px 이하에서만 보임)
   $('mbar').innerHTML = call.length === 1 ? callActs(call[0], true) : '';
+  document.body.classList.toggle('has-mbar', call.length === 1);
 
   $('waiting').innerHTML = wait.length ? wait.map(function(r, i){
     var m = minsSince(r.created_at);
