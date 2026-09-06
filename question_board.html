@@ -43,6 +43,12 @@
   #stage{position:fixed;inset:0;display:none;align-items:center;justify-content:center;overflow:hidden;}
   #frame{width:1520px;height:856px;flex:none;background:var(--sage-bg);border-radius:14px;box-shadow:var(--shadow-frame);padding:28px 30px;
     display:grid;grid-template-columns:1fr 404px;grid-template-rows:auto 1fr;gap:24px;color:var(--ink-body);transform-origin:center center;}
+  #frame.band-on{grid-template-rows:auto auto 1fr;}
+  #band{display:none;grid-column:1 / -1;background:#e6e2f2;color:#4a4266;border-radius:18px;padding:16px 28px;align-items:center;justify-content:center;gap:16px;box-shadow:var(--shadow-card);}   /* 연보라(사용자 선택) */
+  #frame.band-on #band{display:flex;}
+  #band .tag{font:400 15px var(--font-body);color:#4a4266;background:rgba(255,255,255,.55);border-radius:999px;padding:6px 14px;letter-spacing:1px;white-space:nowrap;}
+  #band .tx{font:700 34px/1.3 var(--font-heading);color:#4a4266;word-break:keep-all;text-align:center;}
+  #band .tx.long{font-size:28px;}
   .col{display:flex;flex-direction:column;gap:24px;min-height:0;}
   /* ── 머리줄 — Shueguk | 클리닉 호출 · 선생님 …… ● 실시간  22:56  [전체 화면] (시계는 이 하나뿐) ── */
   .top{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;}
@@ -76,7 +82,7 @@
   /* 일시 정지 — 선생님이 [질문 일시 정지]를 누르면 이름 자리에 크게 */
   .now .pause{display:flex;flex-direction:column;align-items:center;gap:14px;}
   .now .pause .big{font:700 64px/1.3 var(--font-heading);color:var(--ink);text-align:center;max-width:900px;word-break:keep-all;}
-  .now .pause .big.long{font-size:48px;}   /* 열 글자 넘으면 조금 작게(60자까지) */
+  .now .pause .big.long{font-size:48px;}   /* 열네 글자 넘으면 조금 작게(60자까지) */
   .now .pause .sub{font:400 22px var(--font-body);color:var(--ink-muted);}
   .now{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;text-align:center;}
   .now .wrap{position:relative;}   /* 하트가 터지는 기준점 — 하트는 이 상자 밖으로 날아간다 */
@@ -238,6 +244,7 @@
       <button class="fs" type="button" onclick="fullscreen()">전체 화면</button>
     </div>
   </div>
+  <div id="band"></div>
   <div class="col" id="main">
     <div class="card call" id="callCard">
       <div class="hd">
@@ -301,6 +308,13 @@ function fit(){
   $('frame').style.transform = 'scale(' + s + ')';
 }
 window.addEventListener('resize', fit);
+/* 머리줄 아래 연보라 띠 — 선생님 문구. 비면 띠 줄 자체가 사라진다(grid 행·간격까지) */
+var BAND_TX = null;
+function setBand(t){
+  if(t === BAND_TX) return; BAND_TX = t;
+  var b = $('band'); $('frame').classList.toggle('band-on', !!t);
+  b.innerHTML = t ? '<span class="tag">선생님 문구</span><span class="tx'+(t.length > 22 ? ' long' : '')+'">'+esc(t)+'</span>' : '';
+}
 function setLive(on){ var el = $('live'); el.classList.toggle('off', !on); $('liveTx').textContent = on ? '실시간' : '연결 끊김'; }
 
 function showPick(){
@@ -316,14 +330,17 @@ function go(){ var v = $('psel').value; if(!v) return; location.search = '?t=' +
 
 function load(){
   // text = 선생님 문구(일시정지 줄)
-  var q = '/question_queue?select=id,ord,name,school,grade,teacher,status,unit,text,called_at,done_at&qdate=eq.' + kstToday()
+  var q = '/question_queue?select=id,ord,name,school,grade,teacher,status,unit,text,note,called_at,done_at&qdate=eq.' + kstToday()
         + '&status=in.(예약,명단,대기,호출,질문중,완료,일시정지)&order=ord.asc,id.asc' + (T==='all' ? '' : '&teacher=eq.' + encodeURIComponent(T));
   return sb(q).then(function(rows){
     rows = rows || [];
     var call = rows.filter(function(r){ return r.status==='호출'; }).sort(function(a,b){ return String(a.called_at).localeCompare(String(b.called_at)); });
     var asking = rows.filter(function(r){ return r.status==='질문중'; });   // 와서 질문하는 중 — '오세요'는 내리고 작게만 표시
-    var msgRow = rows.filter(function(r){ return r.status==='일시정지'; })[0];   // 선생님이 [전자칠판 문구]로 띄운 줄(question.html msgSend) — text 가 문구
-    var paused = !!msgRow, msgText = paused ? (msgRow.text || '잠시만 기다려 주세요') : '';
+    // 선생님이 띄운 줄(status 일시정지) — note '선생님 문구' = 머리줄 아래 연보라 띠(질문 진행 중에도), 그 밖(일시 정지·옛 줄) = 이름 자리를 덮음
+    var bandRow = rows.filter(function(r){ return r.status==='일시정지' && r.note==='선생님 문구'; })[0];
+    var pauseRow = rows.filter(function(r){ return r.status==='일시정지' && r.note!=='선생님 문구'; })[0];
+    var paused = !!pauseRow, msgText = paused ? (pauseRow.text || '잠시만 기다려 주세요') : '';
+    setBand(bandRow ? bandRow.text : '');
     var wait = rows.filter(function(r){ return r.status==='대기'; });
     var resv = rows.filter(function(r){ return r.status==='예약' || r.status==='명단'; }).sort(function(a,b){ return String(a.unit).localeCompare(String(b.unit)) || String(a.name).localeCompare(String(b.name)); });
     var done = rows.filter(function(r){ return r.status==='완료' && r.called_at && r.done_at; });
@@ -341,7 +358,7 @@ function load(){
     if(key !== LAST_CALL){   // 호출 명단이 바뀌었을 때만 다시 그려 애니메이션이 한 번만 돈다
       LAST_CALL = key;
       $('now').innerHTML = paused
-        ? '<div class="pause"><div class="big'+(msgText.length > 10 ? ' long' : '')+'">'+esc(msgText)+'</div></div>'
+        ? '<div class="pause"><div class="big'+(msgText.length > 14 ? ' long' : '')+'">'+esc(msgText)+'</div></div>'
         : call.length
         ? '<div class="lead">선생님께 오세요</div><div class="wrap" id="nowWrap">' + call.map(function(r){ return '<div class="nm'+(call.length>1?' many':'')+'">'+esc(r.name)+tag(r)+'</div>'; }).join('') + '</div>'
           + '<div class="meta">' + esc([call.length===1 && call[0].unit ? call[0].unit : '', call.length===1 ? nth(call[0]) : call.length + '명 호출 중'].filter(Boolean).join(' · ')) + '</div>'

@@ -281,7 +281,7 @@
     <button class="btn ghost" onclick="load(true)" title="다시 불러오기">새로고침</button>
   </div>
   <div class="err" id="err"></div>
-  <p class="hint" id="hint" hidden>학생이 학생 페이지 '질문하기'에서 올린 질문이 <b>질문 타임 순서</b>로 쌓여요. <b>[질문 시작]</b>을 누르면 1번 친구가 호출되고(전자칠판 대기 화면에 이름이 크게 나와요), 친구가 오면 <b>[질문 중]</b>(전자칠판의 호출 표시가 내려가고, 질문 하나당 3분 기준으로 남은 시간이 보여요), 끝나면 <b>[완료]</b>, <b>[다음 호출]</b>을 누르면 대기 1번 친구가 호출돼요(완료 전에 먼저 불러 둬도 돼요). 자리에 없으면 <b>[다음 순서로]</b>(대기 줄 맨 앞으로 되돌림)나 <b>[맨 뒤로]</b>, 또는 [···] 메뉴의 <b>[건너뜀 → 다음 호출]</b>. <b>[재호출]</b>은 같은 친구를 한 번 더 불러요(전자칠판 이름에서 하트가 터지고 호출 시간이 다시 흘러요). 순서는 줄 왼쪽 손잡이를 <b>끌어서</b> 바꾸거나 ▲▼로 바꿔요. 클리닉을 신청한 친구와 [명단으로 올리기]한 반 학생은 '아직 줄 안 선 친구'에 있다가 <b>[질문 대기]</b>를 누르면 그 시각으로 줄에 서요(학생이 전자칠판에서 자기 이름을 누르거나 자기 페이지에서 [질문 대기]를 눌러도 같아요). <b>[학생 불러오기]</b>로 여러 반을 명단에 올리거나 한 반을 순서대로 질문 대기에 넣을 수 있어요. 5초마다 저절로 새로 받아요.<br>잠깐 멈춰야 하면 '호출 중' 옆 <b>[질문 일시 정지]</b> — 전자칠판에 '잠시만 기다려 주세요'가 크게 떠요([다시 시작]으로 풀어요). <b>[전자칠판 문구]</b>로는 '조용히 하세요' 같은 문구를 직접 써서 띄울 수 있어요.<br>이 화면은 <b>휴대폰에서도 리모컨처럼</b> 쓸 수 있어요 — 폰 홈 화면에 추가해 두고 자리에서 [완료 → 다음 호출]만 누르면 전자칠판이 바로 바뀌어요.</p>
+  <p class="hint" id="hint" hidden>학생이 학생 페이지 '질문하기'에서 올린 질문이 <b>질문 타임 순서</b>로 쌓여요. <b>[질문 시작]</b>을 누르면 1번 친구가 호출되고(전자칠판 대기 화면에 이름이 크게 나와요), 친구가 오면 <b>[질문 중]</b>(전자칠판의 호출 표시가 내려가고, 질문 하나당 3분 기준으로 남은 시간이 보여요), 끝나면 <b>[완료]</b>, <b>[다음 호출]</b>을 누르면 대기 1번 친구가 호출돼요(완료 전에 먼저 불러 둬도 돼요). 자리에 없으면 <b>[다음 순서로]</b>(대기 줄 맨 앞으로 되돌림)나 <b>[맨 뒤로]</b>, 또는 [···] 메뉴의 <b>[건너뜀 → 다음 호출]</b>. <b>[재호출]</b>은 같은 친구를 한 번 더 불러요(전자칠판 이름에서 하트가 터지고 호출 시간이 다시 흘러요). 순서는 줄 왼쪽 손잡이를 <b>끌어서</b> 바꾸거나 ▲▼로 바꿔요. 클리닉을 신청한 친구와 [명단으로 올리기]한 반 학생은 '아직 줄 안 선 친구'에 있다가 <b>[질문 대기]</b>를 누르면 그 시각으로 줄에 서요(학생이 전자칠판에서 자기 이름을 누르거나 자기 페이지에서 [질문 대기]를 눌러도 같아요). <b>[학생 불러오기]</b>로 여러 반을 명단에 올리거나 한 반을 순서대로 질문 대기에 넣을 수 있어요. 5초마다 저절로 새로 받아요.<br>잠깐 멈춰야 하면 '호출 중' 옆 <b>[질문 일시 정지]</b> — 전자칠판 이름 자리에 '잠시만 기다려 주세요'가 크게 떠요([다시 시작]으로 풀어요). <b>[전자칠판 문구]</b>는 '조용히 하세요' 같은 문구를 직접 써서 전자칠판 맨 위 연보라 띠로 띄워요 — 호출 이름은 그대로 보여서 질문 중에도 쓸 수 있어요.<br>이 화면은 <b>휴대폰에서도 리모컨처럼</b> 쓸 수 있어요 — 폰 홈 화면에 추가해 두고 자리에서 [완료 → 다음 호출]만 누르면 전자칠판이 바로 바뀌어요.</p>
 
   <div class="sec"><h2>호출 중</h2><span class="n" id="nCall"></span><span class="n pausetag" id="pauseTag" style="display:none"></span><span class="start" id="pauseWrap" style="display:none"><button class="btn" id="pauseBtn" onclick="pauseToggle()" title="전자칠판에 '잠시만 기다려 주세요'를 띄워요">질문 일시 정지</button> <button class="btn" id="msgBtn" onclick="msgOpen()" title="전자칠판 이름 자리에 원하는 문구를 크게 띄워요 — 조용히 하세요 등">전자칠판 문구</button></span></div>
   <div id="calling" class="list"></div>
@@ -299,7 +299,7 @@
 <div id="lb" onclick="this.style.display='none'"><img id="lbImg" alt="문제 사진"></div>
 <div id="msg" class="modal"><div class="box">
   <h3>전자칠판 문구</h3>
-  <p class="msg" style="margin:0 0 10px">전자칠판의 호출 이름 자리에 이 문구가 크게 떠요. 호출·질문 중 표시는 그동안 내려가요. 다시 [내리기]를 누르면 원래 화면으로 돌아와요.</p>
+  <p class="msg" style="margin:0 0 10px">전자칠판 맨 위에 연보라 띠로 이 문구가 떠요. 호출 이름·남은 시간은 그대로 보여요(질문 중에도 띄울 수 있어요). [내리기]를 누르면 띠가 사라져요.</p>
   <input id="msgText" class="msgin" maxlength="60" placeholder="예: 잠시만 기다려 주세요 · 조용히 하세요" onkeydown="if(event.key==='Enter') msgSend()">
   <div class="pres" id="msgPre"></div>
   <div class="foot"><span class="msg" id="msgMsg"></span><span class="sp"></span>
@@ -339,7 +339,8 @@
 <script>
 /* ══ 질문 대기열 — 교사 화면 ═══════════════════════════════════════ */
 var SB = 'https://bangdbhqpphqqdwcledg.supabase.co/rest/v1';
-var ROWS = [], PHOTOS = {}, TEACHERS = [], TEACHER = '', POLL = null, DONE_OPEN = false, BUSY = {}, PAUSED = false, MSG_ROW = null;
+var ROWS = [], PHOTOS = {}, TEACHERS = [], TEACHER = '', POLL = null, DONE_OPEN = false, BUSY = {}, PAUSED = false, PAUSE_ROW = null, MSG_ROW = null;
+var NOTE_PAUSE = '선생님 일시 정지', NOTE_MSG = '선생님 문구';   // 같은 status '일시정지' 줄을 note 로 가른다 — 일시 정지(이름 자리 덮음) / 문구(머리줄 아래 연보라 띠)
 var DEFAULT_MSG = '잠시만 기다려 주세요';
 var MSG_PRESETS = ['잠시만 기다려 주세요', '조용히 하세요', '자리에 앉아 주세요', '곧 시작해요'];   // 자주 쓰는 문구 — 누르면 입력칸에 들어간다
 var ASK_MS = 3*60000;   // 질문 하나당 예상 소요 3분(2026-09-06 사용자 지정) — 질문 중 남은 시간의 기준(전자칠판과 같은 값)
@@ -418,14 +419,18 @@ function render(){
   var wait = ROWS.filter(function(r){ return r.status==='대기'; });
   var resv = ROWS.filter(function(r){ return r.status==='예약' || r.status==='명단'; });
   var done = ROWS.filter(function(r){ return ['호출','질문중','대기','예약','명단','일시정지'].indexOf(r.status) < 0; }).slice().reverse();
-  MSG_ROW = ROWS.filter(function(r){ return r.status==='일시정지' && (TEACHER==='all' || r.teacher===TEACHER); })[0] || null;   // 전자칠판 문구 줄
-  PAUSED = !!MSG_ROW;
+  var mine = ROWS.filter(function(r){ return r.status==='일시정지' && (TEACHER==='all' || r.teacher===TEACHER); });
+  MSG_ROW = mine.filter(function(r){ return r.note===NOTE_MSG; })[0] || null;        // 전자칠판 문구(띠) 줄
+  PAUSE_ROW = mine.filter(function(r){ return r.note!==NOTE_MSG; })[0] || null;      // 일시 정지(덮음) 줄 — note 없는 옛 줄도 여기
+  PAUSED = !!PAUSE_ROW;
   $('pauseWrap').style.display = TEACHER && TEACHER!=='all' ? 'inline-flex' : 'none';
   $('pauseBtn').textContent = PAUSED ? '다시 시작' : '질문 일시 정지';
   $('pauseBtn').className = 'btn ' + (PAUSED ? 'lav' : '');
-  $('msgBtn').textContent = PAUSED ? '문구 바꾸기' : '전자칠판 문구';
-  $('pauseTag').style.display = PAUSED ? 'inline' : 'none';
-  if(PAUSED) $('pauseTag').innerHTML = '· 전자칠판에 <b>“' + esc(MSG_ROW.text || DEFAULT_MSG) + '”</b> 띄우는 중 <button type="button" class="lnk" onclick="msgOff()">내리기</button>';
+  $('msgBtn').textContent = MSG_ROW ? '문구 바꾸기' : '전자칠판 문구';
+  $('msgBtn').className = 'btn ' + (MSG_ROW ? 'lav' : '');
+  $('pauseTag').style.display = (PAUSED || MSG_ROW) ? 'inline' : 'none';
+  $('pauseTag').innerHTML = (PAUSED ? '· <b>일시 정지 중</b>(전자칠판에 ‘잠시만 기다려 주세요’) ' : '')
+    + (MSG_ROW ? '· 띠 문구 <b>“' + esc(MSG_ROW.text) + '”</b> <button type="button" class="lnk" onclick="msgOff()">내리기</button>' : '');
   $('nCall').textContent = call.length ? call.length + '명' : '';
   $('nWait').textContent = wait.length ? wait.length + '명' : '';
   $('nResv').textContent = resv.length ? resv.length + '명' : '';
@@ -541,17 +546,19 @@ function remLabel(askAt){
   return left >= 0 ? '남은 시간 <b class="ok">' + s + '</b>' : '예상 시간 지남 <b>+' + s + '</b>';
 }
 setInterval(function(){ document.querySelectorAll('.rem[data-ask]').forEach(function(el){ el.innerHTML = remLabel(+el.getAttribute('data-ask')); }); }, 1000);
-/* [질문 일시 정지] — 한 번 누르면 전자칠판에 '잠시만 기다려 주세요'(기본 문구), [다시 시작]이 내린다(사용자 "일시 정지 버튼은 그대로 살리고 메시지 창을 만들어" — 2026-09-06). 같은 줄을 쓴다. */
+/* [질문 일시 정지] — 한 번 누르면 전자칠판 이름 자리를 '잠시만 기다려 주세요'가 덮고, [다시 시작]이 내린다(사용자 "일시 정지 버튼은 그대로 살리고 메시지 창을 만들어" — 2026-09-06).
+   표를 더하지 않고 그 선생님·오늘의 status '일시정지' 줄(note '선생님 일시 정지')로 표시한다. */
 function pauseToggle(){
   if(!TEACHER || TEACHER==='all') return;
-  if(MSG_ROW) return msgOff();
   var btn = $('pauseBtn'); btn.disabled = true;
-  return sb('/question_queue', { method:'POST', headers:{ 'Prefer':'return=minimal' }, body: JSON.stringify({ name:'전자칠판 문구', teacher:TEACHER, status:'일시정지', text: DEFAULT_MSG, ord: Date.now(), qtime: kstHM(), note:'선생님 일시 정지' }) })
-    .then(function(){ btn.disabled = false; return load(); }, function(e){ btn.disabled = false; showErr('저장하지 못했어요 — ' + e.message); });
+  var req = PAUSE_ROW
+    ? sb('/question_queue?qdate=eq.' + kstToday() + '&teacher=eq.' + encodeURIComponent(TEACHER) + '&status=eq.일시정지&note=neq.' + encodeURIComponent(NOTE_MSG), { method:'DELETE', headers:{ 'Prefer':'return=minimal' } })
+    : sb('/question_queue', { method:'POST', headers:{ 'Prefer':'return=minimal' }, body: JSON.stringify({ name:'일시 정지', teacher:TEACHER, status:'일시정지', text: DEFAULT_MSG, ord: Date.now(), qtime: kstHM(), note: NOTE_PAUSE }) });
+  return req.then(function(){ btn.disabled = false; return load(); }, function(e){ btn.disabled = false; showErr('저장하지 못했어요 — ' + e.message); });
 }
-/* [전자칠판 문구] — 선생님이 쓴 문구를 전자칠판 이름 자리에 크게 띄운다(2026-09-06 사용자 "화면에 띄울 문구를 교사가 직접 작성 — 떠들지마라 같은 문구도").
-   표를 더하지 않고 그 선생님·오늘의 status '일시정지' 줄 하나(text=문구)로 표시한다 — 처음엔 '잠시만 기다려 주세요' 고정 일시 정지였다가 문구 자유 입력으로 바뀜(상태 이름은 그대로).
-   문구 바꾸기 = 그 줄 text PATCH, 내리기 = 그 줄 삭제. 학생 화면(qq_mine)은 학생ID로만 찾으므로 이 줄이 보이지 않는다. */
+/* [전자칠판 문구] — 선생님이 쓴 문구를 전자칠판 머리줄 아래 연보라 띠로 띄운다(2026-09-06 사용자 "화면에 띄울 문구를 교사가 직접 작성 — 떠들지마라 같은 문구도" → "질문이 진행되는 동안에도" → 위쪽 띠·연보라).
+   호출 이름·남은 시간은 그대로 보인다(이름 자리를 덮는 것은 [질문 일시 정지]). 표를 더하지 않고 그 선생님·오늘의 status '일시정지' 줄(note '선생님 문구', text=문구)로 표시 —
+   문구 바꾸기 = 그 줄 text PATCH, 내리기 = 그 줄 삭제. 일시 정지와 문구는 따로 있어 함께 띄울 수 있다. 학생 화면(qq_mine)은 학생ID로만 찾으므로 이 줄이 보이지 않는다. */
 function msgOpen(){
   if(!TEACHER || TEACHER==='all') return;
   $('msgText').value = MSG_ROW ? (MSG_ROW.text || '') : '';
@@ -570,13 +577,13 @@ function msgSend(){
   var btn = $('msgGo'); btn.disabled = true;
   var req = MSG_ROW
     ? sb('/question_queue?id=eq.' + MSG_ROW.id + '&status=eq.일시정지', { method:'PATCH', headers:{ 'Prefer':'return=minimal' }, body: JSON.stringify({ text: t, ord: Date.now() }) })
-    : sb('/question_queue', { method:'POST', headers:{ 'Prefer':'return=minimal' }, body: JSON.stringify({ name:'전자칠판 문구', teacher:TEACHER, status:'일시정지', text: t, ord: Date.now(), qtime: kstHM(), note:'선생님 문구' }) });
+    : sb('/question_queue', { method:'POST', headers:{ 'Prefer':'return=minimal' }, body: JSON.stringify({ name:'전자칠판 문구', teacher:TEACHER, status:'일시정지', text: t, ord: Date.now(), qtime: kstHM(), note: NOTE_MSG }) });
   return req.then(function(){ btn.disabled = false; msgClose(); return load(); }, function(e){ btn.disabled = false; $('msgMsg').textContent = '저장하지 못했어요 — ' + e.message; });
 }
 function msgOff(){
   if(!TEACHER || TEACHER==='all') return;
-  var btn = $('pauseBtn'); btn.disabled = true;
-  return sb('/question_queue?qdate=eq.' + kstToday() + '&teacher=eq.' + encodeURIComponent(TEACHER) + '&status=eq.일시정지', { method:'DELETE', headers:{ 'Prefer':'return=minimal' } })
+  var btn = $('msgBtn'); btn.disabled = true;
+  return sb('/question_queue?qdate=eq.' + kstToday() + '&teacher=eq.' + encodeURIComponent(TEACHER) + '&status=eq.일시정지&note=eq.' + encodeURIComponent(NOTE_MSG), { method:'DELETE', headers:{ 'Prefer':'return=minimal' } })
     .then(function(){ btn.disabled = false; msgClose(); return load(); }, function(e){ btn.disabled = false; showErr('내리지 못했어요 — ' + e.message); });
 }
 /* [다음 호출] — 이 카드 학생의 선생님께 기다리는 1번 친구를 호출한다(현재 학생은 그대로 — 완료는 따로) */
