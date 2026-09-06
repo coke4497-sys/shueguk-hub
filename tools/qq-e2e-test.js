@@ -380,7 +380,7 @@ function restGet(url) {
   ok(phQ && /id=in\.\(1,2,3\)/.test(phQ.path), '사진은 처음 보는 건만 따로 조회');
   ok(await tp.$$eval('#waiting img.thumb', i => i.length) === 1, '사진 있는 건만 썸네일');
   ok(await tp.$$eval('#waiting .item .nm', e => e.map(x => x.textContent).join(',')) === '김철수,박민수,최유진', '대기 순서');
-  ok(/25분 기다리는 중/.test(await tp.$eval('#waiting', e => e.textContent)), '기다린 시간 표시(20분 넘으면 강조)');
+  ok(/25분 기다림/.test(await tp.$eval('#waiting', e => e.textContent)), '기다린 시간 표시(20분 넘으면 강조)');
   ok(/글 없이 사진만/.test(await tp.$eval('#waiting .item:nth-child(2)', e => e.textContent)), '글 없는 건 안내');
   ok(/17:30 질문 타임/.test(await tp.$eval('#waiting .item:nth-child(1)', e => e.textContent)) && await tp.$eval('#waiting .item:nth-child(1) .unit', e => e.textContent) === '독서', '질문 타임·단원 표시');
   ok(await tp.$eval('#startWrap', e => e.style.display) !== 'none', '[질문 시작] 버튼 보임');
@@ -393,6 +393,10 @@ function restGet(url) {
   ok(/id=eq\.1$/.test(pc.path) && JSON.parse(pc.body).status === '호출' && JSON.parse(pc.body).called_at, '질문 시작 → 1번 호출 PATCH {status, called_at}');
   ok(/김철수/.test(await tp.$eval('#calling', e => e.textContent)) && await tp.$$eval('#waiting .item', e => e.length) === 2, '호출 중으로 이동');
   ok(await tp.$eval('#startWrap', e => e.style.display) === 'none', '호출 중에는 [질문 시작] 숨김');
+  ok(await tp.$$eval('#calling .item .acts > .btn', b => b.map(x => x.textContent.trim())).then(l => l.join('|') === '완료 → 다음 호출|재호출|건너뜀 → 다음 호출'), '호출 카드 앞줄 버튼 셋, 나머지는 [···] 안');
+  ok(await tp.$eval('#calling .item details.dd .menu', m => /다시 대기로/.test(m.textContent) && /완료만/.test(m.textContent)), '[···] 메뉴에 다시 대기로·완료만');
+  ok(await tp.$eval('#mbar', m => m.querySelectorAll('.btn').length === 5 && /완료 → 다음 호출/.test(m.textContent) && /다시 대기로/.test(m.textContent)), '휴대폰 리모컨 줄에 같은 버튼');
+  ok(await tp.$eval('#calling .item .nm', e => getComputedStyle(e).fontFamily.indexOf('Do Hyeon') >= 0), '이름은 도현체');
   // [재호출] — 호출 중일 때만 called_at 을 지금으로(상태·순서 그대로). 전자칠판이 이걸 보고 하트를 터뜨린다
   const rcRow = ROWS.find(r => r.status === '호출'); const rcBefore = rcRow.called_at; await sleep(30);
   await tp.click('#calling .item button:has-text("재호출")');
@@ -401,6 +405,7 @@ function restGet(url) {
   ok(/status=eq\.호출/.test(decodeURIComponent(rcc.path)) && Object.keys(rcb).join() === 'called_at' && rcRow.status === '호출' && rcRow.called_at > rcBefore, '[재호출] → called_at 만 지금으로(호출 중일 때만)');
 
   // 맨 뒤로
+  await tp.click('#waiting .item:nth-child(1) summary.more');
   await tp.click('#waiting .item:nth-child(1) button:has-text("맨 뒤로")');
   await tp.waitForFunction(() => document.querySelector('#waiting .item:nth-child(1) .nm').textContent === '최유진');
   ok(await tp.$$eval('#waiting .item .nm', e => e.map(x => x.textContent).join(',')) === '최유진,박민수', '맨 뒤로 → 순서 바뀜');
@@ -427,12 +432,13 @@ function restGet(url) {
   ok(c.status === '대기' && c.ord > b.ord, '다시 대기로 → 맨 뒤 순서');
 
   // 완료만 (다음 호출 안 함) → 호출 중 비고 [질문 시작] 다시 보임
+  await tp.click('#calling .item summary.more');
   await tp.click('#calling .item button:has-text("완료만")');
   await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 0);
   ok(b.status === '완료' && c.status === '대기', '완료만 → 다음 호출 안 함');
   ok(await tp.$eval('#startWrap', e => e.style.display) !== 'none', '[질문 시작] 다시 보임');
   // 대기 카드의 [이 친구 먼저 호출]
-  await tp.click('#waiting .item:nth-child(1) button:has-text("이 친구 먼저 호출")');
+  await tp.click('#waiting .item:nth-child(1) button:has-text("먼저 호출")');
   await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 1);
   ok(c.status === '호출', '개별 호출');
   await tp.click('#calling .item button:has-text("완료 → 다음 호출")');
@@ -460,8 +466,29 @@ function restGet(url) {
   await tp.click('#waiting .item:nth-child(2) .ord button[title="한 칸 아래로"]');
   await tp.waitForFunction(() => document.querySelector('#waiting .item:nth-child(3) .nm').textContent === '정예약');
   ok(await tp.$eval('#waiting .item:nth-child(1) .ord button[title="한 칸 위로"]', b => b.disabled), '맨 앞은 ▲ 비활성');
+  // 끌어서 순서 바꾸기(시안 '드래그로 순서 변경') — 놓은 자리의 이웃 사이 ord. 3번(정예약)을 1번 앞에
+  ok(await tp.$$eval('#waiting .item[draggable="true"] .grip', g => g.length) === 3, '대기 줄마다 끌기 손잡이');
+  await tp.evaluate(() => { const w = ROWS.filter(r => r.status === '대기'); return dropAt(w[2].id, w[0].id, true); });
+  await tp.waitForFunction(() => document.querySelector('#waiting .item:nth-child(1) .nm').textContent === '정예약');
+  ok(await tp.$$eval('#waiting .item .nm', e => e.map(x => x.textContent).join(',')) === '정예약,박민수,최유진', '끌어서 맨 앞으로 → 순서 바뀜');
+  await tp.evaluate(() => { const w = ROWS.filter(r => r.status === '대기'); return dropAt(w[0].id, w[2].id, false); });
+  await tp.waitForFunction(() => document.querySelector('#waiting .item:nth-child(3) .nm').textContent === '정예약');
+  ok(await tp.$$eval('#waiting .item .nm', e => e.map(x => x.textContent).join(',')) === '박민수,최유진,정예약', '끌어서 맨 뒤로');
+  await tp.evaluate(() => { const w = ROWS.filter(r => r.status === '대기'); return dropAt(w[2].id, w[1].id, true); });
+  await tp.waitForFunction(() => document.querySelector('#waiting .item:nth-child(2) .nm').textContent === '정예약');
+  ok(await tp.$$eval('#waiting .item .nm', e => e.map(x => x.textContent).join(',')) === '박민수,정예약,최유진', '끌어서 사이에 끼우기');
+  await tp.evaluate(() => { const w = ROWS.filter(r => r.status === '대기'); return dropAt(w[1].id, w[2].id, false); });
+  await tp.waitForFunction(() => document.querySelector('#waiting .item:nth-child(3) .nm').textContent === '정예약');
+  // 시안 디자인 요소 — 워드마크·도구줄 메뉴·[···] 메뉴·도움말 접힘·휴대폰 리모컨 줄
+  ok(await tp.$eval('.brand .logo', e => e.textContent === 'Shueguk' && getComputedStyle(e).fontFamily.indexOf('Sacramento') >= 0), '머리줄 Shueguk 워드마크(새크라멘토)');
+  ok(await tp.$eval('#hint', e => e.hidden) && await tp.$eval('#helpTog', e => e.textContent) === '도움말 펼치기', '도움말은 접혀 있음');
+  await tp.click('#helpTog');
+  ok(!(await tp.$eval('#hint', e => e.hidden)) && await tp.$eval('#helpTog', e => e.textContent) === '도움말 접기', '[도움말 펼치기] → 펼침');
+  await tp.click('#helpTog');
+  ok(await tp.$$eval('#loadDd .menu .btn', b => b.map(x => x.id).join()) === 'clsBtn,clinBtn', '[학생 불러오기] 메뉴에 반 전체·클리닉 신청자');
 
-  // 반 전체 불러오기
+  // 반 전체 불러오기 — [학생 불러오기] 메뉴 안
+  await tp.click('#loadDd summary');
   await tp.click('#clsBtn');
   await tp.waitForFunction(() => document.getElementById('cls').style.display === 'flex' && document.querySelectorAll('#clsSel option').length > 1);
   const opts = await tp.$$eval('#clsSel option', o => o.map(x => x.textContent));
@@ -506,6 +533,20 @@ function restGet(url) {
   ok(await tp.$eval('#cls', e => e.style.display) === 'flex' && await tp.$eval('#clsSel', e => e.value) === '', '창은 열린 채 다음 반을 고를 수 있음');
   ok(await tp.$$eval('#resv .item', e => e.length) === 1 && /반 명단/.test(await tp.$eval('#resv', e => e.textContent)) && /오늘 질문 없음/.test(await tp.$eval('#resv', e => e.textContent)), '아직 줄 안 선 친구에 반 명단 카드');
   ok(/올려 둔 반/.test(await tp.$eval('#loaded', e => e.textContent)) && /고1 확인/.test(await tp.$eval('#loaded', e => e.textContent)) && /1명/.test(await tp.$eval('#loaded', e => e.textContent)), '올려 둔 반 목록');
+  ok(await tp.$eval('#allinWrap', e => e.style.display) === 'none', '줄 안 선 친구가 한 명이면 [모두 대기에 넣기] 숨김');
+  ROWS.push({ id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord: Date.now(), name: '예약둘', school: '', grade: '', student_id: '0', teacher: '이수경', qtime: '17:30', unit: '', text: '', photo: '', status: '예약', called_at: null, done_at: null, note: '', clinic_id: 77 });
+  await tp.evaluate(() => load());
+  await tp.waitForFunction(() => document.querySelectorAll('#resv .item').length === 2 && document.getElementById('allinWrap').style.display !== 'none');
+  ok(await tp.$eval('#allinBtn', e => e.textContent) === '2명 모두 대기에 넣기', '[2명 모두 대기에 넣기] 표시');
+  const nWaitBefore = ROWS.filter(r => r.status === '대기').length;
+  await tp.evaluate(() => document.getElementById('allinBtn').click());   // 반 불러오기 창이 열린 채라 화면 클릭 대신 직접
+  await tp.waitForFunction(() => document.querySelectorAll('#resv .item').length === 0);
+  const allin = ROWS.filter(r => ['김철수', '예약둘'].includes(r.name) && r.status === '대기');
+  ok(allin.length === 2 && ROWS.filter(r => r.status === '대기').length === nWaitBefore + 2 && allin[0].ord < allin[1].ord, '모두 대기에 넣기 → 둘 다 대기, 지금 순서대로');
+  ROWS.filter(r => r.name === '예약둘').forEach(r => ROWS.splice(ROWS.indexOf(r), 1));
+  ROWS.filter(r => r.name === '김철수' && /반 명단/.test(r.note)).forEach(r => { r.status = '명단'; });
+  await tp.evaluate(() => load());
+  await tp.waitForFunction(() => document.querySelectorAll('#resv .item').length === 1);
   await tp.click('#clsBook정규');
   await tp.waitForFunction(() => /고1 가/.test(document.getElementById('clsSel').textContent));
   await tp.selectOption('#clsSel', '정규|r001');
@@ -520,6 +561,7 @@ function restGet(url) {
   await tp.waitForFunction(() => document.querySelectorAll('#resv .item').length === 0 && !document.getElementById('loaded').textContent);
   const del = calls.filter(x => x.method === 'DELETE').pop();
   ok(del && /status=in\.\(명단,대기\)/.test(decodeURIComponent(del.path)) && !ROWS.some(r => r.status === '명단') && ROWS.filter(r => r.status === '대기' && r.teacher === '이수경').length === 3, '반 내리기 DELETE(명단·대기) · 다른 줄 유지');
+  await tp.click('#loadDd summary');
   await tp.click('#clsBtn');
   await tp.waitForFunction(() => document.getElementById('cls').style.display === 'flex');
   await tp.selectOption('#clsSel', '정규|r001');
@@ -538,6 +580,7 @@ function restGet(url) {
   // 순서 지정으로 줄 세운 반도 '올려 둔 반'에 나와 [내리기]로 한꺼번에 뺄 수 있다(사용자 "테스트로 불러왔는데 삭제하는 메뉴가 없어요")
   ok(/고1 가/.test(await tp.$eval('#loaded', e => e.textContent)) && /3명 줄/.test(await tp.$eval('#loaded', e => e.textContent)), '줄 세운 반도 올려 둔 반 목록에');
   ok(await tp.$$eval('#waiting .item button:has-text("지우기")', b => b.length) >= 3, '대기 카드마다 [지우기]');
+  await tp.click('#waiting .item:has-text("새친구") summary.more');
   await tp.click('#waiting .item:has-text("새친구") button:has-text("지우기")');
   await tp.waitForFunction(() => !/새친구/.test(document.getElementById('waiting').textContent));
   ok(!ROWS.some(r => r.name === '새친구'), '한 줄 지우기 DELETE');
@@ -548,6 +591,7 @@ function restGet(url) {
   // 클리닉 신청자 불러오기 — 오늘 클리닉 날짜인 신청만, 이미 줄에 있는 학생(박민수)은 체크 불가, 요청 2장 → 예약 한 줄
   b.student_id = '34567890'; b.status = '대기';   // 박민수가 줄에 있는 상태 → 신청자 목록에서 체크 불가
   await tp.evaluate(() => load());
+  await tp.click('#loadDd summary');
   await tp.click('#clinBtn');
   await tp.waitForFunction(() => document.getElementById('clin').style.display === 'flex' && document.querySelectorAll('#clinList label').length === 2);
   const clabels = await tp.$$eval('#clinList label', l => l.map(x => ({ t: x.textContent, dis: x.querySelector('input').disabled })));

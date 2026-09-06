@@ -13,86 +13,166 @@
 <link rel="preconnect" href="https://bangdbhqpphqqdwcledg.supabase.co">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&family=Sacramento&display=swap" rel="stylesheet">
 <style>
+  /* 디자인 토큰 — 전자칠판(question_board.html)과 같은 핸드오프 값. 시안 '순서 정하기'(2026-09-06) 기준. */
   :root{
-    --bg:#E4EFEA; --surface:#FFFFFF;
-    --ink:#2A332F; --ink-soft:#65726B;
-    --accent:#3A6B5E; --accent-bg:#DCE6E0;
-    --line:#D7E3DD; --line-soft:#E5EDE8;
-    --call:#3A6B5E; --wait:#4E5F8A; --wait-bg:#E9EDF8; --bad:#B4544A; --bad-bg:#F7E2DE;
-    --radius:16px; --shadow:0 2px 12px rgba(42,51,47,.06);
+    --bg:#e8eae5; --surface:#FFFFFF; --sunken:#f6f7f4;
+    --ink:#2b3a33; --ink-body:#33443c; --ink-soft:rgba(51,68,60,.62); --ink-faint:rgba(51,68,60,.45);
+    --brand-deep:#3a4d45; --brand-mid:#4b6157; --live:#7c9c86;
+    --accent:#4b6157; --accent-bg:#eaefe9;
+    --line:rgba(51,68,60,.12); --line-soft:rgba(51,68,60,.08);
+    --lilac:#e6e2f2; --lilac-hover:#d8d2ec; --lilac-ink:#4a4266;
+    --pink:#f4dcd2; --pink-ink:#8a4a35;
+    --cream:#f7e3c8; --cream-ink:#8a6a35;
+    --call:#4b6157; --wait:#4a4266; --wait-bg:#e6e2f2; --bad:#8a4a35; --bad-bg:#f4dcd2;
+    --radius:18px; --shadow:0 2px 14px rgba(58,77,69,.07);
     --sans:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
     --serif:"Gowun Batang",serif;
+    --disp:"Do Hyeon","Gowun Dodum",sans-serif;   /* 도현체 — 학생 이름·번호 */
+    --script:"Sacramento",cursive;                /* Shueguk 워드마크 */
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
-  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;padding:0 0 60px;}
-  .wrap{max-width:900px;margin:0 auto;padding:0 16px;}
-  .brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:22px 2px 10px;}
-  .brand .name{font-family:var(--serif);font-weight:700;font-size:22px;letter-spacing:1px;}
-  .brand .sub{font-family:var(--serif);font-size:13px;color:var(--ink-soft);letter-spacing:1px;}
-  .brand .links{margin-left:auto;display:flex;gap:14px;font-size:13px;}
-  .brand .links a{color:var(--ink-soft);text-decoration:none;border-bottom:1px solid var(--line);}
-
-  .bar{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+  body{background:var(--bg);color:var(--ink-body);font-family:var(--sans);font-size:15px;line-height:1.6;padding:0 0 60px;-webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 20px;}
+  button{font-family:inherit;}
+  /* 머리줄 — Shueguk | 순서 정하기 …… ● 23:21 자동 갱신  클리닉 메뉴  허브 */
+  .brand{display:flex;align-items:center;gap:14px;padding:22px 2px 14px;flex-wrap:wrap;}
+  .brand .logo{font:400 34px/1 var(--script);color:var(--brand-deep);padding-bottom:4px;}
+  .brand .bar{width:1px;height:22px;background:rgba(51,68,60,.2);}
+  .brand .name{font:700 20px var(--serif);color:var(--ink-body);letter-spacing:0;}
+  .brand .sub{display:none;}
+  .brand .links{margin-left:auto;display:flex;gap:16px;align-items:center;font-size:13px;}
+  .brand .links a{color:var(--ink-soft);text-decoration:none;}
+  .brand .links a:hover{color:var(--ink-body);}
+  .brand .live{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--brand-mid);}
+  .brand .live i{width:7px;height:7px;border-radius:50%;background:var(--live);animation:livepulse 1.8s ease-in-out infinite;}
+  .brand .live.off i{animation:none;background:var(--ink-faint);}
+  @keyframes livepulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.8)}}
+  /* 도구줄 — [선생님 ○○ ▾] [전자칠판 화면 열기] [학생 불러오기 ▾] …… 안내 · [도움말 펼치기] [새로고침] */
+  .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
   .bar label{font-size:13px;color:var(--ink-soft);}
-  .bar select{padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:14px;background:#FBFCFB;color:var(--ink);}
+  .bar .tsel{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border-radius:12px;box-shadow:var(--shadow);padding:0 12px 0 14px;font-size:13px;color:var(--ink-soft);}
+  .bar .tsel select{border:0;background:transparent;padding:11px 4px;font-family:var(--serif);font-weight:700;font-size:14.5px;color:var(--ink-body);max-width:200px;}
+  .bar .tsel select:focus{outline:none;}
   .bar .sp{flex:1;}
-  .bar .upd{font-size:12px;color:var(--ink-soft);}
-  .btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:8px 13px;font-family:var(--sans);font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+  .bar .tip{font-size:12.5px;color:var(--ink-soft);}
+  .bar .upd{display:none;}
+  .btn{border:0;background:var(--surface);color:var(--ink-body);border-radius:12px;padding:10px 15px;font-family:var(--sans);font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;box-shadow:var(--shadow);line-height:1.3;transition:background .15s ease,filter .15s ease;}
+  .btn:hover{background:#fbfcfa;}
+  .btn:active{filter:brightness(.96);}
   .btn svg{width:15px;height:15px;}
-  /* 진한 녹색 채움 버튼은 쓰지 않는다(2026-09-06 사용자 "진한 녹색 버튼 싫어요") — 주요 버튼은 연보라 */
-  .btn.pri{background:#EDE4F4;border-color:#EDE4F4;color:#635A7D;font-family:var(--serif);font-weight:700;}
-  .btn.soft{background:var(--accent-bg);border-color:var(--accent-bg);color:var(--accent);}
-  .btn.lav{background:#EDE4F4;border-color:#EDE4F4;color:#635A7D;font-family:var(--serif);font-weight:700;}  /* [질문 대기] — 연보라(2026-09-06 사용자 "버튼 컬러 연보라색") */
+  /* 진한 녹색 채움 버튼은 쓰지 않는다(사용자 확정) — 주요 버튼은 연보라, 재호출은 연핑크, 나머지는 흰색/옅은 회색 */
+  .btn.pri,.btn.lav,.btn.start{background:var(--lilac);color:var(--lilac-ink);font-family:var(--serif);font-weight:700;}
+  .btn.pri:hover,.btn.lav:hover,.btn.start:hover{background:var(--lilac-hover);}
+  .btn.soft{background:var(--lilac);color:var(--lilac-ink);}
+  .btn.soft:hover{background:var(--lilac-hover);}
+  .btn.recall{background:var(--pink);color:var(--pink-ink);font-family:var(--serif);font-weight:700;}   /* [재호출] — 연핑크(시안) */
+  .btn.recall:hover{background:#efd0c4;}
   .btn.bad{color:var(--bad);}
-  .btn.recall{background:#F7E2DE;border-color:#F7E2DE;color:#8A4A35;font-family:var(--serif);font-weight:700;}   /* [재호출] — 연핑크(2026-09-06 클로드 디자인 '순서 정하기' 시안) */
+  .btn.ghost{background:transparent;box-shadow:none;color:var(--ink-soft);padding:8px 10px;}
+  .btn.ghost:hover{background:rgba(255,255,255,.6);color:var(--ink-body);}
+  .btn.board{background:var(--surface);color:var(--ink-body);}
   .btn:disabled{opacity:.5;cursor:default;}
-  .btn.board{background:var(--wait-bg);border-color:var(--wait-bg);color:var(--wait);}
-
-  .sec{margin:22px 0 10px;display:flex;align-items:baseline;gap:8px;}
-  .sec h2{font-family:var(--serif);font-size:16px;font-weight:700;margin:0;}
+  .btn.start{font-size:15px;padding:11px 20px;}
+  /* 펼침 메뉴(details) — 도구줄 [학생 불러오기 ▾] 와 카드의 [···] */
+  details.dd{position:relative;}
+  details.dd>summary{list-style:none;cursor:pointer;user-select:none;}
+  details.dd>summary::-webkit-details-marker{display:none;}
+  details.dd>summary.btn::after{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;border-bottom:1.5px solid currentColor;transform:translateY(-2px) rotate(45deg);margin-left:4px;opacity:.6;}
+  details.dd .menu{position:absolute;top:calc(100% + 6px);left:0;z-index:30;background:var(--surface);border-radius:14px;box-shadow:0 8px 28px rgba(58,77,69,.16);padding:6px;display:flex;flex-direction:column;gap:2px;min-width:200px;}
+  details.dd .menu .btn{box-shadow:none;justify-content:flex-start;border-radius:10px;padding:10px 12px;white-space:nowrap;}
+  details.dd .menu .btn:hover{background:var(--sunken);}
+  details.dd.right .menu{left:auto;right:0;}
+  details.dd>summary.more{width:40px;height:40px;border-radius:12px;background:var(--surface);box-shadow:var(--shadow);display:inline-flex;align-items:center;justify-content:center;color:var(--ink-soft);font-size:18px;letter-spacing:1px;line-height:1;}
+  details.dd>summary.more:hover{background:#fbfcfa;color:var(--ink-body);}
+  .item.calling details.dd>summary.more,.item.resv details.dd>summary.more,#waiting details.dd>summary.more{background:var(--sunken);box-shadow:none;}
+  /* 구역 제목 — '호출 중 1명' */
+  .sec{margin:22px 0 10px;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+  .sec h2{font-family:var(--serif);font-size:16px;font-weight:700;margin:0;color:var(--ink-body);}
   .sec .n{font-size:12.5px;color:var(--ink-soft);}
   .sec .tog{margin-left:auto;font-size:12.5px;color:var(--ink-soft);cursor:pointer;border:0;background:none;font-family:inherit;}
   .sec .start{margin-left:auto;}
-  .btn.start{background:#EDE4F4;border-color:#EDE4F4;color:#635A7D;font-family:var(--serif);font-weight:700;font-size:15px;padding:10px 18px;}
-  .item .unit{display:inline-block;font-size:12px;color:var(--wait);background:var(--wait-bg);border-radius:20px;padding:1px 9px;margin-left:6px;vertical-align:1px;}
-  .item .qt{font-family:var(--serif);font-weight:700;color:var(--ink);}
+  .sec .allin{margin-left:auto;}
+  /* 목록 — 흰 카드 하나에 줄이 쌓인다(줄 사이 옅은 선). 왼쪽 색 띠는 쓰지 않는다. */
+  .list{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);overflow:visible;}
+  .list:empty{display:none;}
+  .item{padding:14px 18px;display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;border-top:1px solid var(--line-soft);}
+  .item:first-child{border-top:0;}
+  .item.calling{padding:20px 22px;}
+  .item .no{font-family:var(--disp);font-weight:400;font-size:18px;color:var(--ink-faint);text-align:center;line-height:1.2;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:34px;}
+  .item.calling .no{font-family:var(--sans);font-size:12px;color:var(--brand-mid);background:var(--accent-bg);border-radius:999px;padding:3px 10px;}
+  .item.resv .no{font-family:var(--sans);font-size:12px;color:var(--ink-soft);}
+  .item .grip{cursor:grab;color:var(--ink-faint);font-size:16px;line-height:1;padding:2px 4px;user-select:none;}
+  .item .grip:active{cursor:grabbing;}
+  .item.dragging{opacity:.45;}
+  .item.dropbefore{box-shadow:inset 0 3px 0 var(--lilac-ink);}
+  .item.dropafter{box-shadow:inset 0 -3px 0 var(--lilac-ink);}
+  .item .nm{font-family:var(--disp);font-weight:400;font-size:22px;color:var(--ink);letter-spacing:.01em;}
+  .item.calling .nm{font-size:30px;line-height:1.15;}
+  .item .meta{font-size:12.5px;color:var(--ink-soft);margin-left:8px;}
+  .item .tc{display:inline-block;font-size:11.5px;color:var(--brand-mid);background:var(--accent-bg);border-radius:20px;padding:2px 9px;margin-left:6px;vertical-align:2px;}
+  .item .unit{display:inline-block;font-size:11.5px;color:var(--wait);background:var(--wait-bg);border-radius:20px;padding:2px 9px;margin-left:6px;vertical-align:2px;}
+  .item .tc.photo{color:var(--cream-ink);background:var(--cream);}
+  .item .qt{font-family:var(--serif);font-weight:700;color:var(--ink-body);}
+  .item .txt{margin:6px 0 0;white-space:pre-wrap;font-size:14px;line-height:1.65;color:var(--ink-body);}
+  .item .txt.none{color:var(--ink-soft);font-style:normal;font-size:12.5px;}
+  .item .thumb{display:block;margin-top:8px;max-width:180px;max-height:140px;border-radius:10px;cursor:zoom-in;object-fit:cover;}
+  .item .thumb.ph{width:120px;height:80px;background:var(--sunken);color:var(--ink-soft);font-size:12px;display:flex;align-items:center;justify-content:center;cursor:default;}
+  .item .wait{font-size:12px;color:var(--ink-soft);margin-top:4px;}
+  .item .wait b{color:var(--bad);font-weight:400;}
+  .item .acts{display:flex;flex-direction:row;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+  .item .acts .btn{white-space:nowrap;}
   .item .acts .sub{font-size:12px;padding:6px 10px;color:var(--ink-soft);}
+  .item .acts .since{font-size:12.5px;color:var(--ink-soft);margin-right:4px;white-space:nowrap;}
+  .item .acts .since b{color:var(--bad);font-weight:400;}
+  .item.calling .acts .btn.pri{font-size:15px;padding:13px 20px;}
   .item .ord{display:flex;flex-direction:column;gap:2px;align-items:center;}
-  .item .ord button{border:1px solid var(--line);background:var(--surface);border-radius:8px;width:30px;height:24px;cursor:pointer;color:var(--ink-soft);font-size:12px;line-height:1;padding:0;}
-  .item .ord button:disabled{opacity:.3;cursor:default;}
-  .item.resv{background:#FBFCFB;}
-  .item.resv .no{font-size:12px;color:var(--ink-soft);}
-  .tc.clinic{background:#F7E2DE;color:#B0736A;}
+  .item .ord button{border:0;background:transparent;border-radius:8px;width:28px;height:20px;cursor:pointer;color:var(--ink-faint);font-size:10px;line-height:1;padding:0;}
+  .item .ord button:hover{background:var(--sunken);color:var(--ink-body);}
+  .item .ord button:disabled{opacity:.25;cursor:default;}
+  .item .note{margin-top:8px;}
+  .item .note input{width:100%;max-width:420px;border:1px solid var(--line);border-radius:9px;padding:6px 10px;font-family:inherit;font-size:13px;background:#fbfcfb;color:var(--ink-body);}
+  .item.done{opacity:.72;padding:10px 18px;grid-template-columns:1fr auto;}
+  .item.done .nm{font-size:17px;}
+  .item.done .st{font-size:12px;color:var(--ink-soft);}
+  .item.done .st.off{color:var(--bad);}
+  .empty{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px 20px;text-align:center;color:var(--ink-soft);font-size:13.5px;}
+  .err{background:var(--bad-bg);color:var(--bad);border-radius:12px;padding:10px 14px;font-size:13.5px;margin-bottom:12px;display:none;}
+  .hint{font-size:12.5px;color:var(--ink-soft);margin:0 2px 8px;line-height:1.7;background:var(--surface);border-radius:14px;padding:12px 16px;box-shadow:var(--shadow);}
+  .hint[hidden]{display:none;}
+  .hint b{color:var(--ink-body);}
+  .tc.clinic{background:var(--pink);color:var(--pink-ink);}
   .loaded{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px;}
   .loaded .lc{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border-radius:999px;box-shadow:var(--shadow);padding:6px 6px 6px 14px;font-size:13.5px;}
   .loaded .lc b{font-family:var(--serif);}
   .loaded .lc .n{color:var(--ink-soft);font-size:12px;}
-  .loaded .lc button{border:1px solid var(--line);background:var(--surface);color:var(--bad);border-radius:999px;padding:4px 10px;font-family:inherit;font-size:12px;cursor:pointer;}
+  .loaded .lc button{border:0;background:var(--sunken);color:var(--bad);border-radius:999px;padding:5px 11px;font-family:inherit;font-size:12px;cursor:pointer;}
   .loaded .all{font-size:12px;color:var(--ink-soft);border:0;background:none;cursor:pointer;text-decoration:underline;font-family:inherit;}
-  /* 반 전체 불러오기 창 */
+  /* 창(반 전체 불러오기·클리닉 신청자 불러오기) */
   .modal{position:fixed;inset:0;background:rgba(20,26,23,.45);display:none;align-items:center;justify-content:center;z-index:40;padding:16px;}
   .modal .box{background:var(--surface);border-radius:var(--radius);box-shadow:0 10px 30px rgba(42,51,47,.18);width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:18px 18px 16px;}
   .modal h3{margin:0 0 10px;font-family:var(--serif);font-size:16px;}
   .modal .foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
   .modal .foot .sp{flex:1;}
   .modal .msg{font-size:12.5px;color:var(--ink-soft);}
+  .modal .btn{box-shadow:none;background:var(--sunken);}
+  .modal .btn.pri,.modal .btn.lav{background:var(--lilac);}
   #clin .stu{display:grid;grid-template-columns:1fr;gap:6px;margin:8px 0 12px;}
-  #clin .stu label{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;padding:8px 10px;border:1px solid var(--line-soft);border-radius:10px;cursor:pointer;}
+  #clin .stu label{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;padding:8px 10px;background:var(--sunken);border-radius:10px;cursor:pointer;}
   #clin .stu label.dim{opacity:.5;}
   #clin .stu .d{font-size:12px;color:var(--ink-soft);white-space:pre-wrap;}
   #cls .box{background:var(--surface);border-radius:var(--radius);box-shadow:0 10px 30px rgba(42,51,47,.18);width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:18px 18px 16px;}
   #cls h3{margin:0 0 10px;font-family:var(--serif);font-size:16px;}
   #cls .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
-  #cls select{padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:13.5px;background:#FBFCFB;color:var(--ink);flex:1;min-width:180px;}
-  #cls .seg button{border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:999px;padding:6px 12px;font-family:inherit;font-size:13px;cursor:pointer;}
-  #cls .seg button.on{background:#EDE4F4;border-color:#EDE4F4;color:#635A7D;font-weight:700;}
+  #cls select{padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:13.5px;background:#fbfcfb;color:var(--ink-body);flex:1;min-width:180px;}
+  #cls .seg button{border:0;background:var(--sunken);color:var(--ink-soft);border-radius:999px;padding:6px 12px;font-family:inherit;font-size:13px;cursor:pointer;}
+  #cls .seg button.on{background:var(--lilac);color:var(--lilac-ink);font-weight:700;}
   #cls .stu{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin:8px 0 12px;}
-  #cls .stu button{display:flex;align-items:center;gap:8px;font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line-soft);border-radius:10px;background:var(--surface);color:var(--ink);cursor:pointer;min-height:40px;text-align:left;}
+  #cls .stu button{display:flex;align-items:center;gap:8px;font-family:inherit;font-size:14px;padding:8px 10px;border:0;border-radius:10px;background:var(--sunken);color:var(--ink-body);cursor:pointer;min-height:40px;text-align:left;}
   #cls .stu button .num{width:22px;height:22px;border-radius:999px;border:1px dashed var(--line);font-size:12px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink-soft);flex:none;}
-  #cls .stu button.on{background:#F3F8F5;border-color:var(--accent);}
+  #cls .stu button.on{background:var(--lilac);}
   #cls .stu button.on .num{background:#8D83A8;border:0;color:#fff;font-weight:700;}
   #cls .stu button.dim{opacity:.45;cursor:default;}
   #cls .stu button.dim small{color:var(--ink-soft);}
@@ -101,39 +181,25 @@
   #cls .foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
   #cls .foot .sp{flex:1;}
   #cls .msg{font-size:12.5px;color:var(--ink-soft);}
-
-  .item{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:10px;display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:start;}
-  .item.calling{background:#F3F8F5;outline:2px solid var(--accent);}
-  .item .no{font-family:var(--serif);font-weight:700;font-size:20px;color:var(--ink-soft);text-align:center;line-height:1.2;padding-top:2px;}
-  .item.calling .no{color:var(--accent);font-size:13px;}
-  .item .nm{font-family:var(--serif);font-weight:700;font-size:17px;}
-  .item .meta{font-size:12.5px;color:var(--ink-soft);margin-left:8px;}
-  .item .tc{display:inline-block;font-size:11.5px;color:var(--accent);background:var(--accent-bg);border-radius:20px;padding:1px 9px;margin-left:6px;vertical-align:1px;}
-  .item .txt{margin:6px 0 0;white-space:pre-wrap;font-size:14.5px;line-height:1.65;}
-  .item .txt.none{color:var(--ink-soft);font-style:normal;}
-  .item .thumb{display:block;margin-top:8px;max-width:180px;max-height:140px;border-radius:10px;border:1px solid var(--line-soft);cursor:zoom-in;object-fit:cover;}
-  .item .thumb.ph{width:120px;height:80px;background:#F2F5F3;color:var(--ink-soft);font-size:12px;display:flex;align-items:center;justify-content:center;cursor:default;}
-  .item .wait{font-size:12px;color:var(--ink-soft);margin-top:6px;}
-  .item .wait b{color:var(--bad);font-weight:400;}
-  .item .acts{display:flex;flex-direction:column;gap:6px;min-width:96px;}
-  .item .acts .btn{justify-content:center;}
-  .item .note{margin-top:8px;}
-  .item .note input{width:100%;border:1px solid var(--line-soft);border-radius:9px;padding:6px 10px;font-family:inherit;font-size:13px;background:#FBFCFB;}
-  .item.done{opacity:.72;padding:10px 16px;grid-template-columns:1fr auto;}
-  .item.done .nm{font-size:15px;}
-  .item.done .st{font-size:12px;color:var(--ink-soft);}
-  .item.done .st.off{color:var(--bad);}
-  .empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius);padding:30px 20px;text-align:center;color:var(--ink-soft);font-family:var(--serif);font-size:14px;}
-  .err{background:var(--bad-bg);color:var(--bad);border-radius:12px;padding:10px 14px;font-size:13.5px;margin-bottom:12px;display:none;}
-  .hint{font-size:12.5px;color:var(--ink-soft);margin:6px 2px 0;line-height:1.6;}
-
   /* 사진 크게 보기 */
   #lb{position:fixed;inset:0;background:rgba(20,26,23,.85);display:none;align-items:center;justify-content:center;z-index:50;cursor:zoom-out;}
   #lb img{max-width:96vw;max-height:94vh;border-radius:10px;}
+  /* 휴대폰 — 리모컨 배치(시안 4b): 호출 중 버튼을 화면 아래 고정 줄로 */
+  #mbar{display:none;}
   @media (max-width:600px){
-    .item{grid-template-columns:36px 1fr;}
-    .item .acts{grid-column:1 / -1;flex-direction:row;flex-wrap:wrap;}
-    .item .acts .btn{flex:1;}
+    body{padding-bottom:150px;}
+    .wrap{padding:0 12px;}
+    .brand{padding:16px 2px 10px;gap:10px;}
+    .brand .logo{font-size:28px;}
+    .brand .links{gap:12px;}
+    .bar .tip{display:none;}
+    .item{grid-template-columns:auto 1fr;padding:12px 14px;}
+    .item .acts{grid-column:1 / -1;justify-content:flex-start;}
+    .item.calling .acts{display:none;}
+    #mbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:35;background:rgba(232,234,229,.96);backdrop-filter:blur(6px);padding:10px 12px calc(10px + env(safe-area-inset-bottom));flex-wrap:wrap;gap:8px;box-shadow:0 -6px 20px rgba(58,77,69,.08);}
+    #mbar:empty{display:none;}
+    #mbar .btn.pri{flex:1 0 100%;font-size:17px;padding:16px;}
+    #mbar .btn{flex:1;white-space:nowrap;font-size:13px;padding:12px 8px;}
   }
 </style>
 </head>
@@ -189,36 +255,40 @@
 
 <div class="wrap">
   <div class="brand">
-    <span class="name">이수경국어</span><span class="sub">클리닉 호출 · 순서 정하기</span>
-    <span class="links"><a href="clinic.html">클리닉 메뉴</a><a href="index.html">허브</a></span>
+    <span class="logo">Shueguk</span><span class="bar"></span>
+    <span class="name">순서 정하기</span><span class="sub">클리닉 호출</span>
+    <span class="links"><span class="live" id="live"><i></i><span id="upd">자동 갱신</span></span><a href="clinic.html">클리닉 메뉴</a><a href="index.html">허브</a></span>
   </div>
 
   <div class="bar">
-    <label for="tsel">선생님</label>
-    <select id="tsel"></select>
-    <button class="btn board" id="boardBtn" onclick="openBoard()">전자칠판 대기 화면 열기</button>
-    <button class="btn soft" id="clsBtn" onclick="clsOpen()">반 전체 불러오기</button>
-    <button class="btn soft" id="clinBtn" onclick="clinOpen()">클리닉 신청자 불러오기</button>
+    <span class="tsel"><label for="tsel">선생님</label><select id="tsel"></select></span>
+    <button class="btn board" id="boardBtn" onclick="openBoard()">전자칠판 화면 열기</button>
+    <details class="dd" id="loadDd"><summary class="btn">학생 불러오기</summary><div class="menu">
+      <button class="btn" id="clsBtn" onclick="ddClose(this);clsOpen()">반 전체 불러오기</button>
+      <button class="btn" id="clinBtn" onclick="ddClose(this);clinOpen()">클리닉 신청자 불러오기</button>
+    </div></details>
     <span class="sp"></span>
-    <span class="upd" id="upd"></span>
-    <button class="btn" onclick="load(true)" title="다시 불러오기">새로고침</button>
+    <span class="tip">학생이 올린 질문은 순서대로 쌓입니다.</span>
+    <button class="btn ghost" id="helpTog" onclick="toggleHelp()">도움말 펼치기</button>
+    <button class="btn ghost" onclick="load(true)" title="다시 불러오기">새로고침</button>
   </div>
   <div class="err" id="err"></div>
-  <p class="hint">학생이 학생 페이지 '질문하기'에서 올린 질문이 <b>질문 타임 순서</b>로 쌓여요. <b>[질문 시작]</b>을 누르면 1번 친구가 호출되고(전자칠판 대기 화면에 이름이 크게 나와요), <b>[완료]</b>를 누르면 다음 친구가 자동으로 호출돼요. 자리에 없으면 <b>[건너뜀]</b>(다음 친구 호출)이나 <b>[맨 뒤로]</b>. 순서는 ▲▼로 바꿔요. 클리닉을 신청한 친구와 [명단으로 올리기]한 반 학생은 '아직 줄 안 선 친구'에 있다가 <b>[질문 대기]</b>를 누르면 그 시각으로 줄에 서요(학생이 전자칠판에서 자기 이름을 누르거나 자기 페이지에서 [질문 대기]를 눌러도 같아요). <b>[반 전체 불러오기]</b>로 여러 반을 명단에 올리거나 한 반을 순서대로 질문 대기에 넣을 수 있어요. 5초마다 저절로 새로 받아요.<br>이 화면은 <b>휴대폰에서도 리모컨처럼</b> 쓸 수 있어요 — 폰 홈 화면에 추가해 두고 자리에서 [완료 → 다음 호출]만 누르면 전자칠판이 바로 바뀌어요.</p>
+  <p class="hint" id="hint" hidden>학생이 학생 페이지 '질문하기'에서 올린 질문이 <b>질문 타임 순서</b>로 쌓여요. <b>[질문 시작]</b>을 누르면 1번 친구가 호출되고(전자칠판 대기 화면에 이름이 크게 나와요), <b>[완료]</b>를 누르면 다음 친구가 자동으로 호출돼요. 자리에 없으면 <b>[건너뜀]</b>(다음 친구 호출)이나 [···] 메뉴의 <b>[맨 뒤로]</b>. <b>[재호출]</b>은 같은 친구를 한 번 더 불러요(전자칠판 이름에서 하트가 터지고 호출 시간이 다시 흘러요). 순서는 줄 왼쪽 손잡이를 <b>끌어서</b> 바꾸거나 ▲▼로 바꿔요. 클리닉을 신청한 친구와 [명단으로 올리기]한 반 학생은 '아직 줄 안 선 친구'에 있다가 <b>[질문 대기]</b>를 누르면 그 시각으로 줄에 서요(학생이 전자칠판에서 자기 이름을 누르거나 자기 페이지에서 [질문 대기]를 눌러도 같아요). <b>[학생 불러오기]</b>로 여러 반을 명단에 올리거나 한 반을 순서대로 질문 대기에 넣을 수 있어요. 5초마다 저절로 새로 받아요.<br>이 화면은 <b>휴대폰에서도 리모컨처럼</b> 쓸 수 있어요 — 폰 홈 화면에 추가해 두고 자리에서 [완료 → 다음 호출]만 누르면 전자칠판이 바로 바뀌어요.</p>
 
   <div class="sec"><h2>호출 중</h2><span class="n" id="nCall"></span></div>
-  <div id="calling"></div>
+  <div id="calling" class="list"></div>
 
-  <div class="sec"><h2>대기</h2><span class="n" id="nWait"></span><span class="start" id="startWrap" style="display:none"><button class="btn start" id="startBtn" onclick="startQ()">질문 시작</button></span></div>
-  <div id="waiting"></div>
+  <div class="sec"><h2>대기</h2><span class="n" id="nWait"></span><span class="n" id="dragTip"></span><span class="start" id="startWrap" style="display:none"><button class="btn start" id="startBtn" onclick="startQ()">질문 시작</button></span></div>
+  <div id="waiting" class="list"></div>
 
-  <div class="sec"><h2>아직 줄 안 선 친구</h2><span class="n" id="nResv"></span><span class="n">· 클리닉 신청·반 명단 — 학생이 누르거나 선생님이 [질문 대기]</span></div>
+  <div class="sec"><h2>아직 줄 안 선 친구</h2><span class="n" id="nResv"></span><span class="n">· 클리닉 신청·반 명단 — 학생이 누르거나 선생님이 [질문 대기]</span><span class="allin" id="allinWrap" style="display:none"><button class="btn lav" id="allinBtn" onclick="arriveAll()">모두 대기에 넣기</button></span></div>
   <div class="loaded" id="loaded"></div>
-  <div id="resv"></div>
+  <div id="resv" class="list"></div>
 
   <div class="sec"><h2>오늘 끝난 질문</h2><span class="n" id="nDone"></span><button class="tog" id="doneTog" onclick="toggleDone()">펼치기</button></div>
-  <div id="done" style="display:none"></div>
+  <div id="done" class="list" style="display:none"></div>
 </div>
+<div id="mbar"></div>
 <div id="lb" onclick="this.style.display='none'"><img id="lbImg" alt="문제 사진"></div>
 <div id="clin" class="modal"><div class="box">
   <h3>클리닉 신청자 불러오기</h3>
@@ -304,7 +374,7 @@ function load(manual){
   return sb(q).then(function(rows){
     ROWS = rows || [];
     showErr('');
-    $('upd').textContent = hm(new Date().toISOString()) + ' 확인';
+    $('upd').textContent = hm(new Date().toISOString()) + ' 자동 갱신'; $('live').classList.remove('off');
     render();
     var need = ROWS.filter(function(r){ return ['대기','호출','예약','명단'].indexOf(r.status) >= 0 && !(r.id in PHOTOS); }).map(function(r){ return r.id; });
     if(need.length) return sb('/question_queue?select=id,photo&id=in.(' + need.join(',') + ')').then(function(ps){
@@ -312,7 +382,7 @@ function load(manual){
       (ps||[]).forEach(function(p){ PHOTOS[p.id] = p.photo || ''; });
       render();
     });
-  }).catch(function(e){ showErr('불러오지 못했어요 — ' + e.message); if(manual) render(); });
+  }).catch(function(e){ showErr('불러오지 못했어요 — ' + e.message); $('live').classList.add('off'); if(manual) render(); });
 }
 
 function photoHtml(r){
@@ -342,33 +412,33 @@ function render(){
       + unitTag(r)
       + (r.text ? '<div class="txt">'+esc(r.text)+'</div>' : '<div class="txt none">(글 없이 사진만)</div>')
       + photoHtml(r)
-      + '<div class="wait">'+qtLabel(r)+hm(r.called_at)+' 호출 · '+minsSince(r.called_at)+'분 지남</div>'
+      + '<div class="wait">'+qtLabel(r)+'호출 후 <b>'+minsSince(r.called_at)+'분</b> 지남 · '+hm(r.called_at)+' 호출</div>'
       + '<div class="note"><input placeholder="메모 (선택) — 입력 후 엔터" value="'+esc(r.note)+'" onkeydown="if(event.key===\'Enter\') setNote('+r.id+', this.value)"></div>'
-      + '</div><div class="acts">'
-      + '<button class="btn pri" onclick="finish('+r.id+', \'완료\', true)">완료 → 다음 호출</button>'
-      + '<button class="btn recall" onclick="recall('+r.id+')" title="같은 친구를 한 번 더 불러요 — 전자칠판 이름에서 하트가 터지고 호출 시간이 처음부터 다시 흘러요">재호출</button>'
-      + '<button class="btn bad" onclick="finish('+r.id+', \'건너뜀\', true)">건너뜀 → 다음 호출</button>'
-      + '<button class="btn" onclick="act('+r.id+', \'대기\')">다시 대기로</button>'
-      + '<button class="btn sub" onclick="finish('+r.id+', \'완료\', false)">완료만 (다음 호출 안 함)</button>'
-      + '</div></div>';
+      + '</div><div class="acts">' + callActs(r) + '</div></div>';
   }).join('') : '<div class="empty">지금 호출 중인 학생이 없어요.</div>';
+  // 휴대폰 리모컨 줄 — 호출 중인 친구가 한 명일 때 화면 아래에 같은 버튼을 고정해 둔다(600px 이하에서만 보임)
+  $('mbar').innerHTML = call.length === 1 ? callActs(call[0], true) : '';
 
   $('waiting').innerHTML = wait.length ? wait.map(function(r, i){
     var m = minsSince(r.created_at);
-    return '<div class="item" data-id="'+r.id+'"><div class="no">'+(i+1)+'</div><div>'
+    return '<div class="item" data-id="'+r.id+'" draggable="true"><div class="no"><span class="grip" title="끌어서 순서 바꾸기">⠿</span>'+(i+1)
+      + '<span class="ord"><button type="button" title="한 칸 위로" onclick="moveUp('+r.id+')"'+(i===0?' disabled':'')+'>▲</button><button type="button" title="한 칸 아래로" onclick="moveDown('+r.id+')"'+(i===wait.length-1?' disabled':'')+'>▼</button></span></div><div>'
       + '<span class="nm">'+esc(r.name)+'</span><span class="meta">'+esc([r.school, r.grade].filter(Boolean).join(' '))+'</span>'+tcTag(r)
       + unitTag(r)
       + (r.text ? '<div class="txt">'+esc(r.text)+'</div>' : '<div class="txt none">(글 없이 사진만)</div>')
       + photoHtml(r)
-      + '<div class="wait">'+qtLabel(r)+hm(r.created_at)+' 올림 · '+(m>=20 ? '<b>'+m+'분 기다리는 중</b>' : m+'분 기다리는 중')+'</div>'
+      + '<div class="wait">'+qtLabel(r)+hm(r.created_at)+' 올림</div>'
       + '</div><div class="acts">'
-      + '<span class="ord"><button type="button" title="한 칸 위로" onclick="moveUp('+r.id+')"'+(i===0?' disabled':'')+'>▲</button><button type="button" title="한 칸 아래로" onclick="moveDown('+r.id+')"'+(i===wait.length-1?' disabled':'')+'>▼</button></span>'
-      + '<button class="btn soft" onclick="act('+r.id+', \'호출\')">이 친구 먼저 호출</button>'
+      + '<span class="since">'+(m>=20 ? '<b>'+m+'분 기다림</b>' : m+'분 기다림')+'</span>'
+      + '<button class="btn soft" onclick="act('+r.id+', \'호출\')">먼저 호출</button>'
+      + '<details class="dd right"><summary class="more" title="더 보기">···</summary><div class="menu">'
       + '<button class="btn" onclick="toBack('+r.id+')">맨 뒤로</button>'
       + '<button class="btn bad" onclick="act('+r.id+', \'건너뜀\')">건너뜀</button>'
       + '<button class="btn sub" onclick="delRow('+r.id+')">지우기</button>'
+      + '</div></details>'
       + '</div></div>';
   }).join('') : '<div class="empty">기다리는 질문이 없어요.</div>';
+  $('dragTip').textContent = wait.length > 1 ? '· 손잡이를 끌거나 ▲▼로 순서 변경' : '';
   // [질문 시작] — 호출 중인 학생이 없고 기다리는 학생이 있을 때만
   $('startWrap').style.display = (!call.length && wait.length) ? 'inline' : 'none';
 
@@ -393,9 +463,11 @@ function render(){
       + '<div class="wait">'+(r.status!=='명단' && r.qtime ? '<span class="qt">'+esc(r.qtime)+' 클리닉</span>' : '')+'</div>'
       + '</div><div class="acts">'
       + '<button class="btn lav" onclick="arrive('+r.id+')">질문 대기</button>'
-      + '<button class="btn bad" onclick="act('+r.id+', \'건너뜀\')">'+(r.status==='명단'?'오늘 질문 없음':'오늘 안 옴')+'</button>'
+      + '<button class="btn ghost bad" onclick="act('+r.id+', \'건너뜀\')">'+(r.status==='명단'?'오늘 질문 없음':'오늘 안 옴')+'</button>'
       + '</div></div>';
-  }).join('') : '<div class="empty">아직 줄에 서지 않은 친구가 없어요. [반 전체 불러오기]→[명단으로 올리기]로 반 명단을 올려 둘 수 있어요.</div>';
+  }).join('') : '<div class="empty">아직 줄에 서지 않은 친구가 없어요. [학생 불러오기]→[반 전체 불러오기]→[명단으로 올리기]로 반 명단을 올려 둘 수 있어요.</div>';
+  $('allinWrap').style.display = resv.length >= 2 ? 'inline' : 'none';
+  $('allinBtn').textContent = resv.length + '명 모두 대기에 넣기';
 
   $('done').innerHTML = done.length ? done.map(function(r){
     var st = r.status==='완료' ? '완료 '+hm(r.done_at) : r.status==='취소' ? '학생이 취소 '+hm(r.done_at) : '건너뜀 '+hm(r.done_at);
@@ -410,7 +482,62 @@ function render(){
   }).join('') : '<div class="empty">아직 끝난 질문이 없어요.</div>';
 }
 
-function unitTag(r){ return r.unit ? '<span class="unit">'+esc(r.unit)+'</span>' : ''; }
+function unitTag(r){ return (r.unit ? '<span class="unit">'+esc(r.unit)+'</span>' : '') + (!r.text && PHOTOS[r.id] ? '<span class="tc photo">사진만</span>' : ''); }
+/* 호출 중 카드의 버튼 — 카드 안(acts)과 휴대폰 아래 고정 줄(#mbar) 두 곳에 같은 것을 그린다.
+   시안대로 [완료 → 다음 호출][재호출][건너뜀]은 바로 보이고, 나머지(다시 대기로·완료만)는 [···] 메뉴 안. 기능은 그대로. */
+function callActs(r, bar){
+  var rest = '<button class="btn" onclick="act('+r.id+', \'대기\')">다시 대기로</button>'
+           + '<button class="btn sub" onclick="finish('+r.id+', \'완료\', false)" title="완료만 (다음 호출 안 함)">'+(bar ? '완료만' : '완료만 (다음 호출 안 함)')+'</button>';
+  return '<button class="btn pri" onclick="finish('+r.id+', \'완료\', true)">완료 → 다음 호출</button>'
+       + '<button class="btn recall" onclick="recall('+r.id+')" title="같은 친구를 한 번 더 불러요 — 전자칠판 이름에서 하트가 터지고 호출 시간이 처음부터 다시 흘러요">재호출</button>'
+       + '<button class="btn bad" onclick="finish('+r.id+', \'건너뜀\', true)" title="건너뜀 → 다음 호출">'+(bar ? '건너뜀' : '건너뜀 → 다음 호출')+'</button>'
+       + (bar ? rest : '<details class="dd right"><summary class="more" title="더 보기">···</summary><div class="menu">' + rest + '</div></details>');
+}
+function toggleHelp(){ var h = $('hint'); h.hidden = !h.hidden; $('helpTog').textContent = h.hidden ? '도움말 펼치기' : '도움말 접기'; }
+function ddClose(el){ var d = el.closest('details'); if(d) d.open = false; }
+// 펼침 메뉴는 바깥을 누르면 닫힌다
+document.addEventListener('click', function(e){
+  document.querySelectorAll('details.dd[open]').forEach(function(d){ if(!d.contains(e.target)) d.open = false; });
+});
+/* 끌어서 순서 바꾸기 — 대기 줄(.item[draggable]). 놓은 자리의 이웃 사이 ord 로 바꾼다(moveUp/moveDown 과 같은 규칙). */
+var DRAG_ID = null;
+(function(){
+  var w = $('waiting');
+  w.addEventListener('dragstart', function(e){ var it = e.target.closest && e.target.closest('.item[draggable]'); if(!it) return; DRAG_ID = +it.getAttribute('data-id'); it.classList.add('dragging'); try{ e.dataTransfer.setData('text/plain', String(DRAG_ID)); e.dataTransfer.effectAllowed = 'move'; }catch(x){} });
+  w.addEventListener('dragend', function(){ DRAG_ID = null; w.querySelectorAll('.dragging,.dropbefore,.dropafter').forEach(function(x){ x.classList.remove('dragging','dropbefore','dropafter'); }); });
+  w.addEventListener('dragover', function(e){ var it = e.target.closest && e.target.closest('.item[draggable]'); if(!it || DRAG_ID===null) return; e.preventDefault();
+    var before = e.clientY < it.getBoundingClientRect().top + it.offsetHeight / 2;
+    w.querySelectorAll('.dropbefore,.dropafter').forEach(function(x){ x.classList.remove('dropbefore','dropafter'); });
+    if(+it.getAttribute('data-id') !== DRAG_ID) it.classList.add(before ? 'dropbefore' : 'dropafter'); });
+  w.addEventListener('drop', function(e){ var it = e.target.closest && e.target.closest('.item[draggable]'); if(!it || DRAG_ID===null) return; e.preventDefault();
+    var before = e.clientY < it.getBoundingClientRect().top + it.offsetHeight / 2;
+    dropAt(DRAG_ID, +it.getAttribute('data-id'), before); });
+})();
+function dropAt(id, targetId, before){
+  var wl = waitList(), i = wl.findIndex(function(r){ return r.id===id; }), j = wl.findIndex(function(r){ return r.id===targetId; });
+  if(i < 0 || j < 0 || i === j) return;
+  var rest = wl.filter(function(r){ return r.id!==id; }), k = rest.findIndex(function(r){ return r.id===targetId; }) + (before ? 0 : 1);
+  var prev = rest[k-1], next = rest[k], newOrd;
+  if(prev && next) newOrd = Math.floor((+prev.ord + +next.ord) / 2);
+  else if(prev) newOrd = +prev.ord + 1000;
+  else newOrd = +next.ord - 1000;
+  if(prev && newOrd <= +prev.ord) newOrd = +prev.ord + 1;
+  if(next && newOrd >= +next.ord) newOrd = +next.ord - 1;
+  if(prev && next && (newOrd <= +prev.ord || newOrd >= +next.ord)){ showErr('이 자리엔 더 끼워 넣을 수 없어요 — ▲▼로 한 칸씩 옮겨 주세요.'); return; }
+  return patch(id, { ord: newOrd }).then(function(){ return load(); }, function(e){ showErr('순서를 바꾸지 못했어요 — ' + e.message); });
+}
+/* [n명 모두 대기에 넣기] — 아직 줄 안 선 친구 전원을 지금 순서대로 줄에 세운다(한 명씩 arrive 와 같은 PATCH) */
+function arriveAll(){
+  var list = ROWS.filter(function(r){ return r.status==='예약' || r.status==='명단'; });
+  if(!list.length) return;
+  if(!confirm(list.length + '명을 모두 지금 순서대로 대기에 넣을까요?')) return;
+  $('allinBtn').disabled = true;
+  var base = Date.now();
+  return list.reduce(function(pr, r, i){ return pr.then(function(){
+      return sb('/question_queue?id=eq.' + r.id + '&status=in.(예약,명단)', { method:'PATCH', headers:{ 'Prefer':'return=minimal' }, body: JSON.stringify({ status:'대기', ord: base + i, qtime: kstHM() }) });
+    }); }, Promise.resolve())
+    .then(function(){ $('allinBtn').disabled = false; return load(); }, function(e){ $('allinBtn').disabled = false; showErr('저장하지 못했어요 — ' + e.message); return load(); });
+}
 function qtLabel(r){ return r.qtime ? '<span class="qt">'+esc(r.qtime)+' 질문 타임</span> · ' : ''; }
 function maxOrd(){ return ROWS.reduce(function(m, r){ return Math.max(m, +r.ord || 0); }, 0); }
 // 같은 선생님의 다음 대기 학생 (ROWS 는 ord 순으로 받았다)
