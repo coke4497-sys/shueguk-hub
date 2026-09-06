@@ -5,121 +5,164 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>이수경국어 · 클리닉 호출 · 전자칠판 대기 화면</title>
 <!-- 이수경국어 질문 대기열 — 강의실 디스플레이 (2026-09-06)
-     TV·모니터에 띄워 두는 화면. 선생님이 question.html 에서 [호출]한 학생 이름을 크게 보여 주고,
+     TV·전자칠판에 띄워 두는 화면. 선생님이 question.html 에서 [호출]한 학생 이름을 크게 보여 주고,
      아래에 다음 순서를 적는다. 3초마다 새로 받는다. 주소에 ?t=선생님 (또는 t=all 전체).
-     교사 신분(조용한 인증)으로 question_queue 를 읽는다 — 강의실 기기에서만 열 것. -->
+     교사 신분(조용한 인증)으로 question_queue 를 읽는다 — 강의실 기기에서만 열 것.
+
+     화면은 클로드 디자인 핸드오프 '클리닉 호출 화면 개선안'(2026-09-06, 벽 디스플레이 1520×856) 그대로다.
+     · 고정 1520×856 캔버스를 화면 크기에 맞춰 통째로 축소·확대한다(리플로우 없음 — 디자인 지시).
+     · 왼쪽 = 읽기만 하는 영역(호출·다음 순서), 오른쪽 = 누르는 영역(줄 안 선 친구·[질문 대기]).
+     · 서체 역할 고정: 도현체 = 이름·숫자·시계 / 고운바탕 700 = 제목 / 고운돋움 = 본문·버튼. 도현체·고운돋움은 굵기가 하나라 700 을 주지 않는다.
+     · 호출 15초 뒤부터 카드가 '숨쉬기'(2a — 사용자 선택)로 환기, 호출이 풀리면 바로 멈춘다.
+     · 선생님이 [다시 호출]을 누르면(called_at 갱신) 같은 학생인데 호출 시각이 새로워진 것을 보고 이름에서 하트가 터지고 경과가 0 으로 돌아간다.
+       재호출 버튼은 이 화면에 없다 — 전자칠판은 벽이고, 조작은 선생님 페이지에서. -->
 <link rel="preconnect" href="https://bangdbhqpphqqdwcledg.supabase.co">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:ital,wght@0,400;0,700;1,400&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&family=Sacramento&display=swap" rel="stylesheet">
 <style>
+  /* 디자인 토큰 — 핸드오프 README 의 값 그대로. 바꿀 때는 여기서만. */
   :root{
-    --bg:#C6D5D2; --surface:#FFFFFF; --ink:#2A332F; --ink-soft:#65726B; --ink-mute:#8C978F;
-    --accent:#4C6E66; --btn:#628C83; --accent-bg:#DCE6E0; --line:#D7E3DD; --soft:#F3F6F4;
-    /* 슈국 포인트 컬러(허브 카드 아이콘과 동일) */
-    --yel:#F9EFD0; --yel-ink:#9B8046; --pnk:#F7E2DE; --pnk-ink:#B0736A; --lav:#EDE4F4; --lav-ink:#8D83A8; --sky:#E9EDF8; --sky-ink:#64749E;
-    --cream:#FBF4EA; --cream2:#F8EDE2;
-    --sans:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
-    --serif:"Gowun Batang",serif;
-    --disp:"Do Hyeon","Gowun Dodum","Apple SD Gothic Neo",sans-serif;   /* 도현체 — 학생 이름·큰 숫자 (2026-09-06 사용자 폰트 지침 추가) */
-    --r:1.6vw;
+    --sage-bg:#cfdcd7; --surface:#ffffff; --surface-sunken:#f6f7f4; --surface-next:#fdf6ea; --surface-breathe:#fdf3ee; --track:#eef0ec;
+    --ink:#2b3a33; --ink-body:#33443c; --ink-muted:rgba(51,68,60,.62); --ink-faint:rgba(51,68,60,.45); --ink-soft:rgba(51,68,60,.6);
+    --brand-deep:#3a4d45; --brand-mid:#4b6157; --live:#7c9c86;
+    --accent-cream:#f7e3c8; --accent-amber:#e2c48f; --accent-clay:#c98b72; --accent-clay-ink:#8a6a35;
+    --lilac:#e6e2f2; --lilac-hover:#d8d2ec; --lilac-ink:#4a4266;   /* [질문 대기] — 연보라(사용자 확정, 진한 초록 금지) */
+    --green-chip:#eaefe9; --divider:rgba(51,68,60,.12); --chip:rgba(255,255,255,.7);
+    --font-display:"Do Hyeon","Gowun Dodum","Apple SD Gothic Neo",sans-serif;
+    --font-heading:"Gowun Batang",serif;
+    --font-body:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+    --font-wordmark:"Sacramento",cursive;   /* 허브 index.html 의 Shueguk 워드마크와 같은 서체 */
+    --shadow-card:0 3px 18px rgba(58,77,69,.08); --shadow-frame:0 3px 18px rgba(58,77,69,.14);
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;}
-  body{background:var(--bg);color:var(--ink);font-family:var(--sans);display:flex;flex-direction:column;min-height:100vh;}
-  /* 머리줄 — Shueguk | 클리닉 호출 · 선생님 · 반 …… ● 실시간  22:56  [전체 화면] */
-  .top{display:flex;align-items:center;gap:1vw;padding:2vh 2.4vw 0;}
-  .top .logo{font-family:var(--serif);font-style:italic;font-weight:400;font-size:clamp(18px,2.2vw,32px);color:var(--accent);letter-spacing:.04em;}
-  .top .bar{width:1px;height:2.2vh;background:rgba(42,51,47,.25);}
-  .top .name{font-family:var(--sans);font-weight:700;font-size:clamp(15px,1.6vw,24px);color:var(--accent);}
-  .top .who{font-size:clamp(13px,1.3vw,20px);color:var(--ink-soft);}
-  .top .sp{flex:1;}
-  .top .live{display:inline-flex;align-items:center;gap:.4vw;background:var(--surface);border-radius:999px;padding:.6vh 1vw;font-size:clamp(11px,1vw,15px);color:var(--ink-soft);box-shadow:0 1px 6px rgba(42,51,47,.05);}
-  .top .live i{width:.55vw;height:.55vw;min-width:6px;min-height:6px;border-radius:50%;background:var(--btn);animation:blink 2s ease-in-out infinite;}
-  @keyframes blink{50%{opacity:.35}}
-  .top .clock{font-family:var(--disp);font-size:clamp(20px,2.4vw,36px);color:var(--ink);font-variant-numeric:tabular-nums;letter-spacing:.02em;}
-  .top .fs{border:0;background:var(--surface);color:var(--ink-soft);border-radius:999px;padding:.7vh 1.1vw;font-family:inherit;font-size:clamp(11px,1vw,15px);cursor:pointer;box-shadow:0 1px 6px rgba(42,51,47,.05);}
-  /* 본문 — 왼쪽(호출·다음 순서) : 오른쪽(줄 안 선 친구·숫자) */
-  .wrap2{flex:1;display:grid;grid-template-columns:2.6fr 1fr;gap:1.4vw;padding:1.6vh 2.4vw 1.2vh;min-height:0;}
-  .main{display:grid;grid-template-rows:1fr auto;gap:1.6vh;min-height:0;}
-  .side{display:grid;grid-template-rows:1fr auto;gap:1.6vh;min-height:0;}
-  .card{background:var(--surface);border-radius:var(--r);box-shadow:0 2px 14px rgba(42,51,47,.06);padding:2.2vh 1.8vw;display:flex;flex-direction:column;min-height:0;position:relative;}
-  .card h2{margin:0;font-family:var(--sans);font-size:clamp(15px,1.5vw,24px);color:var(--ink);font-weight:700;display:flex;align-items:center;gap:.6vw;}
-  .card h2 .sub{font-weight:400;font-size:.72em;color:var(--ink-mute);}
-  .card h2 .badge{margin-left:auto;background:var(--lav);color:var(--lav-ink);font-family:var(--disp);font-size:.9em;min-width:1.9em;height:1.9em;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;padding:0 .5em;}
-  .card .desc{margin:.4vh 0 1.4vh;font-size:clamp(11px,1vw,15px);color:var(--ink-mute);}
-  .card .desc b{color:var(--lav-ink);font-weight:700;}
-  /* 지금 선생님께 오세요 — 크림 카드 */
-  .card.call{background:linear-gradient(135deg,var(--cream),var(--cream2));}
-  .card.call h2::before{content:"";width:.6vw;height:.6vw;min-width:7px;min-height:7px;border-radius:50%;background:var(--pnk-ink);opacity:.8;}
-  .card.call .since{position:absolute;top:2vh;right:1.8vw;background:var(--yel);color:var(--yel-ink);border-radius:999px;padding:.5vh 1vw;font-size:clamp(11px,1.05vw,16px);font-weight:700;font-variant-numeric:tabular-nums;}
-  .now{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:0;gap:.6vh;}
-  .now .nm{font-family:var(--disp);font-weight:400;font-size:clamp(48px,9vw,150px);line-height:1.05;color:#3A4A44;letter-spacing:.02em;animation:pop .5s ease-out;}
-  .now .nm.many{font-size:clamp(34px,5.4vw,96px);}
-  .now .nm small{display:block;font-family:var(--sans);font-size:clamp(13px,1.4vw,22px);color:var(--ink-soft);letter-spacing:0;margin-top:.2vh;}
-  .now .meta{font-size:clamp(13px,1.35vw,22px);color:var(--ink-soft);}
+  body{background:#c3d2cc;color:var(--ink-body);font-family:var(--font-body);overflow:hidden;-webkit-font-smoothing:antialiased;}
+  button{font:inherit;border:0;cursor:pointer;}
+  /* ── 고정 1520×856 캔버스 + 레터박스 ── */
+  #stage{position:fixed;inset:0;display:none;align-items:center;justify-content:center;overflow:hidden;}
+  #frame{width:1520px;height:856px;flex:none;background:var(--sage-bg);border-radius:14px;box-shadow:var(--shadow-frame);padding:28px 30px;
+    display:grid;grid-template-columns:1fr 404px;grid-template-rows:auto 1fr;gap:24px;color:var(--ink-body);transform-origin:center center;}
+  .col{display:flex;flex-direction:column;gap:24px;min-height:0;}
+  /* ── 머리줄 — Shueguk | 클리닉 호출 · 선생님 …… ● 실시간  22:56  [전체 화면] (시계는 이 하나뿐) ── */
+  .top{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;}
+  .top .l,.top .r{display:flex;align-items:center;gap:18px;}
+  .top .logo{font:400 44px/1 var(--font-wordmark);color:var(--brand-deep);padding-bottom:6px;}
+  .top .bar{width:1px;height:26px;background:rgba(51,68,60,.2);}
+  .top .name{font:700 23px var(--font-heading);color:var(--ink-body);}
+  .top .who{font:400 19px var(--font-body);color:var(--ink-muted);}
+  .top .live{display:flex;align-items:center;gap:9px;background:var(--chip);border-radius:999px;padding:8px 15px;font:400 15px var(--font-body);color:var(--brand-mid);}
+  .top .live i{width:8px;height:8px;border-radius:50%;background:var(--live);animation:livepulse 1.8s ease-in-out infinite;}
+  .top .live.off i{animation:none;background:var(--ink-faint);}   /* 연결이 끊기면 점이 멈추고 회색 — 옛 데이터인데 깜빡이지 않게 */
+  .top .clock{font:400 34px var(--font-display);color:var(--ink-body);font-variant-numeric:tabular-nums;}
+  .top .fs{font:400 15px var(--font-body);color:var(--brand-mid);background:var(--chip);border-radius:10px;padding:11px 17px;transition:background .15s ease,color .15s ease;}
+  .top .fs:hover{background:#fff;color:var(--ink-body);}
+  /* ── 카드 공통 ── */
+  .card{background:var(--surface);border-radius:28px;box-shadow:var(--shadow-card);display:flex;flex-direction:column;min-height:0;position:relative;}
+  .card h2{margin:0;font:700 24px var(--font-heading);color:var(--ink-body);}
+  /* ── 지금 선생님께 오세요 ── */
+  .card.call{flex:1;padding:32px 38px 28px;}
+  .card.call.breathing{animation:breathe 2.6s ease-in-out infinite;}   /* 2a 숨쉬기 — 호출 15초 뒤부터 */
+  .call .hd{display:flex;align-items:center;justify-content:space-between;gap:18px;}
+  .call .hd .hl{display:flex;align-items:center;gap:12px;min-width:0;}
+  .call .dot{position:relative;width:11px;height:11px;flex:none;}
+  .call .dot span{position:absolute;inset:0;border-radius:50%;background:var(--accent-clay);}
+  .call .dot .rip{display:none;animation:ripple 2.2s ease-out infinite;}
+  .call.breathing .dot .rip{display:block;}
+  .call h2{font-size:26px;}
+  .call .since{font:400 19px var(--font-display);color:var(--accent-clay-ink);background:var(--accent-cream);border-radius:999px;padding:8px 20px;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .call .since[hidden]{display:none;}
+  .now{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;text-align:center;}
+  .now .wrap{position:relative;}   /* 하트가 터지는 기준점 — 하트는 이 상자 밖으로 날아간다 */
+  /* 88px 은 합의된 상한 — 뒤에서도 읽히되 사춘기 학생 이름을 스포트라이트처럼 띄우지 않기 위한 값. 키우지 말 것. */
+  .now .nm{position:relative;z-index:1;font:400 88px/1.15 var(--font-display);color:var(--ink);}
+  .now .nm.many{font-size:56px;line-height:1.15;}
+  .now .nm small{display:block;font:400 19px var(--font-body);color:var(--ink-muted);}
+  .now .nm.pop{animation:namepop .7s cubic-bezier(.22,1.2,.36,1) 1;}
+  .now .meta{font:400 22px var(--font-body);color:var(--ink-muted);margin-top:10px;}
   .now .lead{display:none;}
-  .now .none{font-family:var(--serif);font-size:clamp(20px,2.6vw,40px);color:var(--ink-soft);}
-  .now .up{font-size:clamp(15px,1.8vw,28px);color:var(--ink);}
-  .now .up b{display:inline-block;background:var(--yel);color:var(--yel-ink);border-radius:999px;padding:.3vh 1.4vw;font-family:var(--disp);font-weight:400;margin-left:.5vw;}
-  @keyframes pop{from{transform:scale(.92);opacity:.3}to{transform:scale(1);opacity:1}}
-  .prog{display:flex;align-items:center;gap:1vw;margin-top:1vh;}
-  .prog .track{flex:1;height:.9vh;min-height:6px;border-radius:999px;background:rgba(155,128,70,.14);overflow:hidden;}
-  .prog .fill{height:100%;width:0;border-radius:999px;background:#E6D3A6;transition:width 1s linear;}
-  .prog .lbl{font-size:clamp(10px,1vw,15px);color:var(--ink-mute);white-space:nowrap;}
-  /* 다음 순서 — 가로 카드 줄 */
-  .next{overflow:hidden;margin-top:1.4vh;}
-  .next ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,15vw),1fr));gap:1.1vh 1vw;}
-  .next li{display:flex;flex-direction:column;gap:.3vh;background:var(--soft);border-radius:1vw;padding:1.2vh 1.2vw;min-height:9vh;}
-  .next li .row{display:flex;align-items:baseline;gap:.5vw;font-size:clamp(10px,.95vw,15px);color:var(--ink-mute);letter-spacing:.08em;}
-  .next li .i{font-variant-numeric:tabular-nums;}
-  .next li .eta{margin-left:auto;letter-spacing:0;white-space:nowrap;}
-  .next li .n{font-family:var(--disp);font-size:clamp(22px,2.6vw,44px);line-height:1.1;color:var(--ink);}
-  .next li .t{font-size:clamp(10px,.95vw,15px);color:var(--ink-mute);}
-  .next li:first-child{background:var(--yel);}
-  .next li:first-child .row,.next li:first-child .eta{color:var(--accent);font-weight:700;}
-  .next li.more{justify-content:center;align-items:center;background:none;color:var(--ink-mute);font-size:clamp(13px,1.2vw,20px);min-height:0;}
-  .next .none{font-family:var(--serif);font-size:clamp(15px,1.6vw,26px);color:var(--ink-soft);padding:1vh 0;}
-  /* 아직 줄 안 선 친구 — 오른쪽 목록 */
-  .side ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1vh;overflow:auto;flex:1;min-height:0;}
-  .side li{display:flex;align-items:center;gap:.8vw;border-radius:1vw;padding:1vh 1vw;background:var(--soft);}
+  .now .none{font:400 22px var(--font-body);color:var(--ink-muted);}
+  .now .up{margin-top:16px;font:400 22px var(--font-body);color:var(--ink-body);}
+  .now .up:empty{display:none;}
+  .now .up b{display:inline-block;font:400 30px/1.2 var(--font-display);color:var(--accent-clay-ink);background:var(--accent-cream);border-radius:999px;padding:6px 24px;margin-left:8px;}
+  .prog.off{visibility:hidden;}   /* 호출이 없으면 막대는 자리만 두고 감춘다 */
+  .prog .lbl{display:flex;justify-content:flex-end;margin-bottom:9px;font:400 18px var(--font-body);color:var(--accent-clay-ink);}
+  .prog .track{height:9px;border-radius:999px;background:var(--track);overflow:hidden;}
+  .prog .fill{height:100%;width:0;border-radius:999px;background:var(--accent-amber);transition:width 1s linear;}
+  /* 재호출 하트 — 이름 '뒤'에 깔린다(이름이 이 화면의 존재 이유라 가리지 않게) */
+  .hb{position:absolute;inset:0;pointer-events:none;overflow:visible;z-index:0;}
+  .hb .heart{position:absolute;left:calc(50% + var(--ox));top:calc(50% + var(--oy));width:var(--size);height:var(--size);margin:calc(var(--size) / -2) 0 0 calc(var(--size) / -2);
+    color:var(--tint);opacity:0;will-change:transform,opacity;animation:heartpop var(--dur) cubic-bezier(.16,.84,.44,1) var(--delay) 1 both;}
+  .hb svg{display:block;width:100%;height:100%;}
+  /* ── 다음 순서 — 가로 카드 4칸(내용만큼만 높게), NEXT 칸만 색 ── */
+  .card.nextc{flex:none;padding:24px 28px 26px;}
+  .nextc .hd{display:flex;align-items:baseline;gap:12px;margin-bottom:18px;}
+  .nextc .sub{font:400 17px var(--font-body);color:var(--ink-soft);}
+  .next ol{list-style:none;margin:0;padding:0;display:flex;gap:14px;}
+  .next li{flex:1;min-width:0;background:var(--surface-sunken);border-radius:18px;padding:17px 20px;display:flex;flex-direction:column;gap:8px;}
+  .next li:first-child{background:var(--surface-next);}   /* 학생·반별로 색을 주지 않는다 — 파스텔은 종류 표시(허브 카드)지 사람 구분이 아님 */
+  .next li .row{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+  .next li .i{font:400 13px var(--font-display);color:var(--ink-faint);letter-spacing:2px;}
+  .next li:first-child .i{font-family:var(--font-body);color:var(--accent-clay-ink);}
+  .next li .eta{font:400 17px var(--font-body);color:var(--ink-muted);font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .next li:first-child .eta{color:var(--accent-clay-ink);}
+  .next li .n{font:400 38px/1.2 var(--font-display);color:var(--ink-body);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .next li:first-child .n{color:var(--ink);}
+  .next li .t{font:400 15px var(--font-body);color:var(--ink-soft);}
+  .next .none{font:400 17px var(--font-body);color:var(--ink-muted);padding:10px 0 4px;}
+  /* ── 아직 줄 안 선 친구 — 오른쪽(누르는 영역) ── */
+  .card.resvc{flex:1;padding:28px 26px;}
+  .resvc .hd{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .resvc .badge{font:400 19px var(--font-display);color:var(--brand-mid);background:var(--green-chip);border-radius:999px;padding:5px 16px;font-variant-numeric:tabular-nums;}
+  .resvc .desc{margin:10px 0 20px;font:400 16px/1.65 var(--font-body);color:var(--ink-muted);}
+  .resvc .desc b{font:700 16px var(--font-heading);color:var(--brand-mid);}   /* 본문 안 강조 — 고운바탕이 본문에 들어오는 유일한 곳 */
+  .side ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex:1;min-height:0;}
+  .side li{display:flex;align-items:center;gap:12px;background:var(--surface-sunken);border-radius:16px;padding:12px 12px 12px 20px;flex:none;}
   .side li .nmx{flex:1;min-width:0;display:flex;flex-direction:column;}
-  .side li .nmx .n{font-family:var(--disp);font-size:clamp(17px,1.9vw,30px);line-height:1.1;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .side li .nmx small{font-size:clamp(10px,.9vw,14px);color:var(--ink-mute);}
-  .side li button{border:0;background:var(--lav);color:var(--lav-ink);border-radius:.8vw;padding:1vh 1.1vw;font-family:var(--sans);font-weight:700;font-size:clamp(12px,1.15vw,18px);cursor:pointer;min-height:44px;white-space:nowrap;}
-  .side li button:active{filter:brightness(.94);}
-  .side li.clinic .nmx small{color:var(--pnk-ink);}
-  .side li.none{background:none;padding:0;font-family:var(--serif);font-size:clamp(13px,1.3vw,20px);color:var(--ink-soft);}
-  /* 오른쪽 아래 숫자 카드 */
-  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.6vw;padding:1.8vh 1.2vw;}
-  .stats div{text-align:center;border-right:1px solid var(--line);}
-  .stats div:last-child{border-right:0;}
-  .stats .v{font-family:var(--disp);font-size:clamp(20px,2.4vw,38px);line-height:1;color:var(--ink);}
-  .stats .k{font-size:clamp(9px,.85vw,13px);color:var(--ink-mute);margin-top:.5vh;}
-  .stats div.wait .v{color:var(--lav-ink);}
-  .stats div.resv .v{color:var(--sky-ink);}
-  /* 옛 아래 띠(호환용 — 화면에는 안 씀) */
-  .arrive{display:none !important;}
+  .side li .nmx .n{font:400 26px/1.25 var(--font-display);color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .side li .nmx small{font:400 15px var(--font-body);color:var(--ink-soft);}
+  .side li.clinic .nmx small{color:#8a4a35;}
+  /* 54px 은 손가락 표적 최소 높이 — 줄이 줄어도 유지 */
+  .side li button{flex:none;font:400 18px var(--font-body);color:var(--lilac-ink);background:var(--lilac);border-radius:12px;padding:15px 22px;min-height:54px;white-space:nowrap;transition:background .15s ease;}
+  .side li button:hover{background:var(--lilac-hover);}
+  .side li.none{background:none;padding:0;font:400 16px/1.65 var(--font-body);color:var(--ink-muted);}
+  /* ── 숫자 카드 ── */
+  .card.stats{flex:none;padding:22px 26px;flex-direction:row;align-items:center;justify-content:space-between;}
+  .stats div{display:flex;flex-direction:column;gap:3px;}
+  .stats .v{font:400 28px var(--font-display);color:var(--ink);font-variant-numeric:tabular-nums;}
+  .stats .k{font:400 14px var(--font-body);color:var(--ink-soft);}
+  .stats i{width:1px;height:34px;background:var(--divider);}
+  /* ── 움직임 (수치는 디자인 스펙) ── */
+  @keyframes livepulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.8)}}
+  @keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(201,139,114,.34),var(--shadow-card);background:var(--surface)}50%{box-shadow:0 0 0 14px rgba(201,139,114,0),var(--shadow-card);background:var(--surface-breathe)}}
+  @keyframes ripple{0%{transform:scale(.7);opacity:.55}100%{transform:scale(2.1);opacity:0}}
+  @keyframes namepop{0%{transform:scale(1)}38%{transform:scale(1.05)}100%{transform:scale(1)}}
+  @keyframes heartpop{0%{transform:translate(0,0) scale(.2) rotate(0deg);opacity:0}20%{transform:translate(calc(var(--dx) * .24),calc(var(--dy) * .24)) scale(1.16) rotate(calc(var(--rot) * .25));opacity:1}60%{opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(.68) rotate(var(--rot));opacity:0}}
+  @media (prefers-reduced-motion: reduce){
+    .card.call.breathing{animation:none;background:var(--surface-breathe);}   /* 숨쉬기는 기능이라 지우지 않고 정지 배경으로 */
+    .call .dot .rip{display:none !important;}
+    .now .nm.pop{animation:none;}
+    .hb{display:none;}   /* 하트는 장식 — 완전히 끈다 */
+  }
+  /* ── 옛 아래 띠·발 줄(호환용 — 화면에는 안 씀. #cnt 는 검사·디버그용) ── */
+  .arrive,.foot{display:none !important;}
+  /* ── "○○○ 맞나요?" 확인 창 — 축소된 캔버스 밖(body)에 두어 실제 화면 크기로 뜬다 ── */
   #cf{position:fixed;inset:0;background:rgba(20,26,23,.55);display:none;align-items:center;justify-content:center;z-index:60;padding:4vw;}
-  #cf .box{background:var(--surface);border-radius:2vw;padding:4vh 4vw;text-align:center;max-width:720px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25);}
-  #cf .q{font-family:var(--serif);font-weight:700;font-size:clamp(24px,4vw,60px);margin:0 0 1vh;}
-  #cf .q b{font-family:var(--disp);font-weight:400;color:var(--accent);}
-  #cf .sub{color:var(--ink-soft);font-size:clamp(14px,1.6vw,22px);margin:0 0 3vh;}
+  #cf .box{background:var(--surface);border-radius:28px;padding:4vh 4vw;text-align:center;max-width:720px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25);}
+  #cf .q{font:700 clamp(24px,4vw,56px) var(--font-heading);margin:0 0 1vh;color:var(--ink-body);}
+  #cf .q b{font:400 1.1em var(--font-display);color:var(--ink);}
+  #cf .sub{color:var(--ink-muted);font:400 clamp(14px,1.6vw,22px)/1.5 var(--font-body);margin:0 0 3vh;}
   #cf .btns{display:flex;gap:2vw;justify-content:center;}
-  #cf .btns button{flex:1;max-width:300px;border:0;border-radius:1.4vw;padding:2.2vh 2vw;font-family:var(--serif);font-weight:700;font-size:clamp(18px,2.4vw,34px);cursor:pointer;min-height:56px;}
-  #cf .yes{background:var(--lav);color:var(--lav-ink);}
-  #cf .no{background:#EEF1EF;color:var(--ink);}
-  .foot{display:flex;gap:2vw;padding:0 2.4vw 1.2vh;font-size:clamp(10px,1vw,14px);color:var(--ink-mute);}
-  .foot .sp{flex:1;}
-  .foot .err{color:#B4544A;}
-  /* 선생님 고르기 (주소에 t 가 없을 때) */
-  #pick{flex:1;display:none;align-items:center;justify-content:center;padding:4vh 4vw;}
-  #pick .box{background:var(--surface);border-radius:2vw;box-shadow:0 2px 14px rgba(42,51,47,.06);padding:4vh 4vw;text-align:center;max-width:560px;width:100%;}
-  #pick h1{font-family:var(--serif);font-size:clamp(20px,2.6vw,34px);margin:0 0 2vh;}
-  #pick select{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;font-family:inherit;font-size:clamp(15px,1.6vw,20px);background:#FBFCFB;margin-bottom:2vh;}
-  #pick button{width:100%;border:0;background:var(--lav);color:var(--lav-ink);border-radius:12px;padding:13px;font-family:var(--serif);font-weight:700;font-size:clamp(15px,1.6vw,20px);cursor:pointer;}
-  #pick p{color:var(--ink-soft);font-size:clamp(12px,1.2vw,15px);}
-  @media (max-width:760px){ .wrap2{grid-template-columns:1fr;} .next ol{grid-template-columns:1fr 1fr;} .top .logo{display:none;} .top .bar{display:none;} }
+  #cf .btns button{flex:1;max-width:300px;border-radius:16px;padding:2.2vh 2vw;font:400 clamp(18px,2.4vw,30px) var(--font-body);min-height:56px;}
+  #cf .yes{background:var(--lilac);color:var(--lilac-ink);}
+  #cf .no{background:var(--surface-sunken);color:var(--ink-body);}
+  /* ── 선생님 고르기 (주소에 t 가 없을 때) ── */
+  #pick{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:4vh 4vw;background:var(--sage-bg);}
+  #pick .box{background:var(--surface);border-radius:28px;box-shadow:var(--shadow-card);padding:4vh 4vw;text-align:center;max-width:560px;width:100%;}
+  #pick h1{font:700 clamp(20px,2.6vw,32px) var(--font-heading);margin:0 0 2vh;color:var(--ink-body);}
+  #pick select{width:100%;padding:12px;border:1px solid var(--divider);border-radius:12px;font:400 clamp(15px,1.6vw,20px) var(--font-body);background:#FBFCFB;color:var(--ink-body);margin-bottom:2vh;}
+  #pick button{width:100%;background:var(--lilac);color:var(--lilac-ink);border-radius:12px;padding:15px;font:400 clamp(15px,1.6vw,20px) var(--font-body);min-height:54px;}
+  #pick p{color:var(--ink-muted);font:400 clamp(12px,1.2vw,15px)/1.6 var(--font-body);}
 </style>
 </head>
 <body>
@@ -168,15 +211,6 @@
 })();
 </script>
 
-<div class="top">
-  <span class="logo">Shueguk</span><span class="bar"></span>
-  <span class="name">클리닉 호출</span><span class="who" id="who"></span>
-  <span class="sp"></span>
-  <span class="live"><i></i>실시간</span>
-  <span class="clock" id="clock"></span>
-  <button class="fs" onclick="fullscreen()">전체 화면</button>
-</div>
-
 <div id="pick"><div class="box">
   <h1>어느 선생님 화면인가요?</h1>
   <select id="psel"></select>
@@ -184,41 +218,59 @@
   <p>전자칠판·TV에 전체 화면으로 띄워 두면 호출된 학생 이름이 크게 나와요.</p>
 </div></div>
 
-<div class="wrap2" id="main" style="display:none">
-  <div class="main">
-    <div class="card call">
-      <h2>지금 선생님께 오세요</h2>
-      <span class="since" id="since" hidden></span>
-      <div class="now" id="now"><div class="none">호출된 학생이 없어요</div></div>
-      <div class="prog"><div class="track"><div class="fill" id="progFill"></div></div><span class="lbl">호출 시간 경과</span></div>
+<div id="stage"><div id="frame">
+  <div class="top">
+    <div class="l">
+      <span class="logo">Shueguk</span><span class="bar"></span>
+      <span class="name">클리닉 호출</span><span class="who" id="who"></span>
     </div>
-    <div class="card">
-      <h2>다음 순서 <span class="sub" id="nextSub"></span></h2>
-      <div class="next" id="next"><div class="none">기다리는 학생이 없어요</div></div>
+    <div class="r">
+      <span class="live" id="live"><i></i><span id="liveTx">실시간</span></span>
+      <span class="clock" id="clock"></span>
+      <button class="fs" type="button" onclick="fullscreen()">전체 화면</button>
     </div>
   </div>
-  <div class="side">
-    <div class="card">
-      <h2>아직 줄 안 선 친구 <span class="badge" id="resvN">0</span></h2>
-      <p class="desc">준비가 되면 <b>질문 대기</b>를 눌러 줄에 서세요.</p>
-      <ul id="sideList"><li class="none">아직 줄에 서지 않은 친구가 없어요</li></ul>
+  <div class="col" id="main">
+    <div class="card call" id="callCard">
+      <div class="hd">
+        <div class="hl"><span class="dot"><span></span><span class="rip"></span></span><h2>지금 선생님께 오세요</h2></div>
+        <span class="since" id="since" hidden></span>
+      </div>
+      <div class="now" id="now"><div class="none">지금 호출된 친구가 없어요</div></div>
+      <div class="prog"><div class="lbl">호출 시간 경과</div><div class="track"><div class="fill" id="progFill"></div></div></div>
+    </div>
+    <div class="card nextc">
+      <div class="hd"><h2>다음 순서</h2><span class="sub" id="nextSub"></span></div>
+      <div class="next" id="next"><div class="none">대기 중인 친구가 없어요</div></div>
+    </div>
+  </div>
+  <div class="col side">
+    <div class="card resvc">
+      <div class="hd"><h2>아직 줄 안 선 친구</h2><span class="badge" id="resvN">0</span></div>
+      <p class="desc">준비가 되면 <b>질문 대기</b>를 눌러 줄에 서세요</p>
+      <ul id="sideList"><li class="none">모두 줄을 섰어요</li></ul>
     </div>
     <div class="card stats">
-      <div><div class="v" id="stCall">0</div><div class="k">호출 중</div></div>
-      <div class="wait"><div class="v" id="stWait">0</div><div class="k">대기</div></div>
-      <div class="resv"><div class="v" id="stResv">0</div><div class="k">줄 안 섬</div></div>
-      <div><div class="v" id="stAvg">–</div><div class="k">평균 상담</div></div>
+      <div><span class="v" id="stCall">0</span><span class="k">호출 중</span></div><i></i>
+      <div><span class="v" id="stWait">0</span><span class="k">대기</span></div><i></i>
+      <div><span class="v" id="stResv">0</span><span class="k">줄 안 섬</span></div><i></i>
+      <div><span class="v" id="stAvg">–</span><span class="k">평균 상담</span></div>
     </div>
   </div>
-</div>
+</div></div>
 <div class="arrive" id="arrive"><div class="box"><span id="arriveList"></span></div></div>
 <div id="cf"><div class="box"><p class="q" id="cfQ"></p><p class="sub">맞으면 지금 시각으로 줄에 서요. 먼저 누른 순서대로 호출돼요.</p><div class="btns"><button type="button" class="no" onclick="cfNo()">아니요</button><button type="button" class="yes" id="cfYes" onclick="cfYes()">네, 도착했어요</button></div></div></div>
-<div class="foot"><span id="cnt"></span><span class="sp"></span><span id="upd"></span><span class="err" id="err"></span></div>
+<div class="foot"><span id="cnt"></span><span id="upd"></span><span id="err"></span></div>
 
 <script>
 var SB = 'https://bangdbhqpphqqdwcledg.supabase.co/rest/v1';
 var T = new URLSearchParams(location.search).get('t') || '';
-var LAST_CALL = '';
+var LAST_CALL = '';          // 호출 중인 줄 id 목록 — 바뀔 때만 이름을 다시 그린다(등장 애니메이션 한 번)
+var LAST_AT = {};            // 줄 id → 마지막으로 본 called_at. 같은 학생인데 이 값이 새로워지면 = 선생님이 [다시 호출]
+var KIOSK_W = 1520, KIOSK_H = 856;
+var BREATHE_MS = 15000;      // 호출 뒤 이만큼 조용히 있다가 숨쉬기 시작
+var WINDOW_MS = 60000;       // '호출 시간 경과' 막대가 다 차는 시간(1분) — 자동 넘김은 없고 막대만 찬다
+var NEXT_MAX = 4;            // 다음 순서 칸 수 — 고정 폭에서 이름을 줄이지 않고 보여 줄 수 있는 수
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function kstToday(){ return new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10); }
@@ -228,9 +280,20 @@ function sb(path, opts){
   if(o.body && !o.headers['Content-Type']) o.headers['Content-Type'] = 'application/json';
   return fetch(SB + path, o).then(function(r){ if(!r.ok) throw new Error('수파베이스 ' + r.status); return r.text().then(function(t){ return t ? JSON.parse(t) : null; }); });
 }
-function tick(){ $('clock').textContent = hm(new Date()); }
-setInterval(tick, 1000); tick();
-function fullscreen(){ var el = document.documentElement; if(el.requestFullscreen) el.requestFullscreen().catch(function(){}); }
+/* 시계 — 초 경계에 맞춰 다시 읽어 :00 에 정확히 넘어가게 */
+function tick(){ $('clock').textContent = hm(new Date()); setTimeout(tick, 1000 - (Date.now() % 1000)); }
+tick();
+function fullscreen(){
+  if(document.fullscreenElement){ document.exitFullscreen().catch(function(){}); return; }
+  var el = document.documentElement; if(el.requestFullscreen) el.requestFullscreen().catch(function(){});
+}
+/* 캔버스 맞추기 — 1520×856 를 화면에 들어가는 만큼 통째로 줄이거나 키운다(리플로우 없음) */
+function fit(){
+  var s = Math.min(window.innerWidth / KIOSK_W, window.innerHeight / KIOSK_H);
+  $('frame').style.transform = 'scale(' + s + ')';
+}
+window.addEventListener('resize', fit);
+function setLive(on){ var el = $('live'); el.classList.toggle('off', !on); $('liveTx').textContent = on ? '실시간' : '연결 끊김'; }
 
 function showPick(){
   $('pick').style.display = 'flex';
@@ -260,48 +323,50 @@ function load(){
     // 오늘 몇 번째 호출인지 — 오늘 호출된 적 있는 줄(호출·완료 등 called_at 있음)을 호출 시각순으로 세어 자리를 찾는다
     var calledAll = rows.filter(function(r){ return r.called_at; }).sort(function(a,b){ return String(a.called_at).localeCompare(String(b.called_at)); });
     var nth = function(r){ var i = calledAll.map(function(x){ return x.id; }).indexOf(r.id); return i < 0 ? '' : '오늘 ' + (i+1) + '번째 호출'; };
+    // 재호출 판정 — 호출 명단은 그대로인데 어느 줄의 called_at 이 전에 본 것보다 새롭다 = 선생님이 [다시 호출]
+    var recalled = key && key === LAST_CALL && call.some(function(r){ return LAST_AT[r.id] && r.called_at && Date.parse(r.called_at) > Date.parse(LAST_AT[r.id]); });
+    LAST_AT = {}; call.forEach(function(r){ LAST_AT[r.id] = r.called_at; });
     if(key !== LAST_CALL){   // 호출 명단이 바뀌었을 때만 다시 그려 애니메이션이 한 번만 돈다
       LAST_CALL = key;
       $('now').innerHTML = call.length
-        ? '<div class="lead">선생님께 오세요</div>' + call.map(function(r){ return '<div class="nm'+(call.length>2?' many':'')+'">'+esc(r.name)+tag(r)+'</div>'; }).join('')
+        ? '<div class="lead">선생님께 오세요</div><div class="wrap" id="nowWrap">' + call.map(function(r){ return '<div class="nm'+(call.length>1?' many':'')+'">'+esc(r.name)+tag(r)+'</div>'; }).join('') + '</div>'
           + '<div class="meta">' + esc([call.length===1 && call[0].unit ? call[0].unit : '', call.length===1 ? nth(call[0]) : call.length + '명 호출 중'].filter(Boolean).join(' · ')) + '</div>'
-        : '<div class="none">호출된 학생이 없어요</div><div class="up" id="nowUp"></div>';
-    }
+        : '<div class="none">지금 호출된 친구가 없어요</div><div class="up" id="nowUp"></div>';
+    } else if(recalled){ burst(); }
     if(!call.length){ var upEl = $('nowUp'); if(upEl) upEl.innerHTML = wait.length ? '다음 차례 <b>'+esc(wait[0].name)+'</b>' : ''; }
     CALL_AT = call.length ? Math.min.apply(null, call.map(function(r){ return new Date(r.called_at).getTime() || Date.now(); })) : 0;
     AVG_MS = avg * 60000; sinceTick();
-    var MAX = 8;
     $('nextSub').textContent = wait.length ? wait.length + '명 대기' + (wait.length > 1 ? ' · 마지막 ' + etaOf(wait.length-1) : '') : '';
     $('next').innerHTML = wait.length
-      ? '<ol>' + wait.slice(0, MAX).map(function(r, i){ return '<li><span class="row"><span class="i">'+(i===0?'NEXT':(i<9?'0'+(i+1):(i+1)))+'</span><span class="eta">'+etaOf(i)+'</span></span><span class="n">'+esc(r.name)+'</span>'+(T==='all'?'<span class="t">'+esc(r.teacher)+'T</span>':'')+'</li>'; }).join('')
-        + (wait.length > MAX ? '<li class="more">… 외 '+(wait.length-MAX)+'명</li>' : '') + '</ol>'
-      : '<div class="none">기다리는 학생이 없어요</div>';
-    // 아직 안 온 친구(클리닉 신청) — 이름을 눌러 도착 체크
+      ? '<ol>' + wait.slice(0, NEXT_MAX).map(function(r, i){ return '<li><span class="row"><span class="i">'+(i===0?'NEXT':(i<9?'0'+(i+1):(i+1)))+'</span><span class="eta">'+etaOf(i)+'</span></span><span class="n">'+esc(r.name)+'</span>'+(T==='all'?'<span class="t">'+esc(r.teacher)+'T</span>':'')+'</li>'; }).join('') + '</ol>'
+      : '<div class="none">대기 중인 친구가 없어요</div>';
+    // 아직 줄 안 선 친구(클리닉 신청·반 명단) — 이름 옆 [질문 대기]로 줄에 선다
     RESV = resv;
-    $('arrive').style.display = resv.length ? 'block' : 'none';
-    var unitKeys = []; resv.forEach(function(r){ if(r.status==='명단' && unitKeys.indexOf(r.unit||'')<0) unitKeys.push(r.unit||''); });
     $('arriveList').innerHTML = '';
-    $('sideList').innerHTML = resv.length ? resv.map(function(r){ var cls = r.status==='예약' ? 'clinic' : 'c' + (unitKeys.indexOf(r.unit||'') % 4);
+    $('sideList').innerHTML = resv.length ? resv.map(function(r){
         var sub = [r.status==='명단' ? (r.unit||'') : '클리닉 신청', T==='all' ? esc(r.teacher)+'T' : ''].filter(Boolean).join(' · ');
-        return '<li class="'+cls+'"><span class="nmx"><span class="n">'+esc(r.name)+'</span>'+(sub ? '<small>'+esc(sub)+'</small>' : '')+'</span><button type="button" onclick="cfOpen('+r.id+')">질문 대기</button></li>'; }).join('')
-      : '<li class="none">아직 줄에 서지 않은 친구가 없어요</li>';
+        return '<li class="'+(r.status==='예약' ? 'clinic' : '')+'"><span class="nmx"><span class="n">'+esc(r.name)+'</span>'+(sub ? '<small>'+esc(sub)+'</small>' : '')+'</span><button type="button" onclick="cfOpen('+r.id+')">질문 대기</button></li>'; }).join('')
+      : '<li class="none">모두 줄을 섰어요</li>';
     $('resvN').textContent = resv.length;
     $('stCall').textContent = call.length; $('stWait').textContent = wait.length; $('stResv').textContent = resv.length;
     $('stAvg').textContent = done.length >= 2 ? Math.round(avg) + '분' : '–';
     $('cnt').textContent = '대기 ' + wait.length + '명' + (call.length ? ' · 호출 ' + call.length + '명' : '') + (resv.length ? ' · 줄 안 선 친구 ' + resv.length + '명' : '') + (done.length >= 2 ? ' · 질문당 약 ' + Math.round(avg) + '분' : '');
     $('upd').textContent = hm(new Date()) + ' 확인';
-    $('err').textContent = '';
-  }).catch(function(e){ $('err').textContent = '연결이 잘 안 돼요 — 잠시 후 다시 받아요'; });
+    $('err').textContent = ''; setLive(true);
+  }).catch(function(e){ $('err').textContent = '연결이 잘 안 돼요 — 잠시 후 다시 받아요'; setLive(false); });
 }
 
 var RESV = [], CF_ID = null, CALL_AT = 0, AVG_MS = 5*60000;
-/* 호출 뒤 흐른 시간 — 알약 '호출 후 m:ss' + 아래 막대(평균 상담 시간 기준으로 차오름) */
+/* 호출 뒤 흐른 시간 — 알약 '호출 후 m:ss' + 아래 막대(1분에 다 참) + 15초 지나면 숨쉬기 */
 function sinceTick(){
-  var el = $('since'), fill = $('progFill'); if(!el || !fill) return;
-  if(!CALL_AT){ el.hidden = true; fill.style.width = '0'; return; }
+  var el = $('since'), fill = $('progFill'), card = $('callCard'); if(!el || !fill) return;
+  var prog = fill.parentNode.parentNode;
+  if(!CALL_AT){ el.hidden = true; fill.style.width = '0'; prog.classList.add('off'); card.classList.remove('breathing'); return; }
+  prog.classList.remove('off');
   var ms = Math.max(0, Date.now() - CALL_AT), m = Math.floor(ms/60000), sec = Math.floor(ms/1000) % 60;
   el.hidden = false; el.textContent = '호출 후 ' + m + ':' + (sec < 10 ? '0' : '') + sec;
-  fill.style.width = Math.min(100, ms / AVG_MS * 100).toFixed(1) + '%';
+  fill.style.width = Math.min(100, ms / WINDOW_MS * 100).toFixed(1) + '%';
+  card.classList.toggle('breathing', ms >= BREATHE_MS);
 }
 setInterval(sinceTick, 1000);
 function avgMinutes(done){
@@ -311,6 +376,22 @@ function avgMinutes(done){
   mins.sort(function(a,b){ return a-b; });
   var mid = mins.slice(Math.floor(mins.length*0.1), Math.ceil(mins.length*0.9));   // 양끝 10% 제외
   return Math.max(1, mid.reduce(function(a,b){ return a+b; }, 0) / mid.length);
+}
+/* 재호출 하트 — 이름에서 하트 14개가 팡 터져 흩어진다(브랜드 파스텔 5색, 1.0~1.3초). 이름은 살짝 커졌다 돌아온다. */
+var HEART_TINTS = ['#e79aa4','#c98b72','#b3a9d6','#e2c48f','#dba3ae'], HEART_N = 14, HEART_MS = 1500;
+var HEART_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 21c-.3 0-.6-.1-.8-.3C6.3 16.4 3 13.4 3 9.6 3 6.6 5.3 4.3 8.2 4.3c1.6 0 3 .7 3.8 1.9.8-1.2 2.2-1.9 3.8-1.9C18.7 4.3 21 6.6 21 9.6c0 3.8-3.3 6.8-8.2 11.1-.2.2-.5.3-.8.3Z"/></svg>';
+function burst(){
+  var wrap = $('nowWrap'); if(!wrap) return;
+  var old = wrap.querySelector('.hb'); if(old) old.remove();   // 연달아 누르면 처음부터 다시
+  var layer = document.createElement('div'); layer.className = 'hb'; layer.setAttribute('aria-hidden', 'true');
+  var html = '';
+  for(var i = 0; i < HEART_N; i++){
+    var angle = (i / HEART_N) * Math.PI * 2 + (Math.random() - .5) * .5, dist = 165 + Math.random() * 135;   // 이름 둘레로 퍼지되 위로 치우치게
+    html += '<span class="heart" style="--ox:'+((Math.random()-.5)*190).toFixed(0)+'px;--oy:'+((Math.random()-.5)*54).toFixed(0)+'px;--dx:'+(Math.cos(angle)*dist).toFixed(0)+'px;--dy:'+(Math.sin(angle)*dist*.66-58).toFixed(0)+'px;--size:'+(20+Math.random()*20).toFixed(0)+'px;--rot:'+((Math.random()-.5)*90).toFixed(0)+'deg;--delay:'+(Math.random()*260).toFixed(0)+'ms;--dur:'+(1000+Math.random()*320).toFixed(0)+'ms;--tint:'+HEART_TINTS[i % HEART_TINTS.length]+'">'+HEART_SVG+'</span>';
+  }
+  layer.innerHTML = html; wrap.appendChild(layer);
+  setTimeout(function(){ if(layer.parentNode) layer.remove(); }, HEART_MS);
+  Array.prototype.forEach.call(wrap.querySelectorAll('.nm'), function(nm){ nm.classList.remove('pop'); void nm.offsetWidth; nm.classList.add('pop'); });
 }
 function cfOpen(id){
   var r = RESV.filter(function(x){ return x.id===id; })[0]; if(!r) return;
@@ -331,7 +412,7 @@ function cfYes(){
 
 if(!T){ showPick(); }
 else {
-  $('main').style.display = 'grid';
+  $('stage').style.display = 'flex'; fit();
   $('who').textContent = T==='all' ? '모든 선생님' : T + ' 선생님';
   document.title = (T==='all' ? '전체' : T) + ' · 클리닉 호출';
   load(); setInterval(load, 3000);
