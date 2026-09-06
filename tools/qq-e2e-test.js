@@ -25,6 +25,7 @@ const PNG1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQV
 let n = 0, bad = 0;
 function ok(cond, label) { n++; if (!cond) { bad++; console.error('  ✗', label); } else console.log('  ✓', label); }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const document_has = (html, needle) => html.indexOf(needle) >= 0;
 const SHOTS = process.env.SHOTS || '';   // 폴더를 주면 화면을 저장한다(눈으로 확인용)
 const shot = (pg, name) => SHOTS ? pg.screenshot({ path: path.join(SHOTS, name + '.png'), fullPage: true }) : Promise.resolve();
 
@@ -395,7 +396,7 @@ function restGet(url) {
   ok(await tp.$eval('#startWrap', e => e.style.display) === 'none', '호출 중에는 [질문 시작] 숨김');
   ok(await tp.$$eval('#calling .item .acts > .btn', b => b.map(x => x.textContent.trim())).then(l => l.join('|') === '완료 → 다음 호출|재호출|건너뜀 → 다음 호출'), '호출 카드 앞줄 버튼 셋, 나머지는 [···] 안');
   ok(await tp.$eval('#calling .item details.dd .menu', m => /다시 대기로/.test(m.textContent) && /완료만/.test(m.textContent)), '[···] 메뉴에 다시 대기로·완료만');
-  ok(await tp.$eval('#mbar', m => m.querySelectorAll('.btn').length === 5 && /완료 → 다음 호출/.test(m.textContent) && /다시 대기로/.test(m.textContent)), '휴대폰 리모컨 줄에 같은 버튼');
+  ok(!document_has(await tp.content(), 'id="mbar"'), '화면 아래 고정 버튼 줄 없음(카드 안 버튼만)');
   ok(await tp.$eval('#calling .item .nm', e => getComputedStyle(e).fontFamily.indexOf('Do Hyeon') >= 0), '이름은 도현체');
   // [재호출] — 호출 중일 때만 called_at 을 지금으로(상태·순서 그대로). 전자칠판이 이걸 보고 하트를 터뜨린다
   const rcRow = ROWS.find(r => r.status === '호출'); const rcBefore = rcRow.called_at; await sleep(30);

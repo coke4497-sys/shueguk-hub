@@ -184,10 +184,8 @@
   /* 사진 크게 보기 */
   #lb{position:fixed;inset:0;background:rgba(20,26,23,.85);display:none;align-items:center;justify-content:center;z-index:50;cursor:zoom-out;}
   #lb img{max-width:96vw;max-height:94vh;border-radius:10px;}
-  /* 휴대폰 — 리모컨 배치(시안 4b): 호출 중 버튼을 화면 아래 고정 줄로 */
-  #mbar{display:none;}
+  /* 휴대폰 — 호출 카드 안 버튼을 크게(2026-09-06 사용자 "완료 다음 호출 등이 너무 아래에 있어서 불편" → 화면 아래 고정 줄(시안 4b)은 뺌) */
   @media (max-width:600px){
-    body{padding-bottom:150px;}
     .wrap{padding:0 12px;}
     .brand{padding:16px 2px 10px;gap:10px;}
     .brand .logo{font-size:28px;}
@@ -195,11 +193,9 @@
     .bar .tip{display:none;}
     .item{grid-template-columns:auto 1fr;padding:12px 14px;}
     .item .acts{grid-column:1 / -1;justify-content:flex-start;}
-    body.has-mbar .item.calling .acts{display:none;}   /* 아래 리모컨 줄이 있을 때만 카드 안 버튼을 숨긴다(전체 보기로 둘 이상 호출 중이면 카드 안에 그대로) */
-    #mbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:35;background:rgba(232,234,229,.96);backdrop-filter:blur(6px);padding:10px 12px calc(10px + env(safe-area-inset-bottom));flex-wrap:wrap;gap:8px;box-shadow:0 -6px 20px rgba(58,77,69,.08);}
-    #mbar:empty{display:none;}
-    #mbar .btn.pri{flex:1 0 100%;font-size:17px;padding:16px;}
-    #mbar .btn{flex:1;white-space:nowrap;font-size:13px;padding:12px 8px;}
+    .item.calling .acts{gap:8px;}
+    .item.calling .acts .btn.pri{flex:1 0 100%;font-size:17px;padding:15px;}
+    .item.calling .acts .btn.recall,.item.calling .acts .btn.bad{flex:1;}
   }
 </style>
 </head>
@@ -288,7 +284,6 @@
   <div class="sec"><h2>오늘 끝난 질문</h2><span class="n" id="nDone"></span><button class="tog" id="doneTog" onclick="toggleDone()">펼치기</button></div>
   <div id="done" class="list" style="display:none"></div>
 </div>
-<div id="mbar"></div>
 <div id="lb" onclick="this.style.display='none'"><img id="lbImg" alt="문제 사진"></div>
 <div id="clin" class="modal"><div class="box">
   <h3>클리닉 신청자 불러오기</h3>
@@ -416,9 +411,6 @@ function render(){
       + '<div class="note"><input placeholder="메모 (선택) — 입력 후 엔터" value="'+esc(r.note)+'" onkeydown="if(event.key===\'Enter\') setNote('+r.id+', this.value)"></div>'
       + '</div><div class="acts">' + callActs(r) + '</div></div>';
   }).join('') : '<div class="empty">지금 호출 중인 학생이 없어요.</div>';
-  // 휴대폰 리모컨 줄 — 호출 중인 친구가 한 명일 때 화면 아래에 같은 버튼을 고정해 둔다(600px 이하에서만 보임)
-  $('mbar').innerHTML = call.length === 1 ? callActs(call[0], true) : '';
-  document.body.classList.toggle('has-mbar', call.length === 1);
 
   $('waiting').innerHTML = wait.length ? wait.map(function(r, i){
     var m = minsSince(r.created_at);
@@ -484,15 +476,15 @@ function render(){
 }
 
 function unitTag(r){ return (r.unit ? '<span class="unit">'+esc(r.unit)+'</span>' : '') + (!r.text && PHOTOS[r.id] ? '<span class="tc photo">사진만</span>' : ''); }
-/* 호출 중 카드의 버튼 — 카드 안(acts)과 휴대폰 아래 고정 줄(#mbar) 두 곳에 같은 것을 그린다.
-   시안대로 [완료 → 다음 호출][재호출][건너뜀]은 바로 보이고, 나머지(다시 대기로·완료만)는 [···] 메뉴 안. 기능은 그대로. */
-function callActs(r, bar){
+/* 호출 중 카드의 버튼 — 시안대로 [완료 → 다음 호출][재호출][건너뜀]은 바로 보이고, 나머지(다시 대기로·완료만)는 [···] 메뉴 안. 기능은 그대로.
+   휴대폰에서도 카드 안에 그대로 둔다(화면 아래 고정 줄은 손이 멀어 뺐다 — 2026-09-06 사용자). */
+function callActs(r){
   var rest = '<button class="btn" onclick="act('+r.id+', \'대기\')">다시 대기로</button>'
-           + '<button class="btn sub" onclick="finish('+r.id+', \'완료\', false)" title="완료만 (다음 호출 안 함)">'+(bar ? '완료만' : '완료만 (다음 호출 안 함)')+'</button>';
+           + '<button class="btn sub" onclick="finish('+r.id+', \'완료\', false)">완료만 (다음 호출 안 함)</button>';
   return '<button class="btn pri" onclick="finish('+r.id+', \'완료\', true)">완료 → 다음 호출</button>'
        + '<button class="btn recall" onclick="recall('+r.id+')" title="같은 친구를 한 번 더 불러요 — 전자칠판 이름에서 하트가 터지고 호출 시간이 처음부터 다시 흘러요">재호출</button>'
-       + '<button class="btn bad" onclick="finish('+r.id+', \'건너뜀\', true)" title="건너뜀 → 다음 호출">'+(bar ? '건너뜀' : '건너뜀 → 다음 호출')+'</button>'
-       + (bar ? rest : '<details class="dd right"><summary class="more" title="더 보기">···</summary><div class="menu">' + rest + '</div></details>');
+       + '<button class="btn bad" onclick="finish('+r.id+', \'건너뜀\', true)">건너뜀 → 다음 호출</button>'
+       + '<details class="dd right"><summary class="more" title="더 보기">···</summary><div class="menu">' + rest + '</div></details>';
 }
 function toggleHelp(){ var h = $('hint'); h.hidden = !h.hidden; $('helpTog').textContent = h.hidden ? '도움말 펼치기' : '도움말 접기'; }
 function ddClose(el){ var d = el.closest('details'); if(d) d.open = false; }
