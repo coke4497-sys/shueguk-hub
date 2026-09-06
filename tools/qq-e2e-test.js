@@ -70,7 +70,7 @@ function rpc(fn, args) {
     return { result: 'success', saved: reqs.length, queueId: r.id };
   }
   if (fn === 'qq_arrive') {
-    const r = ROWS.find(x => x.id === +p.id && x.student_id === p.student_id && x.status === '예약' && x.qdate === today);
+    const r = ROWS.find(x => x.id === +p.id && x.student_id === p.student_id && (x.status === '예약' || x.status === '명단') && x.qdate === today);
     if (r) { r.status = '대기'; r.ord = Date.now(); r.qtime = new Date(Date.now() + 9 * 3600e3).toISOString().slice(11, 16); }
     return { ok: true, changed: !!r, position: r ? pos(r) : null };
   }
@@ -170,6 +170,8 @@ function restGet(url) {
         if (req.method() === 'PATCH') {
           const id = +new URL(url).searchParams.get('id').replace('eq.', '');
           const r = ROWS.find(x => x.id === id); if (!r) return json({}, 404);
+          const stf = decodeURIComponent(url).match(/status=in\.\((.*?)\)/);
+          if (stf && !stf[1].split(',').includes(r.status)) return json(null, 204);   // 조건에 안 맞으면 바꾸지 않음(PostgREST와 같음)
           Object.assign(r, JSON.parse(rec.body)); return json(null, 204);
         }
       }
@@ -283,6 +285,17 @@ function restGet(url) {
     const arr = JSON.parse(calls.filter(c => c.path.includes('qq_arrive')).pop().body).p;
     ok(arr.id === resvId && arr.student_id === '12345678', 'qq_arrive 페이로드');
     ok(ROWS.find(r => r.id === resvId).status === '대기' && /대기 중/.test(await pg.$eval('#qqList', e => e.textContent)), '도착 → 대기로 바뀜');
+
+    // 선생님이 올린 반 명단('명단') → [질문 대기 → 줄 서기]
+    ROWS.forEach(r => { if (r.student_id === '12345678' && r.teacher === '김지원' && r.status === '대기') r.status = '완료'; });
+    ROWS.push({ id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord: Date.now(), name: '김철수', school: '화정고', grade: '고1', student_id: '12345678', teacher: '김지원', qtime: '17:00', unit: '고1 가', text: '', photo: '', status: '명단', called_at: null, done_at: null, note: '반 명단: 고1 가', clinic_id: null });
+    const rosId = NEXT - 1;
+    await pg.evaluate(() => qqRefresh());
+    await pg.waitForFunction(() => /오늘 질문 명단/.test(document.getElementById('qqList').textContent));
+    ok(/질문 대기 → 줄 서기/.test(await pg.$eval('#qqList', e => e.textContent)), '명단 줄: 질문 대기 버튼');
+    await pg.click('#qqArr' + rosId);
+    await pg.waitForFunction(() => !/질문 대기 → 줄 서기/.test(document.getElementById('qqList').textContent) && document.querySelectorAll('#qqList .ntag.wait').length >= 1);
+    ok(ROWS.find(r => r.id === rosId).status === '대기', '질문 대기 → 대기로');
 
     // 뒤로 가면 클리닉 화면 → 그 카드와 허브 클리닉 카드 설명이 상태를 알려 준다
     await pg.click('#qqBack');
@@ -403,10 +416,11 @@ function restGet(url) {
   await tp.waitForFunction(() => document.querySelectorAll('#resv .item').length === 1);
   ok(/정예약/.test(await tp.$eval('#resv', e => e.textContent)) && /클리닉 신청/.test(await tp.$eval('#resv', e => e.textContent)), '아직 안 온 친구에 예약 표시');
   ok(await tp.$$eval('#waiting .item', e => e.length) === 2, '예약은 대기 순서에 없음');
-  await tp.click('#resv .item button:has-text("도착")');
+  ok(/클리닉 신청/.test(await tp.$eval('#resv .item', e => e.textContent)), '예약 카드에 클리닉 신청 배지');
+  await tp.click('#resv .item button:has-text("줄 세우기")');
   await tp.waitForFunction(() => document.querySelectorAll('#resv .item').length === 0 && document.querySelectorAll('#waiting .item').length === 3);
   const pa = calls.filter(x => x.method === 'PATCH').pop(); const pab = JSON.parse(pa.body);
-  ok(pab.status === '대기' && typeof pab.ord === 'number' && /^\d\d:\d\d$/.test(pab.qtime), '도착 PATCH {대기, ord=지금, qtime=지금}');
+  ok(pab.status === '대기' && typeof pab.ord === 'number' && /^\d\d:\d\d$/.test(pab.qtime) && /status=in\.\(예약,명단\)/.test(decodeURIComponent(pa.path)), '줄 세우기 PATCH {대기, ord=지금, qtime=지금} (예약·명단일 때만)');
   ok(await tp.$eval('#waiting .item:nth-child(3) .nm', e => e.textContent) === '정예약', '도착한 친구는 줄 맨 뒤');
 
   // ▲▼ 순서 조정
@@ -447,6 +461,32 @@ function restGet(url) {
   ok(await tp.$eval('#clsGo', b => b.disabled), '모두 지우기');
   await tp.click('#clsTools button:has-text("명단 순서로 전부")');
   ok(/3명 순서 정함/.test(await tp.$eval('#clsMsg', e => e.textContent)), '명단 순서로 전부 → 줄에 없는 3명');
+  // [명단으로 올리기] — 다른 반(내신 고1 확인)을 명단으로: 순서 없이 '명단' 상태, 창은 열린 채 다음 반 선택 가능
+  await tp.click('#clsBook내신');
+  await tp.waitForFunction(() => /고1 확인/.test(document.getElementById('clsSel').textContent));
+  await tp.selectOption('#clsSel', '내신|n001');
+  await tp.waitForFunction(() => document.querySelectorAll('#clsStu button').length === 1);
+  ok(/명단으로 올리기 \(1명\)/.test(await tp.$eval('#clsRoster', e => e.textContent)) && !(await tp.$eval('#clsRoster', e => e.disabled)), '명단으로 올리기 버튼(순서 없이 가능)');
+  await tp.click('#clsRoster');
+  await tp.waitForFunction(() => /명단에 올렸어요/.test(document.getElementById('clsMsg').textContent));
+  const rpost = JSON.parse(calls.filter(x => x.method === 'POST' && x.path.startsWith('/rest/v1/question_queue')).pop().body);
+  ok(rpost.length === 1 && rpost[0].status === '명단' && rpost[0].name === '김철수' && rpost[0].unit === '고1 확인' && /반 명단/.test(rpost[0].note), '명단 INSERT {명단, 반이름}');
+  ok(await tp.$eval('#cls', e => e.style.display) === 'flex' && await tp.$eval('#clsSel', e => e.value) === '', '창은 열린 채 다음 반을 고를 수 있음');
+  ok(await tp.$$eval('#resv .item', e => e.length) === 1 && /반 명단/.test(await tp.$eval('#resv', e => e.textContent)) && /오늘 질문 없음/.test(await tp.$eval('#resv', e => e.textContent)), '아직 줄 안 선 친구에 반 명단 카드');
+  await tp.click('#clsBook정규');
+  await tp.waitForFunction(() => /고1 가/.test(document.getElementById('clsSel').textContent));
+  await tp.selectOption('#clsSel', '정규|r001');
+  await tp.waitForFunction(() => document.querySelectorAll('#clsStu button').length === 4);
+  ok(await tp.$eval('#clsStu button:has-text("김철수")', b => b.disabled), '명단에 올라간 학생은 다른 반에서 눌리지 않음(명단)');
+  await tp.click('#clsTools button:has-text("명단 순서로 전부")');
+  ok(/2명 순서 정함/.test(await tp.$eval('#clsMsg', e => e.textContent)), '남은 2명만');
+  ROWS.find(r => r.status === '명단').status = '완료';   // 뒤 검사(3명 등록)를 위해 명단 줄은 치움
+  await tp.evaluate(() => load());
+  await tp.waitForFunction(() => document.querySelectorAll('#resv .item').length === 0);
+  await tp.selectOption('#clsSel', '');
+  await tp.selectOption('#clsSel', '정규|r001');
+  await tp.waitForFunction(() => document.querySelectorAll('#clsStu button').length === 4);
+  await tp.click('#clsTools button:has-text("명단 순서로 전부")');
   await tp.click('#clsGo');
   await tp.waitForFunction(() => document.getElementById('cls').style.display === 'none' && document.querySelectorAll('#waiting .item').length === 6);
   const post = calls.filter(x => x.method === 'POST' && x.path.startsWith('/rest/v1/question_queue')).pop();
@@ -485,32 +525,41 @@ function restGet(url) {
   ROWS.push({ id: NEXT++, created_at: new Date(t0).toISOString(), qdate: today, ord: 2, name: '완료2', school: '', grade: '', student_id: '0', teacher: '이수경', qtime: '10:00', unit: '', text: '', photo: '', status: '완료', called_at: new Date(t0).toISOString(), done_at: new Date(t0 + 4 * 60000).toISOString(), note: '', clinic_id: null });
   const rv3 = { id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord: Date.parse(today + 'T17:30:00+09:00'), name: '정예약', school: '화정고', grade: '고1', student_id: '0', teacher: '이수경', qtime: '17:30', unit: '', text: '', photo: '', status: '예약', called_at: null, done_at: null, note: '', clinic_id: 56 };
   ROWS.push(rv3);
+  const rv4 = { id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord: Date.now(), name: '명단이', school: '화정고', grade: '고1', student_id: '0', teacher: '이수경', qtime: '17:00', unit: '고1 가', text: '', photo: '', status: '명단', called_at: null, done_at: null, note: '반 명단: 고1 가', clinic_id: null };
+  ROWS.push(rv4);
   const bp = await ctx.newPage();
   bp.on('pageerror', e => { bad++; console.error('  ✗ pageerror', e.message); });
   await bp.goto(`http://localhost:${PORT}/question_board.html?t=이수경`);
   await bp.waitForFunction(() => document.querySelector('#now .nm'));
   ok(await bp.$eval('#now .nm', e => e.textContent) === '박민수', '지금 호출 이름 크게');
   ok(await bp.$$eval('#next li', e => e.map(x => x.textContent)).then(l => l.length === 1 && /최유진/.test(l[0])), '다음 순서 목록');
-  ok(/대기 1명 · 호출 1명 · 안 온 친구 1명 · 질문당 약 4분/.test(await bp.$eval('#cnt', e => e.textContent)), '인원 표시 + 평균 소요');
+  ok(/대기 1명 · 호출 1명 · 줄 안 선 친구 2명 · 질문당 약 4분/.test(await bp.$eval('#cnt', e => e.textContent)), '인원 표시 + 평균 소요');
   ok(/약 4분/.test(await bp.$eval('#next li .eta', e => e.textContent)), '예상 대기(호출 중 1명 + 평균 3.5분 → 약 4분)');
   // 전자칠판 도착 체크: 이름 터치 → 확인 → 줄에 선다
-  ok(await bp.$eval('#arrive', e => e.style.display) === 'block' && /정예약/.test(await bp.$eval('#arriveList', e => e.textContent)), '아직 안 온 친구 이름 버튼');
+  ok(await bp.$eval('#arrive', e => e.style.display) === 'block' && /정예약/.test(await bp.$eval('#arriveList', e => e.textContent)) && /명단이/.test(await bp.$eval('#arriveList', e => e.textContent)), '줄 안 선 친구 이름 버튼(예약+명단)');
+  // 명단 학생: "네, 질문할게요" 확인 → 대기
+  await bp.click('#arriveList button:has-text("명단이")');
+  await bp.waitForFunction(() => document.getElementById('cf').style.display === 'flex');
+  ok(await bp.$eval('#cfYes', e => e.textContent) === '네, 질문할게요', '명단 학생 확인 문구');
+  await bp.click('#cfYes');
+  await bp.waitForFunction(() => document.querySelectorAll('#next li').length === 2);
+  ok(rv4.status === '대기', '명단 → 이름 터치 → 대기');
   await shot(bp, 'board');
-  await bp.click('#arriveList button');
+  await bp.click('#arriveList button:has-text("정예약")');
   await bp.waitForFunction(() => document.getElementById('cf').style.display === 'flex');
   ok(/정예약/.test(await bp.$eval('#cfQ', e => e.textContent)) && /맞나요/.test(await bp.$eval('#cfQ', e => e.textContent)), '"○○○ 맞나요?" 확인 창');
   await bp.click('#cf .no');
   ok(await bp.$eval('#cf', e => e.style.display) === 'none' && rv3.status === '예약', '아니요 → 그대로');
-  await bp.click('#arriveList button');
+  await bp.click('#arriveList button:has-text("정예약")');
   await bp.waitForFunction(() => document.getElementById('cf').style.display === 'flex');
   await bp.click('#cfYes');
-  await bp.waitForFunction(() => document.querySelectorAll('#next li').length === 2);
+  await bp.waitForFunction(() => document.querySelectorAll('#next li').length === 3);
   const bpc = calls.filter(x => x.method === 'PATCH').pop(); const bpb = JSON.parse(bpc.body);
-  ok(/id=eq\.\d+.*status=eq\.%EC%98%88%EC%95%BD|status=eq\.예약/.test(decodeURIComponent(bpc.path)) && bpb.status === '대기' && typeof bpb.ord === 'number' && /^\d\d:\d\d$/.test(bpb.qtime), '도착 PATCH(예약일 때만 · 대기 · 지금 시각)');
+  ok(/status=in\.\(예약,명단\)/.test(decodeURIComponent(bpc.path)) && bpb.status === '대기' && typeof bpb.ord === 'number' && /^\d\d:\d\d$/.test(bpb.qtime), '도착 PATCH(예약·명단일 때만 · 대기 · 지금 시각)');
   ok(rv3.status === '대기' && await bp.$eval('#arrive', e => e.style.display) === 'none' && /정예약/.test(await bp.$eval('#next', e => e.textContent)), '도착 → 다음 순서 맨 뒤, 안 온 친구 칸 사라짐');
   ok(/이수경 선생님/.test(await bp.$eval('#who', e => e.textContent)), '선생님 이름');
   const bq = calls.filter(x => x.path.startsWith('/rest/v1/question_queue')).pop();
-  ok(/status=in\.\(예약,대기,호출,완료\)/.test(decodeURIComponent(bq.path)) && bq.auth === 'Bearer tok', '오늘 예약·대기·호출·완료 조회 + 교사 인증');
+  ok(/status=in\.\(예약,명단,대기,호출,완료\)/.test(decodeURIComponent(bq.path)) && bq.auth === 'Bearer tok', '오늘 예약·명단·대기·호출·완료 조회 + 교사 인증');
   // 호출 해제되면 '없어요'
   b.status = '완료';
   await bp.waitForFunction(() => /호출된 학생이 없어요/.test(document.getElementById('now').textContent), null, { timeout: 8000 });
