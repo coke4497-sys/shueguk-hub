@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이수경국어 · 클리닉 호출 · 순서 정하기</title>
+<!-- 이수경국어 질문 대기열 — 교사용 (2026-09-06)
+     학생이 학생 페이지(s.html '질문하기')에서 올린 질문이 선생님별로 쌓인다. 여기서 순서대로
+     [호출] → 학생은 강의실 디스플레이(question_board.html)에서 이름을 보고 온다 → [완료].
+     원본: 수파베이스 question_queue (리포트 저장소 supabase/migrations/024_question_queue.sql).
+     교사 신분(조용한 인증)으로 표를 직접 읽고 쓴다 — 아래 첫 스크립트 조각이 그 인증이다.
+     시트 사본 없음(그날 쓰고 끝나는 기록). -->
+<link rel="preconnect" href="https://bangdbhqpphqqdwcledg.supabase.co">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#E4EFEA; --surface:#FFFFFF;
+    --ink:#2A332F; --ink-soft:#65726B;
+    --accent:#3A6B5E; --accent-bg:#DCE6E0;
+    --line:#D7E3DD; --line-soft:#E5EDE8;
+    --call:#3A6B5E; --wait:#4E5F8A; --wait-bg:#E9EDF8; --bad:#B4544A; --bad-bg:#F7E2DE;
+    --radius:16px; --shadow:0 2px 12px rgba(42,51,47,.06);
+    --sans:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
+    --serif:"Gowun Batang",serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;padding:0 0 60px;}
+  .wrap{max-width:900px;margin:0 auto;padding:0 16px;}
+  .brand{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:22px 2px 10px;}
+  .brand .name{font-family:var(--serif);font-weight:700;font-size:22px;letter-spacing:1px;}
+  .brand .sub{font-family:var(--serif);font-size:13px;color:var(--ink-soft);letter-spacing:1px;}
+  .brand .links{margin-left:auto;display:flex;gap:14px;font-size:13px;}
+  .brand .links a{color:var(--ink-soft);text-decoration:none;border-bottom:1px solid var(--line);}
+
+  .bar{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px;}
+  .bar label{font-size:13px;color:var(--ink-soft);}
+  .bar select{padding:9px 12px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:14px;background:#FBFCFB;color:var(--ink);}
+  .bar .sp{flex:1;}
+  .bar .upd{font-size:12px;color:var(--ink-soft);}
+  .btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:8px 13px;font-family:var(--sans);font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+  .btn svg{width:15px;height:15px;}
+  .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-family:var(--serif);font-weight:700;}
+  .btn.soft{background:var(--accent-bg);border-color:var(--accent-bg);color:var(--accent);}
+  .btn.bad{color:var(--bad);}
+  .btn:disabled{opacity:.5;cursor:default;}
+  .btn.board{background:var(--wait-bg);border-color:var(--wait-bg);color:var(--wait);}
+
+  .sec{margin:22px 0 10px;display:flex;align-items:baseline;gap:8px;}
+  .sec h2{font-family:var(--serif);font-size:16px;font-weight:700;margin:0;}
+  .sec .n{font-size:12.5px;color:var(--ink-soft);}
+  .sec .tog{margin-left:auto;font-size:12.5px;color:var(--ink-soft);cursor:pointer;border:0;background:none;font-family:inherit;}
+  .sec .start{margin-left:auto;}
+  .btn.start{background:var(--accent);border-color:var(--accent);color:#fff;font-family:var(--serif);font-weight:700;font-size:15px;padding:10px 18px;}
+  .item .unit{display:inline-block;font-size:12px;color:var(--wait);background:var(--wait-bg);border-radius:20px;padding:1px 9px;margin-left:6px;vertical-align:1px;}
+  .item .qt{font-family:var(--serif);font-weight:700;color:var(--ink);}
+  .item .acts .sub{font-size:12px;padding:6px 10px;color:var(--ink-soft);}
+  .item .ord{display:flex;flex-direction:column;gap:2px;align-items:center;}
+  .item .ord button{border:1px solid var(--line);background:var(--surface);border-radius:8px;width:30px;height:24px;cursor:pointer;color:var(--ink-soft);font-size:12px;line-height:1;padding:0;}
+  .item .ord button:disabled{opacity:.3;cursor:default;}
+  .item.resv{background:#FBFCFB;}
+  .item.resv .no{font-size:12px;color:var(--ink-soft);}
+  .tc.clinic{background:#F7E2DE;color:#B0736A;}
+  /* 반 전체 불러오기 창 */
+  #cls{position:fixed;inset:0;background:rgba(20,26,23,.45);display:none;align-items:center;justify-content:center;z-index:40;padding:16px;}
+  #cls .box{background:var(--surface);border-radius:var(--radius);box-shadow:0 10px 30px rgba(42,51,47,.18);width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:18px 18px 16px;}
+  #cls h3{margin:0 0 10px;font-family:var(--serif);font-size:16px;}
+  #cls .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+  #cls select{padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:13.5px;background:#FBFCFB;color:var(--ink);flex:1;min-width:180px;}
+  #cls .seg button{border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:999px;padding:6px 12px;font-family:inherit;font-size:13px;cursor:pointer;}
+  #cls .seg button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+  #cls .stu{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin:8px 0 12px;}
+  #cls .stu label{display:flex;align-items:center;gap:6px;font-size:13.5px;padding:6px 8px;border:1px solid var(--line-soft);border-radius:9px;cursor:pointer;}
+  #cls .stu label.dim{opacity:.5;}
+  #cls .foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  #cls .foot .sp{flex:1;}
+  #cls .msg{font-size:12.5px;color:var(--ink-soft);}
+
+  .item{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:10px;display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:start;}
+  .item.calling{background:#F3F8F5;outline:2px solid var(--accent);}
+  .item .no{font-family:var(--serif);font-weight:700;font-size:20px;color:var(--ink-soft);text-align:center;line-height:1.2;padding-top:2px;}
+  .item.calling .no{color:var(--accent);font-size:13px;}
+  .item .nm{font-family:var(--serif);font-weight:700;font-size:17px;}
+  .item .meta{font-size:12.5px;color:var(--ink-soft);margin-left:8px;}
+  .item .tc{display:inline-block;font-size:11.5px;color:var(--accent);background:var(--accent-bg);border-radius:20px;padding:1px 9px;margin-left:6px;vertical-align:1px;}
+  .item .txt{margin:6px 0 0;white-space:pre-wrap;font-size:14.5px;line-height:1.65;}
+  .item .txt.none{color:var(--ink-soft);font-style:normal;}
+  .item .thumb{display:block;margin-top:8px;max-width:180px;max-height:140px;border-radius:10px;border:1px solid var(--line-soft);cursor:zoom-in;object-fit:cover;}
+  .item .thumb.ph{width:120px;height:80px;background:#F2F5F3;color:var(--ink-soft);font-size:12px;display:flex;align-items:center;justify-content:center;cursor:default;}
+  .item .wait{font-size:12px;color:var(--ink-soft);margin-top:6px;}
+  .item .wait b{color:var(--bad);font-weight:400;}
+  .item .acts{display:flex;flex-direction:column;gap:6px;min-width:96px;}
+  .item .acts .btn{justify-content:center;}
+  .item .note{margin-top:8px;}
+  .item .note input{width:100%;border:1px solid var(--line-soft);border-radius:9px;padding:6px 10px;font-family:inherit;font-size:13px;background:#FBFCFB;}
+  .item.done{opacity:.72;padding:10px 16px;grid-template-columns:1fr auto;}
+  .item.done .nm{font-size:15px;}
+  .item.done .st{font-size:12px;color:var(--ink-soft);}
+  .item.done .st.off{color:var(--bad);}
+  .empty{background:var(--surface);border:1px dashed var(--line);border-radius:var(--radius);padding:30px 20px;text-align:center;color:var(--ink-soft);font-family:var(--serif);font-size:14px;}
+  .err{background:var(--bad-bg);color:var(--bad);border-radius:12px;padding:10px 14px;font-size:13.5px;margin-bottom:12px;display:none;}
+  .hint{font-size:12.5px;color:var(--ink-soft);margin:6px 2px 0;line-height:1.6;}
+
+  /* 사진 크게 보기 */
+  #lb{position:fixed;inset:0;background:rgba(20,26,23,.85);display:none;align-items:center;justify-content:center;z-index:50;cursor:zoom-out;}
+  #lb img{max-width:96vw;max-height:94vh;border-radius:10px;}
+  @media (max-width:600px){
+    .item{grid-template-columns:36px 1fr;}
+    .item .acts{grid-column:1 / -1;flex-direction:row;flex-wrap:wrap;}
+    .item .acts .btn{flex:1;}
+  }
+</style>
+</head>
+<body>
+<script>
+/* ══ 교사 페이지 조용한 인증 (2026-08-25, 3단계) ═══════════════════════
+ * 이 아래 연결부들이 수파베이스에 보내는 요청에 '교사 신분'을 붙인다.
+ * 화면에 로그인 창은 없다 — 페이지가 열릴 때 알아서 받아 온다.
+ * 주의: 이 조각은 **교사용 페이지에만** 넣는다. 학생이 여는 페이지에는 절대 넣지 말 것.
+ *       아래 연결부보다 먼저 실행돼야 하므로 페이지의 첫 스크립트 자리를 지킬 것. */
+(function(){
+  var SB_URL = 'https://bangdbhqpphqqdwcledg.supabase.co';
+  var SB_KEY = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  var T_ID = 'teachers@shueguk.internal';
+  var T_PW = 'shg_FCePWvnawH44SV8kYB9BHRKi6aag';
+  var tok = null, until = 0, pending = null;
+  var raw = window.fetch.bind(window);
+  function auth(){
+    if (tok && Date.now() < until) return Promise.resolve(tok);
+    if (pending) return pending;
+    pending = raw(SB_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST', headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: T_ID, password: T_PW })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      pending = null;
+      if (!d || !d.access_token) throw new Error('teacher auth');
+      tok = d.access_token; until = Date.now() + Math.max(60, (d.expires_in || 3600) - 300) * 1000;
+      return tok;
+    }, function(e){ pending = null; throw e; });
+    return pending;
+  }
+  function withAuth(url, opts, t){
+    var src = (opts && opts.headers) || {}, h = {};
+    if (src.forEach && !src.hasOwnProperty) src.forEach(function(v, k){ h[k] = v; });
+    else for (var k in src) h[k] = src[k];
+    h['apikey'] = SB_KEY; h['Authorization'] = 'Bearer ' + t;
+    var o = {}; for (var k2 in (opts || {})) o[k2] = opts[k2];
+    o.headers = h; return o;
+  }
+  window.fetch = function(url, opts){
+    var u = (typeof url === 'string') ? url : ((url && url.url) || '');
+    if (u.indexOf(SB_URL + '/rest/v1') !== 0) return raw(url, opts);
+    return auth().then(function(t){
+      return raw(url, withAuth(url, opts, t)).then(function(r){
+        if (r.status !== 401) return r;
+        tok = null; until = 0;
+        return auth().then(function(t2){ return raw(url, withAuth(url, opts, t2)); });
+      });
+    }, function(){ return raw(url, opts); });
+  };
+})();
+</script>
+
+<div class="wrap">
+  <div class="brand">
+    <span class="name">이수경국어</span><span class="sub">클리닉 호출 · 순서 정하기</span>
+    <span class="links"><a href="clinic.html">클리닉 메뉴</a><a href="index.html">허브</a></span>
+  </div>
+
+  <div class="bar">
+    <label for="tsel">선생님</label>
+    <select id="tsel"></select>
+    <button class="btn board" id="boardBtn" onclick="openBoard()">전자칠판 대기 화면 열기</button>
+    <button class="btn soft" id="clsBtn" onclick="clsOpen()">반 전체 불러오기</button>
+    <span class="sp"></span>
+    <span class="upd" id="upd"></span>
+    <button class="btn" onclick="load(true)" title="다시 불러오기">새로고침</button>
+  </div>
+  <div class="err" id="err"></div>
+  <p class="hint">학생이 학생 페이지 '질문하기'에서 올린 질문이 <b>질문 타임 순서</b>로 쌓여요. <b>[질문 시작]</b>을 누르면 1번 친구가 호출되고(전자칠판 대기 화면에 이름이 크게 나와요), <b>[완료]</b>를 누르면 다음 친구가 자동으로 호출돼요. 자리에 없으면 <b>[건너뜀]</b>(다음 친구 호출)이나 <b>[맨 뒤로]</b>. 순서는 ▲▼로 바꿔요. 클리닉을 신청한 친구는 '아직 안 온 친구'에 있다가 <b>[도착]</b>을 누르면 그 시각으로 줄에 서요(학생이 자기 페이지에서 [도착했어요]를 눌러도 같아요). <b>[반 전체 불러오기]</b>로 한 반 학생을 한꺼번에 줄 세울 수도 있어요. 5초마다 저절로 새로 받아요.<br>이 화면은 <b>휴대폰에서도 리모컨처럼</b> 쓸 수 있어요 — 폰 홈 화면에 추가해 두고 자리에서 [완료 → 다음 호출]만 누르면 전자칠판이 바로 바뀌어요.</p>
+
+  <div class="sec"><h2>호출 중</h2><span class="n" id="nCall"></span></div>
+  <div id="calling"></div>
+
+  <div class="sec"><h2>대기</h2><span class="n" id="nWait"></span><span class="start" id="startWrap" style="display:none"><button class="btn start" id="startBtn" onclick="startQ()">질문 시작</button></span></div>
+  <div id="waiting"></div>
+
+  <div class="sec"><h2>아직 안 온 친구</h2><span class="n" id="nResv"></span><span class="n">· 클리닉 신청 — 도착하면 줄에 서요</span></div>
+  <div id="resv"></div>
+
+  <div class="sec"><h2>오늘 끝난 질문</h2><span class="n" id="nDone"></span><button class="tog" id="doneTog" onclick="toggleDone()">펼치기</button></div>
+  <div id="done" style="display:none"></div>
+</div>
+<div id="lb" onclick="this.style.display='none'"><img id="lbImg" alt="문제 사진"></div>
+<div id="cls"><div class="box">
+  <h3>반 전체 불러오기</h3>
+  <div class="row"><span class="seg"><button type="button" id="clsBook정규" class="on" onclick="clsBook('정규')">정규</button> <button type="button" id="clsBook내신" onclick="clsBook('내신')">내신</button></span>
+    <label style="font-size:12.5px;color:var(--ink-soft)"><input type="checkbox" id="clsAllT" onchange="clsFill()"> 모든 강사 반 보기</label></div>
+  <div class="row"><select id="clsSel" onchange="clsPick()"><option value="">반을 고르세요</option></select></div>
+  <div class="stu" id="clsStu"></div>
+  <div class="foot"><span class="msg" id="clsMsg"></span><span class="sp"></span>
+    <button class="btn" type="button" onclick="clsClose()">닫기</button>
+    <button class="btn pri" type="button" id="clsGo" onclick="clsGo()" disabled>이 순서로 줄 세우기</button></div>
+</div></div>
+
+<script>
+/* ══ 질문 대기열 — 교사 화면 ═══════════════════════════════════════ */
+var SB = 'https://bangdbhqpphqqdwcledg.supabase.co/rest/v1';
+var ROWS = [], PHOTOS = {}, TEACHERS = [], TEACHER = '', POLL = null, DONE_OPEN = false, BUSY = {};
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function kstToday(){ return new Date(Date.now() + 9*3600*1000).toISOString().slice(0,10); }
+function hm(iso){ if(!iso) return ''; var d = new Date(iso); if(isNaN(d)) return ''; return new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false}).format(d); }
+function minsSince(iso){ var d = new Date(iso); return isNaN(d) ? 0 : Math.max(0, Math.round((Date.now()-d.getTime())/60000)); }
+function showErr(m){ var e=$('err'); e.textContent = m||''; e.style.display = m ? 'block' : 'none'; }
+
+function sb(path, opts){
+  var o = opts || {}; o.headers = o.headers || {};
+  if(o.body && !o.headers['Content-Type']) o.headers['Content-Type'] = 'application/json';
+  return fetch(SB + path, o).then(function(r){
+    if(!r.ok) return r.text().then(function(t){ throw new Error('수파베이스 ' + r.status + ' ' + t.slice(0,120)); });
+    return r.text().then(function(t){ return t ? JSON.parse(t) : null; });   // 201/204 빈 본문(return=minimal)도 안전하게
+  });
+}
+
+/* 선생님 목록 — 학생 페이지와 같은 함수(qq_teachers). 마지막 선택은 localStorage 에 기억. */
+function loadTeachers(){
+  return sb('/rpc/qq_teachers', { method:'POST', body:'{}' }).then(function(list){
+    TEACHERS = Array.isArray(list) ? list : [];
+    var saved = '';
+    try{ saved = localStorage.getItem('qq_teacher') || ''; }catch(e){}
+    var q = new URLSearchParams(location.search).get('t') || '';
+    var want = q || saved;
+    var sel = $('tsel');
+    sel.innerHTML = '<option value="">선생님을 고르세요</option>' +
+      TEACHERS.map(function(t){ return '<option value="'+esc(t)+'">'+esc(t)+' 선생님</option>'; }).join('') +
+      '<option value="all">전체 보기 (모든 선생님)</option>';
+    if(want && (want==='all' || TEACHERS.indexOf(want)>=0)) sel.value = want;
+    TEACHER = sel.value;
+  });
+}
+$('tsel').addEventListener('change', function(){
+  TEACHER = this.value;
+  try{ localStorage.setItem('qq_teacher', TEACHER); }catch(e){}
+  ROWS = []; render(); load(true);
+});
+function openBoard(){
+  if(!TEACHER){ showErr('먼저 선생님을 고르세요.'); return; }
+  window.open('question_board.html?t=' + encodeURIComponent(TEACHER), '_blank');
+}
+
+/* 오늘 기록 읽기 — 사진은 목록에 싣지 않고(200KB씩이라 5초마다 받으면 무겁다) 처음 보는 건만 따로 받는다 */
+function load(manual){
+  if(!TEACHER){ render(); return Promise.resolve(); }
+  var q = '/question_queue?select=id,created_at,ord,name,school,grade,teacher,qtime,unit,text,status,called_at,done_at,note,clinic_id'
+        + '&qdate=eq.' + kstToday() + '&order=ord.asc,id.asc'
+        + (TEACHER==='all' ? '' : '&teacher=eq.' + encodeURIComponent(TEACHER));
+  return sb(q).then(function(rows){
+    ROWS = rows || [];
+    showErr('');
+    $('upd').textContent = hm(new Date().toISOString()) + ' 확인';
+    render();
+    var need = ROWS.filter(function(r){ return (r.status==='대기'||r.status==='호출') && !(r.id in PHOTOS); }).map(function(r){ return r.id; });
+    if(need.length) return sb('/question_queue?select=id,photo&id=in.(' + need.join(',') + ')').then(function(ps){
+      need.forEach(function(id){ PHOTOS[id] = ''; });
+      (ps||[]).forEach(function(p){ PHOTOS[p.id] = p.photo || ''; });
+      render();
+    });
+  }).catch(function(e){ showErr('불러오지 못했어요 — ' + e.message); if(manual) render(); });
+}
+
+function photoHtml(r){
+  if(!(r.id in PHOTOS)) return '<div class="thumb ph">사진 확인 중…</div>';
+  var p = PHOTOS[r.id];
+  if(!p) return '';
+  return '<img class="thumb" src="'+p+'" alt="문제 사진" onclick="lightbox('+r.id+')">';
+}
+function lightbox(id){ var p = PHOTOS[id]; if(!p) return; $('lbImg').src = p; $('lb').style.display='flex'; }
+
+function render(){
+  var call = ROWS.filter(function(r){ return r.status==='호출'; });
+  var wait = ROWS.filter(function(r){ return r.status==='대기'; });
+  var resv = ROWS.filter(function(r){ return r.status==='예약'; });
+  var done = ROWS.filter(function(r){ return r.status!=='호출' && r.status!=='대기' && r.status!=='예약'; }).slice().reverse();
+  $('nCall').textContent = call.length ? call.length + '명' : '';
+  $('nWait').textContent = wait.length ? wait.length + '명' : '';
+  $('nResv').textContent = resv.length ? resv.length + '명' : '';
+  $('nDone').textContent = done.length ? done.length + '건' : '';
+  if(!TEACHER){
+    $('calling').innerHTML = ''; $('waiting').innerHTML = '<div class="empty">위에서 선생님을 고르면 그 선생님께 온 질문이 보여요.</div>'; $('resv').innerHTML=''; $('done').innerHTML=''; return;
+  }
+  var tcTag = function(r){ return (TEACHER==='all' ? '<span class="tc">'+esc(r.teacher)+'T</span>' : '') + (r.clinic_id ? '<span class="tc clinic">클리닉 신청</span>' : ''); };
+  $('calling').innerHTML = call.length ? call.map(function(r){
+    return '<div class="item calling" data-id="'+r.id+'"><div class="no">호출</div><div>'
+      + '<span class="nm">'+esc(r.name)+'</span><span class="meta">'+esc([r.school, r.grade].filter(Boolean).join(' '))+'</span>'+tcTag(r)
+      + unitTag(r)
+      + (r.text ? '<div class="txt">'+esc(r.text)+'</div>' : '<div class="txt none">(글 없이 사진만)</div>')
+      + photoHtml(r)
+      + '<div class="wait">'+qtLabel(r)+hm(r.called_at)+' 호출 · '+minsSince(r.called_at)+'분 지남</div>'
+      + '<div class="note"><input placeholder="메모 (선택) — 입력 후 엔터" value="'+esc(r.note)+'" onkeydown="if(event.key===\'Enter\') setNote('+r.id+', this.value)"></div>'
+      + '</div><div class="acts">'
+      + '<button class="btn pri" onclick="finish('+r.id+', \'완료\', true)">완료 → 다음 호출</button>'
+      + '<button class="btn bad" onclick="finish('+r.id+', \'건너뜀\', true)">건너뜀 → 다음 호출</button>'
+      + '<button class="btn" onclick="act('+r.id+', \'대기\')">다시 대기로</button>'
+      + '<button class="btn sub" onclick="finish('+r.id+', \'완료\', false)">완료만 (다음 호출 안 함)</button>'
+      + '</div></div>';
+  }).join('') : '<div class="empty">지금 호출 중인 학생이 없어요.</div>';
+
+  $('waiting').innerHTML = wait.length ? wait.map(function(r, i){
+    var m = minsSince(r.created_at);
+    return '<div class="item" data-id="'+r.id+'"><div class="no">'+(i+1)+'</div><div>'
+      + '<span class="nm">'+esc(r.name)+'</span><span class="meta">'+esc([r.school, r.grade].filter(Boolean).join(' '))+'</span>'+tcTag(r)
+      + unitTag(r)
+      + (r.text ? '<div class="txt">'+esc(r.text)+'</div>' : '<div class="txt none">(글 없이 사진만)</div>')
+      + photoHtml(r)
+      + '<div class="wait">'+qtLabel(r)+hm(r.created_at)+' 올림 · '+(m>=20 ? '<b>'+m+'분 기다리는 중</b>' : m+'분 기다리는 중')+'</div>'
+      + '</div><div class="acts">'
+      + '<span class="ord"><button type="button" title="한 칸 위로" onclick="moveUp('+r.id+')"'+(i===0?' disabled':'')+'>▲</button><button type="button" title="한 칸 아래로" onclick="moveDown('+r.id+')"'+(i===wait.length-1?' disabled':'')+'>▼</button></span>'
+      + '<button class="btn soft" onclick="act('+r.id+', \'호출\')">이 친구 먼저 호출</button>'
+      + '<button class="btn" onclick="toBack('+r.id+')">맨 뒤로</button>'
+      + '<button class="btn bad" onclick="act('+r.id+', \'건너뜀\')">건너뜀</button>'
+      + '</div></div>';
+  }).join('') : '<div class="empty">기다리는 질문이 없어요.</div>';
+  // [질문 시작] — 호출 중인 학생이 없고 기다리는 학생이 있을 때만
+  $('startWrap').style.display = (!call.length && wait.length) ? 'inline' : 'none';
+
+  // 아직 안 온 친구(클리닉 신청 예약) — 순서에 없음. [도착]으로 그 시각에 줄 세움
+  $('resv').innerHTML = resv.length ? resv.map(function(r){
+    return '<div class="item resv" data-id="'+r.id+'"><div class="no">예약</div><div>'
+      + '<span class="nm">'+esc(r.name)+'</span><span class="meta">'+esc([r.school, r.grade].filter(Boolean).join(' '))+'</span>'+tcTag(r)
+      + unitTag(r)
+      + (r.text ? '<div class="txt">'+esc(r.text)+'</div>' : '')
+      + photoHtml(r)
+      + '<div class="wait">'+(r.qtime ? '<span class="qt">'+esc(r.qtime)+' 클리닉</span>' : '')+'</div>'
+      + '</div><div class="acts">'
+      + '<button class="btn pri" onclick="arrive('+r.id+')">도착 → 줄 세우기</button>'
+      + '<button class="btn bad" onclick="act('+r.id+', \'건너뜀\')">오늘 안 옴</button>'
+      + '</div></div>';
+  }).join('') : '<div class="empty">클리닉을 신청하고 아직 오지 않은 친구가 없어요.</div>';
+
+  $('done').innerHTML = done.length ? done.map(function(r){
+    var st = r.status==='완료' ? '완료 '+hm(r.done_at) : r.status==='취소' ? '학생이 취소 '+hm(r.done_at) : '건너뜀 '+hm(r.done_at);
+    return '<div class="item done" data-id="'+r.id+'"><div>'
+      + '<span class="nm">'+esc(r.name)+'</span><span class="meta">'+esc([r.school, r.grade].filter(Boolean).join(' '))+'</span>'+tcTag(r)
+      + unitTag(r) + ' <span class="st'+(r.status==='완료'?'':' off')+'">· '+esc(st)+'</span>'
+      + (r.text ? '<div class="txt" style="font-size:13px">'+esc(r.text)+'</div>' : '')
+      + (r.note ? '<div class="wait">메모: '+esc(r.note)+'</div>' : '')
+      + '</div><div class="acts">'
+      + (r.status!=='완료' ? '<button class="btn" onclick="act('+r.id+', \'대기\')">다시 대기로</button>' : '')
+      + '</div></div>';
+  }).join('') : '<div class="empty">아직 끝난 질문이 없어요.</div>';
+}
+
+function unitTag(r){ return r.unit ? '<span class="unit">'+esc(r.unit)+'</span>' : ''; }
+function qtLabel(r){ return r.qtime ? '<span class="qt">'+esc(r.qtime)+' 질문 타임</span> · ' : ''; }
+function maxOrd(){ return ROWS.reduce(function(m, r){ return Math.max(m, +r.ord || 0); }, 0); }
+// 같은 선생님의 다음 대기 학생 (ROWS 는 ord 순으로 받았다)
+function nextWaiting(teacher){ return ROWS.filter(function(r){ return r.status==='대기' && (!teacher || r.teacher===teacher); })[0] || null; }
+
+/* [질문 시작] — 1번 친구 호출 (전체 보기에서는 목록 맨 앞 학생) */
+function startQ(){
+  var r = nextWaiting(TEACHER==='all' ? '' : TEACHER);
+  if(!r){ showErr('기다리는 학생이 없어요.'); return; }
+  return act(r.id, '호출');
+}
+/* 완료·건너뜀 → 그 선생님의 다음 친구를 자동 호출 (callNext=false 면 여기서 멈춤) */
+function finish(id, status, callNext){
+  if(BUSY[id]) return; BUSY[id] = true;
+  var me = ROWS.filter(function(r){ return r.id===id; })[0];
+  var tc = me ? me.teacher : (TEACHER==='all' ? '' : TEACHER);
+  return patch(id, { status: status, done_at: new Date().toISOString() })
+    .then(function(){ delete BUSY[id]; return load(); })
+    .then(function(){
+      if(!callNext) return;
+      var stillCalling = ROWS.some(function(r){ return r.status==='호출' && (!tc || r.teacher===tc); });
+      if(stillCalling) return;                          // 같은 선생님께 호출 중인 다른 학생이 있으면 그대로 둔다
+      var nx = nextWaiting(tc);
+      if(nx) return act(nx.id, '호출');
+    })
+    .catch(function(e){ delete BUSY[id]; showErr('저장하지 못했어요 — ' + e.message); });
+}
+
+/* 예약(클리닉 신청) → 도착: 지금 시각으로 줄에 선다 (학생 페이지 qq_arrive 와 같은 규칙) */
+function kstHM(){ return new Date(Date.now() + 9*3600*1000).toISOString().slice(11,16); }
+function arrive(id){
+  if(BUSY[id]) return; BUSY[id] = true;
+  return patch(id, { status:'대기', ord: Date.now(), qtime: kstHM() })
+    .then(function(){ delete BUSY[id]; return load(); }, function(e){ delete BUSY[id]; showErr('저장하지 못했어요 — ' + e.message); });
+}
+/* 순서 조정 — 이웃과 자리를 바꾼다(ord 를 이웃 바로 앞/뒤 값으로) */
+function waitList(){ return ROWS.filter(function(r){ return r.status==='대기'; }); }
+function moveUp(id){
+  var w = waitList(), i = w.findIndex(function(r){ return r.id===id; });
+  if(i <= 0) return;
+  var prev = w[i-1], prev2 = w[i-2];
+  var newOrd = prev2 ? Math.floor((+prev2.ord + +prev.ord) / 2) : +prev.ord - 1000;
+  if(newOrd >= +prev.ord) newOrd = +prev.ord - 1;
+  return patch(id, { ord: newOrd }).then(function(){ return load(); }, function(e){ showErr('순서를 바꾸지 못했어요 — ' + e.message); });
+}
+function moveDown(id){
+  var w = waitList(), i = w.findIndex(function(r){ return r.id===id; });
+  if(i < 0 || i >= w.length-1) return;
+  var next = w[i+1], next2 = w[i+2];
+  var newOrd = next2 ? Math.floor((+next.ord + +next2.ord) / 2) : +next.ord + 1000;
+  if(newOrd <= +next.ord) newOrd = +next.ord + 1;
+  return patch(id, { ord: newOrd }).then(function(){ return load(); }, function(e){ showErr('순서를 바꾸지 못했어요 — ' + e.message); });
+}
+
+/* ══ 반 전체 불러오기 (2026-09-06 사용자 요청 "클리닉 신청을 건너뛰고 담당 교사가 한 학급 전체를 불러온 다음 질문 순서를 배정해 호출") ══
+ * tt_classes(정규/내신) 명단을 그대로 줄 세운다 — 학생 페이지 없이도 한 반이 통째로 대기열에 들어간다.
+ * 이름은 명단 토큰에서 앞 괄호(학교 구분)·뒤 괄호(특이사항)를 떼고, students 표에서 같은 이름을 찾아 학교·학년·학생ID를 붙인다
+ * (이름이 유일할 때만 — 동명이인은 이름만). 이미 오늘 이 선생님께 예약/대기/호출 중인 학생은 건너뛴다. 순서는 체크한 목록 순. */
+var CLS = { book:'정규', classes:null, picked:null, names:[] };
+function plainName(tok){ return String(tok||'').replace(/^\([^)]*\)/, '').replace(/\([^)]*\)\s*$/, '').trim(); }
+function clsOpen(){
+  if(!TEACHER){ showErr('먼저 선생님을 고르세요.'); return; }
+  $('cls').style.display = 'flex'; $('clsMsg').textContent = ''; $('clsStu').innerHTML = ''; $('clsGo').disabled = true; CLS.picked = null;
+  if(CLS.classes) clsFill();
+  else sb('/tt_classes?select=book,class_id,day,start_time,teacher,name,roster&class_id=not.like.w*&order=book,day,start_time').then(function(rows){ CLS.classes = rows || []; clsFill(); })
+        .catch(function(e){ $('clsMsg').textContent = '반 목록을 불러오지 못했어요 — ' + e.message; });
+}
+function clsClose(){ $('cls').style.display = 'none'; }
+function clsBook(b){ CLS.book = b; $('clsBook정규').className = b==='정규' ? 'on' : ''; $('clsBook내신').className = b==='내신' ? 'on' : ''; clsFill(); }
+var DAY_ORDER = { '월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':7 };
+function clsFill(){
+  var sel = $('clsSel'), all = $('clsAllT').checked;
+  var list = (CLS.classes||[]).filter(function(c){ return c.book===CLS.book && (all || TEACHER==='all' || c.teacher===TEACHER); });
+  list.sort(function(a,b){ return (DAY_ORDER[a.day]||9)-(DAY_ORDER[b.day]||9) || String(a.start_time).localeCompare(String(b.start_time)) || a.name.localeCompare(b.name); });
+  sel.innerHTML = '<option value="">반을 고르세요' + (list.length ? '' : ' (이 강사의 ' + CLS.book + ' 반이 없어요)') + '</option>' + list.map(function(c){
+    var n = c.roster.split(/\s+/).filter(Boolean).length;
+    return '<option value="'+esc(c.book+'|'+c.class_id)+'">'+esc(c.day+' '+c.start_time+' · '+c.name+' · '+c.teacher+'T ('+n+'명)')+'</option>';
+  }).join('');
+  $('clsStu').innerHTML = ''; $('clsGo').disabled = true; CLS.picked = null;
+}
+function clsPick(){
+  var v = $('clsSel').value; CLS.picked = null; $('clsStu').innerHTML = ''; $('clsGo').disabled = true;
+  if(!v) return;
+  var c = (CLS.classes||[]).filter(function(x){ return x.book+'|'+x.class_id === v; })[0]; if(!c) return;
+  CLS.picked = c;
+  var open = {}; ROWS.forEach(function(r){ if(['예약','대기','호출'].indexOf(r.status)>=0 && (TEACHER==='all' ? r.teacher===c.teacher : true)) open[r.name] = r.status; });
+  var toks = c.roster.split(/\s+/).filter(Boolean);
+  $('clsStu').innerHTML = toks.map(function(t, i){
+    var nm = plainName(t), dup = open[nm];
+    return '<label'+(dup?' class="dim"':'')+'><input type="checkbox" value="'+esc(nm)+'" data-i="'+i+'"'+(dup?'':' checked')+'> '+esc(nm)+(dup?' <small>('+esc(dup)+')</small>':'')+'</label>';
+  }).join('');
+  $('clsMsg').textContent = toks.length + '명 · 이미 줄에 있는 친구는 체크가 풀려 있어요. 체크한 순서(명단 순)대로 줄을 세워요.';
+  $('clsGo').disabled = false;
+}
+function clsGo(){
+  var c = CLS.picked; if(!c) return;
+  var names = Array.prototype.slice.call(document.querySelectorAll('#clsStu input:checked')).map(function(i){ return i.value; });
+  if(!names.length){ $('clsMsg').textContent = '체크된 친구가 없어요.'; return; }
+  var teacher = TEACHER==='all' ? c.teacher : TEACHER;
+  $('clsGo').disabled = true; $('clsMsg').textContent = '학생 정보를 맞추는 중…';
+  // students 표에서 이름 → 학교·학년·학생ID (유일한 이름만)
+  sb('/students?select=name,school,grade,student_id,enrolled&name=in.(' + names.map(function(n){ return '"'+n.replace(/"/g,'')+'"'; }).join(',') + ')')
+  .then(function(stu){
+    var by = {}; (stu||[]).forEach(function(s){ var k = String(s.name).trim(); (by[k] = by[k] || []).push(s); });
+    var base = Date.now(), hm = kstHM();
+    var rows = names.map(function(nm, i){
+      var m = by[nm] && by[nm].length===1 ? by[nm][0] : null;
+      return { name: nm, school: m ? m.school : '', grade: m ? gradeShort(m.grade) : '', student_id: m ? m.student_id : '',
+               teacher: teacher, qtime: hm, unit: c.name, text: '', photo: '', status: '대기', ord: base + i, note: '반 전체: ' + c.name };
+    });
+    return sb('/question_queue', { method:'POST', headers:{ 'Prefer':'return=minimal' }, body: JSON.stringify(rows) }).then(function(){ return rows.length; });
+  })
+  .then(function(n){ clsClose(); showErr(''); return load().then(function(){ $('upd').textContent = n + '명을 줄에 세웠어요 · ' + kstHM(); }); })
+  .catch(function(e){ $('clsGo').disabled = false; $('clsMsg').textContent = '줄을 세우지 못했어요 — ' + e.message; });
+}
+function gradeShort(g){ var s = String(g||'').replace(/20\d{2}/,''); var lv = s.indexOf('중')>=0 ? '중' : (s.indexOf('고')>=0 ? '고' : ''); var m = s.match(/[1-3]/); return m ? lv + m[0] : String(g||''); }
+
+/* 상태 바꾸기 — 호출은 called_at, 완료·건너뜀은 done_at 을 찍고, 다시 대기로 보내면 맨 뒤 순서가 된다 */
+function act(id, status){
+  if(BUSY[id]) return; BUSY[id] = true;
+  var body = { status: status };
+  var now = new Date().toISOString();
+  if(status==='호출') body.called_at = now;
+  else if(status==='완료' || status==='건너뜀') body.done_at = now;
+  else if(status==='대기'){ body.done_at = null; body.ord = maxOrd() + 1; }
+  return patch(id, body).then(function(){ delete BUSY[id]; return load(); }, function(e){ delete BUSY[id]; showErr('저장하지 못했어요 — ' + e.message); });
+}
+function toBack(id){ return patch(id, { ord: maxOrd() + 1 }).then(function(){ return load(); }, function(e){ showErr('저장하지 못했어요 — ' + e.message); }); }
+function setNote(id, v){ return patch(id, { note: String(v||'').trim() }).then(function(){ return load(); }, function(e){ showErr('메모를 저장하지 못했어요 — ' + e.message); }); }
+function patch(id, body){
+  return sb('/question_queue?id=eq.' + id, { method:'PATCH', headers:{ 'Prefer':'return=minimal' }, body: JSON.stringify(body) });
+}
+function toggleDone(){ DONE_OPEN = !DONE_OPEN; $('done').style.display = DONE_OPEN ? 'block' : 'none'; $('doneTog').textContent = DONE_OPEN ? '접기' : '펼치기'; }
+
+/* 시작 — 5초 폴링(탭이 보일 때만) */
+loadTeachers().then(function(){ return load(true); }).catch(function(e){ showErr('선생님 목록을 불러오지 못했어요 — ' + e.message); render(); });
+POLL = setInterval(function(){ if(!document.hidden && TEACHER) load(); }, 5000);
+document.addEventListener('visibilitychange', function(){ if(!document.hidden && TEACHER) load(); });
+</script>
+</body>
+</html>

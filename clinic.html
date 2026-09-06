@@ -35,6 +35,8 @@
 
   /* 가로 전체폭 카드 (설명 한 줄) */
   .list{display:flex;flex-direction:column;gap:14px;}
+  .grp{font-family:"Gowun Batang",serif;font-weight:700;font-size:1rem;color:var(--ink);margin:18px 2px 0;display:flex;align-items:baseline;gap:8px;}
+  .grp small{font-family:"Gowun Dodum",sans-serif;font-weight:400;font-size:.8rem;color:var(--ink-soft);}
   .card{
     display:flex;align-items:center;gap:18px;
     background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);
@@ -68,7 +70,7 @@
 
   <header>
     <p class="tagline">클리닉</p>
-    <p class="intro">배정·현황과 신청 확인을 선택하세요.<br>학생 신청은 학생 개인 페이지의 클리닉 카드에서 해요.</p>
+    <p class="intro">배정·현황, 신청 확인, 클리닉 호출을 선택하세요.<br>학생 신청·질문 올리기는 학생 개인 페이지에서 해요.</p>
   </header>
 
   <div class="list">
@@ -98,6 +100,39 @@
         <p class="desc">신청 현황을 확인해요. (교사용)</p>
         <span class="actions">
           <span class="go">열기
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </span>
+      </span>
+    </a>
+
+    <!-- 클리닉 호출 (교사용, 2026-09-06 사용자 요청 "클리닉 메뉴에 클리닉 호출 기능 — 순서를 정하는 메뉴와 전자칠판 전체 화면 대기 리스트 화면 메뉴") -->
+    <p class="grp">클리닉 호출 <small>질문 순서를 정하고, 전자칠판에 대기 순서를 띄워요</small></p>
+
+    <a class="card" href="question.html">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      </span>
+      <span class="body">
+        <h2>순서 정하기</h2>
+        <p class="desc">클리닉 신청·현장 질문·반 전체를 한 줄로 세우고 [질문 시작] → 완료하면 다음 친구 자동 호출.</p>
+        <span class="actions">
+          <span class="go">열기
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </span>
+        </span>
+      </span>
+    </a>
+
+    <a class="card" href="question_board.html" target="_blank" rel="noopener">
+      <span class="icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      </span>
+      <span class="body">
+        <h2>전자칠판 대기 화면</h2>
+        <p class="desc">전체 화면으로 '지금 호출'과 '다음 순서'를 크게 보여줘요. 전자칠판·TV에서 열어 두세요.</p>
+        <span class="actions">
+          <span class="go">새 창으로 열기
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </span>
         </span>
