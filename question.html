@@ -70,6 +70,9 @@
   .btn.soft:hover{background:var(--lilac-hover);}
   .btn.recall{background:var(--pink);color:var(--pink-ink);font-family:var(--serif);font-weight:700;}   /* [재호출] — 연핑크(시안) */
   .btn.recall:hover{background:#efd0c4;}
+  .btn.ask{background:var(--cream);color:var(--cream-ink);font-family:var(--serif);font-weight:700;}   /* [질문중] — 크림 */
+  .btn.ask:hover{background:#f1d9b6;}
+  .btn.done{background:var(--sunken);color:var(--ink-body);font-family:var(--serif);font-weight:700;}   /* [완료] — 옅은 회색 */
   .btn.bad{color:var(--bad);}
   .btn.ghost{background:transparent;box-shadow:none;color:var(--ink-soft);padding:8px 10px;}
   .btn.ghost:hover{background:rgba(255,255,255,.6);color:var(--ink-body);}
@@ -102,7 +105,8 @@
   .item:first-child{border-top:0;}
   .item.calling{padding:20px 22px;}
   .item .no{font-family:var(--disp);font-weight:400;font-size:18px;color:var(--ink-faint);text-align:center;line-height:1.2;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:34px;}
-  .item.calling .no{font-family:var(--sans);font-size:12px;color:var(--brand-mid);background:var(--accent-bg);border-radius:999px;padding:3px 10px;}
+  .item.calling .no{font-family:var(--sans);font-size:12px;color:var(--brand-mid);background:var(--accent-bg);border-radius:999px;padding:3px 10px;white-space:nowrap;}
+  .item.calling.asking .no{color:var(--cream-ink);background:var(--cream);}   /* 질문 중 — 크림 */
   .item.resv .no{font-family:var(--sans);font-size:12px;color:var(--ink-soft);}
   .item .grip{cursor:grab;color:var(--ink-faint);font-size:16px;line-height:1;padding:2px 4px;user-select:none;}
   .item .grip:active{cursor:grabbing;}
@@ -194,8 +198,8 @@
     .item{grid-template-columns:auto 1fr;padding:12px 14px;}
     .item .acts{grid-column:1 / -1;justify-content:flex-start;}
     .item.calling .acts{gap:8px;}
-    .item.calling .acts .btn.pri{flex:1 0 100%;font-size:17px;padding:15px;}
-    .item.calling .acts .btn.recall,.item.calling .acts .btn.bad{flex:1;}
+    .item.calling .acts .btn{flex:1 0 44%;font-size:15px;padding:13px 10px;}   /* [재호출][질문중] / [완료][다음 호출] 두 줄 */
+    .item.calling .acts details.dd{flex:0 0 auto;}
   }
 </style>
 </head>
@@ -269,7 +273,7 @@
     <button class="btn ghost" onclick="load(true)" title="다시 불러오기">새로고침</button>
   </div>
   <div class="err" id="err"></div>
-  <p class="hint" id="hint" hidden>학생이 학생 페이지 '질문하기'에서 올린 질문이 <b>질문 타임 순서</b>로 쌓여요. <b>[질문 시작]</b>을 누르면 1번 친구가 호출되고(전자칠판 대기 화면에 이름이 크게 나와요), <b>[완료]</b>를 누르면 다음 친구가 자동으로 호출돼요. 자리에 없으면 <b>[건너뜀]</b>(다음 친구 호출)이나 [···] 메뉴의 <b>[맨 뒤로]</b>. <b>[재호출]</b>은 같은 친구를 한 번 더 불러요(전자칠판 이름에서 하트가 터지고 호출 시간이 다시 흘러요). 순서는 줄 왼쪽 손잡이를 <b>끌어서</b> 바꾸거나 ▲▼로 바꿔요. 클리닉을 신청한 친구와 [명단으로 올리기]한 반 학생은 '아직 줄 안 선 친구'에 있다가 <b>[질문 대기]</b>를 누르면 그 시각으로 줄에 서요(학생이 전자칠판에서 자기 이름을 누르거나 자기 페이지에서 [질문 대기]를 눌러도 같아요). <b>[학생 불러오기]</b>로 여러 반을 명단에 올리거나 한 반을 순서대로 질문 대기에 넣을 수 있어요. 5초마다 저절로 새로 받아요.<br>이 화면은 <b>휴대폰에서도 리모컨처럼</b> 쓸 수 있어요 — 폰 홈 화면에 추가해 두고 자리에서 [완료 → 다음 호출]만 누르면 전자칠판이 바로 바뀌어요.</p>
+  <p class="hint" id="hint" hidden>학생이 학생 페이지 '질문하기'에서 올린 질문이 <b>질문 타임 순서</b>로 쌓여요. <b>[질문 시작]</b>을 누르면 1번 친구가 호출되고(전자칠판 대기 화면에 이름이 크게 나와요), 친구가 오면 <b>[질문중]</b>(전자칠판의 호출 표시가 내려가요), 끝나면 <b>[완료]</b>, <b>[다음 호출]</b>을 누르면 대기 1번 친구가 호출돼요(완료 전에 먼저 불러 둬도 돼요). 자리에 없으면 [···] 메뉴의 <b>[건너뜀 → 다음 호출]</b>이나 대기 줄의 <b>[맨 뒤로]</b>. <b>[재호출]</b>은 같은 친구를 한 번 더 불러요(전자칠판 이름에서 하트가 터지고 호출 시간이 다시 흘러요). 순서는 줄 왼쪽 손잡이를 <b>끌어서</b> 바꾸거나 ▲▼로 바꿔요. 클리닉을 신청한 친구와 [명단으로 올리기]한 반 학생은 '아직 줄 안 선 친구'에 있다가 <b>[질문 대기]</b>를 누르면 그 시각으로 줄에 서요(학생이 전자칠판에서 자기 이름을 누르거나 자기 페이지에서 [질문 대기]를 눌러도 같아요). <b>[학생 불러오기]</b>로 여러 반을 명단에 올리거나 한 반을 순서대로 질문 대기에 넣을 수 있어요. 5초마다 저절로 새로 받아요.<br>이 화면은 <b>휴대폰에서도 리모컨처럼</b> 쓸 수 있어요 — 폰 홈 화면에 추가해 두고 자리에서 [완료 → 다음 호출]만 누르면 전자칠판이 바로 바뀌어요.</p>
 
   <div class="sec"><h2>호출 중</h2><span class="n" id="nCall"></span></div>
   <div id="calling" class="list"></div>
@@ -389,10 +393,10 @@ function photoHtml(r){
 function lightbox(id){ var p = PHOTOS[id]; if(!p) return; $('lbImg').src = p; $('lb').style.display='flex'; }
 
 function render(){
-  var call = ROWS.filter(function(r){ return r.status==='호출'; });
+  var call = ROWS.filter(function(r){ return r.status==='호출' || r.status==='질문중'; });   // 호출(오라고 부른) + 질문중(와서 질문하는 중)
   var wait = ROWS.filter(function(r){ return r.status==='대기'; });
   var resv = ROWS.filter(function(r){ return r.status==='예약' || r.status==='명단'; });
-  var done = ROWS.filter(function(r){ return ['호출','대기','예약','명단'].indexOf(r.status) < 0; }).slice().reverse();
+  var done = ROWS.filter(function(r){ return ['호출','질문중','대기','예약','명단'].indexOf(r.status) < 0; }).slice().reverse();
   $('nCall').textContent = call.length ? call.length + '명' : '';
   $('nWait').textContent = wait.length ? wait.length + '명' : '';
   $('nResv').textContent = resv.length ? resv.length + '명' : '';
@@ -402,12 +406,12 @@ function render(){
   }
   var tcTag = function(r){ return (TEACHER==='all' ? '<span class="tc">'+esc(r.teacher)+'T</span>' : '') + (r.clinic_id ? '<span class="tc clinic">클리닉 신청</span>' : (r.status==='명단' ? '<span class="tc">반 명단</span>' : '')); };
   $('calling').innerHTML = call.length ? call.map(function(r){
-    return '<div class="item calling" data-id="'+r.id+'"><div class="no">호출</div><div>'
+    return '<div class="item calling'+(r.status==='질문중'?' asking':'')+'" data-id="'+r.id+'"><div class="no">'+(r.status==='질문중'?'질문 중':'호출')+'</div><div>'
       + '<span class="nm">'+esc(r.name)+'</span><span class="meta">'+esc([r.school, r.grade].filter(Boolean).join(' '))+'</span>'+tcTag(r)
       + unitTag(r)
       + (r.text ? '<div class="txt">'+esc(r.text)+'</div>' : '<div class="txt none">(글 없이 사진만)</div>')
       + photoHtml(r)
-      + '<div class="wait">'+qtLabel(r)+'호출 후 <b>'+minsSince(r.called_at)+'분</b> 지남 · '+hm(r.called_at)+' 호출</div>'
+      + '<div class="wait">'+qtLabel(r)+(r.status==='질문중' ? '질문 중 · ' : '호출 후 <b>'+minsSince(r.called_at)+'분</b> 지남 · ')+hm(r.called_at)+' 호출</div>'
       + '<div class="note"><input placeholder="메모 (선택) — 입력 후 엔터" value="'+esc(r.note)+'" onkeydown="if(event.key===\'Enter\') setNote('+r.id+', this.value)"></div>'
       + '</div><div class="acts">' + callActs(r) + '</div></div>';
   }).join('') : '<div class="empty">지금 호출 중인 학생이 없어요.</div>';
@@ -476,15 +480,27 @@ function render(){
 }
 
 function unitTag(r){ return (r.unit ? '<span class="unit">'+esc(r.unit)+'</span>' : '') + (!r.text && PHOTOS[r.id] ? '<span class="tc photo">사진만</span>' : ''); }
-/* 호출 중 카드의 버튼 — 시안대로 [완료 → 다음 호출][재호출][건너뜀]은 바로 보이고, 나머지(다시 대기로·완료만)는 [···] 메뉴 안. 기능은 그대로.
-   휴대폰에서도 카드 안에 그대로 둔다(화면 아래 고정 줄은 손이 멀어 뺐다 — 2026-09-06 사용자). */
+/* 호출 중 카드의 버튼 — 2026-09-06 사용자 지정 "재호출, 질문중, 완료, 다음 호출":
+   [재호출](한 번 더 부르기 — 전자칠판 하트) [질문중](학생이 와서 질문 시작 — 전자칠판의 '오세요'가 내려감) [완료] [다음 호출](대기 1번 호출).
+   완료와 다음 호출은 따로 — 다음 친구를 먼저 불러 두고 완료를 눌러도 되고, 완료 뒤 [다음 호출]/[질문 시작]을 눌러도 된다.
+   나머지(건너뜀 → 다음 호출·다시 대기로)는 [···] 메뉴 안. 휴대폰에서도 카드 안에 그대로(아래 고정 줄은 손이 멀어 뺐다). */
 function callActs(r){
-  var rest = '<button class="btn" onclick="act('+r.id+', \'대기\')">다시 대기로</button>'
-           + '<button class="btn sub" onclick="finish('+r.id+', \'완료\', false)">완료만 (다음 호출 안 함)</button>';
-  return '<button class="btn pri" onclick="finish('+r.id+', \'완료\', true)">완료 → 다음 호출</button>'
-       + '<button class="btn recall" onclick="recall('+r.id+')" title="같은 친구를 한 번 더 불러요 — 전자칠판 이름에서 하트가 터지고 호출 시간이 처음부터 다시 흘러요">재호출</button>'
-       + '<button class="btn bad" onclick="finish('+r.id+', \'건너뜀\', true)">건너뜀 → 다음 호출</button>'
+  var asking = r.status==='질문중';
+  var rest = '<button class="btn bad" onclick="finish('+r.id+', \'건너뜀\', true)">건너뜀 → 다음 호출</button>'
+           + '<button class="btn" onclick="act('+r.id+', \'대기\')">다시 대기로</button>';
+  return (asking ? '' : '<button class="btn recall" onclick="recall('+r.id+')" title="같은 친구를 한 번 더 불러요 — 전자칠판 이름에서 하트가 터지고 호출 시간이 처음부터 다시 흘러요">재호출</button>'
+                      + '<button class="btn ask" onclick="act('+r.id+', \'질문중\')" title="학생이 와서 질문을 시작했어요 — 전자칠판의 호출 표시가 내려가요">질문중</button>')
+       + '<button class="btn done" onclick="finish('+r.id+', \'완료\', false)">완료</button>'
+       + '<button class="btn pri" onclick="callNext('+r.id+')" title="대기 1번 친구를 호출해요">다음 호출</button>'
        + '<details class="dd right"><summary class="more" title="더 보기">···</summary><div class="menu">' + rest + '</div></details>';
+}
+/* [다음 호출] — 이 카드 학생의 선생님께 기다리는 1번 친구를 호출한다(현재 학생은 그대로 — 완료는 따로) */
+function callNext(id){
+  var me = ROWS.filter(function(r){ return r.id===id; })[0];
+  var tc = me ? me.teacher : (TEACHER==='all' ? '' : TEACHER);
+  var nx = nextWaiting(tc);
+  if(!nx){ showErr('기다리는 학생이 없어요.'); return; }
+  return act(nx.id, '호출');
 }
 function toggleHelp(){ var h = $('hint'); h.hidden = !h.hidden; $('helpTog').textContent = h.hidden ? '도움말 펼치기' : '도움말 접기'; }
 function ddClose(el){ var d = el.closest('details'); if(d) d.open = false; }

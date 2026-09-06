@@ -394,8 +394,8 @@ function restGet(url) {
   ok(/id=eq\.1$/.test(pc.path) && JSON.parse(pc.body).status === '호출' && JSON.parse(pc.body).called_at, '질문 시작 → 1번 호출 PATCH {status, called_at}');
   ok(/김철수/.test(await tp.$eval('#calling', e => e.textContent)) && await tp.$$eval('#waiting .item', e => e.length) === 2, '호출 중으로 이동');
   ok(await tp.$eval('#startWrap', e => e.style.display) === 'none', '호출 중에는 [질문 시작] 숨김');
-  ok(await tp.$$eval('#calling .item .acts > .btn', b => b.map(x => x.textContent.trim())).then(l => l.join('|') === '완료 → 다음 호출|재호출|건너뜀 → 다음 호출'), '호출 카드 앞줄 버튼 셋, 나머지는 [···] 안');
-  ok(await tp.$eval('#calling .item details.dd .menu', m => /다시 대기로/.test(m.textContent) && /완료만/.test(m.textContent)), '[···] 메뉴에 다시 대기로·완료만');
+  ok(await tp.$$eval('#calling .item .acts > .btn', b => b.map(x => x.textContent.trim())).then(l => l.join('|') === '재호출|질문중|완료|다음 호출'), '호출 카드 버튼 = 재호출·질문중·완료·다음 호출(사용자 지정), 나머지는 [···] 안');
+  ok(await tp.$eval('#calling .item details.dd .menu', m => /다시 대기로/.test(m.textContent) && /건너뜀 → 다음 호출/.test(m.textContent)), '[···] 메뉴에 건너뜀·다시 대기로');
   ok(!document_has(await tp.content(), 'id="mbar"'), '화면 아래 고정 버튼 줄 없음(카드 안 버튼만)');
   ok(await tp.$eval('#calling .item .nm', e => getComputedStyle(e).fontFamily.indexOf('Do Hyeon') >= 0), '이름은 도현체');
   // [재호출] — 호출 중일 때만 called_at 을 지금으로(상태·순서 그대로). 전자칠판이 이걸 보고 하트를 터뜨린다
@@ -412,16 +412,27 @@ function restGet(url) {
   ok(await tp.$$eval('#waiting .item .nm', e => e.map(x => x.textContent).join(',')) === '최유진,박민수', '맨 뒤로 → 순서 바뀜');
   ok(b.ord > c.ord, 'ord 갱신');
 
-  // 완료 → 다음 친구(최유진) 자동 호출
-  await tp.click('#calling .item button:has-text("완료 → 다음 호출")');
-  await tp.waitForFunction(() => document.querySelector('#calling .item .nm') && document.querySelector('#calling .item .nm').textContent === '최유진');
-  ok(a.status === '완료' && a.done_at && c.status === '호출' && c.called_at, '완료 저장 + 다음 친구 자동 호출');
+  // [질문중] → 학생이 와서 질문 시작(전자칠판 '오세요' 내려감), 카드는 '질문 중'으로 남고 [재호출][질문중]은 사라짐
+  await tp.click('#calling .item button:has-text("질문중")');
+  await tp.waitForFunction(() => document.querySelector('#calling .item.asking'));
+  ok(a.status === '질문중' && a.called_at && await tp.$eval('#calling .item .no', e => e.textContent) === '질문 중', '[질문중] → 상태 질문중, 호출 시각 유지');
+  ok(await tp.$$eval('#calling .item .acts > .btn', b => b.map(x => x.textContent.trim()).join('|')) === '완료|다음 호출', '질문 중 카드는 [완료][다음 호출]만');
+  ok(await tp.$eval('#startWrap', e => e.style.display) === 'none', '질문 중에도 [질문 시작]은 숨김(카드의 [다음 호출]로)');
+  // [다음 호출] → 다음 친구(최유진) 호출, 질문 중인 김철수는 그대로
+  await tp.click('#calling .item button:has-text("다음 호출")');
+  await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 2);
+  ok(a.status === '질문중' && c.status === '호출' && c.called_at, '[다음 호출] → 1번 친구 호출, 질문 중인 친구는 그대로');
+  // [완료] → 완료만(다음 호출 안 함 — 이미 최유진이 호출 중)
+  await tp.click('#calling .item.asking button:has-text("완료")');
+  await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 1 && document.querySelector('#calling .item .nm').textContent === '최유진');
+  ok(a.status === '완료' && a.done_at, '[완료] 저장');
   ok(await tp.$$eval('#waiting .item', e => e.length) === 1, '대기 1명 남음');
   ok(await tp.$eval('#done', e => e.style.display) === 'none', '끝난 질문은 접혀 있음');
   await tp.click('#doneTog');
   ok(/김철수/.test(await tp.$eval('#done', e => e.textContent)) && /완료/.test(await tp.$eval('#done', e => e.textContent)), '끝난 질문 목록');
 
-  // 건너뜀 → 다음 친구(박민수) 자동 호출
+  // [···] → 건너뜀 → 다음 친구(박민수) 자동 호출
+  await tp.click('#calling .item summary.more');
   await tp.click('#calling .item button:has-text("건너뜀 → 다음 호출")');
   await tp.waitForFunction(() => document.querySelector('#calling .item .nm') && document.querySelector('#calling .item .nm').textContent === '박민수');
   ok(c.status === '건너뜀' && b.status === '호출', '건너뜀 저장 + 다음 친구 자동 호출');
@@ -432,19 +443,21 @@ function restGet(url) {
   await tp.waitForFunction(() => document.querySelectorAll('#waiting .item').length === 1);
   ok(c.status === '대기' && c.ord > b.ord, '다시 대기로 → 맨 뒤 순서');
 
-  // 완료만 (다음 호출 안 함) → 호출 중 비고 [질문 시작] 다시 보임
-  await tp.click('#calling .item summary.more');
-  await tp.click('#calling .item button:has-text("완료만")');
+  // [완료]만 (다음 호출은 따로) → 호출 중 비고 [질문 시작] 다시 보임
+  await tp.click('#calling .item button:has-text("완료")');
   await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 0);
-  ok(b.status === '완료' && c.status === '대기', '완료만 → 다음 호출 안 함');
+  ok(b.status === '완료' && c.status === '대기', '[완료] → 다음 호출 안 함');
   ok(await tp.$eval('#startWrap', e => e.style.display) !== 'none', '[질문 시작] 다시 보임');
   // 대기 카드의 [이 친구 먼저 호출]
   await tp.click('#waiting .item:nth-child(1) button:has-text("먼저 호출")');
   await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 1);
   ok(c.status === '호출', '개별 호출');
-  await tp.click('#calling .item button:has-text("완료 → 다음 호출")');
+  await tp.click('#calling .item button:has-text("다음 호출")');
+  await tp.waitForFunction(() => document.getElementById('err').style.display === 'block');
+  ok(/기다리는 학생이 없어요/.test(await tp.$eval('#err', e => e.textContent)) && c.status === '호출', '[다음 호출] — 부를 친구가 없으면 안내만');
+  await tp.click('#calling .item button:has-text("완료")');
   await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 0);
-  ok(c.status === '완료', '마지막 완료 → 더 부를 친구 없음');
+  ok(c.status === '완료', '마지막 완료');
   // 아직 안 온 친구(예약) → [도착] → 줄 맨 뒤(지금 시각)
   const rv2 = { id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord: Date.parse(today + 'T17:30:00+09:00'), name: '정예약', school: '화정고', grade: '고1', student_id: '0', teacher: '이수경', qtime: '17:30', unit: '독서 · 인문', text: '· 질문 · 독서 · 인문 — 비문학', photo: '', status: '예약', called_at: null, done_at: null, note: '', clinic_id: 55 };
   ROWS.push(rv2);
@@ -615,10 +628,12 @@ function restGet(url) {
   await tp.click('#startBtn');
   await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 1);
   const first = ROWS.find(r => r.status === '호출');
-  await tp.click('#calling .item button:has-text("완료 → 다음 호출")');
-  await tp.waitForFunction(nm => document.querySelectorAll('#calling .item').length === 1 && !document.querySelector('#calling .item .nm').textContent.includes(nm), first.name);
-  const second = ROWS.find(r => r.status === '호출');
-  ok(second && second.teacher === first.teacher, '전체 보기 완료 → 같은 선생님의 다음 친구 호출');
+  await tp.click('#calling .item button:has-text("다음 호출")');
+  await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 2);
+  const second = ROWS.find(r => r.status === '호출' && r !== first);
+  ok(second && second.teacher === first.teacher, '전체 보기 [다음 호출] → 같은 선생님의 다음 친구 호출');
+  await tp.click('#calling .item:nth-child(1) button:has-text("완료")');
+  await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 1);
   b.status = '호출'; b.called_at = new Date().toISOString(); c.status = '대기';
   ROWS.forEach(r => { if (r !== b && r.status === '호출') { r.status = '대기'; } });
   ok(await tp.evaluate(() => localStorage.getItem('qq_teacher')) === 'all', '선택 기억');
@@ -682,8 +697,15 @@ function restGet(url) {
   ok(/status=in\.\(예약,명단\)/.test(decodeURIComponent(bpc.path)) && bpb.status === '대기' && typeof bpb.ord === 'number' && /^\d\d:\d\d$/.test(bpb.qtime), '도착 PATCH(예약·명단일 때만 · 대기 · 지금 시각)');
   ok(rv3.status === '대기' && await bp.$$eval('#sideList button', b => b.length) === 0 && /정예약/.test(await bp.$eval('#next', e => e.textContent)), '질문 대기 → 다음 순서 맨 뒤, 오른쪽 칸 비움');
   ok(/이수경 선생님/.test(await bp.$eval('#who', e => e.textContent)), '선생님 이름');
+  ok(await bp.$eval('#lnkOrder', a => /question\.html\?t=/.test(a.getAttribute('href'))) && await bp.$$eval('.top a.fs', a => a.map(x => x.textContent).join()) === '순서 정하기,클리닉 메뉴', '상위 메뉴 링크(순서 정하기·클리닉 메뉴)');
+  // 질문중 → '오세요'는 내려가고 작게 '질문 중 ○○○'
+  b.status = '질문중';
+  await bp.waitForFunction(() => /질문 중/.test(document.getElementById('now').textContent) && /호출된 친구가 없어요/.test(document.getElementById('now').textContent), null, { timeout: 8000 });
+  ok(/박민수/.test(await bp.$eval('#nowUp', e => e.textContent)) && /다음 차례/.test(await bp.$eval('#nowUp', e => e.textContent)), '질문 중이면 호출 표시 내리고 "질문 중 ○○○ · 다음 차례 ○○○"');
+  const bq2 = calls.filter(x => x.path.startsWith('/rest/v1/question_queue')).pop();
+  ok(/status=in\.\(예약,명단,대기,호출,질문중,완료\)/.test(decodeURIComponent(bq2.path)), '조회에 질문중 포함');
   const bq = calls.filter(x => x.path.startsWith('/rest/v1/question_queue')).pop();
-  ok(/status=in\.\(예약,명단,대기,호출,완료\)/.test(decodeURIComponent(bq.path)) && bq.auth === 'Bearer tok', '오늘 예약·명단·대기·호출·완료 조회 + 교사 인증');
+  ok(/status=in\.\(예약,명단,대기,호출,질문중,완료\)/.test(decodeURIComponent(bq.path)) && bq.auth === 'Bearer tok', '오늘 예약·명단·대기·호출·질문중·완료 조회 + 교사 인증');
   // 호출 해제되면 '없어요'
   b.status = '완료';
   await bp.waitForFunction(() => /호출된 친구가 없어요/.test(document.getElementById('now').textContent), null, { timeout: 8000 });
