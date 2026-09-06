@@ -162,6 +162,12 @@ function restGet(url) {
       if (rec.path.startsWith('/rest/v1/question_queue')) {
         if (rec.auth !== 'Bearer tok') return json({ error: 'need teacher' }, 401);
         if (req.method() === 'GET') return json(restGet(url));
+        if (req.method() === 'DELETE') {
+          const u2 = decodeURIComponent(url); const idm = u2.match(/id=in\.\((.*?)\)/); const stm = u2.match(/status=eq\.([^&]+)/);
+          const ids = idm ? idm[1].split(',').map(Number) : [];
+          for (let i = ROWS.length - 1; i >= 0; i--) if (ids.includes(ROWS[i].id) && (!stm || ROWS[i].status === stm[1])) ROWS.splice(i, 1);
+          return json(null, 204);
+        }
         if (req.method() === 'POST') {
           const arr = JSON.parse(rec.body);
           (Array.isArray(arr) ? arr : [arr]).forEach(x => ROWS.push(Object.assign({ id: NEXT++, created_at: new Date().toISOString(), qdate: today, called_at: null, done_at: null, clinic_id: null, photo: '' }, x)));
@@ -444,6 +450,8 @@ function restGet(url) {
   ok(true, '내신 전환 · 모든 강사 보기');
   await tp.selectOption('#clsSel', '정규|r001');
   await tp.waitForFunction(() => document.querySelectorAll('#clsStu button').length === 4);
+  ok(await tp.$eval('#clsMain', e => e.style.display) === 'block' && !(await tp.$eval('#clsRoster', b => b.disabled)) && !(await tp.$eval('#clsOrderBox', d => d.open)), '반을 고르면 [명단으로 올리기]가 기본, 순서 정하기는 접힘');
+  await tp.evaluate(() => { document.getElementById('clsOrderBox').open = true; });
   const chips = await tp.$$eval('#clsStu button', b => b.map(x => ({ v: x.textContent.replace(/^[–\d]*/, '').replace(/\s*\(.*\)$/, '').trim(), dim: x.disabled })));
   ok(chips.map(b => b.v).join(',') === '김철수,박민수,한동명,새친구', '명단 이름 정리(앞뒤 괄호 제거)');
   ok(chips.find(b => b.v === '박민수').dim === true && chips.find(b => b.v === '김철수').dim === false, '이미 줄에 있는 친구는 누를 수 없음');
@@ -457,7 +465,7 @@ function restGet(url) {
   await tp.click('#clsStu button:has-text("한동명")');
   await tp.click('#clsStu button:has-text("새친구")');
   ok(/3명 순서 정함/.test(await tp.$eval('#clsMsg', e => e.textContent)) && /\(3명\)/.test(await tp.$eval('#clsGo', e => e.textContent)), '인원 표시');
-  await tp.click('#clsNone'.replace('#clsNone', '#clsTools button:has-text("모두 지우기")'));
+  await tp.click('#clsTools button:has-text("모두 지우기")');
   ok(await tp.$eval('#clsGo', b => b.disabled), '모두 지우기');
   await tp.click('#clsTools button:has-text("명단 순서로 전부")');
   ok(/3명 순서 정함/.test(await tp.$eval('#clsMsg', e => e.textContent)), '명단 순서로 전부 → 줄에 없는 3명');
@@ -473,19 +481,26 @@ function restGet(url) {
   ok(rpost.length === 1 && rpost[0].status === '명단' && rpost[0].name === '김철수' && rpost[0].unit === '고1 확인' && /반 명단/.test(rpost[0].note), '명단 INSERT {명단, 반이름}');
   ok(await tp.$eval('#cls', e => e.style.display) === 'flex' && await tp.$eval('#clsSel', e => e.value) === '', '창은 열린 채 다음 반을 고를 수 있음');
   ok(await tp.$$eval('#resv .item', e => e.length) === 1 && /반 명단/.test(await tp.$eval('#resv', e => e.textContent)) && /오늘 질문 없음/.test(await tp.$eval('#resv', e => e.textContent)), '아직 줄 안 선 친구에 반 명단 카드');
+  ok(/올려 둔 반/.test(await tp.$eval('#loaded', e => e.textContent)) && /고1 확인/.test(await tp.$eval('#loaded', e => e.textContent)) && /1명/.test(await tp.$eval('#loaded', e => e.textContent)), '올려 둔 반 목록');
   await tp.click('#clsBook정규');
   await tp.waitForFunction(() => /고1 가/.test(document.getElementById('clsSel').textContent));
   await tp.selectOption('#clsSel', '정규|r001');
   await tp.waitForFunction(() => document.querySelectorAll('#clsStu button').length === 4);
+  await tp.evaluate(() => { document.getElementById('clsOrderBox').open = true; });
   ok(await tp.$eval('#clsStu button:has-text("김철수")', b => b.disabled), '명단에 올라간 학생은 다른 반에서 눌리지 않음(명단)');
   await tp.click('#clsTools button:has-text("명단 순서로 전부")');
   ok(/2명 순서 정함/.test(await tp.$eval('#clsMsg', e => e.textContent)), '남은 2명만');
-  ROWS.find(r => r.status === '명단').status = '완료';   // 뒤 검사(3명 등록)를 위해 명단 줄은 치움
-  await tp.evaluate(() => load());
-  await tp.waitForFunction(() => document.querySelectorAll('#resv .item').length === 0);
-  await tp.selectOption('#clsSel', '');
+  // 올려 둔 반 [내리기] → 명단 줄 삭제(줄 선 학생은 그대로)
+  await tp.click('#cls .foot button:has-text("닫기")');
+  await tp.click('#loaded .lc button:has-text("내리기")');
+  await tp.waitForFunction(() => document.querySelectorAll('#resv .item').length === 0 && !document.getElementById('loaded').textContent);
+  const del = calls.filter(x => x.method === 'DELETE').pop();
+  ok(del && /status=eq\.명단/.test(decodeURIComponent(del.path)) && !ROWS.some(r => r.status === '명단') && ROWS.filter(r => r.status === '대기' && r.teacher === '이수경').length === 3, '반 내리기 DELETE(명단만) · 줄 선 학생 유지');
+  await tp.click('#clsBtn');
+  await tp.waitForFunction(() => document.getElementById('cls').style.display === 'flex');
   await tp.selectOption('#clsSel', '정규|r001');
   await tp.waitForFunction(() => document.querySelectorAll('#clsStu button').length === 4);
+  await tp.evaluate(() => { document.getElementById('clsOrderBox').open = true; });
   await tp.click('#clsTools button:has-text("명단 순서로 전부")');
   await tp.click('#clsGo');
   await tp.waitForFunction(() => document.getElementById('cls').style.display === 'none' && document.querySelectorAll('#waiting .item').length === 6);
