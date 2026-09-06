@@ -551,27 +551,27 @@ function restGet(url) {
   ok(/대기 1명 · 호출 1명 · 줄 안 선 친구 2명 · 질문당 약 4분/.test(await bp.$eval('#cnt', e => e.textContent)), '인원 표시 + 평균 소요');
   ok(/약 4분/.test(await bp.$eval('#next li .eta', e => e.textContent)), '예상 대기(호출 중 1명 + 평균 3.5분 → 약 4분)');
   // 전자칠판 도착 체크: 이름 터치 → 확인 → 줄에 선다
-  ok(await bp.$eval('#arrive', e => e.style.display) === 'block' && /정예약/.test(await bp.$eval('#arriveList', e => e.textContent)) && /명단이/.test(await bp.$eval('#arriveList', e => e.textContent)), '줄 안 선 친구 이름 버튼(예약+명단)');
+  ok(/정예약/.test(await bp.$eval('#sideList', e => e.textContent)) && /명단이/.test(await bp.$eval('#sideList', e => e.textContent)) && await bp.$$eval('#sideList button', b => b.length) === 2, '오른쪽 줄 안 선 친구 + [줄서기] 버튼(예약+명단)');
   // 명단 학생: "네, 질문할게요" 확인 → 대기
-  await bp.click('#arriveList button:has-text("명단이")');
+  await bp.click('#sideList li:has-text("명단이") button');
   await bp.waitForFunction(() => document.getElementById('cf').style.display === 'flex');
   ok(await bp.$eval('#cfYes', e => e.textContent) === '네, 질문할게요', '명단 학생 확인 문구');
   await bp.click('#cfYes');
   await bp.waitForFunction(() => document.querySelectorAll('#next li').length === 2);
   ok(rv4.status === '대기', '명단 → 이름 터치 → 대기');
   await shot(bp, 'board');
-  await bp.click('#arriveList button:has-text("정예약")');
+  await bp.click('#sideList li:has-text("정예약") button');
   await bp.waitForFunction(() => document.getElementById('cf').style.display === 'flex');
   ok(/정예약/.test(await bp.$eval('#cfQ', e => e.textContent)) && /맞나요/.test(await bp.$eval('#cfQ', e => e.textContent)), '"○○○ 맞나요?" 확인 창');
   await bp.click('#cf .no');
   ok(await bp.$eval('#cf', e => e.style.display) === 'none' && rv3.status === '예약', '아니요 → 그대로');
-  await bp.click('#arriveList button:has-text("정예약")');
+  await bp.click('#sideList li:has-text("정예약") button');
   await bp.waitForFunction(() => document.getElementById('cf').style.display === 'flex');
   await bp.click('#cfYes');
   await bp.waitForFunction(() => document.querySelectorAll('#next li').length === 3);
   const bpc = calls.filter(x => x.method === 'PATCH').pop(); const bpb = JSON.parse(bpc.body);
   ok(/status=in\.\(예약,명단\)/.test(decodeURIComponent(bpc.path)) && bpb.status === '대기' && typeof bpb.ord === 'number' && /^\d\d:\d\d$/.test(bpb.qtime), '도착 PATCH(예약·명단일 때만 · 대기 · 지금 시각)');
-  ok(rv3.status === '대기' && await bp.$eval('#arrive', e => e.style.display) === 'none' && /정예약/.test(await bp.$eval('#next', e => e.textContent)), '도착 → 다음 순서 맨 뒤, 안 온 친구 칸 사라짐');
+  ok(rv3.status === '대기' && await bp.$$eval('#sideList button', b => b.length) === 0 && /정예약/.test(await bp.$eval('#next', e => e.textContent)), '줄서기 → 다음 순서 맨 뒤, 오른쪽 칸 비움');
   ok(/이수경 선생님/.test(await bp.$eval('#who', e => e.textContent)), '선생님 이름');
   const bq = calls.filter(x => x.path.startsWith('/rest/v1/question_queue')).pop();
   ok(/status=in\.\(예약,명단,대기,호출,완료\)/.test(decodeURIComponent(bq.path)) && bq.auth === 'Bearer tok', '오늘 예약·명단·대기·호출·완료 조회 + 교사 인증');
