@@ -421,31 +421,41 @@ function restGet(url) {
   ok(Math.abs(a.ord - Date.now()) < 5000 && /남은 시간 2:5\d/.test(await tp.$eval('#calling .item .rem', e => e.textContent)), '[질문중] → 시작 시각 기록(ord) + 남은 시간 2:5x(3분 기준)');
   await sleep(1100);
   ok(/남은 시간 2:5\d/.test(await tp.$eval('#calling .item .rem', e => e.textContent)) && await tp.$eval('#calling .item .rem', e => e.textContent) !== '남은 시간 3:00', '남은 시간이 초 단위로 줄어듦');
-  // [전자칠판 문구] → 문구를 써서 그 선생님·오늘의 '일시정지' 줄(text=문구) INSERT, 바꾸기 = PATCH, [내리기] = 삭제
-  ok(await tp.$eval('#pauseBtn', e => e.textContent) === '전자칠판 문구', '[전자칠판 문구] 버튼');
+  // [질문 일시 정지] → 그 선생님·오늘의 '일시정지' 줄 하나(text='잠시만 기다려 주세요') INSERT, [다시 시작] → 삭제
+  ok(await tp.$eval('#pauseBtn', e => e.textContent) === '질문 일시 정지' && await tp.$eval('#msgBtn', e => e.textContent) === '전자칠판 문구', '[질문 일시 정지]·[전자칠판 문구] 두 버튼');
   await tp.click('#pauseBtn');
+  await tp.waitForFunction(() => document.getElementById('pauseBtn').textContent === '다시 시작');
+  const pz = ROWS.find(r => r.status === '일시정지');
+  ok(pz && pz.teacher === '이수경' && pz.qdate === today && pz.text === '잠시만 기다려 주세요' && /잠시만 기다려 주세요/.test(await tp.$eval('#pauseTag', e => e.textContent)), '일시 정지 → 기본 문구 줄 생성 + "띄우는 중" 표시');
+  ok(!/잠시만/.test(await tp.$eval('#done', e => e.textContent)) && await tp.$$eval('#calling .item', e => e.length) === 1, '문구 줄은 목록에 안 나옴');
+  // [전자칠판 문구] → 창에서 문구를 바꾸면 같은 줄 PATCH
+  ok(await tp.$eval('#msgBtn', e => e.textContent) === '문구 바꾸기', '정지 중에는 [문구 바꾸기]');
+  await tp.click('#msgBtn');
   await tp.waitForFunction(() => document.getElementById('msg').style.display === 'flex');
+  ok(await tp.$eval('#msgText', e => e.value) === '잠시만 기다려 주세요' && await tp.$eval('#msgOffBtn', e => e.style.display) !== 'none', '창에 지금 문구 + [내리기]');
   ok(await tp.$$eval('#msgPre .pre', b => b.map(x => x.textContent)).then(l => l.includes('잠시만 기다려 주세요') && l.includes('조용히 하세요')), '자주 쓰는 문구 칩');
+  await tp.fill('#msgText', '');
   await tp.click('#msgGo');
   ok(/문구를 적어/.test(await tp.$eval('#msgMsg', e => e.textContent)), '빈 문구는 막음');
   await tp.fill('#msgText', '떠들지 마세요');
   await tp.click('#msgGo');
-  await tp.waitForFunction(() => document.getElementById('pauseBtn').textContent === '문구 바꾸기');
-  const pz = ROWS.find(r => r.status === '일시정지');
-  ok(pz && pz.teacher === '이수경' && pz.qdate === today && pz.text === '떠들지 마세요' && /떠들지 마세요/.test(await tp.$eval('#pauseTag', e => e.textContent)), '문구 줄 생성(text=문구) + "띄우는 중" 표시');
-  ok(!/떠들지/.test(await tp.$eval('#done', e => e.textContent)) && await tp.$$eval('#calling .item', e => e.length) === 1, '문구 줄은 목록에 안 나옴');
-  await tp.click('#pauseBtn');
-  await tp.waitForFunction(() => document.getElementById('msg').style.display === 'flex');
-  ok(await tp.$eval('#msgText', e => e.value) === '떠들지 마세요' && await tp.$eval('#msgOffBtn', e => e.style.display) !== 'none', '바꾸기 창에 지금 문구 + [내리기]');
-  await tp.click('#msgPre .pre:has-text("잠시만 기다려 주세요")');
-  await tp.click('#msgGo');
-  await tp.waitForFunction(() => /잠시만 기다려 주세요/.test(document.getElementById('pauseTag').textContent));
+  await tp.waitForFunction(() => /떠들지 마세요/.test(document.getElementById('pauseTag').textContent));
   const pzp = calls.filter(x => x.method === 'PATCH').pop();
-  ok(/id=eq\.\d+/.test(pzp.path) && JSON.parse(pzp.body).text === '잠시만 기다려 주세요' && ROWS.filter(r => r.status === '일시정지').length === 1, '문구 바꾸기 = 같은 줄 PATCH(줄 안 늘어남)');
-  await tp.click('#pauseTag .lnk');
-  await tp.waitForFunction(() => document.getElementById('pauseBtn').textContent === '전자칠판 문구');
+  ok(/id=eq\.\d+/.test(pzp.path) && JSON.parse(pzp.body).text === '떠들지 마세요' && ROWS.filter(r => r.status === '일시정지').length === 1, '문구 바꾸기 = 같은 줄 PATCH(줄 안 늘어남)');
+  await tp.click('#pauseBtn');
+  await tp.waitForFunction(() => document.getElementById('pauseBtn').textContent === '질문 일시 정지');
   const pzd = calls.filter(x => x.method === 'DELETE').pop();
-  ok(!ROWS.some(r => r.status === '일시정지') && /teacher=eq\.이수경/.test(decodeURIComponent(pzd.path)) && /status=eq\.일시정지/.test(decodeURIComponent(pzd.path)), '[내리기] → 문구 줄 삭제(그 선생님·오늘만)');
+  ok(!ROWS.some(r => r.status === '일시정지') && /teacher=eq\.이수경/.test(decodeURIComponent(pzd.path)) && /status=eq\.일시정지/.test(decodeURIComponent(pzd.path)), '[다시 시작] → 문구 줄 삭제(그 선생님·오늘만)');
+  // 정지 없이 [전자칠판 문구]로 바로 띄우기 → INSERT, 제목 옆 [내리기]
+  await tp.click('#msgBtn');
+  await tp.waitForFunction(() => document.getElementById('msg').style.display === 'flex');
+  await tp.click('#msgPre .pre:has-text("조용히 하세요")');
+  await tp.click('#msgGo');
+  await tp.waitForFunction(() => /조용히 하세요/.test(document.getElementById('pauseTag').textContent));
+  ok(ROWS.some(r => r.status === '일시정지' && r.text === '조용히 하세요') && await tp.$eval('#pauseBtn', e => e.textContent) === '다시 시작', '[전자칠판 문구]로 바로 띄우기 → 줄 생성, 정지 버튼은 [다시 시작]');
+  await tp.click('#pauseTag .lnk');
+  await tp.waitForFunction(() => document.getElementById('pauseBtn').textContent === '질문 일시 정지');
+  ok(!ROWS.some(r => r.status === '일시정지'), '제목 옆 [내리기] → 삭제');
   ok(await tp.$$eval('#calling .item .acts > .btn', b => b.map(x => x.textContent.trim()).join('|')) === '완료|다음 호출|다음 순서로|맨 뒤로', '질문 중 카드는 [완료][다음 호출][다음 순서로][맨 뒤로]');
   ok(await tp.$eval('#startWrap', e => e.style.display) === 'none', '질문 중에도 [질문 시작]은 숨김(카드의 [다음 호출]로)');
   // [다음 호출] → 다음 친구(최유진) 호출, 질문 중인 김철수는 그대로
