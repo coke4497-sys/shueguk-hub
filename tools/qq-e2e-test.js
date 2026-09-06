@@ -182,7 +182,9 @@ function restGet(url) {
           const stq = u2.match(/status=eq\.([^&]+)/); const sti = u2.match(/status=in\.\((.*?)\)/);
           const ids = idm ? idm[1].split(',').map(Number) : (ide ? [Number(ide[1])] : []);
           const okSt = st => stq ? st === stq[1] : (sti ? sti[1].split(',').includes(st) : true);
-          for (let i = ROWS.length - 1; i >= 0; i--) if (ids.includes(ROWS[i].id) && okSt(ROWS[i].status)) ROWS.splice(i, 1);
+          const tq = u2.match(/teacher=eq\.([^&]+)/);
+          const okId = r => (idm || ide) ? ids.includes(r.id) : (tq ? r.teacher === tq[1] : false);   // id 조건이 없으면 teacher 조건(일시정지 줄 삭제)
+          for (let i = ROWS.length - 1; i >= 0; i--) if (okId(ROWS[i]) && okSt(ROWS[i].status)) ROWS.splice(i, 1);
           return json(null, 204);
         }
         if (req.method() === 'POST') {
@@ -416,6 +418,20 @@ function restGet(url) {
   await tp.click('#calling .item button:has-text("질문중")');
   await tp.waitForFunction(() => document.querySelector('#calling .item.asking'));
   ok(a.status === '질문중' && a.called_at && await tp.$eval('#calling .item .no', e => e.textContent) === '질문 중', '[질문중] → 상태 질문중, 호출 시각 유지');
+  ok(Math.abs(a.ord - Date.now()) < 5000 && /남은 시간 2:5\d/.test(await tp.$eval('#calling .item .rem', e => e.textContent)), '[질문중] → 시작 시각 기록(ord) + 남은 시간 2:5x(3분 기준)');
+  await sleep(1100);
+  ok(/남은 시간 2:5\d/.test(await tp.$eval('#calling .item .rem', e => e.textContent)) && await tp.$eval('#calling .item .rem', e => e.textContent) !== '남은 시간 3:00', '남은 시간이 초 단위로 줄어듦');
+  // [질문 일시 정지] → 그 선생님·오늘의 '일시정지' 줄 하나 INSERT, [다시 시작] → 삭제
+  ok(await tp.$eval('#pauseBtn', e => e.textContent) === '질문 일시 정지', '[질문 일시 정지] 버튼');
+  await tp.click('#pauseBtn');
+  await tp.waitForFunction(() => document.getElementById('pauseBtn').textContent === '다시 시작');
+  const pz = ROWS.find(r => r.status === '일시정지');
+  ok(pz && pz.teacher === '이수경' && pz.qdate === today && await tp.$eval('#pauseTag', e => e.style.display) !== 'none', '일시 정지 줄 생성 + "일시 정지 중" 표시');
+  ok(!/일시 정지/.test(await tp.$eval('#done', e => e.textContent)) && await tp.$$eval('#calling .item', e => e.length) === 1, '일시 정지 줄은 목록에 안 나옴');
+  await tp.click('#pauseBtn');
+  await tp.waitForFunction(() => document.getElementById('pauseBtn').textContent === '질문 일시 정지');
+  const pzd = calls.filter(x => x.method === 'DELETE').pop();
+  ok(!ROWS.some(r => r.status === '일시정지') && /teacher=eq\.이수경/.test(decodeURIComponent(pzd.path)) && /status=eq\.일시정지/.test(decodeURIComponent(pzd.path)), '[다시 시작] → 일시 정지 줄 삭제(그 선생님·오늘만)');
   ok(await tp.$$eval('#calling .item .acts > .btn', b => b.map(x => x.textContent.trim()).join('|')) === '완료|다음 호출', '질문 중 카드는 [완료][다음 호출]만');
   ok(await tp.$eval('#startWrap', e => e.style.display) === 'none', '질문 중에도 [질문 시작]은 숨김(카드의 [다음 호출]로)');
   // [다음 호출] → 다음 친구(최유진) 호출, 질문 중인 김철수는 그대로
@@ -702,10 +718,24 @@ function restGet(url) {
   b.status = '질문중';
   await bp.waitForFunction(() => /질문 중/.test(document.getElementById('now').textContent) && /호출된 친구가 없어요/.test(document.getElementById('now').textContent), null, { timeout: 8000 });
   ok(/박민수/.test(await bp.$eval('#nowUp', e => e.textContent)) && /다음 차례/.test(await bp.$eval('#nowUp', e => e.textContent)), '질문 중이면 호출 표시 내리고 "질문 중 ○○○ · 다음 차례 ○○○"');
+  b.ord = Date.now() - 20000;   // 20초 전에 [질문중]
+  await bp.waitForFunction(() => /남은 시간 2:[34]\d/.test(document.getElementById('since').textContent), null, { timeout: 8000 });
+  ok(await bp.$eval('#progLbl', e => e.textContent) === '질문 시간 · 하나당 약 3분' && parseFloat(await bp.$eval('#progFill', e => e.style.width)) > 8, '질문 중 → 알약 "남은 시간 2:4x"(3분 기준) + 막대');
+  b.ord = Date.now() - 200000;   // 3분 20초 전
+  await bp.waitForFunction(() => /예상 시간 지남 \+0:2\d/.test(document.getElementById('since').textContent), null, { timeout: 8000 });
+  ok(await bp.$eval('#since', e => e.classList.contains('over')), '3분이 지나면 "예상 시간 지남 +0:2x" 연핑크');
+  // 선생님 [질문 일시 정지] → 전자칠판에 크게 "잠시만 기다려 주세요"
+  const pzRow = { id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord: Date.now(), name: '일시 정지', school: '', grade: '', student_id: '', teacher: '이수경', qtime: '', unit: '', text: '', photo: '', status: '일시정지', called_at: null, done_at: null, note: '선생님 일시 정지', clinic_id: null };
+  ROWS.push(pzRow);
+  await bp.waitForFunction(() => /잠시만 기다려 주세요/.test(document.getElementById('now').textContent), null, { timeout: 8000 });
+  ok(await bp.$eval('#since', e => e.hidden) && !(await bp.$eval('#callCard', e => e.classList.contains('breathing'))), '일시 정지 → "잠시만 기다려 주세요" + 시간 표시 숨김');
+  ROWS.splice(ROWS.indexOf(pzRow), 1);
+  await bp.waitForFunction(() => !/잠시만 기다려 주세요/.test(document.getElementById('now').textContent) && /질문 중/.test(document.getElementById('now').textContent), null, { timeout: 8000 });
+  ok(true, '[다시 시작] → 원래 화면');
   const bq2 = calls.filter(x => x.path.startsWith('/rest/v1/question_queue')).pop();
-  ok(/status=in\.\(예약,명단,대기,호출,질문중,완료\)/.test(decodeURIComponent(bq2.path)), '조회에 질문중 포함');
+  ok(/status=in\.\(예약,명단,대기,호출,질문중,완료,일시정지\)/.test(decodeURIComponent(bq2.path)), '조회에 질문중·일시정지 포함');
   const bq = calls.filter(x => x.path.startsWith('/rest/v1/question_queue')).pop();
-  ok(/status=in\.\(예약,명단,대기,호출,질문중,완료\)/.test(decodeURIComponent(bq.path)) && bq.auth === 'Bearer tok', '오늘 예약·명단·대기·호출·질문중·완료 조회 + 교사 인증');
+  ok(/status=in\.\(예약,명단,대기,호출,질문중,완료,일시정지\)/.test(decodeURIComponent(bq.path)) && bq.auth === 'Bearer tok', '오늘 예약·명단·대기·호출·질문중·완료·일시정지 조회 + 교사 인증');
   // 호출 해제되면 '없어요'
   b.status = '완료';
   await bp.waitForFunction(() => /호출된 친구가 없어요/.test(document.getElementById('now').textContent), null, { timeout: 8000 });
