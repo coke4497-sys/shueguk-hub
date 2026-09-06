@@ -2,7 +2,7 @@
  * 가짜 수파베이스(표·함수 흉내, 메모리)와 가짜 리포트 백엔드로 실제 페이지를 띄워
  *   ① 학생 페이지(리포트 s.html '질문하기') — 카드·올리기·중복·사진·순번·취소
  *   ② 교사 페이지(question.html) — 교사 인증 헤더·대기 순서·호출·맨 뒤로·완료·전체 보기
- *   ③ 강의실 디스플레이(question_board.html) — 호출 이름·다음 순서·선생님 고르기
+ *   ③ 강의실 디스플레이(question_board.html) — 호출 이름·다음 순서·재호출 하트·숨쉬기·선생님 고르기
  * 를 왕복 검사한다. 원격 수파베이스에는 아무것도 보내지 않는다.
  *   실행: NODE_PATH=$(npm root -g) node tools/qq-e2e-test.js
  * 학생 페이지 검사는 옆에 리포트 저장소(../shueguk-report/s.html)가 있을 때만 돈다.
@@ -194,6 +194,8 @@ function restGet(url) {
           const r = ROWS.find(x => x.id === id); if (!r) return json({}, 404);
           const stf = decodeURIComponent(url).match(/status=in\.\((.*?)\)/);
           if (stf && !stf[1].split(',').includes(r.status)) return json(null, 204);   // 조건에 안 맞으면 바꾸지 않음(PostgREST와 같음)
+          const ste = decodeURIComponent(url).match(/status=eq\.([^&]+)/);
+          if (ste && r.status !== ste[1]) return json(null, 204);
           Object.assign(r, JSON.parse(rec.body)); return json(null, 204);
         }
       }
@@ -391,6 +393,12 @@ function restGet(url) {
   ok(/id=eq\.1$/.test(pc.path) && JSON.parse(pc.body).status === '호출' && JSON.parse(pc.body).called_at, '질문 시작 → 1번 호출 PATCH {status, called_at}');
   ok(/김철수/.test(await tp.$eval('#calling', e => e.textContent)) && await tp.$$eval('#waiting .item', e => e.length) === 2, '호출 중으로 이동');
   ok(await tp.$eval('#startWrap', e => e.style.display) === 'none', '호출 중에는 [질문 시작] 숨김');
+  // [재호출] — 호출 중일 때만 called_at 을 지금으로(상태·순서 그대로). 전자칠판이 이걸 보고 하트를 터뜨린다
+  const rcRow = ROWS.find(r => r.status === '호출'); const rcBefore = rcRow.called_at; await sleep(30);
+  await tp.click('#calling .item button:has-text("재호출")');
+  await tp.waitForFunction(t => (window.ROWS_SEEN = null, true) && Date.now() > t + 250, Date.now());
+  const rcc = calls.filter(x => x.method === 'PATCH').pop(); const rcb = JSON.parse(rcc.body);
+  ok(/status=eq\.호출/.test(decodeURIComponent(rcc.path)) && Object.keys(rcb).join() === 'called_at' && rcRow.status === '호출' && rcRow.called_at > rcBefore, '[재호출] → called_at 만 지금으로(호출 중일 때만)');
 
   // 맨 뒤로
   await tp.click('#waiting .item:nth-child(1) button:has-text("맨 뒤로")');
@@ -590,6 +598,22 @@ function restGet(url) {
   ok(await bp.$$eval('#next li', e => e.map(x => x.textContent)).then(l => l.length === 1 && /최유진/.test(l[0])), '다음 순서 목록');
   ok(/대기 1명 · 호출 1명 · 줄 안 선 친구 2명 · 질문당 약 4분/.test(await bp.$eval('#cnt', e => e.textContent)), '인원 표시 + 평균 소요');
   ok(/약 4분/.test(await bp.$eval('#next li .eta', e => e.textContent)), '예상 대기(호출 중 1명 + 평균 3.5분 → 약 4분)');
+  // 디자인 핸드오프(1520×856 캔버스 통째 축소) — 프레임이 화면에 맞게 scale 된다
+  ok(await bp.$eval('#frame', e => getComputedStyle(e).transform !== 'none' && e.offsetWidth === 1520), '고정 1520px 캔버스를 화면에 맞춰 축소');
+  ok(await bp.$eval('#now .nm', e => getComputedStyle(e).fontFamily.indexOf('Do Hyeon') >= 0 && getComputedStyle(e).fontSize === '88px'), '이름은 도현체 88px');
+  ok(await bp.$$eval('#next li', l => l.length === 1) && await bp.$eval('#next li .i', e => e.textContent) === 'NEXT', '다음 순서 첫 칸 NEXT');
+  // 재호출: 같은 학생인데 called_at 이 새로워지면 하트 14개 + 이름 팡 + 경과 0 으로
+  await sleep(1200); b.called_at = new Date().toISOString();
+  await bp.waitForFunction(() => document.querySelectorAll('#now .hb .heart').length === 14, null, { timeout: 8000 });
+  ok(await bp.$eval('#now .nm', e => e.classList.contains('pop')) && /호출 후 0:0\d/.test(await bp.$eval('#since', e => e.textContent)), '재호출 → 하트 14개 + 이름 팡 + 경과 다시 0 부터');
+  ok(await bp.$eval('#now .nm', e => e.textContent) === '박민수', '재호출은 이름을 다시 그리지 않는다(같은 학생)');
+  await bp.waitForFunction(() => document.querySelectorAll('#now .hb').length === 0, null, { timeout: 4000 });
+  ok(true, '하트는 1.5초 뒤 사라짐');
+  // 숨쉬기: 호출 15초 뒤부터(검사에서는 지연을 0 으로) — 호출이 풀리면 멈춘다
+  ok(!(await bp.$eval('#callCard', e => e.classList.contains('breathing'))), '호출 직후 15초 동안은 조용');
+  await bp.evaluate(() => { BREATHE_MS = 0; sinceTick(); });
+  ok(await bp.$eval('#callCard', e => e.classList.contains('breathing')) && await bp.$eval('#callCard .dot .rip', e => getComputedStyle(e).display === 'block'), '15초 지나면 숨쉬기 + 점 물결');
+  await bp.evaluate(() => { BREATHE_MS = 15000; });
   // 전자칠판 도착 체크: 이름 터치 → 확인 → 줄에 선다
   ok(/정예약/.test(await bp.$eval('#sideList', e => e.textContent)) && /명단이/.test(await bp.$eval('#sideList', e => e.textContent)) && await bp.$$eval('#sideList button', b => b.length) === 2, '오른쪽 줄 안 선 친구 + [질문 대기] 버튼(예약+명단)');
   // 명단 학생: "네, 질문할게요" 확인 → 대기
@@ -617,8 +641,8 @@ function restGet(url) {
   ok(/status=in\.\(예약,명단,대기,호출,완료\)/.test(decodeURIComponent(bq.path)) && bq.auth === 'Bearer tok', '오늘 예약·명단·대기·호출·완료 조회 + 교사 인증');
   // 호출 해제되면 '없어요'
   b.status = '완료';
-  await bp.waitForFunction(() => /호출된 학생이 없어요/.test(document.getElementById('now').textContent), null, { timeout: 8000 });
-  ok(true, '완료되면 호출 화면에서 사라짐');
+  await bp.waitForFunction(() => /호출된 친구가 없어요/.test(document.getElementById('now').textContent), null, { timeout: 8000 });
+  ok(!(await bp.$eval('#callCard', e => e.classList.contains('breathing'))) && /다음 차례/.test(await bp.$eval('#now', e => e.textContent)), '완료되면 호출 화면에서 사라지고 숨쉬기도 멈춤 · 다음 차례 표시');
   await bp.close();
 
   const pp = await ctx.newPage();

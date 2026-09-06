@@ -47,6 +47,7 @@
   .btn.soft{background:var(--accent-bg);border-color:var(--accent-bg);color:var(--accent);}
   .btn.lav{background:#EDE4F4;border-color:#EDE4F4;color:#635A7D;font-family:var(--serif);font-weight:700;}  /* [질문 대기] — 연보라(2026-09-06 사용자 "버튼 컬러 연보라색") */
   .btn.bad{color:var(--bad);}
+  .btn.recall{background:#F7E2DE;border-color:#F7E2DE;color:#8A4A35;font-family:var(--serif);font-weight:700;}   /* [재호출] — 연핑크(2026-09-06 클로드 디자인 '순서 정하기' 시안) */
   .btn:disabled{opacity:.5;cursor:default;}
   .btn.board{background:var(--wait-bg);border-color:var(--wait-bg);color:var(--wait);}
 
@@ -345,6 +346,7 @@ function render(){
       + '<div class="note"><input placeholder="메모 (선택) — 입력 후 엔터" value="'+esc(r.note)+'" onkeydown="if(event.key===\'Enter\') setNote('+r.id+', this.value)"></div>'
       + '</div><div class="acts">'
       + '<button class="btn pri" onclick="finish('+r.id+', \'완료\', true)">완료 → 다음 호출</button>'
+      + '<button class="btn recall" onclick="recall('+r.id+')" title="같은 친구를 한 번 더 불러요 — 전자칠판 이름에서 하트가 터지고 호출 시간이 처음부터 다시 흘러요">재호출</button>'
       + '<button class="btn bad" onclick="finish('+r.id+', \'건너뜀\', true)">건너뜀 → 다음 호출</button>'
       + '<button class="btn" onclick="act('+r.id+', \'대기\')">다시 대기로</button>'
       + '<button class="btn sub" onclick="finish('+r.id+', \'완료\', false)">완료만 (다음 호출 안 함)</button>'
@@ -665,6 +667,14 @@ function act(id, status){
   else if(status==='완료' || status==='건너뜀') body.done_at = now;
   else if(status==='대기'){ body.done_at = null; body.ord = maxOrd() + 1; }
   return patch(id, body).then(function(){ delete BUSY[id]; return load(); }, function(e){ delete BUSY[id]; showErr('저장하지 못했어요 — ' + e.message); });
+}
+/* 재호출 — 같은 학생을 한 번 더 부른다: 호출 중일 때만 called_at 을 지금으로. 순서·상태는 그대로.
+   전자칠판(question_board.html)이 '같은 학생인데 호출 시각이 새로워진 것'을 보고 하트를 터뜨리고 경과 시간을 0 으로 되돌린다.
+   재호출 버튼은 전자칠판에 없다 — 전자칠판은 벽이고 조작은 여기서(2026-09-06 디자인 핸드오프). */
+function recall(id){
+  if(BUSY[id]) return; BUSY[id] = true;
+  return sb('/question_queue?id=eq.' + id + '&status=eq.호출', { method:'PATCH', headers:{ 'Prefer':'return=minimal' }, body: JSON.stringify({ called_at: new Date().toISOString() }) })
+    .then(function(){ delete BUSY[id]; return load(); }, function(e){ delete BUSY[id]; showErr('다시 호출하지 못했어요 — ' + e.message); });
 }
 function toBack(id){ return patch(id, { ord: maxOrd() + 1 }).then(function(){ return load(); }, function(e){ showErr('저장하지 못했어요 — ' + e.message); }); }
 function setNote(id, v){ return patch(id, { note: String(v||'').trim() }).then(function(){ return load(); }, function(e){ showErr('메모를 저장하지 못했어요 — ' + e.message); }); }
