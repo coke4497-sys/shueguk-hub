@@ -14,9 +14,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#E4EFEA; --surface:#FFFFFF; --ink:#2A332F; --ink-soft:#65726B;
-    --accent:#3A6B5E; --accent-bg:#DCE6E0; --line:#D7E3DD;
-    --sky:#E9EDF8; --sky-ink:#4E5F8A; --lav:#EDE4F4; --lav-ink:#8D83A8; --yel:#F9EFD0; --yel-ink:#9B8046; --pnk:#F7E2DE; --pnk-ink:#B0736A;
+    --bg:#C6D5D2; --surface:#FFFFFF; --ink:#2A332F; --ink-soft:#65726B;
+    --accent:#4C6E66; --btn:#628C83; --accent-bg:#DCE6E0; --line:#D7E3DD;
+    /* 슈국 포인트 컬러(허브 카드 아이콘과 동일) */
+    --yel:#F9EFD0; --yel-ink:#9B8046; --pnk:#F7E2DE; --pnk-ink:#B0736A; --lav:#EDE4F4; --lav-ink:#8D83A8; --sky:#E9EDF8; --sky-ink:#64749E;
     --sans:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
     --serif:"Gowun Batang",serif;
   }
@@ -24,19 +25,19 @@
   html,body{margin:0;padding:0;height:100%;}
   body{background:var(--bg);color:var(--ink);font-family:var(--sans);display:flex;flex-direction:column;min-height:100vh;}
   .top{display:flex;align-items:baseline;gap:14px;padding:2.2vh 3vw 0;}
-  .top .name{font-family:var(--serif);font-weight:700;font-size:clamp(16px,2.2vw,28px);letter-spacing:1px;}
+  .top .name{font-family:var(--serif);font-weight:700;font-size:clamp(16px,2.2vw,28px);letter-spacing:1px;color:var(--accent);}
   .top .who{font-family:var(--serif);font-size:clamp(14px,1.8vw,24px);color:var(--ink-soft);}
   .top .sp{flex:1;}
   .top .clock{font-size:clamp(14px,1.8vw,24px);color:var(--ink-soft);font-variant-numeric:tabular-nums;}
-  .top .fs{border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:10px;padding:6px 10px;font-family:inherit;font-size:clamp(11px,1.1vw,14px);cursor:pointer;}
+  .top .fs{border:0;background:var(--btn);color:#fff;border-radius:10px;padding:7px 12px;font-family:inherit;font-size:clamp(11px,1.1vw,14px);cursor:pointer;}
   .main{flex:1;display:grid;grid-template-columns:3fr 2fr;gap:2vw;padding:2vh 3vw 3vh;min-height:0;}
   .card{background:var(--surface);border-radius:2.2vw;box-shadow:0 2px 14px rgba(42,51,47,.06);padding:2.5vh 2.5vw;display:flex;flex-direction:column;min-height:0;}
-  .card h2{margin:0 0 1vh;font-family:var(--serif);font-size:clamp(16px,2vw,30px);color:var(--ink-soft);font-weight:700;}
+  .card h2{margin:0 0 1vh;font-family:var(--serif);font-size:clamp(16px,2vw,30px);color:var(--accent);font-weight:700;}
   .now{flex:1;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:1.5vh;text-align:center;}
-  .now .nm{display:inline-block;font-family:var(--sans);font-weight:700;font-size:clamp(44px,9vw,150px);line-height:1.15;color:#fff;background:var(--accent);border-radius:2vw;padding:1.2vh 4vw;letter-spacing:.02em;box-shadow:0 8px 30px rgba(58,107,94,.25);animation:pop .5s ease-out;}
+  .now .nm{display:inline-block;font-family:var(--sans);font-weight:700;font-size:clamp(44px,9vw,150px);line-height:1.15;color:#fff;background:var(--btn);border-radius:2vw;padding:1.2vh 4vw;letter-spacing:.02em;box-shadow:0 8px 30px rgba(76,110,102,.3);animation:pop .5s ease-out;}
   .now .nm small{display:block;font-family:var(--sans);font-weight:400;font-size:clamp(14px,2vw,30px);color:rgba(255,255,255,.85);letter-spacing:0;margin-top:.4vh;}
   .now .up{font-family:var(--sans);font-size:clamp(18px,2.6vw,40px);color:var(--ink);margin-top:2vh;}
-  .now .up b{display:inline-block;background:var(--accent-bg);color:var(--accent);border-radius:999px;padding:.3vh 1.6vw;font-weight:700;margin-left:.6vw;}
+  .now .up b{display:inline-block;background:var(--yel);color:var(--yel-ink);border-radius:999px;padding:.3vh 1.6vw;font-weight:700;margin-left:.6vw;}
   .now .nm.many{font-size:clamp(30px,6vw,100px);}
   .now .lead{font-size:clamp(16px,2.4vw,36px);color:var(--ink);font-family:var(--serif);}
   .now .none{font-family:var(--serif);font-size:clamp(20px,3vw,44px);color:var(--ink-soft);}
@@ -44,9 +45,12 @@
   .next{flex:1;overflow:hidden;}
   .next ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1.1vh;}
   .next li{display:flex;align-items:center;gap:1vw;font-size:clamp(20px,3vw,46px);font-family:var(--sans);font-weight:700;line-height:1.2;
-    background:var(--sky);color:var(--sky-ink);border-radius:1.2vw;padding:1.1vh 1.4vw;}
-  .next li:nth-child(1){background:var(--accent);color:#fff;transform:scale(1.02);transform-origin:left center;box-shadow:0 6px 20px rgba(58,107,94,.22);}
-  .next li:nth-child(2),.next li:nth-child(3){background:var(--accent-bg);color:var(--accent);}
+    border-radius:1.2vw;padding:1.1vh 1.4vw;box-shadow:0 2px 8px rgba(42,51,47,.06);}
+  .next li:nth-child(1){background:var(--btn);color:#fff;transform:scale(1.02);transform-origin:left center;box-shadow:0 6px 20px rgba(76,110,102,.28);}
+  .next li:nth-child(4n+2){background:var(--yel);color:var(--yel-ink);}
+  .next li:nth-child(4n+3){background:var(--pnk);color:var(--pnk-ink);}
+  .next li:nth-child(4n+4){background:var(--lav);color:var(--lav-ink);}
+  .next li:nth-child(4n+5){background:var(--sky);color:var(--sky-ink);}
   .next li .i{font-size:.62em;font-weight:700;width:1.7em;height:1.7em;border-radius:999px;background:rgba(255,255,255,.55);color:inherit;display:inline-flex;align-items:center;justify-content:center;flex:none;font-variant-numeric:tabular-nums;}
   .next li:nth-child(1) .i{background:rgba(255,255,255,.28);color:#fff;}
   .next li .t{font-weight:400;font-size:.5em;opacity:.8;}
@@ -59,9 +63,12 @@
   .arrive .box{background:var(--surface);border-radius:1.6vw;box-shadow:0 2px 14px rgba(42,51,47,.06);padding:1.6vh 2vw;display:flex;align-items:center;gap:1.2vw;flex-wrap:wrap;}
   .arrive .lbl{font-family:var(--serif);font-weight:700;font-size:clamp(14px,1.7vw,24px);color:var(--ink-soft);margin-right:.5vw;}
   .arrive .lbl small{display:block;font-family:var(--sans);font-weight:400;font-size:.7em;}
-  .arrive button{border:0;background:var(--lav);color:var(--lav-ink);border-radius:999px;padding:1.2vh 2.2vw;font-family:var(--sans);font-weight:700;font-size:clamp(16px,2.2vw,34px);cursor:pointer;min-height:48px;box-shadow:0 2px 8px rgba(42,51,47,.06);}
+  .arrive button{border:0;border-radius:999px;padding:1.2vh 2.2vw;font-family:var(--sans);font-weight:700;font-size:clamp(16px,2.2vw,34px);cursor:pointer;min-height:48px;box-shadow:0 2px 8px rgba(42,51,47,.06);}
   .arrive button small{font-weight:400;font-size:.6em;opacity:.8;margin-left:.4em;}
-  .arrive button:active{background:var(--lav-ink);color:#fff;}
+  .arrive button.c0{background:var(--yel);color:var(--yel-ink);} .arrive button.c1{background:var(--lav);color:var(--lav-ink);}
+  .arrive button.c2{background:var(--sky);color:var(--sky-ink);} .arrive button.c3{background:var(--accent-bg);color:var(--accent);}
+  .arrive button.clinic{background:var(--pnk);color:var(--pnk-ink);}
+  .arrive button:active{filter:brightness(.92);}
   #cf{position:fixed;inset:0;background:rgba(20,26,23,.55);display:none;align-items:center;justify-content:center;z-index:60;padding:4vw;}
   #cf .box{background:var(--surface);border-radius:2vw;padding:4vh 4vw;text-align:center;max-width:720px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25);}
   #cf .q{font-family:var(--serif);font-weight:700;font-size:clamp(24px,4vw,60px);margin:0 0 1vh;}
@@ -69,7 +76,7 @@
   #cf .sub{color:var(--ink-soft);font-size:clamp(14px,1.6vw,22px);margin:0 0 3vh;}
   #cf .btns{display:flex;gap:2vw;justify-content:center;}
   #cf .btns button{flex:1;max-width:300px;border:0;border-radius:1.4vw;padding:2.2vh 2vw;font-family:var(--serif);font-weight:700;font-size:clamp(18px,2.4vw,34px);cursor:pointer;min-height:56px;}
-  #cf .yes{background:var(--accent);color:#fff;}
+  #cf .yes{background:var(--btn);color:#fff;}
   #cf .no{background:#EEF1EF;color:var(--ink);}
   .foot{display:flex;gap:2vw;padding:0 3vw 1.6vh;font-size:clamp(11px,1.2vw,16px);color:var(--ink-soft);}
   .foot .sp{flex:1;}
@@ -79,7 +86,7 @@
   #pick .box{background:var(--surface);border-radius:2vw;box-shadow:0 2px 14px rgba(42,51,47,.06);padding:4vh 4vw;text-align:center;max-width:560px;width:100%;}
   #pick h1{font-family:var(--serif);font-size:clamp(20px,2.6vw,34px);margin:0 0 2vh;}
   #pick select{width:100%;padding:12px;border:1px solid var(--line);border-radius:12px;font-family:inherit;font-size:clamp(15px,1.6vw,20px);background:#FBFCFB;margin-bottom:2vh;}
-  #pick button{width:100%;border:0;background:var(--accent);color:#fff;border-radius:12px;padding:13px;font-family:var(--serif);font-weight:700;font-size:clamp(15px,1.6vw,20px);cursor:pointer;}
+  #pick button{width:100%;border:0;background:var(--btn);color:#fff;border-radius:12px;padding:13px;font-family:var(--serif);font-weight:700;font-size:clamp(15px,1.6vw,20px);cursor:pointer;}
   #pick p{color:var(--ink-soft);font-size:clamp(12px,1.2vw,15px);}
   @media (max-width:700px){ .main{grid-template-columns:1fr;grid-template-rows:auto 1fr;} }
   @media (orientation:portrait){ .main{grid-template-columns:1fr;grid-template-rows:auto 1fr;} }
@@ -216,7 +223,8 @@ function load(){
     // 아직 안 온 친구(클리닉 신청) — 이름을 눌러 도착 체크
     RESV = resv;
     $('arrive').style.display = resv.length ? 'block' : 'none';
-    $('arriveList').innerHTML = resv.map(function(r){ return '<button type="button" onclick="cfOpen('+r.id+')">'+esc(r.name)+(r.status==='명단' && r.unit ? '<small>'+esc(r.unit)+'</small>' : (r.status==='예약' ? '<small>클리닉</small>' : ''))+(T==='all'?' <small>'+esc(r.teacher)+'T</small>':'')+'</button>'; }).join('');
+    var unitKeys = []; resv.forEach(function(r){ if(r.status==='명단' && unitKeys.indexOf(r.unit||'')<0) unitKeys.push(r.unit||''); });
+    $('arriveList').innerHTML = resv.map(function(r){ var cls = r.status==='예약' ? 'clinic' : 'c' + (unitKeys.indexOf(r.unit||'') % 4); return '<button type="button" class="'+cls+'" onclick="cfOpen('+r.id+')">'+esc(r.name)+(r.status==='명단' && r.unit ? '<small>'+esc(r.unit)+'</small>' : (r.status==='예약' ? '<small>클리닉</small>' : ''))+(T==='all'?' <small>'+esc(r.teacher)+'T</small>':'')+'</button>'; }).join('');
     $('cnt').textContent = '대기 ' + wait.length + '명' + (call.length ? ' · 호출 ' + call.length + '명' : '') + (resv.length ? ' · 줄 안 선 친구 ' + resv.length + '명' : '') + (done.length >= 2 ? ' · 질문당 약 ' + Math.round(avg) + '분' : '');
     $('upd').textContent = hm(new Date()) + ' 확인';
     $('err').textContent = '';
