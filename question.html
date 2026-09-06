@@ -52,6 +52,11 @@
   .sec h2{font-family:var(--serif);font-size:16px;font-weight:700;margin:0;}
   .sec .n{font-size:12.5px;color:var(--ink-soft);}
   .sec .tog{margin-left:auto;font-size:12.5px;color:var(--ink-soft);cursor:pointer;border:0;background:none;font-family:inherit;}
+  .sec .start{margin-left:auto;}
+  .btn.start{background:var(--accent);border-color:var(--accent);color:#fff;font-family:var(--serif);font-weight:700;font-size:15px;padding:10px 18px;}
+  .item .unit{display:inline-block;font-size:12px;color:var(--wait);background:var(--wait-bg);border-radius:20px;padding:1px 9px;margin-left:6px;vertical-align:1px;}
+  .item .qt{font-family:var(--serif);font-weight:700;color:var(--ink);}
+  .item .acts .sub{font-size:12px;padding:6px 10px;color:var(--ink-soft);}
 
   .item{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 16px;margin-bottom:10px;display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:start;}
   .item.calling{background:#F3F8F5;outline:2px solid var(--accent);}
@@ -153,12 +158,12 @@
     <button class="btn" onclick="load(true)" title="다시 불러오기">새로고침</button>
   </div>
   <div class="err" id="err"></div>
-  <p class="hint">학생이 학생 페이지 '질문하기'에서 올린 순서대로 쌓여요. <b>[호출]</b>을 누르면 강의실 화면에 이름이 크게 나오고, 학생이 오면 <b>[완료]</b>. 자리에 없으면 <b>[맨 뒤로]</b>나 <b>[건너뜀]</b>. 5초마다 저절로 새로 받아요.</p>
+  <p class="hint">학생이 학생 페이지 '질문하기'에서 올린 질문이 <b>질문 타임 순서</b>로 쌓여요. <b>[질문 시작]</b>을 누르면 1번 친구가 호출되고(강의실 화면에 이름이 크게 나와요), <b>[완료]</b>를 누르면 다음 친구가 자동으로 호출돼요. 자리에 없으면 <b>[건너뜀]</b>(다음 친구 호출)이나 <b>[맨 뒤로]</b>. 5초마다 저절로 새로 받아요.</p>
 
   <div class="sec"><h2>호출 중</h2><span class="n" id="nCall"></span></div>
   <div id="calling"></div>
 
-  <div class="sec"><h2>대기</h2><span class="n" id="nWait"></span></div>
+  <div class="sec"><h2>대기</h2><span class="n" id="nWait"></span><span class="start" id="startWrap" style="display:none"><button class="btn start" id="startBtn" onclick="startQ()">질문 시작</button></span></div>
   <div id="waiting"></div>
 
   <div class="sec"><h2>오늘 끝난 질문</h2><span class="n" id="nDone"></span><button class="tog" id="doneTog" onclick="toggleDone()">펼치기</button></div>
@@ -215,7 +220,7 @@ function openBoard(){
 /* 오늘 기록 읽기 — 사진은 목록에 싣지 않고(200KB씩이라 5초마다 받으면 무겁다) 처음 보는 건만 따로 받는다 */
 function load(manual){
   if(!TEACHER){ render(); return Promise.resolve(); }
-  var q = '/question_queue?select=id,created_at,ord,name,school,grade,teacher,text,status,called_at,done_at,note'
+  var q = '/question_queue?select=id,created_at,ord,name,school,grade,teacher,qtime,unit,text,status,called_at,done_at,note'
         + '&qdate=eq.' + kstToday() + '&order=ord.asc,id.asc'
         + (TEACHER==='all' ? '' : '&teacher=eq.' + encodeURIComponent(TEACHER));
   return sb(q).then(function(rows){
@@ -254,14 +259,16 @@ function render(){
   $('calling').innerHTML = call.length ? call.map(function(r){
     return '<div class="item calling" data-id="'+r.id+'"><div class="no">호출</div><div>'
       + '<span class="nm">'+esc(r.name)+'</span><span class="meta">'+esc([r.school, r.grade].filter(Boolean).join(' '))+'</span>'+tcTag(r)
+      + unitTag(r)
       + (r.text ? '<div class="txt">'+esc(r.text)+'</div>' : '<div class="txt none">(글 없이 사진만)</div>')
       + photoHtml(r)
-      + '<div class="wait">'+hm(r.called_at)+' 호출 · '+minsSince(r.called_at)+'분 지남</div>'
+      + '<div class="wait">'+qtLabel(r)+hm(r.called_at)+' 호출 · '+minsSince(r.called_at)+'분 지남</div>'
       + '<div class="note"><input placeholder="메모 (선택) — 입력 후 엔터" value="'+esc(r.note)+'" onkeydown="if(event.key===\'Enter\') setNote('+r.id+', this.value)"></div>'
       + '</div><div class="acts">'
-      + '<button class="btn pri" onclick="act('+r.id+', \'완료\')">완료</button>'
+      + '<button class="btn pri" onclick="finish('+r.id+', \'완료\', true)">완료 → 다음 호출</button>'
+      + '<button class="btn bad" onclick="finish('+r.id+', \'건너뜀\', true)">건너뜀 → 다음 호출</button>'
       + '<button class="btn" onclick="act('+r.id+', \'대기\')">다시 대기로</button>'
-      + '<button class="btn bad" onclick="act('+r.id+', \'건너뜀\')">건너뜀</button>'
+      + '<button class="btn sub" onclick="finish('+r.id+', \'완료\', false)">완료만 (다음 호출 안 함)</button>'
       + '</div></div>';
   }).join('') : '<div class="empty">지금 호출 중인 학생이 없어요.</div>';
 
@@ -269,27 +276,59 @@ function render(){
     var m = minsSince(r.created_at);
     return '<div class="item" data-id="'+r.id+'"><div class="no">'+(i+1)+'</div><div>'
       + '<span class="nm">'+esc(r.name)+'</span><span class="meta">'+esc([r.school, r.grade].filter(Boolean).join(' '))+'</span>'+tcTag(r)
+      + unitTag(r)
       + (r.text ? '<div class="txt">'+esc(r.text)+'</div>' : '<div class="txt none">(글 없이 사진만)</div>')
       + photoHtml(r)
-      + '<div class="wait">'+hm(r.created_at)+' 올림 · '+(m>=20 ? '<b>'+m+'분 기다리는 중</b>' : m+'분 기다리는 중')+'</div>'
+      + '<div class="wait">'+qtLabel(r)+hm(r.created_at)+' 올림 · '+(m>=20 ? '<b>'+m+'분 기다리는 중</b>' : m+'분 기다리는 중')+'</div>'
       + '</div><div class="acts">'
-      + '<button class="btn pri" onclick="act('+r.id+', \'호출\')">호출</button>'
+      + '<button class="btn soft" onclick="act('+r.id+', \'호출\')">이 친구 먼저 호출</button>'
       + '<button class="btn" onclick="toBack('+r.id+')">맨 뒤로</button>'
       + '<button class="btn bad" onclick="act('+r.id+', \'건너뜀\')">건너뜀</button>'
       + '</div></div>';
   }).join('') : '<div class="empty">기다리는 질문이 없어요.</div>';
+  // [질문 시작] — 호출 중인 학생이 없고 기다리는 학생이 있을 때만
+  $('startWrap').style.display = (!call.length && wait.length) ? 'inline' : 'none';
 
   $('done').innerHTML = done.length ? done.map(function(r){
     var st = r.status==='완료' ? '완료 '+hm(r.done_at) : r.status==='취소' ? '학생이 취소 '+hm(r.done_at) : '건너뜀 '+hm(r.done_at);
     return '<div class="item done" data-id="'+r.id+'"><div>'
       + '<span class="nm">'+esc(r.name)+'</span><span class="meta">'+esc([r.school, r.grade].filter(Boolean).join(' '))+'</span>'+tcTag(r)
-      + ' <span class="st'+(r.status==='완료'?'':' off')+'">· '+esc(st)+'</span>'
+      + unitTag(r) + ' <span class="st'+(r.status==='완료'?'':' off')+'">· '+esc(st)+'</span>'
       + (r.text ? '<div class="txt" style="font-size:13px">'+esc(r.text)+'</div>' : '')
       + (r.note ? '<div class="wait">메모: '+esc(r.note)+'</div>' : '')
       + '</div><div class="acts">'
       + (r.status!=='완료' ? '<button class="btn" onclick="act('+r.id+', \'대기\')">다시 대기로</button>' : '')
       + '</div></div>';
   }).join('') : '<div class="empty">아직 끝난 질문이 없어요.</div>';
+}
+
+function unitTag(r){ return r.unit ? '<span class="unit">'+esc(r.unit)+'</span>' : ''; }
+function qtLabel(r){ return r.qtime ? '<span class="qt">'+esc(r.qtime)+' 질문 타임</span> · ' : ''; }
+function maxOrd(){ return ROWS.reduce(function(m, r){ return Math.max(m, +r.ord || 0); }, 0); }
+// 같은 선생님의 다음 대기 학생 (ROWS 는 ord 순으로 받았다)
+function nextWaiting(teacher){ return ROWS.filter(function(r){ return r.status==='대기' && (!teacher || r.teacher===teacher); })[0] || null; }
+
+/* [질문 시작] — 1번 친구 호출 (전체 보기에서는 목록 맨 앞 학생) */
+function startQ(){
+  var r = nextWaiting(TEACHER==='all' ? '' : TEACHER);
+  if(!r){ showErr('기다리는 학생이 없어요.'); return; }
+  return act(r.id, '호출');
+}
+/* 완료·건너뜀 → 그 선생님의 다음 친구를 자동 호출 (callNext=false 면 여기서 멈춤) */
+function finish(id, status, callNext){
+  if(BUSY[id]) return; BUSY[id] = true;
+  var me = ROWS.filter(function(r){ return r.id===id; })[0];
+  var tc = me ? me.teacher : (TEACHER==='all' ? '' : TEACHER);
+  return patch(id, { status: status, done_at: new Date().toISOString() })
+    .then(function(){ delete BUSY[id]; return load(); })
+    .then(function(){
+      if(!callNext) return;
+      var stillCalling = ROWS.some(function(r){ return r.status==='호출' && (!tc || r.teacher===tc); });
+      if(stillCalling) return;                          // 같은 선생님께 호출 중인 다른 학생이 있으면 그대로 둔다
+      var nx = nextWaiting(tc);
+      if(nx) return act(nx.id, '호출');
+    })
+    .catch(function(e){ delete BUSY[id]; showErr('저장하지 못했어요 — ' + e.message); });
 }
 
 /* 상태 바꾸기 — 호출은 called_at, 완료·건너뜀은 done_at 을 찍고, 다시 대기로 보내면 맨 뒤 순서가 된다 */
@@ -299,10 +338,10 @@ function act(id, status){
   var now = new Date().toISOString();
   if(status==='호출') body.called_at = now;
   else if(status==='완료' || status==='건너뜀') body.done_at = now;
-  else if(status==='대기'){ body.done_at = null; body.ord = Date.now(); }
+  else if(status==='대기'){ body.done_at = null; body.ord = maxOrd() + 1; }
   return patch(id, body).then(function(){ delete BUSY[id]; return load(); }, function(e){ delete BUSY[id]; showErr('저장하지 못했어요 — ' + e.message); });
 }
-function toBack(id){ return patch(id, { ord: Date.now() }).then(function(){ return load(); }, function(e){ showErr('저장하지 못했어요 — ' + e.message); }); }
+function toBack(id){ return patch(id, { ord: maxOrd() + 1 }).then(function(){ return load(); }, function(e){ showErr('저장하지 못했어요 — ' + e.message); }); }
 function setNote(id, v){ return patch(id, { note: String(v||'').trim() }).then(function(){ return load(); }, function(e){ showErr('메모를 저장하지 못했어요 — ' + e.message); }); }
 function patch(id, body){
   return sb('/question_queue?id=eq.' + id, { method:'PATCH', headers:{ 'Prefer':'return=minimal' }, body: JSON.stringify(body) });

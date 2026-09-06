@@ -42,7 +42,7 @@ function pos(r) {
   return ROWS.filter(q => q.qdate === r.qdate && q.teacher === r.teacher && q.status === '대기' && (q.ord < r.ord || (q.ord === r.ord && q.id < r.id))).length + 1;
 }
 function hm(iso) { return iso ? new Date(iso).toISOString().slice(11, 16) : null; }
-function rowJson(r) { return { id: r.id, teacher: r.teacher, text: r.text, hasPhoto: r.photo !== '', status: r.status, position: pos(r), time: hm(r.created_at), calledAt: hm(r.called_at), doneAt: hm(r.done_at) }; }
+function rowJson(r) { return { id: r.id, teacher: r.teacher, qtime: r.qtime, unit: r.unit, text: r.text, hasPhoto: r.photo !== '', status: r.status, position: pos(r), time: hm(r.created_at), calledAt: hm(r.called_at), doneAt: hm(r.done_at) }; }
 function rpc(fn, args) {
   const p = (args && args.p) || {};
   if (fn === 'qq_teachers') return ['이수경', '김지원'];
@@ -53,7 +53,10 @@ function rpc(fn, args) {
     if (p.photo && !/^data:image\//.test(p.photo)) return { ok: false, error: 'photo_too_big' };
     const ex = ROWS.find(r => r.qdate === today && r.teacher === p.teacher && r.student_id === p.student_id && ['대기', '호출'].includes(r.status));
     if (ex) return { ok: true, id: ex.id, position: pos(ex), status: ex.status, dup: true };
-    const r = { id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord: ORD++, name: p.name, school: p.school || '', grade: p.grade || '', student_id: p.student_id, teacher: p.teacher, text: (p.text || '').trim(), photo: p.photo || '', status: '대기', called_at: null, done_at: null, note: '' };
+    if (p.qtime && !/^\d{1,2}:\d{2}$/.test(p.qtime)) return { ok: false, error: 'bad_time' };
+    const qt = p.qtime || new Date(Date.now() + 9 * 3600e3).toISOString().slice(11, 16);
+    const ord = Date.parse(today + 'T' + qt.padStart(5, '0') + ':00+09:00');
+    const r = { id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord, name: p.name, school: p.school || '', grade: p.grade || '', student_id: p.student_id, teacher: p.teacher, qtime: qt.padStart(5, '0'), unit: (p.unit || '').trim(), text: (p.text || '').trim(), photo: p.photo || '', status: '대기', called_at: null, done_at: null, note: '' };
     ROWS.push(r);
     return { ok: true, id: r.id, position: pos(r), status: '대기' };
   }
@@ -161,12 +164,18 @@ function restGet(url) {
     ok(/질문 내용을 적거나 사진/.test(await pg.$eval('#qqErr', e => e.textContent)), '빈 제출 안내');
     ok(calls.filter(c => c.path.includes('qq_submit')).length === before, '빈 제출은 서버 호출 없음');
 
+    // 질문 타임은 지금 시각으로 미리 채워짐, 단원 입력
+    const tv = await pg.$eval('#qqTime', e => e.value);
+    ok(/^\d\d:\d\d$/.test(tv), '질문 타임이 지금 시각으로 미리 채워짐 (' + tv + ')');
+    await pg.fill('#qqUnit', '독서');
     // 글 제출
     await pg.fill('#qqText', '독서 42쪽 3번 2번 선지가 왜 틀렸나요');
     await pg.click('#qqSubmit');
     await pg.waitForFunction(() => /대기 중/.test(document.getElementById('qqList').textContent));
     const sub1 = JSON.parse(calls.filter(c => c.path.includes('qq_submit')).pop().body).p;
-    ok(sub1.name === '김철수' && sub1.student_id === '12345678' && sub1.teacher === '이수경' && sub1.text.startsWith('독서 42쪽') && sub1.photo === '' && sub1.grade === '고1' && sub1.school === '화정고', 'qq_submit 페이로드(이름·학생ID·선생님·글·학교·학년 고1)');
+    ok(sub1.name === '김철수' && sub1.student_id === '12345678' && sub1.teacher === '이수경' && sub1.text.startsWith('독서 42쪽') && sub1.photo === '' && sub1.grade === '고1' && sub1.school === '화정고' && sub1.qtime === tv && sub1.unit === '독서', 'qq_submit 페이로드(이름·학생ID·선생님·글·학교·학년·질문 타임·단원)');
+    ok(/독서/.test(await pg.$eval('#qqList .qq-item .ntitle', e => e.textContent)) && /질문 타임/.test(await pg.$eval('#qqList', e => e.textContent)), '목록에 단원·질문 타임 표시');
+    ok(await pg.$eval('#qqUnit', e => e.value) === '', '제출 후 단원 칸 비움');
     ok(/다음 순서예요/.test(await pg.$eval('#qqList', e => e.textContent)), '순번 1 → 다음 순서예요');
     ok(await pg.$eval('#qqText', e => e.value) === '', '제출 후 입력칸 비움');
 
@@ -178,7 +187,7 @@ function restGet(url) {
 
     // 다른 학생이 앞에 있으면 '앞에 n명' — 가짜 DB에 한 명 끼워 넣고(순서 앞) 새로 받기
     ROWS[0].ord = 5000;                         // 철수를 뒤로
-    ROWS.push({ id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord: 2000, name: '박민수', school: '서정중', grade: '중3', student_id: '34567890', teacher: '이수경', text: '문학 12번', photo: '', status: '대기', called_at: null, done_at: null, note: '' });
+    ROWS.push({ id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord: 2000, name: '박민수', school: '서정중', grade: '중3', student_id: '34567890', teacher: '이수경', qtime: '17:00', unit: '문학', text: '문학 12번', photo: '', status: '대기', called_at: null, done_at: null, note: '' });
     await pg.evaluate(() => qqRefresh());
     await pg.waitForFunction(() => /앞에 1명/.test(document.getElementById('qqList').textContent));
     ok(true, '앞에 1명 · 2번째 표시');
@@ -221,8 +230,8 @@ function restGet(url) {
   /* ══ ② 교사 페이지 ══════════════════════════════════════ */
   console.log('② 교사 페이지 (question.html)');
   ROWS = []; NEXT = 1; ORD = 1000;
-  const mk = (name, teacher, text, photo) => { const r = { id: NEXT++, created_at: new Date(Date.now() - 25 * 60000).toISOString(), qdate: today, ord: ORD++, name, school: '화정고', grade: '고1', student_id: '0', teacher, text, photo: photo || '', status: '대기', called_at: null, done_at: null, note: '' }; ROWS.push(r); return r; };
-  const a = mk('김철수', '이수경', '독서 3번', 'data:image/jpeg;base64,/9j/AAAA');
+  const mk = (name, teacher, text, photo, qtime, unit) => { const r = { id: NEXT++, created_at: new Date(Date.now() - 25 * 60000).toISOString(), qdate: today, ord: ORD++, name, school: '화정고', grade: '고1', student_id: '0', teacher, qtime: qtime || '17:30', unit: unit || '', text, photo: photo || '', status: '대기', called_at: null, done_at: null, note: '' }; ROWS.push(r); return r; };
+  const a = mk('김철수', '이수경', '독서 3번', 'data:image/jpeg;base64,/9j/AAAA', '17:30', '독서');
   const b = mk('박민수', '이수경', '');
   const c = mk('최유진', '이수경', '문학 12번');
   mk('이영희', '김지원', '화작');
@@ -241,14 +250,17 @@ function restGet(url) {
   ok(await tp.$$eval('#waiting .item .nm', e => e.map(x => x.textContent).join(',')) === '김철수,박민수,최유진', '대기 순서');
   ok(/25분 기다리는 중/.test(await tp.$eval('#waiting', e => e.textContent)), '기다린 시간 표시(20분 넘으면 강조)');
   ok(/글 없이 사진만/.test(await tp.$eval('#waiting .item:nth-child(2)', e => e.textContent)), '글 없는 건 안내');
+  ok(/17:30 질문 타임/.test(await tp.$eval('#waiting .item:nth-child(1)', e => e.textContent)) && await tp.$eval('#waiting .item:nth-child(1) .unit', e => e.textContent) === '독서', '질문 타임·단원 표시');
+  ok(await tp.$eval('#startWrap', e => e.style.display) !== 'none', '[질문 시작] 버튼 보임');
   await shot(tp, 'teacher');
 
-  // 호출
-  await tp.click('#waiting .item:nth-child(1) button:has-text("호출")');
+  // [질문 시작] → 1번 호출
+  await tp.click('#startBtn');
   await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 1);
   const pc = calls.filter(x => x.method === 'PATCH').pop();
-  ok(/id=eq\.1$/.test(pc.path) && JSON.parse(pc.body).status === '호출' && JSON.parse(pc.body).called_at, '호출 PATCH {status, called_at}');
+  ok(/id=eq\.1$/.test(pc.path) && JSON.parse(pc.body).status === '호출' && JSON.parse(pc.body).called_at, '질문 시작 → 1번 호출 PATCH {status, called_at}');
   ok(/김철수/.test(await tp.$eval('#calling', e => e.textContent)) && await tp.$$eval('#waiting .item', e => e.length) === 2, '호출 중으로 이동');
+  ok(await tp.$eval('#startWrap', e => e.style.display) === 'none', '호출 중에는 [질문 시작] 숨김');
 
   // 맨 뒤로
   await tp.click('#waiting .item:nth-child(1) button:has-text("맨 뒤로")');
@@ -256,32 +268,61 @@ function restGet(url) {
   ok(await tp.$$eval('#waiting .item .nm', e => e.map(x => x.textContent).join(',')) === '최유진,박민수', '맨 뒤로 → 순서 바뀜');
   ok(b.ord > c.ord, 'ord 갱신');
 
-  // 완료 → 끝난 질문
-  await tp.click('#calling .item button:has-text("완료")');
-  await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 0);
-  ok(a.status === '완료' && a.done_at, '완료 저장');
+  // 완료 → 다음 친구(최유진) 자동 호출
+  await tp.click('#calling .item button:has-text("완료 → 다음 호출")');
+  await tp.waitForFunction(() => document.querySelector('#calling .item .nm') && document.querySelector('#calling .item .nm').textContent === '최유진');
+  ok(a.status === '완료' && a.done_at && c.status === '호출' && c.called_at, '완료 저장 + 다음 친구 자동 호출');
+  ok(await tp.$$eval('#waiting .item', e => e.length) === 1, '대기 1명 남음');
   ok(await tp.$eval('#done', e => e.style.display) === 'none', '끝난 질문은 접혀 있음');
   await tp.click('#doneTog');
   ok(/김철수/.test(await tp.$eval('#done', e => e.textContent)) && /완료/.test(await tp.$eval('#done', e => e.textContent)), '끝난 질문 목록');
 
-  // 건너뜀 → 다시 대기로
-  await tp.click('#waiting .item:nth-child(1) button:has-text("건너뜀")');
-  await tp.waitForFunction(() => document.querySelectorAll('#waiting .item').length === 1);
-  ok(c.status === '건너뜀', '건너뜀 저장');
+  // 건너뜀 → 다음 친구(박민수) 자동 호출
+  await tp.click('#calling .item button:has-text("건너뜀 → 다음 호출")');
+  await tp.waitForFunction(() => document.querySelector('#calling .item .nm') && document.querySelector('#calling .item .nm').textContent === '박민수');
+  ok(c.status === '건너뜀' && b.status === '호출', '건너뜀 저장 + 다음 친구 자동 호출');
+  ok(await tp.$$eval('#waiting .item', e => e.length) === 0, '대기 0명');
+
+  // 다시 대기로(건너뛴 학생) → 맨 뒤 순서
   await tp.click('#done .item:has-text("최유진") button:has-text("다시 대기로")');
-  await tp.waitForFunction(() => document.querySelectorAll('#waiting .item').length === 2);
-  ok(c.status === '대기' && await tp.$eval('#waiting .item:nth-child(2) .nm', e => e.textContent) === '최유진', '다시 대기로 → 맨 뒤 순서');
+  await tp.waitForFunction(() => document.querySelectorAll('#waiting .item').length === 1);
+  ok(c.status === '대기' && c.ord > b.ord, '다시 대기로 → 맨 뒤 순서');
+
+  // 완료만 (다음 호출 안 함) → 호출 중 비고 [질문 시작] 다시 보임
+  await tp.click('#calling .item button:has-text("완료만")');
+  await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 0);
+  ok(b.status === '완료' && c.status === '대기', '완료만 → 다음 호출 안 함');
+  ok(await tp.$eval('#startWrap', e => e.style.display) !== 'none', '[질문 시작] 다시 보임');
+  // 대기 카드의 [이 친구 먼저 호출]
+  await tp.click('#waiting .item:nth-child(1) button:has-text("이 친구 먼저 호출")');
+  await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 1);
+  ok(c.status === '호출', '개별 호출');
+  await tp.click('#calling .item button:has-text("완료 → 다음 호출")');
+  await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 0);
+  ok(c.status === '완료', '마지막 완료 → 더 부를 친구 없음');
+  // 전체 보기 준비: 이수경 대기 2명 만들기
+  c.status = '대기'; b.status = '대기';
 
   // 전체 보기
   await tp.selectOption('#tsel', 'all');
   await tp.waitForFunction(() => document.querySelectorAll('#waiting .item').length === 3);
   ok(await tp.$$eval('#waiting .tc', e => e.map(x => x.textContent)).then(l => l.includes('김지원T')), '전체 보기에 선생님 표시');
+  // 전체 보기에서 [질문 시작] → 맨 앞 학생, 완료 → 같은 선생님의 다음 친구만
+  await tp.click('#startBtn');
+  await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 1);
+  const first = ROWS.find(r => r.status === '호출');
+  await tp.click('#calling .item button:has-text("완료 → 다음 호출")');
+  await tp.waitForFunction(nm => document.querySelectorAll('#calling .item').length === 1 && !document.querySelector('#calling .item .nm').textContent.includes(nm), first.name);
+  const second = ROWS.find(r => r.status === '호출');
+  ok(second && second.teacher === first.teacher, '전체 보기 완료 → 같은 선생님의 다음 친구 호출');
+  b.status = '호출'; b.called_at = new Date().toISOString(); c.status = '대기';
+  ROWS.forEach(r => { if (r !== b && r.status === '호출') { r.status = '대기'; } });
   ok(await tp.evaluate(() => localStorage.getItem('qq_teacher')) === 'all', '선택 기억');
   await tp.close();
 
   /* ══ ③ 강의실 디스플레이 ═══════════════════════════════ */
   console.log('③ 강의실 디스플레이 (question_board.html)');
-  b.status = '호출'; b.called_at = new Date().toISOString();
+  ROWS.forEach(r => { r.status = r === b ? '호출' : (r === c ? '대기' : '완료'); }); b.called_at = new Date().toISOString();
   const bp = await ctx.newPage();
   bp.on('pageerror', e => { bad++; console.error('  ✗ pageerror', e.message); });
   await bp.goto(`http://localhost:${PORT}/question_board.html?t=이수경`);
