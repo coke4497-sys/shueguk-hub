@@ -39,6 +39,14 @@ let ROWS = [], NEXT = 1, ORD = 1000;
 const calls = [];   // 요청 기록 {method, path, auth, body}
 const jsonpUrls = [];   // 옛 백엔드(jsonp) 호출 주소
 const STU_EXTRA = [ { name: '한동명', student_id: '11111111', school: '화정고', grade: '2026 고등 1학년', teacher: '이수경' }, { name: '한동명', student_id: '22222222', school: '능곡고', grade: '2026 고등 1학년', teacher: '이수경' } ];
+const TS_TODAY = today + ' 10:00';
+const CLINIC_REQS = [   // 오늘 요일 시간대(SLOT_TODAY)로 신청한 두 명 + 다른 요일 한 명 + 클리어된 한 명
+  { id: 501, ts: TS_TODAY, name: '신청자A', school: '화정고', phone: '1111', slot: '', rtype: '질문', area: '독서 · 인문', content: '비문학 3번', qcount: '1~2개', memo: '', grade: '고1', student_id: '77777777', teacher: '이수경', clear: '' },
+  { id: 502, ts: TS_TODAY, name: '신청자A', school: '화정고', phone: '1111', slot: '', rtype: '개념 설명', area: '문법 (언어와 매체)', content: '음운', qcount: '', memo: '', grade: '고1', student_id: '77777777', teacher: '이수경', clear: '' },
+  { id: 503, ts: TS_TODAY, name: '박민수', school: '서정중', phone: '2222', slot: '', rtype: '질문', area: '문학 · 현대시', content: 'x', qcount: '', memo: '', grade: '중3', student_id: '34567890', teacher: '이수경', clear: '' },
+  { id: 504, ts: TS_TODAY, name: '다른요일', school: '화정고', phone: '3333', slot: '화 저녁 5:30–7:00', rtype: '질문', area: '독서 · 인문', content: 'y', qcount: '', memo: '', grade: '고1', student_id: '88888888', teacher: '이수경', clear: '' },
+  { id: 505, ts: TS_TODAY, name: '클리어됨', school: '화정고', phone: '4444', slot: '', rtype: '질문', area: '독서 · 인문', content: 'z', qcount: '', memo: '', grade: '고1', student_id: '99999999', teacher: '이수경', clear: '2026-09-06 12:00' },
+];
 const CLASSES = [
   // 시간표의 담당T 표기는 실제 데이터처럼 성 없이('지원'), 이수경 선생님은 '슈'
   { book: '정규', class_id: 'r001', day: '금', start_time: '5:30', teacher: '슈', name: '고1 가', roster: '김철수 박민수 한동명 (화정)새친구(8/30부터)' },
@@ -55,6 +63,8 @@ function hm(iso) { return iso ? new Date(iso).toISOString().slice(11, 16) : null
 function rowJson(r) { return { id: r.id, teacher: r.teacher, qtime: r.qtime, unit: r.unit, text: r.text, clinic: !!r.clinic_id, hasPhoto: r.photo !== '', status: r.status, position: pos(r), time: hm(r.created_at), calledAt: hm(r.called_at), doneAt: hm(r.done_at) }; }
 let lastClinic = null;   // clinic_submit 페이로드
 const SLOT_TODAY = '일월화수목금토'[new Date(Date.now() + 9 * 3600e3).getUTCDay()] + ' 저녁 5:30–7:00';
+CLINIC_REQS.forEach(r => { if (r.slot === '' ) r.slot = SLOT_TODAY; });
+if (SLOT_TODAY.charAt(0) === '화') CLINIC_REQS[3].slot = '수 저녁 5:30–7:00';
 function rpc(fn, args) {
   const p = (args && args.p) || {};
   if (fn === 'qq_teachers') return ['이수경', '김지원'];
@@ -153,6 +163,10 @@ function restGet(url) {
         if (rec.auth !== 'Bearer tok') return json({ error: 'need teacher' }, 401);
         return json(/class_id=not\.like\.w/.test(decodeURIComponent(url)) ? CLASSES.filter(c => !/^w/.test(c.class_id)) : CLASSES);
       }
+      if (rec.path.startsWith('/rest/v1/clinic_requests')) {
+        if (rec.auth !== 'Bearer tok') return json({ error: 'need teacher' }, 401);
+        return json(CLINIC_REQS);
+      }
       if (rec.path.startsWith('/rest/v1/students')) {
         if (rec.auth !== 'Bearer tok') return json({ error: 'need teacher' }, 401);
         const m = decodeURIComponent(url).match(/name=in\.\((.*?)\)/);
@@ -163,9 +177,11 @@ function restGet(url) {
         if (rec.auth !== 'Bearer tok') return json({ error: 'need teacher' }, 401);
         if (req.method() === 'GET') return json(restGet(url));
         if (req.method() === 'DELETE') {
-          const u2 = decodeURIComponent(url); const idm = u2.match(/id=in\.\((.*?)\)/); const stm = u2.match(/status=eq\.([^&]+)/);
-          const ids = idm ? idm[1].split(',').map(Number) : [];
-          for (let i = ROWS.length - 1; i >= 0; i--) if (ids.includes(ROWS[i].id) && (!stm || ROWS[i].status === stm[1])) ROWS.splice(i, 1);
+          const u2 = decodeURIComponent(url); const idm = u2.match(/id=in\.\((.*?)\)/); const ide = u2.match(/id=eq\.(\d+)/);
+          const stq = u2.match(/status=eq\.([^&]+)/); const sti = u2.match(/status=in\.\((.*?)\)/);
+          const ids = idm ? idm[1].split(',').map(Number) : (ide ? [Number(ide[1])] : []);
+          const okSt = st => stq ? st === stq[1] : (sti ? sti[1].split(',').includes(st) : true);
+          for (let i = ROWS.length - 1; i >= 0; i--) if (ids.includes(ROWS[i].id) && okSt(ROWS[i].status)) ROWS.splice(i, 1);
           return json(null, 204);
         }
         if (req.method() === 'POST') {
@@ -495,7 +511,7 @@ function restGet(url) {
   await tp.click('#loaded .lc button:has-text("내리기")');
   await tp.waitForFunction(() => document.querySelectorAll('#resv .item').length === 0 && !document.getElementById('loaded').textContent);
   const del = calls.filter(x => x.method === 'DELETE').pop();
-  ok(del && /status=eq\.명단/.test(decodeURIComponent(del.path)) && !ROWS.some(r => r.status === '명단') && ROWS.filter(r => r.status === '대기' && r.teacher === '이수경').length === 3, '반 내리기 DELETE(명단만) · 줄 선 학생 유지');
+  ok(del && /status=in\.\(명단,대기\)/.test(decodeURIComponent(del.path)) && !ROWS.some(r => r.status === '명단') && ROWS.filter(r => r.status === '대기' && r.teacher === '이수경').length === 3, '반 내리기 DELETE(명단·대기) · 다른 줄 유지');
   await tp.click('#clsBtn');
   await tp.waitForFunction(() => document.getElementById('cls').style.display === 'flex');
   await tp.selectOption('#clsSel', '정규|r001');
@@ -510,6 +526,30 @@ function restGet(url) {
   ok(posted[0].student_id === '12345678' && posted[0].school === '화정고' && posted[0].grade === '고1' && posted[1].student_id === '' && posted[2].student_id === '', '학생 정보: 유일한 이름만 붙임(동명이인·미등록은 이름만)');
   ok(posted.every(x => x.teacher === '이수경' && x.status === '대기' && x.unit === '고1 가' && /^\d\d:\d\d$/.test(x.qtime)), '선생님·상태·단원(반이름)·시각');
   ok(await tp.$$eval('#waiting .item .nm', e => e.map(x => x.textContent).slice(-3).join(',')) === '김철수,한동명,새친구', '줄 맨 뒤에 반 학생 추가');
+
+  // 순서 지정으로 줄 세운 반도 '올려 둔 반'에 나와 [내리기]로 한꺼번에 뺄 수 있다(사용자 "테스트로 불러왔는데 삭제하는 메뉴가 없어요")
+  ok(/고1 가/.test(await tp.$eval('#loaded', e => e.textContent)) && /3명 줄/.test(await tp.$eval('#loaded', e => e.textContent)), '줄 세운 반도 올려 둔 반 목록에');
+  ok(await tp.$$eval('#waiting .item button:has-text("지우기")', b => b.length) >= 3, '대기 카드마다 [지우기]');
+  await tp.click('#waiting .item:has-text("새친구") button:has-text("지우기")');
+  await tp.waitForFunction(() => !/새친구/.test(document.getElementById('waiting').textContent));
+  ok(!ROWS.some(r => r.name === '새친구'), '한 줄 지우기 DELETE');
+  await tp.click('#loaded .lc button:has-text("내리기")');
+  await tp.waitForFunction(() => !/고1 가/.test(document.getElementById('loaded').textContent));
+  ok(!ROWS.some(r => r.note === '반 전체: 고1 가' && r.status === '대기') && ROWS.filter(r => r.status === '대기' && r.teacher === '이수경').length === 3, '줄 세운 반 내리기 → 그 반 줄만 삭제');
+
+  // 클리닉 신청자 불러오기 — 오늘 클리닉 날짜인 신청만, 이미 줄에 있는 학생(박민수)은 체크 불가, 요청 2장 → 예약 한 줄
+  b.student_id = '34567890'; b.status = '대기';   // 박민수가 줄에 있는 상태 → 신청자 목록에서 체크 불가
+  await tp.evaluate(() => load());
+  await tp.click('#clinBtn');
+  await tp.waitForFunction(() => document.getElementById('clin').style.display === 'flex' && document.querySelectorAll('#clinList label').length === 2);
+  const clabels = await tp.$$eval('#clinList label', l => l.map(x => ({ t: x.textContent, dis: x.querySelector('input').disabled })));
+  ok(clabels.some(x => /신청자A/.test(x.t) && !x.dis) && clabels.some(x => /박민수/.test(x.t) && x.dis) && !clabels.some(x => /다른요일|클리어됨/.test(x.t)), '오늘 신청자만 · 줄에 있는 학생 제외 · 클리어 제외');
+  await tp.click('#clinGo');
+  await tp.waitForFunction(() => document.getElementById('clin').style.display === 'none' && document.querySelectorAll('#resv .item').length === 1);
+  const cpost = JSON.parse(calls.filter(x => x.method === 'POST' && x.path.startsWith('/rest/v1/question_queue')).pop().body);
+  ok(cpost.length === 1 && cpost[0].status === '예약' && cpost[0].name === '신청자A' && cpost[0].qtime === '17:30' && cpost[0].clinic_id === 501 && /독서 · 인문, 문법/.test(cpost[0].unit) && /비문학 3번 \(1~2개\)/.test(cpost[0].text) && cpost[0].student_id === '77777777', '예약 INSERT {17:30, 영역 합침, 요청 줄, clinic_id}');
+  ok(/클리닉 신청/.test(await tp.$eval('#resv', e => e.textContent)), '아직 줄 안 선 친구에 클리닉 신청 배지');
+  ROWS.forEach(r => { if (r.status === '예약') r.status = '완료'; });
   // 전체 보기 준비: 이수경 대기 2명 만들기
   ROWS.forEach(r => { if (r.status === '대기' && !['박민수', '최유진', '이영희'].includes(r.name)) r.status = '완료'; });
   c.status = '대기'; b.status = '대기';
