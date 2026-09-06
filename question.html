@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>이수경국어 · 질문 대기열</title>
+<title>이수경국어 · 클리닉 호출 · 순서 정하기</title>
 <!-- 이수경국어 질문 대기열 — 교사용 (2026-09-06)
      학생이 학생 페이지(s.html '질문하기')에서 올린 질문이 선생님별로 쌓인다. 여기서 순서대로
      [호출] → 학생은 강의실 디스플레이(question_board.html)에서 이름을 보고 온다 → [완료].
@@ -165,21 +165,21 @@
 
 <div class="wrap">
   <div class="brand">
-    <span class="name">이수경국어</span><span class="sub">질문 대기열 · 교사용</span>
+    <span class="name">이수경국어</span><span class="sub">클리닉 호출 · 순서 정하기</span>
     <span class="links"><a href="clinic.html">클리닉 메뉴</a><a href="index.html">허브</a></span>
   </div>
 
   <div class="bar">
     <label for="tsel">선생님</label>
     <select id="tsel"></select>
-    <button class="btn board" id="boardBtn" onclick="openBoard()">강의실 화면 열기</button>
+    <button class="btn board" id="boardBtn" onclick="openBoard()">전자칠판 대기 화면 열기</button>
     <button class="btn soft" id="clsBtn" onclick="clsOpen()">반 전체 불러오기</button>
     <span class="sp"></span>
     <span class="upd" id="upd"></span>
     <button class="btn" onclick="load(true)" title="다시 불러오기">새로고침</button>
   </div>
   <div class="err" id="err"></div>
-  <p class="hint">학생이 학생 페이지 '질문하기'에서 올린 질문이 <b>질문 타임 순서</b>로 쌓여요. <b>[질문 시작]</b>을 누르면 1번 친구가 호출되고(강의실 화면에 이름이 크게 나와요), <b>[완료]</b>를 누르면 다음 친구가 자동으로 호출돼요. 자리에 없으면 <b>[건너뜀]</b>(다음 친구 호출)이나 <b>[맨 뒤로]</b>. 순서는 ▲▼로 바꿔요. 클리닉을 신청한 친구는 '아직 안 온 친구'에 있다가 <b>[도착]</b>을 누르면 그 시각으로 줄에 서요(학생이 자기 페이지에서 [도착했어요]를 눌러도 같아요). <b>[반 전체 불러오기]</b>로 한 반 학생을 한꺼번에 줄 세울 수도 있어요. 5초마다 저절로 새로 받아요.</p>
+  <p class="hint">학생이 학생 페이지 '질문하기'에서 올린 질문이 <b>질문 타임 순서</b>로 쌓여요. <b>[질문 시작]</b>을 누르면 1번 친구가 호출되고(전자칠판 대기 화면에 이름이 크게 나와요), <b>[완료]</b>를 누르면 다음 친구가 자동으로 호출돼요. 자리에 없으면 <b>[건너뜀]</b>(다음 친구 호출)이나 <b>[맨 뒤로]</b>. 순서는 ▲▼로 바꿔요. 클리닉을 신청한 친구는 '아직 안 온 친구'에 있다가 <b>[도착]</b>을 누르면 그 시각으로 줄에 서요(학생이 자기 페이지에서 [도착했어요]를 눌러도 같아요). <b>[반 전체 불러오기]</b>로 한 반 학생을 한꺼번에 줄 세울 수도 있어요. 5초마다 저절로 새로 받아요.</p>
 
   <div class="sec"><h2>호출 중</h2><span class="n" id="nCall"></span></div>
   <div id="calling"></div>

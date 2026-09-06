@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>이수경국어 · 질문 순서 화면</title>
+<title>이수경국어 · 클리닉 호출 · 전자칠판 대기 화면</title>
 <!-- 이수경국어 질문 대기열 — 강의실 디스플레이 (2026-09-06)
      TV·모니터에 띄워 두는 화면. 선생님이 question.html 에서 [호출]한 학생 이름을 크게 보여 주고,
      아래에 다음 순서를 적는다. 3초마다 새로 받는다. 주소에 ?t=선생님 (또는 t=all 전체).
@@ -106,7 +106,7 @@
 </script>
 
 <div class="top">
-  <span class="name">이수경국어</span><span class="who" id="who">질문 순서</span>
+  <span class="name">이수경국어</span><span class="who" id="who">클리닉 호출</span>
   <span class="sp"></span>
   <span class="clock" id="clock"></span>
   <button class="fs" onclick="fullscreen()">전체 화면</button>
@@ -116,7 +116,7 @@
   <h1>어느 선생님 화면인가요?</h1>
   <select id="psel"></select>
   <button onclick="go()">이 화면으로 열기</button>
-  <p>강의실 TV·모니터에 띄워 두면 호출된 학생 이름이 크게 나와요.</p>
+  <p>전자칠판·TV에 전체 화면으로 띄워 두면 호출된 학생 이름이 크게 나와요.</p>
 </div></div>
 
 <div class="main" id="main" style="display:none">
@@ -188,8 +188,8 @@ function load(){
 if(!T){ showPick(); }
 else {
   $('main').style.display = 'grid';
-  $('who').textContent = T==='all' ? '질문 순서 · 모든 선생님' : '질문 순서 · ' + T + ' 선생님';
-  document.title = (T==='all' ? '전체' : T) + ' · 질문 순서';
+  $('who').textContent = T==='all' ? '클리닉 호출 · 모든 선생님' : '클리닉 호출 · ' + T + ' 선생님';
+  document.title = (T==='all' ? '전체' : T) + ' · 클리닉 호출';
   load(); setInterval(load, 3000);
 }
 </script>
