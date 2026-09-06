@@ -148,12 +148,19 @@ function restGet(url) {
     pg.on('pageerror', e => { bad++; console.error('  ✗ pageerror', e.message); });
     await pg.goto(`http://localhost:${PORT}/report/s.html?key=abc`);
     await pg.waitForFunction(() => document.getElementById('hubView').style.display !== 'none');
-    await pg.waitForFunction(() => /선생님께 질문 올리기/.test(document.getElementById('menu').textContent));
-    const card = pg.locator('#menu .card', { hasText: '질문하기' });
-    ok(await card.count() === 1, '허브에 질문하기 카드');
-    ok(/선생님께 질문 올리기 · 순서 확인/.test(await card.textContent()), '카드 기본 설명');
+    await pg.waitForFunction(() => /질문 올리기/.test(document.getElementById('menu').textContent));
+    ok(await pg.locator('#menu .card', { hasText: '질문하기' }).count() === 0, '허브에 별도 질문하기 카드 없음');
+    const card = pg.locator('#menu .card', { hasText: '클리닉 신청' });
+    ok(await card.count() === 1 && await card.evaluate(e => e.tagName) === 'BUTTON', '클리닉 카드가 대상 아닌 주에도 열림(버튼)');
+    ok(/질문 올리기 · 이번 주는 신청 대상 아님/.test(await card.textContent()), '클리닉 카드 설명: 질문 올리기 + 대상 아님');
     await card.click();
+    await pg.waitForFunction(() => document.getElementById('clinicView').style.display === 'block');
+    ok(/이번 주는 클리닉 신청 대상이 아니에요/.test(await pg.$eval('#clinicMenu', e => e.textContent)), '클리닉 화면 안 신청 카드는 대상 아님 안내');
+    const qcard = pg.locator('#clinicMenu .card', { hasText: '질문하기' });
+    ok(await qcard.count() === 1 && /선생님께 질문 올리기 · 순서 확인/.test(await qcard.textContent()), '클리닉 화면에 질문하기 카드');
+    await qcard.click();
     await pg.waitForFunction(() => document.getElementById('questionView').style.display === 'block');
+    ok(await pg.$eval('#clinicView', e => e.style.display) === 'none', '질문 화면이 열리면 클리닉 화면은 숨김');
     await pg.waitForFunction(() => document.querySelectorAll('#qqTeacher option').length >= 2);
     ok(await pg.$eval('#qqTeacher', s => s.value) === '이수경', '담당 선생님이 기본 선택');
     ok(/오늘 올린 질문이 없어요/.test(await pg.$eval('#qqList', e => e.textContent)), '빈 목록 안내');
@@ -218,10 +225,13 @@ function restGet(url) {
     ok(cancelBody.id === ROWS[2].id && cancelBody.student_id === '12345678', 'qq_cancel 페이로드');
     ok(await pg.$$eval('#qqList .qq-cancel', b => b.length) === 0, '취소 버튼은 대기 건에만');
 
-    // 메뉴로 돌아가면 카드 설명이 상태를 알려 준다
+    // 뒤로 가면 클리닉 화면 → 그 카드와 허브 클리닉 카드 설명이 상태를 알려 준다
     await pg.click('#qqBack');
+    await pg.waitForFunction(() => document.getElementById('clinicView').style.display === 'block');
+    ok(/호출됨 · 선생님께 가세요/.test(await qcard.textContent()), '클리닉 화면 질문하기 카드에 호출됨 표시');
+    await pg.click('#clBack');
     await pg.waitForFunction(() => document.getElementById('hubView').style.display !== 'none');
-    ok(/호출됨 · 선생님께 가세요/.test(await card.textContent()), '허브 카드에 호출됨 표시');
+    ok(/호출됨 · 선생님께 가세요/.test(await card.textContent()), '허브 클리닉 카드에 호출됨 표시');
     await pg.close();
   } else {
     console.log('① 학생 페이지 — ../shueguk-report/s.html 이 없어 건너뜀');
