@@ -42,7 +42,8 @@
   .bar .upd{font-size:12px;color:var(--ink-soft);}
   .btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:10px;padding:8px 13px;font-family:var(--sans);font-size:13.5px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
   .btn svg{width:15px;height:15px;}
-  .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-family:var(--serif);font-weight:700;}
+  /* 진한 녹색 채움 버튼은 쓰지 않는다(2026-09-06 사용자 "진한 녹색 버튼 싫어요") — 주요 버튼은 연보라 */
+  .btn.pri{background:#EDE4F4;border-color:#8D83A8;color:#635A7D;font-family:var(--serif);font-weight:700;}
   .btn.soft{background:var(--accent-bg);border-color:var(--accent-bg);color:var(--accent);}
   .btn.lav{background:#EDE4F4;border-color:#8D83A8;color:#635A7D;font-family:var(--serif);font-weight:700;}  /* [질문 대기] — 연보라(2026-09-06 사용자 "버튼 컬러 연보라색") */
   .btn.bad{color:var(--bad);}
@@ -54,7 +55,7 @@
   .sec .n{font-size:12.5px;color:var(--ink-soft);}
   .sec .tog{margin-left:auto;font-size:12.5px;color:var(--ink-soft);cursor:pointer;border:0;background:none;font-family:inherit;}
   .sec .start{margin-left:auto;}
-  .btn.start{background:var(--accent);border-color:var(--accent);color:#fff;font-family:var(--serif);font-weight:700;font-size:15px;padding:10px 18px;}
+  .btn.start{background:#EDE4F4;border-color:#8D83A8;color:#635A7D;font-family:var(--serif);font-weight:700;font-size:15px;padding:10px 18px;}
   .item .unit{display:inline-block;font-size:12px;color:var(--wait);background:var(--wait-bg);border-radius:20px;padding:1px 9px;margin-left:6px;vertical-align:1px;}
   .item .qt{font-family:var(--serif);font-weight:700;color:var(--ink);}
   .item .acts .sub{font-size:12px;padding:6px 10px;color:var(--ink-soft);}
@@ -86,12 +87,12 @@
   #cls .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
   #cls select{padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-family:inherit;font-size:13.5px;background:#FBFCFB;color:var(--ink);flex:1;min-width:180px;}
   #cls .seg button{border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:999px;padding:6px 12px;font-family:inherit;font-size:13px;cursor:pointer;}
-  #cls .seg button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+  #cls .seg button.on{background:#EDE4F4;border-color:#8D83A8;color:#635A7D;font-weight:700;}
   #cls .stu{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin:8px 0 12px;}
   #cls .stu button{display:flex;align-items:center;gap:8px;font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line-soft);border-radius:10px;background:var(--surface);color:var(--ink);cursor:pointer;min-height:40px;text-align:left;}
   #cls .stu button .num{width:22px;height:22px;border-radius:999px;border:1px dashed var(--line);font-size:12px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink-soft);flex:none;}
   #cls .stu button.on{background:#F3F8F5;border-color:var(--accent);}
-  #cls .stu button.on .num{background:var(--accent);border:0;color:#fff;font-weight:700;}
+  #cls .stu button.on .num{background:#8D83A8;border:0;color:#fff;font-weight:700;}
   #cls .stu button.dim{opacity:.45;cursor:default;}
   #cls .stu button.dim small{color:var(--ink-soft);}
   #cls .tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;}
