@@ -181,7 +181,7 @@
   <div class="side">
     <div class="card">
       <h2>아직 줄 안 선 친구</h2>
-      <p class="sub">질문할 준비가 되면 [줄서기]를 눌러 주세요</p>
+      <p class="sub">질문할 준비가 되면 [질문 대기]를 눌러 주세요</p>
       <ul id="sideList"><li class="none" style="background:none;padding:0">아직 줄에 서지 않은 친구가 없어요</li></ul>
     </div>
   </div>
@@ -250,7 +250,7 @@ function load(){
     var unitKeys = []; resv.forEach(function(r){ if(r.status==='명단' && unitKeys.indexOf(r.unit||'')<0) unitKeys.push(r.unit||''); });
     $('arriveList').innerHTML = '';
     $('sideList').innerHTML = resv.length ? resv.map(function(r){ var cls = r.status==='예약' ? 'clinic' : 'c' + (unitKeys.indexOf(r.unit||'') % 4);
-        return '<li class="'+cls+'"><span class="nmx">'+esc(r.name)+' '+(r.status==='명단' && r.unit ? '<small>'+esc(r.unit)+'</small>' : (r.status==='예약' ? '<small>클리닉</small>' : ''))+(T==='all'?' <small>'+esc(r.teacher)+'T</small>':'')+'</span><button type="button" onclick="cfOpen('+r.id+')">줄서기</button></li>'; }).join('')
+        return '<li class="'+cls+'"><span class="nmx">'+esc(r.name)+' '+(r.status==='명단' && r.unit ? '<small>'+esc(r.unit)+'</small>' : (r.status==='예약' ? '<small>클리닉</small>' : ''))+(T==='all'?' <small>'+esc(r.teacher)+'T</small>':'')+'</span><button type="button" onclick="cfOpen('+r.id+')">질문 대기</button></li>'; }).join('')
       : '<li class="none" style="background:none;padding:0">아직 줄에 서지 않은 친구가 없어요</li>';
     $('cnt').textContent = '대기 ' + wait.length + '명' + (call.length ? ' · 호출 ' + call.length + '명' : '') + (resv.length ? ' · 줄 안 선 친구 ' + resv.length + '명' : '') + (done.length >= 2 ? ' · 질문당 약 ' + Math.round(avg) + '분' : '');
     $('upd').textContent = hm(new Date()) + ' 확인';
