@@ -63,6 +63,12 @@
   .item.resv{background:#FBFCFB;}
   .item.resv .no{font-size:12px;color:var(--ink-soft);}
   .tc.clinic{background:#F7E2DE;color:#B0736A;}
+  .loaded{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0 0 10px;}
+  .loaded .lc{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border-radius:999px;box-shadow:var(--shadow);padding:6px 6px 6px 14px;font-size:13.5px;}
+  .loaded .lc b{font-family:var(--serif);}
+  .loaded .lc .n{color:var(--ink-soft);font-size:12px;}
+  .loaded .lc button{border:1px solid var(--line);background:var(--surface);color:var(--bad);border-radius:999px;padding:4px 10px;font-family:inherit;font-size:12px;cursor:pointer;}
+  .loaded .all{font-size:12px;color:var(--ink-soft);border:0;background:none;cursor:pointer;text-decoration:underline;font-family:inherit;}
   /* 반 전체 불러오기 창 */
   #cls{position:fixed;inset:0;background:rgba(20,26,23,.45);display:none;align-items:center;justify-content:center;z-index:40;padding:16px;}
   #cls .box{background:var(--surface);border-radius:var(--radius);box-shadow:0 10px 30px rgba(42,51,47,.18);width:100%;max-width:560px;max-height:92vh;overflow:auto;padding:18px 18px 16px;}
@@ -194,6 +200,7 @@
   <div id="waiting"></div>
 
   <div class="sec"><h2>아직 줄 안 선 친구</h2><span class="n" id="nResv"></span><span class="n">· 클리닉 신청·반 명단 — 학생이 누르거나 선생님이 [줄 세우기]</span></div>
+  <div class="loaded" id="loaded"></div>
   <div id="resv"></div>
 
   <div class="sec"><h2>오늘 끝난 질문</h2><span class="n" id="nDone"></span><button class="tog" id="doneTog" onclick="toggleDone()">펼치기</button></div>
@@ -205,13 +212,20 @@
   <div class="row"><span class="seg"><button type="button" id="clsBook정규" class="on" onclick="clsBook('정규')">정규</button> <button type="button" id="clsBook내신" onclick="clsBook('내신')">내신</button></span>
     <label style="font-size:12.5px;color:var(--ink-soft)"><input type="checkbox" id="clsAllT" onchange="clsFill()"> 모든 강사 반 보기</label></div>
   <div class="row"><select id="clsSel" onchange="clsPick()"><option value="">반을 고르세요</option></select></div>
-  <div class="tools" id="clsTools" style="display:none"><span class="msg">이름을 <b>누르는 순서대로</b> 번호가 붙어요. 다시 누르면 빠져요.</span><span class="sp" style="flex:1"></span><button class="btn" type="button" onclick="clsAll()">명단 순서로 전부</button><button class="btn" type="button" onclick="clsNone()">모두 지우기</button></div>
-  <div class="stu" id="clsStu"></div>
+  <div id="clsMain" style="display:none">
+    <div class="row" style="align-items:flex-start">
+      <button class="btn pri" type="button" id="clsRoster" onclick="clsRoster()" style="font-size:15px;padding:11px 16px">명단으로 올리기</button>
+      <span class="msg" style="flex:1;min-width:200px">이 반 학생들이 전자칠판 '아직 줄 안 선 친구'에 떠요. 학생이 출석한 뒤 <b>전자칠판에서 자기 이름</b>을 누르거나 <b>자기 페이지 [질문 대기]</b>를 누르면 그 시각으로 줄에 서요. 여러 반을 이어서 올릴 수 있어요.</span>
+    </div>
+    <details id="clsOrderBox" style="margin-top:6px">
+      <summary class="msg" style="cursor:pointer">순서를 미리 정해서 바로 줄 세우고 싶을 때 (선택)</summary>
+      <div class="tools" id="clsTools"><span class="msg">이름을 <b>누르는 순서대로</b> 번호가 붙어요. 다시 누르면 빠져요.</span><span class="sp" style="flex:1"></span><button class="btn" type="button" onclick="clsAll()">명단 순서로 전부</button><button class="btn" type="button" onclick="clsNone()">모두 지우기</button></div>
+      <div class="stu" id="clsStu"></div>
+      <button class="btn soft" type="button" id="clsGo" onclick="clsGo()" disabled>이 순서로 줄 세우기</button>
+    </details>
+  </div>
   <div class="foot"><span class="msg" id="clsMsg"></span><span class="sp"></span>
-    <button class="btn" type="button" onclick="clsClose()">닫기</button>
-    <button class="btn soft" type="button" id="clsRoster" onclick="clsRoster()" disabled title="순서 없이 명단만 올려요 — 학생이 전자칠판이나 자기 페이지에서 [질문 대기]를 누르면 그때 줄에 서요">명단으로 올리기</button>
-    <button class="btn pri" type="button" id="clsGo" onclick="clsGo()" disabled>이 순서로 줄 세우기</button></div>
-  <p class="msg" style="margin:8px 0 0">· <b>명단으로 올리기</b>: 여러 반을 차례로 올려 두면 '아직 줄 안 선 친구'에 이름이 떠요. 학생이 전자칠판에서 자기 이름을 누르거나 자기 페이지에서 [질문 대기]를 누르면, 또는 선생님이 [줄 세우기]를 누르면 그 시각으로 줄에 서요.<br>· <b>이 순서로 줄 세우기</b>: 이름을 누른 순서대로 바로 줄을 세워요.</p>
+    <button class="btn" type="button" onclick="clsClose()">닫기</button></div>
 </div></div>
 
 <script>
@@ -335,6 +349,15 @@ function render(){
   // [질문 시작] — 호출 중인 학생이 없고 기다리는 학생이 있을 때만
   $('startWrap').style.display = (!call.length && wait.length) ? 'inline' : 'none';
 
+  // 올려 둔 반(명단) 목록 — 반마다 [내리기], 둘 이상이면 [모두 내리기]
+  var byCls = {};
+  resv.filter(function(r){ return r.status==='명단'; }).forEach(function(r){ var k = r.unit || '(반 이름 없음)'; (byCls[k] = byCls[k] || []).push(r); });
+  var clsKeys = Object.keys(byCls);
+  $('loaded').innerHTML = clsKeys.length
+    ? '<span class="n" style="font-size:12.5px;color:var(--ink-soft)">올려 둔 반</span>' + clsKeys.map(function(k){
+        return '<span class="lc"><b>'+esc(k)+'</b><span class="n">'+byCls[k].length+'명</span><button type="button" onclick="rosterDrop('+JSON.stringify(k).replace(/"/g,'&quot;')+')">내리기</button></span>';
+      }).join('') + (clsKeys.length > 1 ? '<button type="button" class="all" onclick="rosterDrop(null)">모두 내리기</button>' : '')
+    : '';
   // 아직 안 온 친구(클리닉 신청 예약) — 순서에 없음. [도착]으로 그 시각에 줄 세움
   $('resv').innerHTML = resv.length ? resv.map(function(r){
     return '<div class="item resv" data-id="'+r.id+'"><div class="no">'+(r.status==='명단'?'명단':'예약')+'</div><div>'
@@ -391,6 +414,16 @@ function finish(id, status, callNext){
     .catch(function(e){ delete BUSY[id]; showErr('저장하지 못했어요 — ' + e.message); });
 }
 
+/* 올려 둔 반 내리기 — 아직 줄 서지 않은('명단') 줄만 지운다. 이미 줄에 선 학생은 그대로. unit=null 이면 모든 반 */
+function rosterDrop(unit){
+  var rows = ROWS.filter(function(r){ return r.status==='명단' && (unit===null || (r.unit||'(반 이름 없음)')===unit); });
+  if(!rows.length) return;
+  if(!confirm((unit===null ? '올려 둔 반 전체' : unit) + ' ' + rows.length + '명을 명단에서 내릴까요? (이미 줄에 선 학생은 그대로예요)')) return;
+  var ids = rows.map(function(r){ return r.id; });
+  return sb('/question_queue?id=in.(' + ids.join(',') + ')&status=eq.명단', { method:'DELETE', headers:{ 'Prefer':'return=minimal' } })
+    .then(function(){ return load(); }, function(e){ showErr('내리지 못했어요 — ' + e.message); });
+}
+
 /* 예약(클리닉 신청) → 도착: 지금 시각으로 줄에 선다 (학생 페이지 qq_arrive 와 같은 규칙) */
 function kstHM(){ return new Date(Date.now() + 9*3600*1000).toISOString().slice(11,16); }
 function arrive(id){
@@ -433,7 +466,7 @@ function sameTeacher(a, b){ return teacherKey(a) === teacherKey(b); }
 function plainName(tok){ return String(tok||'').replace(/^\([^)]*\)/, '').replace(/\([^)]*\)\s*$/, '').trim(); }
 function clsOpen(){
   if(!TEACHER){ showErr('먼저 선생님을 고르세요.'); return; }
-  $('cls').style.display = 'flex'; $('clsMsg').textContent = ''; $('clsStu').innerHTML = ''; $('clsTools').style.display = 'none'; $('clsGo').disabled = true; CLS.picked = null; CLS.order = [];
+  $('cls').style.display = 'flex'; $('clsMsg').textContent = ''; $('clsStu').innerHTML = ''; $('clsMain').style.display = 'none'; $('clsGo').disabled = true; $('clsRoster').disabled = true; CLS.picked = null; CLS.order = [];
   if(CLS.classes) clsFill();
   else sb('/tt_classes?select=book,class_id,day,start_time,teacher,name,roster&class_id=not.like.w*&order=book,day,start_time').then(function(rows){ CLS.classes = rows || []; clsFill(); })
         .catch(function(e){ $('clsMsg').textContent = '반 목록을 불러오지 못했어요 — ' + e.message; });
@@ -449,17 +482,17 @@ function clsFill(){
     var n = c.roster.split(/\s+/).filter(Boolean).length;
     return '<option value="'+esc(c.book+'|'+c.class_id)+'">'+esc(c.day+' '+c.start_time+' · '+c.name+' · '+c.teacher+'T ('+n+'명)')+'</option>';
   }).join('');
-  $('clsStu').innerHTML = ''; $('clsTools').style.display = 'none'; $('clsGo').disabled = true; $('clsRoster').disabled = true; CLS.picked = null; CLS.order = [];
+  $('clsStu').innerHTML = ''; $('clsMain').style.display = 'none'; $('clsGo').disabled = true; $('clsRoster').disabled = true; CLS.picked = null; CLS.order = [];
 }
 /* 반을 고르면 명단이 이름 버튼으로 뜬다 — 누르는 순서대로 번호(줄 순서)가 붙는다 (2026-09-06 사용자 "불러온 다음에 줄세우기") */
 function clsPick(){
-  var v = $('clsSel').value; CLS.picked = null; CLS.order = []; CLS.names = []; $('clsStu').innerHTML = ''; $('clsTools').style.display = 'none'; $('clsGo').disabled = true; $('clsRoster').disabled = true;
+  var v = $('clsSel').value; CLS.picked = null; CLS.order = []; CLS.names = []; $('clsStu').innerHTML = ''; $('clsMain').style.display = 'none'; $('clsGo').disabled = true; $('clsRoster').disabled = true;
   if(!v) return;
   var c = (CLS.classes||[]).filter(function(x){ return x.book+'|'+x.class_id === v; })[0]; if(!c) return;
   CLS.picked = c;
   var open = {}; ROWS.forEach(function(r){ if(['예약','명단','대기','호출'].indexOf(r.status)>=0 && (TEACHER==='all' ? sameTeacher(r.teacher, c.teacher) : true)) open[r.name] = r.status; });
   CLS.names = c.roster.split(/\s+/).filter(Boolean).map(function(t){ var nm = plainName(t); return { nm: nm, dup: open[nm] || '' }; });
-  $('clsTools').style.display = 'flex';
+  $('clsMain').style.display = 'block'; $('clsOrderBox').open = false;
   clsDraw();
 }
 function clsDraw(){
@@ -469,7 +502,7 @@ function clsDraw(){
     return '<button type="button"'+(k>=0?' class="on"':'')+' onclick="clsTap(\''+esc(x.nm).replace(/'/g,"\\'")+'\')"><span class="num">'+(k>=0?(k+1):'')+'</span>'+esc(x.nm)+'</button>';
   }).join('');
   var avail = CLS.names.filter(function(x){ return !x.dup; }).length;
-  $('clsMsg').textContent = CLS.order.length ? (CLS.order.length + '명 순서 정함 (' + avail + '명 중)') : ('이름을 눌러 순서를 정하세요 (' + avail + '명' + (CLS.names.length - avail ? ' · 이미 줄에 있는 ' + (CLS.names.length - avail) + '명 제외' : '') + ')');
+  $('clsMsg').textContent = CLS.order.length ? (CLS.order.length + '명 순서 정함 (' + avail + '명 중)') : (avail + '명' + (CLS.names.length - avail ? ' · 이미 줄에 있는 ' + (CLS.names.length - avail) + '명 제외' : ''));
   $('clsGo').disabled = !CLS.order.length;
   $('clsRoster').disabled = !avail; $('clsRoster').textContent = '명단으로 올리기' + (avail ? ' (' + avail + '명)' : '');
   $('clsGo').textContent = CLS.order.length ? '이 순서로 줄 세우기 (' + CLS.order.length + '명)' : '이 순서로 줄 세우기';
