@@ -128,6 +128,12 @@
   .item .wait b{color:var(--bad);font-weight:400;}
   .item .wait .rem b.ok{color:var(--cream-ink);font-variant-numeric:tabular-nums;}
   .sec .pausetag{color:var(--pink-ink);}
+  .sec .pausetag b{font-family:var(--serif);color:var(--ink-body);}
+  .sec .pausetag .lnk{border:0;background:none;color:var(--pink-ink);text-decoration:underline;cursor:pointer;font-family:inherit;font-size:12.5px;padding:0 2px;}
+  #msg .msgin{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font:700 18px var(--serif);color:var(--ink-body);background:#fbfcfb;margin-bottom:10px;}
+  #msg .pres{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+  #msg .pres .pre{border:0;background:var(--sunken);color:var(--ink-body);border-radius:999px;padding:7px 12px;font-family:inherit;font-size:13px;cursor:pointer;}
+  #msg .pres .pre:hover{background:var(--lilac);color:var(--lilac-ink);}
   .item .acts{display:flex;flex-direction:row;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
   .item .acts .btn{white-space:nowrap;}
   .item .acts .sub{font-size:12px;padding:6px 10px;color:var(--ink-soft);}
@@ -275,9 +281,9 @@
     <button class="btn ghost" onclick="load(true)" title="다시 불러오기">새로고침</button>
   </div>
   <div class="err" id="err"></div>
-  <p class="hint" id="hint" hidden>학생이 학생 페이지 '질문하기'에서 올린 질문이 <b>질문 타임 순서</b>로 쌓여요. <b>[질문 시작]</b>을 누르면 1번 친구가 호출되고(전자칠판 대기 화면에 이름이 크게 나와요), 친구가 오면 <b>[질문중]</b>(전자칠판의 호출 표시가 내려가고, 질문 하나당 3분 기준으로 남은 시간이 보여요), 끝나면 <b>[완료]</b>, <b>[다음 호출]</b>을 누르면 대기 1번 친구가 호출돼요(완료 전에 먼저 불러 둬도 돼요). 자리에 없으면 [···] 메뉴의 <b>[건너뜀 → 다음 호출]</b>이나 대기 줄의 <b>[맨 뒤로]</b>. <b>[재호출]</b>은 같은 친구를 한 번 더 불러요(전자칠판 이름에서 하트가 터지고 호출 시간이 다시 흘러요). 순서는 줄 왼쪽 손잡이를 <b>끌어서</b> 바꾸거나 ▲▼로 바꿔요. 클리닉을 신청한 친구와 [명단으로 올리기]한 반 학생은 '아직 줄 안 선 친구'에 있다가 <b>[질문 대기]</b>를 누르면 그 시각으로 줄에 서요(학생이 전자칠판에서 자기 이름을 누르거나 자기 페이지에서 [질문 대기]를 눌러도 같아요). <b>[학생 불러오기]</b>로 여러 반을 명단에 올리거나 한 반을 순서대로 질문 대기에 넣을 수 있어요. 5초마다 저절로 새로 받아요.<br>잠깐 멈춰야 하면 '호출 중' 옆 <b>[질문 일시 정지]</b> — 전자칠판에 '잠시만 기다려 주세요'가 크게 떠요. [다시 시작]으로 풀어요.<br>이 화면은 <b>휴대폰에서도 리모컨처럼</b> 쓸 수 있어요 — 폰 홈 화면에 추가해 두고 자리에서 [완료 → 다음 호출]만 누르면 전자칠판이 바로 바뀌어요.</p>
+  <p class="hint" id="hint" hidden>학생이 학생 페이지 '질문하기'에서 올린 질문이 <b>질문 타임 순서</b>로 쌓여요. <b>[질문 시작]</b>을 누르면 1번 친구가 호출되고(전자칠판 대기 화면에 이름이 크게 나와요), 친구가 오면 <b>[질문 중]</b>(전자칠판의 호출 표시가 내려가고, 질문 하나당 3분 기준으로 남은 시간이 보여요), 끝나면 <b>[완료]</b>, <b>[다음 호출]</b>을 누르면 대기 1번 친구가 호출돼요(완료 전에 먼저 불러 둬도 돼요). 자리에 없으면 <b>[다음 순서로]</b>(대기 줄 맨 앞으로 되돌림)나 <b>[맨 뒤로]</b>, 또는 [···] 메뉴의 <b>[건너뜀 → 다음 호출]</b>. <b>[재호출]</b>은 같은 친구를 한 번 더 불러요(전자칠판 이름에서 하트가 터지고 호출 시간이 다시 흘러요). 순서는 줄 왼쪽 손잡이를 <b>끌어서</b> 바꾸거나 ▲▼로 바꿔요. 클리닉을 신청한 친구와 [명단으로 올리기]한 반 학생은 '아직 줄 안 선 친구'에 있다가 <b>[질문 대기]</b>를 누르면 그 시각으로 줄에 서요(학생이 전자칠판에서 자기 이름을 누르거나 자기 페이지에서 [질문 대기]를 눌러도 같아요). <b>[학생 불러오기]</b>로 여러 반을 명단에 올리거나 한 반을 순서대로 질문 대기에 넣을 수 있어요. 5초마다 저절로 새로 받아요.<br>'호출 중' 옆 <b>[전자칠판 문구]</b>로 '잠시만 기다려 주세요'·'조용히 하세요' 같은 문구를 직접 써서 전자칠판에 크게 띄울 수 있어요. [내리기]로 지워요.<br>이 화면은 <b>휴대폰에서도 리모컨처럼</b> 쓸 수 있어요 — 폰 홈 화면에 추가해 두고 자리에서 [완료 → 다음 호출]만 누르면 전자칠판이 바로 바뀌어요.</p>
 
-  <div class="sec"><h2>호출 중</h2><span class="n" id="nCall"></span><span class="n pausetag" id="pauseTag" style="display:none">· 일시 정지 중 — 전자칠판에 '잠시만 기다려 주세요'</span><span class="start" id="pauseWrap" style="display:none"><button class="btn" id="pauseBtn" onclick="pauseToggle()" title="전자칠판에 '잠시만 기다려 주세요'를 띄워요">질문 일시 정지</button></span></div>
+  <div class="sec"><h2>호출 중</h2><span class="n" id="nCall"></span><span class="n pausetag" id="pauseTag" style="display:none"></span><span class="start" id="pauseWrap" style="display:none"><button class="btn" id="pauseBtn" onclick="msgOpen()" title="전자칠판 이름 자리에 문구를 크게 띄워요 — 잠시만 기다려 주세요, 조용히 하세요 등">전자칠판 문구</button></span></div>
   <div id="calling" class="list"></div>
 
   <div class="sec"><h2>대기</h2><span class="n" id="nWait"></span><span class="n" id="dragTip"></span><span class="start" id="startWrap" style="display:none"><button class="btn start" id="startBtn" onclick="startQ()">질문 시작</button></span></div>
@@ -291,6 +297,16 @@
   <div id="done" class="list" style="display:none"></div>
 </div>
 <div id="lb" onclick="this.style.display='none'"><img id="lbImg" alt="문제 사진"></div>
+<div id="msg" class="modal"><div class="box">
+  <h3>전자칠판 문구</h3>
+  <p class="msg" style="margin:0 0 10px">전자칠판의 호출 이름 자리에 이 문구가 크게 떠요. 호출·질문 중 표시는 그동안 내려가요. 다시 [내리기]를 누르면 원래 화면으로 돌아와요.</p>
+  <input id="msgText" class="msgin" maxlength="60" placeholder="예: 잠시만 기다려 주세요 · 조용히 하세요" onkeydown="if(event.key==='Enter') msgSend()">
+  <div class="pres" id="msgPre"></div>
+  <div class="foot"><span class="msg" id="msgMsg"></span><span class="sp"></span>
+    <button class="btn" type="button" onclick="msgClose()">닫기</button>
+    <button class="btn bad" type="button" id="msgOffBtn" onclick="msgOff()" style="display:none">내리기</button>
+    <button class="btn pri" type="button" id="msgGo" onclick="msgSend()">전자칠판에 띄우기</button></div>
+</div></div>
 <div id="clin" class="modal"><div class="box">
   <h3>클리닉 신청자 불러오기</h3>
   <p class="msg" id="clinSub" style="margin:0 0 10px">오늘 클리닉 날짜인 신청을 찾아요. 체크한 친구를 '아직 줄 안 선 친구'(예약)에 올리면 도착해서 [질문 대기]를 누를 수 있어요.</p>
@@ -323,7 +339,9 @@
 <script>
 /* ══ 질문 대기열 — 교사 화면 ═══════════════════════════════════════ */
 var SB = 'https://bangdbhqpphqqdwcledg.supabase.co/rest/v1';
-var ROWS = [], PHOTOS = {}, TEACHERS = [], TEACHER = '', POLL = null, DONE_OPEN = false, BUSY = {}, PAUSED = false;
+var ROWS = [], PHOTOS = {}, TEACHERS = [], TEACHER = '', POLL = null, DONE_OPEN = false, BUSY = {}, PAUSED = false, MSG_ROW = null;
+var DEFAULT_MSG = '잠시만 기다려 주세요';
+var MSG_PRESETS = ['잠시만 기다려 주세요', '조용히 하세요', '자리에 앉아 주세요', '곧 시작해요'];   // 자주 쓰는 문구 — 누르면 입력칸에 들어간다
 var ASK_MS = 3*60000;   // 질문 하나당 예상 소요 3분(2026-09-06 사용자 지정) — 질문 중 남은 시간의 기준(전자칠판과 같은 값)
 function $(id){ return document.getElementById(id); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -400,11 +418,13 @@ function render(){
   var wait = ROWS.filter(function(r){ return r.status==='대기'; });
   var resv = ROWS.filter(function(r){ return r.status==='예약' || r.status==='명단'; });
   var done = ROWS.filter(function(r){ return ['호출','질문중','대기','예약','명단','일시정지'].indexOf(r.status) < 0; }).slice().reverse();
-  PAUSED = ROWS.some(function(r){ return r.status==='일시정지' && (TEACHER==='all' || r.teacher===TEACHER); });
+  MSG_ROW = ROWS.filter(function(r){ return r.status==='일시정지' && (TEACHER==='all' || r.teacher===TEACHER); })[0] || null;   // 전자칠판 문구 줄
+  PAUSED = !!MSG_ROW;
   $('pauseWrap').style.display = TEACHER && TEACHER!=='all' ? 'inline-flex' : 'none';
-  $('pauseBtn').textContent = PAUSED ? '다시 시작' : '질문 일시 정지';
+  $('pauseBtn').textContent = PAUSED ? '문구 바꾸기' : '전자칠판 문구';
   $('pauseBtn').className = 'btn ' + (PAUSED ? 'lav' : '');
   $('pauseTag').style.display = PAUSED ? 'inline' : 'none';
+  if(PAUSED) $('pauseTag').innerHTML = '· 전자칠판에 <b>“' + esc(MSG_ROW.text || DEFAULT_MSG) + '”</b> 띄우는 중 <button type="button" class="lnk" onclick="msgOff()">내리기</button>';
   $('nCall').textContent = call.length ? call.length + '명' : '';
   $('nWait').textContent = wait.length ? wait.length + '명' : '';
   $('nResv').textContent = resv.length ? resv.length + '명' : '';
@@ -488,19 +508,30 @@ function render(){
 }
 
 function unitTag(r){ return (r.unit ? '<span class="unit">'+esc(r.unit)+'</span>' : '') + (!r.text && PHOTOS[r.id] ? '<span class="tc photo">사진만</span>' : ''); }
-/* 호출 중 카드의 버튼 — 2026-09-06 사용자 지정 "재호출, 질문중, 완료, 다음 호출":
-   [재호출](한 번 더 부르기 — 전자칠판 하트) [질문중](학생이 와서 질문 시작 — 전자칠판의 '오세요'가 내려감) [완료] [다음 호출](대기 1번 호출).
+/* 호출 중 카드의 버튼 — 2026-09-06 사용자 지정 "재호출, 질문 중, 완료, 다음 호출, 다음 순서로, 맨 뒤로":
+   [재호출](한 번 더 부르기 — 전자칠판 하트) [질문 중](학생이 와서 질문 시작 — 전자칠판의 '오세요'가 내려감) [완료] [다음 호출](대기 1번 호출)
+   [다음 순서로](이 친구를 대기 줄 맨 앞 = 다음 차례로 되돌림) [맨 뒤로](대기 줄 맨 뒤로 되돌림).
    완료와 다음 호출은 따로 — 다음 친구를 먼저 불러 두고 완료를 눌러도 되고, 완료 뒤 [다음 호출]/[질문 시작]을 눌러도 된다.
-   나머지(건너뜀 → 다음 호출·다시 대기로)는 [···] 메뉴 안. 휴대폰에서도 카드 안에 그대로(아래 고정 줄은 손이 멀어 뺐다). */
+   건너뜀 → 다음 호출만 [···] 메뉴 안. 휴대폰에서도 카드 안에 그대로(두 개씩 세 줄). */
 function callActs(r){
   var asking = r.status==='질문중';
-  var rest = '<button class="btn bad" onclick="finish('+r.id+', \'건너뜀\', true)">건너뜀 → 다음 호출</button>'
-           + '<button class="btn" onclick="act('+r.id+', \'대기\')">다시 대기로</button>';
+  var rest = '<button class="btn bad" onclick="finish('+r.id+', \'건너뜀\', true)">건너뜀 → 다음 호출</button>';
   return (asking ? '' : '<button class="btn recall" onclick="recall('+r.id+')" title="같은 친구를 한 번 더 불러요 — 전자칠판 이름에서 하트가 터지고 호출 시간이 처음부터 다시 흘러요">재호출</button>'
-                      + '<button class="btn ask" onclick="act('+r.id+', \'질문중\')" title="학생이 와서 질문을 시작했어요 — 전자칠판의 호출 표시가 내려가요">질문중</button>')
+                      + '<button class="btn ask" onclick="act('+r.id+', \'질문중\')" title="학생이 와서 질문을 시작했어요 — 전자칠판의 호출 표시가 내려가요">질문 중</button>')
        + '<button class="btn done" onclick="finish('+r.id+', \'완료\', false)">완료</button>'
        + '<button class="btn pri" onclick="callNext('+r.id+')" title="대기 1번 친구를 호출해요">다음 호출</button>'
+       + '<button class="btn" onclick="toFront('+r.id+')" title="이 친구를 대기 줄 맨 앞(다음 차례)으로 되돌려요">다음 순서로</button>'
+       + '<button class="btn" onclick="act('+r.id+', \'대기\')" title="이 친구를 대기 줄 맨 뒤로 되돌려요">맨 뒤로</button>'
        + '<details class="dd right"><summary class="more" title="더 보기">···</summary><div class="menu">' + rest + '</div></details>';
+}
+/* [다음 순서로] — 호출·질문 중인 친구를 대기 줄 맨 앞(그 선생님 대기 1번 바로 앞)으로 되돌린다. 기다리는 친구가 없으면 그냥 대기로. */
+function toFront(id){
+  if(BUSY[id]) return; BUSY[id] = true;
+  var me = ROWS.filter(function(r){ return r.id===id; })[0];
+  var tc = me ? me.teacher : (TEACHER==='all' ? '' : TEACHER);
+  var first = nextWaiting(tc);
+  var ord = first ? +first.ord - 1000 : maxOrd() + 1;
+  return patch(id, { status:'대기', done_at:null, ord: ord }).then(function(){ delete BUSY[id]; return load(); }, function(e){ delete BUSY[id]; showErr('저장하지 못했어요 — ' + e.message); });
 }
 /* 질문 중 남은 시간(3분 기준) — 카드는 5초마다 다시 그려지므로 초 단위는 아래 틱이 .rem 만 갱신한다 */
 function remLabel(askAt){
@@ -509,15 +540,34 @@ function remLabel(askAt){
   return left >= 0 ? '남은 시간 <b class="ok">' + s + '</b>' : '예상 시간 지남 <b>+' + s + '</b>';
 }
 setInterval(function(){ document.querySelectorAll('.rem[data-ask]').forEach(function(el){ el.innerHTML = remLabel(+el.getAttribute('data-ask')); }); }, 1000);
-/* [질문 일시 정지] — 전자칠판에 '잠시만 기다려 주세요'. 표를 더하지 않고 그 선생님·오늘의 '일시정지' 가짜 줄 하나로 표시한다(다시 시작 = 그 줄 삭제).
-   학생 화면(qq_mine)은 학생ID로만 찾으므로 이 줄이 보이지 않는다. */
-function pauseToggle(){
+/* [전자칠판 문구] — 선생님이 쓴 문구를 전자칠판 이름 자리에 크게 띄운다(2026-09-06 사용자 "화면에 띄울 문구를 교사가 직접 작성 — 떠들지마라 같은 문구도").
+   표를 더하지 않고 그 선생님·오늘의 status '일시정지' 줄 하나(text=문구)로 표시한다 — 처음엔 '잠시만 기다려 주세요' 고정 일시 정지였다가 문구 자유 입력으로 바뀜(상태 이름은 그대로).
+   문구 바꾸기 = 그 줄 text PATCH, 내리기 = 그 줄 삭제. 학생 화면(qq_mine)은 학생ID로만 찾으므로 이 줄이 보이지 않는다. */
+function msgOpen(){
   if(!TEACHER || TEACHER==='all') return;
-  var btn = $('pauseBtn'); btn.disabled = true;
-  var req = PAUSED
-    ? sb('/question_queue?qdate=eq.' + kstToday() + '&teacher=eq.' + encodeURIComponent(TEACHER) + '&status=eq.일시정지', { method:'DELETE', headers:{ 'Prefer':'return=minimal' } })
-    : sb('/question_queue', { method:'POST', headers:{ 'Prefer':'return=minimal' }, body: JSON.stringify({ name:'일시 정지', teacher:TEACHER, status:'일시정지', ord: Date.now(), qtime: kstHM(), note:'선생님 일시 정지' }) });
-  return req.then(function(){ btn.disabled = false; return load(); }, function(e){ btn.disabled = false; showErr('저장하지 못했어요 — ' + e.message); });
+  $('msgText').value = MSG_ROW ? (MSG_ROW.text || '') : '';
+  $('msgPre').innerHTML = MSG_PRESETS.map(function(t){ return '<button type="button" class="pre" onclick="msgPick(this)">'+esc(t)+'</button>'; }).join('');
+  $('msgOffBtn').style.display = MSG_ROW ? '' : 'none';
+  $('msgGo').textContent = MSG_ROW ? '이 문구로 바꾸기' : '전자칠판에 띄우기';
+  $('msgMsg').textContent = '';
+  $('msg').style.display = 'flex';
+  setTimeout(function(){ $('msgText').focus(); }, 50);
+}
+function msgPick(btn){ $('msgText').value = btn.textContent; $('msgText').focus(); }
+function msgClose(){ $('msg').style.display = 'none'; }
+function msgSend(){
+  var t = String($('msgText').value || '').trim().slice(0, 60);
+  if(!t){ $('msgMsg').textContent = '띄울 문구를 적어 주세요.'; return; }
+  var btn = $('msgGo'); btn.disabled = true;
+  var req = MSG_ROW
+    ? sb('/question_queue?id=eq.' + MSG_ROW.id + '&status=eq.일시정지', { method:'PATCH', headers:{ 'Prefer':'return=minimal' }, body: JSON.stringify({ text: t, ord: Date.now() }) })
+    : sb('/question_queue', { method:'POST', headers:{ 'Prefer':'return=minimal' }, body: JSON.stringify({ name:'전자칠판 문구', teacher:TEACHER, status:'일시정지', text: t, ord: Date.now(), qtime: kstHM(), note:'선생님 문구' }) });
+  return req.then(function(){ btn.disabled = false; msgClose(); return load(); }, function(e){ btn.disabled = false; $('msgMsg').textContent = '저장하지 못했어요 — ' + e.message; });
+}
+function msgOff(){
+  if(!TEACHER || TEACHER==='all') return;
+  return sb('/question_queue?qdate=eq.' + kstToday() + '&teacher=eq.' + encodeURIComponent(TEACHER) + '&status=eq.일시정지', { method:'DELETE', headers:{ 'Prefer':'return=minimal' } })
+    .then(function(){ msgClose(); return load(); }, function(e){ showErr('내리지 못했어요 — ' + e.message); });
 }
 /* [다음 호출] — 이 카드 학생의 선생님께 기다리는 1번 친구를 호출한다(현재 학생은 그대로 — 완료는 따로) */
 function callNext(id){
