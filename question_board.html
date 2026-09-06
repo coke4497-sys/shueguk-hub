@@ -72,6 +72,11 @@
   .call h2{font-size:26px;}
   .call .since{font:400 19px var(--font-display);color:var(--accent-clay-ink);background:var(--accent-cream);border-radius:999px;padding:8px 20px;font-variant-numeric:tabular-nums;white-space:nowrap;}
   .call .since[hidden]{display:none;}
+  .call .since.over{background:#f4dcd2;color:#8a4a35;}   /* 3분이 지나면 연핑크 */
+  /* 일시 정지 — 선생님이 [질문 일시 정지]를 누르면 이름 자리에 크게 */
+  .now .pause{display:flex;flex-direction:column;align-items:center;gap:14px;}
+  .now .pause .big{font:700 64px/1.2 var(--font-heading);color:var(--ink);}
+  .now .pause .sub{font:400 22px var(--font-body);color:var(--ink-muted);}
   .now{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:0;text-align:center;}
   .now .wrap{position:relative;}   /* 하트가 터지는 기준점 — 하트는 이 상자 밖으로 날아간다 */
   /* 88px 은 합의된 상한 — 뒤에서도 읽히되 사춘기 학생 이름을 스포트라이트처럼 띄우지 않기 위한 값. 키우지 말 것. */
@@ -239,7 +244,7 @@
         <span class="since" id="since" hidden></span>
       </div>
       <div class="now" id="now"><div class="none">지금 호출된 친구가 없어요</div></div>
-      <div class="prog"><div class="lbl">호출 시간 경과</div><div class="track"><div class="fill" id="progFill"></div></div></div>
+      <div class="prog"><div class="lbl" id="progLbl">호출 시간 경과</div><div class="track"><div class="fill" id="progFill"></div></div></div>
     </div>
     <div class="card nextc">
       <div class="hd"><h2>다음 순서</h2><span class="sub" id="nextSub"></span></div>
@@ -310,11 +315,12 @@ function go(){ var v = $('psel').value; if(!v) return; location.search = '?t=' +
 
 function load(){
   var q = '/question_queue?select=id,ord,name,school,grade,teacher,status,unit,called_at,done_at&qdate=eq.' + kstToday()
-        + '&status=in.(예약,명단,대기,호출,질문중,완료)&order=ord.asc,id.asc' + (T==='all' ? '' : '&teacher=eq.' + encodeURIComponent(T));
+        + '&status=in.(예약,명단,대기,호출,질문중,완료,일시정지)&order=ord.asc,id.asc' + (T==='all' ? '' : '&teacher=eq.' + encodeURIComponent(T));
   return sb(q).then(function(rows){
     rows = rows || [];
     var call = rows.filter(function(r){ return r.status==='호출'; }).sort(function(a,b){ return String(a.called_at).localeCompare(String(b.called_at)); });
     var asking = rows.filter(function(r){ return r.status==='질문중'; });   // 와서 질문하는 중 — '오세요'는 내리고 작게만 표시
+    var paused = rows.some(function(r){ return r.status==='일시정지'; });   // 선생님이 [질문 일시 정지] — 학생용 가짜 줄 하나(question.html pauseOn)
     var wait = rows.filter(function(r){ return r.status==='대기'; });
     var resv = rows.filter(function(r){ return r.status==='예약' || r.status==='명단'; }).sort(function(a,b){ return String(a.unit).localeCompare(String(b.unit)) || String(a.name).localeCompare(String(b.name)); });
     var done = rows.filter(function(r){ return r.status==='완료' && r.called_at && r.done_at; });
@@ -322,7 +328,7 @@ function load(){
     // 예상 대기: 호출 중인 친구가 있으면 그 친구가 끝날 때까지 + 앞 사람 수 × 평균
     var etaOf = function(i){ var m = Math.round(avg * (i + ((call.length || asking.length) ? 1 : 0))); return m <= 0 ? '곧 차례' : '약 ' + m + '분'; };
     var tag = function(r){ return T==='all' ? '<small>'+esc(r.teacher)+' 선생님께</small>' : ''; };
-    var key = call.map(function(r){ return r.id; }).join(',');
+    var key = call.map(function(r){ return r.id; }).join(',') + (paused ? '|P' : '');
     // 오늘 몇 번째 호출인지 — 오늘 호출된 적 있는 줄(호출·완료 등 called_at 있음)을 호출 시각순으로 세어 자리를 찾는다
     var calledAll = rows.filter(function(r){ return r.called_at; }).sort(function(a,b){ return String(a.called_at).localeCompare(String(b.called_at)); });
     var nth = function(r){ var i = calledAll.map(function(x){ return x.id; }).indexOf(r.id); return i < 0 ? '' : '오늘 ' + (i+1) + '번째 호출'; };
@@ -331,13 +337,17 @@ function load(){
     LAST_AT = {}; call.forEach(function(r){ LAST_AT[r.id] = r.called_at; });
     if(key !== LAST_CALL){   // 호출 명단이 바뀌었을 때만 다시 그려 애니메이션이 한 번만 돈다
       LAST_CALL = key;
-      $('now').innerHTML = call.length
+      $('now').innerHTML = paused
+        ? '<div class="pause"><div class="big">잠시만 기다려 주세요</div><div class="sub">선생님이 잠깐 멈췄어요 · 곧 다시 시작해요</div></div>'
+        : call.length
         ? '<div class="lead">선생님께 오세요</div><div class="wrap" id="nowWrap">' + call.map(function(r){ return '<div class="nm'+(call.length>1?' many':'')+'">'+esc(r.name)+tag(r)+'</div>'; }).join('') + '</div>'
           + '<div class="meta">' + esc([call.length===1 && call[0].unit ? call[0].unit : '', call.length===1 ? nth(call[0]) : call.length + '명 호출 중'].filter(Boolean).join(' · ')) + '</div>'
         : '<div class="none">지금 호출된 친구가 없어요</div><div class="up" id="nowUp"></div>';
     } else if(recalled){ burst(); }
-    if(!call.length){ var upEl = $('nowUp'); if(upEl) upEl.innerHTML = (asking.length ? '<div>질문 중 <b>'+asking.map(function(r){ return esc(r.name); }).join(' · ')+'</b></div>' : '') + (wait.length ? '<div>다음 차례 <b>'+esc(wait[0].name)+'</b></div>' : ''); }
-    CALL_AT = call.length ? Math.min.apply(null, call.map(function(r){ return new Date(r.called_at).getTime() || Date.now(); })) : 0;
+    if(!call.length && !paused){ var upEl = $('nowUp'); if(upEl) upEl.innerHTML = (asking.length ? '<div>질문 중 <b>'+asking.map(function(r){ return esc(r.name); }).join(' · ')+'</b></div>' : '') + (wait.length ? '<div>다음 차례 <b>'+esc(wait[0].name)+'</b></div>' : ''); }
+    CALL_AT = (call.length && !paused) ? Math.min.apply(null, call.map(function(r){ return new Date(r.called_at).getTime() || Date.now(); })) : 0;
+    // 질문 시작 시각 = [질문중]을 누를 때 ord 에 넣은 ms(question.html act) — 3분 기준으로 남은 시간을 센다
+    ASK_AT = (!call.length && !paused && asking.length) ? Math.min.apply(null, asking.map(function(r){ return +r.ord || Date.now(); })) : 0;
     AVG_MS = avg * 60000; sinceTick();
     $('nextSub').textContent = wait.length ? wait.length + '명 대기' + (wait.length > 1 ? ' · 마지막 ' + etaOf(wait.length-1) : '') : '';
     $('next').innerHTML = wait.length
@@ -359,11 +369,23 @@ function load(){
   }).catch(function(e){ $('err').textContent = '연결이 잘 안 돼요 — 잠시 후 다시 받아요'; setLive(false); });
 }
 
-var RESV = [], CF_ID = null, CALL_AT = 0, AVG_MS = 5*60000;
-/* 호출 뒤 흐른 시간 — 알약 '호출 후 m:ss' + 아래 막대(1분에 다 참) + 15초 지나면 숨쉬기 */
+var RESV = [], CF_ID = null, CALL_AT = 0, ASK_AT = 0, AVG_MS = 5*60000;
+var ASK_MS = 3*60000;   // 질문 하나당 예상 소요 3분(2026-09-06 사용자 지정) — 질문 중 남은 시간의 기준
+function mmss(ms){ var t = Math.floor(Math.abs(ms)/1000); return Math.floor(t/60) + ':' + (t%60 < 10 ? '0' : '') + (t%60); }
+/* 호출 뒤 흐른 시간 — 알약 '호출 후 m:ss' + 아래 막대(1분에 다 참) + 15초 지나면 숨쉬기.
+   호출은 없고 질문 중이면 — 알약 '남은 시간 m:ss'(3분 기준, 지나면 '예상 시간 지남 +m:ss') + 막대는 3분에 다 참 */
 function sinceTick(){
   var el = $('since'), fill = $('progFill'), card = $('callCard'); if(!el || !fill) return;
-  var prog = fill.parentNode.parentNode;
+  var prog = fill.parentNode.parentNode, lbl = $('progLbl');
+  if(!CALL_AT && ASK_AT){
+    var left = ASK_AT + ASK_MS - Date.now();
+    el.hidden = false; el.textContent = left >= 0 ? '남은 시간 ' + mmss(left) : '예상 시간 지남 +' + mmss(left);
+    el.classList.toggle('over', left < 0);
+    prog.classList.remove('off'); lbl.textContent = '질문 시간 · 하나당 약 3분';
+    fill.style.width = Math.min(100, (Date.now() - ASK_AT) / ASK_MS * 100).toFixed(1) + '%';
+    card.classList.remove('breathing'); return;
+  }
+  el.classList.remove('over'); lbl.textContent = '호출 시간 경과';
   if(!CALL_AT){ el.hidden = true; fill.style.width = '0'; prog.classList.add('off'); card.classList.remove('breathing'); return; }
   prog.classList.remove('off');
   var ms = Math.max(0, Date.now() - CALL_AT), m = Math.floor(ms/60000), sec = Math.floor(ms/1000) % 60;
