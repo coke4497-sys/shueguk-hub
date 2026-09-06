@@ -300,10 +300,10 @@ function restGet(url) {
     const resvId = NEXT - 1;
     await pg.evaluate(() => qqRefresh());
     await pg.waitForFunction(() => /클리닉 신청/.test(document.getElementById('qqList').textContent));
-    ok(/도착했어요 → 줄 서기/.test(await pg.$eval('#qqList', e => e.textContent)) && /클리닉/.test(await pg.$eval('#qqList .qq-item:has-text("클리닉 신청") .ndate', e => e.textContent)), '예약 줄: 클리닉 신청 표시 + 도착 버튼');
+    ok(/도착했어요 → 질문 대기/.test(await pg.$eval('#qqList', e => e.textContent)) && /클리닉/.test(await pg.$eval('#qqList .qq-item:has-text("클리닉 신청") .ndate', e => e.textContent)), '예약 줄: 클리닉 신청 표시 + 도착 버튼');
     ok(await pg.$$eval('#qqList .qq-cancel', b => b.length) === 0, '예약 줄에는 취소 버튼 없음');
     await pg.click('#qqArr' + resvId);
-    await pg.waitForFunction(() => document.querySelectorAll('#qqList .ntag.wait').length >= 1 && !/도착했어요 → 줄 서기/.test(document.getElementById('qqList').textContent));
+    await pg.waitForFunction(() => document.querySelectorAll('#qqList .ntag.wait').length >= 1 && !/도착했어요 → 질문 대기/.test(document.getElementById('qqList').textContent));
     const arr = JSON.parse(calls.filter(c => c.path.includes('qq_arrive')).pop().body).p;
     ok(arr.id === resvId && arr.student_id === '12345678', 'qq_arrive 페이로드');
     ok(ROWS.find(r => r.id === resvId).status === '대기' && /대기 중/.test(await pg.$eval('#qqList', e => e.textContent)), '도착 → 대기로 바뀜');
@@ -314,9 +314,9 @@ function restGet(url) {
     const rosId = NEXT - 1;
     await pg.evaluate(() => qqRefresh());
     await pg.waitForFunction(() => /오늘 질문 명단/.test(document.getElementById('qqList').textContent));
-    ok(/질문 대기 → 줄 서기/.test(await pg.$eval('#qqList', e => e.textContent)), '명단 줄: 질문 대기 버튼');
+    ok(/id="qqArr\d+"[^>]*>질문 대기</.test(await pg.$eval('#qqList', e => e.innerHTML)), '명단 줄: 질문 대기 버튼');
     await pg.click('#qqArr' + rosId);
-    await pg.waitForFunction(() => !/질문 대기 → 줄 서기/.test(document.getElementById('qqList').textContent) && document.querySelectorAll('#qqList .ntag.wait').length >= 1);
+    await pg.waitForFunction(() => !/id="qqArr\d+"/.test(document.getElementById('qqList').innerHTML) && document.querySelectorAll('#qqList .ntag.wait').length >= 1);
     ok(ROWS.find(r => r.id === rosId).status === '대기', '질문 대기 → 대기로');
 
     // 뒤로 가면 클리닉 화면 → 그 카드와 허브 클리닉 카드 설명이 상태를 알려 준다
@@ -439,7 +439,7 @@ function restGet(url) {
   ok(/정예약/.test(await tp.$eval('#resv', e => e.textContent)) && /클리닉 신청/.test(await tp.$eval('#resv', e => e.textContent)), '아직 안 온 친구에 예약 표시');
   ok(await tp.$$eval('#waiting .item', e => e.length) === 2, '예약은 대기 순서에 없음');
   ok(/클리닉 신청/.test(await tp.$eval('#resv .item', e => e.textContent)), '예약 카드에 클리닉 신청 배지');
-  await tp.click('#resv .item button:has-text("줄 세우기")');
+  await tp.click('#resv .item button:has-text("질문 대기")');
   await tp.waitForFunction(() => document.querySelectorAll('#resv .item').length === 0 && document.querySelectorAll('#waiting .item').length === 3);
   const pa = calls.filter(x => x.method === 'PATCH').pop(); const pab = JSON.parse(pa.body);
   ok(pab.status === '대기' && typeof pab.ord === 'number' && /^\d\d:\d\d$/.test(pab.qtime) && /status=in\.\(예약,명단\)/.test(decodeURIComponent(pa.path)), '줄 세우기 PATCH {대기, ord=지금, qtime=지금} (예약·명단일 때만)');
@@ -591,7 +591,7 @@ function restGet(url) {
   ok(/대기 1명 · 호출 1명 · 줄 안 선 친구 2명 · 질문당 약 4분/.test(await bp.$eval('#cnt', e => e.textContent)), '인원 표시 + 평균 소요');
   ok(/약 4분/.test(await bp.$eval('#next li .eta', e => e.textContent)), '예상 대기(호출 중 1명 + 평균 3.5분 → 약 4분)');
   // 전자칠판 도착 체크: 이름 터치 → 확인 → 줄에 선다
-  ok(/정예약/.test(await bp.$eval('#sideList', e => e.textContent)) && /명단이/.test(await bp.$eval('#sideList', e => e.textContent)) && await bp.$$eval('#sideList button', b => b.length) === 2, '오른쪽 줄 안 선 친구 + [줄서기] 버튼(예약+명단)');
+  ok(/정예약/.test(await bp.$eval('#sideList', e => e.textContent)) && /명단이/.test(await bp.$eval('#sideList', e => e.textContent)) && await bp.$$eval('#sideList button', b => b.length) === 2, '오른쪽 줄 안 선 친구 + [질문 대기] 버튼(예약+명단)');
   // 명단 학생: "네, 질문할게요" 확인 → 대기
   await bp.click('#sideList li:has-text("명단이") button');
   await bp.waitForFunction(() => document.getElementById('cf').style.display === 'flex');
@@ -611,7 +611,7 @@ function restGet(url) {
   await bp.waitForFunction(() => document.querySelectorAll('#next li').length === 3);
   const bpc = calls.filter(x => x.method === 'PATCH').pop(); const bpb = JSON.parse(bpc.body);
   ok(/status=in\.\(예약,명단\)/.test(decodeURIComponent(bpc.path)) && bpb.status === '대기' && typeof bpb.ord === 'number' && /^\d\d:\d\d$/.test(bpb.qtime), '도착 PATCH(예약·명단일 때만 · 대기 · 지금 시각)');
-  ok(rv3.status === '대기' && await bp.$$eval('#sideList button', b => b.length) === 0 && /정예약/.test(await bp.$eval('#next', e => e.textContent)), '줄서기 → 다음 순서 맨 뒤, 오른쪽 칸 비움');
+  ok(rv3.status === '대기' && await bp.$$eval('#sideList button', b => b.length) === 0 && /정예약/.test(await bp.$eval('#next', e => e.textContent)), '질문 대기 → 다음 순서 맨 뒤, 오른쪽 칸 비움');
   ok(/이수경 선생님/.test(await bp.$eval('#who', e => e.textContent)), '선생님 이름');
   const bq = calls.filter(x => x.path.startsWith('/rest/v1/question_queue')).pop();
   ok(/status=in\.\(예약,명단,대기,호출,완료\)/.test(decodeURIComponent(bq.path)) && bq.auth === 'Bearer tok', '오늘 예약·명단·대기·호출·완료 조회 + 교사 인증');

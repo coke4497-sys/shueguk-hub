@@ -44,6 +44,7 @@
   .btn svg{width:15px;height:15px;}
   .btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-family:var(--serif);font-weight:700;}
   .btn.soft{background:var(--accent-bg);border-color:var(--accent-bg);color:var(--accent);}
+  .btn.lav{background:#EDE4F4;border-color:#8D83A8;color:#635A7D;font-family:var(--serif);font-weight:700;}  /* [질문 대기] — 연보라(2026-09-06 사용자 "버튼 컬러 연보라색") */
   .btn.bad{color:var(--bad);}
   .btn:disabled{opacity:.5;cursor:default;}
   .btn.board{background:var(--wait-bg);border-color:var(--wait-bg);color:var(--wait);}
@@ -201,7 +202,7 @@
     <button class="btn" onclick="load(true)" title="다시 불러오기">새로고침</button>
   </div>
   <div class="err" id="err"></div>
-  <p class="hint">학생이 학생 페이지 '질문하기'에서 올린 질문이 <b>질문 타임 순서</b>로 쌓여요. <b>[질문 시작]</b>을 누르면 1번 친구가 호출되고(전자칠판 대기 화면에 이름이 크게 나와요), <b>[완료]</b>를 누르면 다음 친구가 자동으로 호출돼요. 자리에 없으면 <b>[건너뜀]</b>(다음 친구 호출)이나 <b>[맨 뒤로]</b>. 순서는 ▲▼로 바꿔요. 클리닉을 신청한 친구와 [명단으로 올리기]한 반 학생은 '아직 줄 안 선 친구'에 있다가 <b>[줄 세우기]</b>를 누르면 그 시각으로 줄에 서요(학생이 전자칠판에서 자기 이름을 누르거나 자기 페이지에서 [질문 대기]를 눌러도 같아요). <b>[반 전체 불러오기]</b>로 여러 반을 명단에 올리거나 한 반을 순서대로 줄 세울 수 있어요. 5초마다 저절로 새로 받아요.<br>이 화면은 <b>휴대폰에서도 리모컨처럼</b> 쓸 수 있어요 — 폰 홈 화면에 추가해 두고 자리에서 [완료 → 다음 호출]만 누르면 전자칠판이 바로 바뀌어요.</p>
+  <p class="hint">학생이 학생 페이지 '질문하기'에서 올린 질문이 <b>질문 타임 순서</b>로 쌓여요. <b>[질문 시작]</b>을 누르면 1번 친구가 호출되고(전자칠판 대기 화면에 이름이 크게 나와요), <b>[완료]</b>를 누르면 다음 친구가 자동으로 호출돼요. 자리에 없으면 <b>[건너뜀]</b>(다음 친구 호출)이나 <b>[맨 뒤로]</b>. 순서는 ▲▼로 바꿔요. 클리닉을 신청한 친구와 [명단으로 올리기]한 반 학생은 '아직 줄 안 선 친구'에 있다가 <b>[질문 대기]</b>를 누르면 그 시각으로 줄에 서요(학생이 전자칠판에서 자기 이름을 누르거나 자기 페이지에서 [질문 대기]를 눌러도 같아요). <b>[반 전체 불러오기]</b>로 여러 반을 명단에 올리거나 한 반을 순서대로 질문 대기에 넣을 수 있어요. 5초마다 저절로 새로 받아요.<br>이 화면은 <b>휴대폰에서도 리모컨처럼</b> 쓸 수 있어요 — 폰 홈 화면에 추가해 두고 자리에서 [완료 → 다음 호출]만 누르면 전자칠판이 바로 바뀌어요.</p>
 
   <div class="sec"><h2>호출 중</h2><span class="n" id="nCall"></span></div>
   <div id="calling"></div>
@@ -209,7 +210,7 @@
   <div class="sec"><h2>대기</h2><span class="n" id="nWait"></span><span class="start" id="startWrap" style="display:none"><button class="btn start" id="startBtn" onclick="startQ()">질문 시작</button></span></div>
   <div id="waiting"></div>
 
-  <div class="sec"><h2>아직 줄 안 선 친구</h2><span class="n" id="nResv"></span><span class="n">· 클리닉 신청·반 명단 — 학생이 누르거나 선생님이 [줄 세우기]</span></div>
+  <div class="sec"><h2>아직 줄 안 선 친구</h2><span class="n" id="nResv"></span><span class="n">· 클리닉 신청·반 명단 — 학생이 누르거나 선생님이 [질문 대기]</span></div>
   <div class="loaded" id="loaded"></div>
   <div id="resv"></div>
 
@@ -219,7 +220,7 @@
 <div id="lb" onclick="this.style.display='none'"><img id="lbImg" alt="문제 사진"></div>
 <div id="clin" class="modal"><div class="box">
   <h3>클리닉 신청자 불러오기</h3>
-  <p class="msg" id="clinSub" style="margin:0 0 10px">오늘 클리닉 날짜인 신청을 찾아요. 체크한 친구를 '아직 줄 안 선 친구'(예약)에 올리면 도착해서 [줄서기]를 누를 수 있어요.</p>
+  <p class="msg" id="clinSub" style="margin:0 0 10px">오늘 클리닉 날짜인 신청을 찾아요. 체크한 친구를 '아직 줄 안 선 친구'(예약)에 올리면 도착해서 [질문 대기]를 누를 수 있어요.</p>
   <div class="stu" id="clinList"></div>
   <div class="foot"><span class="msg" id="clinMsg"></span><span class="sp"></span>
     <button class="btn" type="button" onclick="clinClose()">닫기</button>
@@ -239,7 +240,7 @@
       <summary class="msg" style="cursor:pointer">순서를 미리 정해서 바로 줄 세우고 싶을 때 (선택)</summary>
       <div class="tools" id="clsTools"><span class="msg">이름을 <b>누르는 순서대로</b> 번호가 붙어요. 다시 누르면 빠져요.</span><span class="sp" style="flex:1"></span><button class="btn" type="button" onclick="clsAll()">명단 순서로 전부</button><button class="btn" type="button" onclick="clsNone()">모두 지우기</button></div>
       <div class="stu" id="clsStu"></div>
-      <button class="btn soft" type="button" id="clsGo" onclick="clsGo()" disabled>이 순서로 줄 세우기</button>
+      <button class="btn lav" type="button" id="clsGo" onclick="clsGo()" disabled>이 순서로 질문 대기</button>
     </details>
   </div>
   <div class="foot"><span class="msg" id="clsMsg"></span><span class="sp"></span>
@@ -303,7 +304,7 @@ function load(manual){
     showErr('');
     $('upd').textContent = hm(new Date().toISOString()) + ' 확인';
     render();
-    var need = ROWS.filter(function(r){ return (r.status==='대기'||r.status==='호출') && !(r.id in PHOTOS); }).map(function(r){ return r.id; });
+    var need = ROWS.filter(function(r){ return ['대기','호출','예약','명단'].indexOf(r.status) >= 0 && !(r.id in PHOTOS); }).map(function(r){ return r.id; });
     if(need.length) return sb('/question_queue?select=id,photo&id=in.(' + need.join(',') + ')').then(function(ps){
       need.forEach(function(id){ PHOTOS[id] = ''; });
       (ps||[]).forEach(function(p){ PHOTOS[p.id] = p.photo || ''; });
@@ -388,7 +389,7 @@ function render(){
       + photoHtml(r)
       + '<div class="wait">'+(r.status!=='명단' && r.qtime ? '<span class="qt">'+esc(r.qtime)+' 클리닉</span>' : '')+'</div>'
       + '</div><div class="acts">'
-      + '<button class="btn pri" onclick="arrive('+r.id+')">줄 세우기</button>'
+      + '<button class="btn lav" onclick="arrive('+r.id+')">질문 대기</button>'
       + '<button class="btn bad" onclick="act('+r.id+', \'건너뜀\')">'+(r.status==='명단'?'오늘 질문 없음':'오늘 안 옴')+'</button>'
       + '</div></div>';
   }).join('') : '<div class="empty">아직 줄에 서지 않은 친구가 없어요. [반 전체 불러오기]→[명단으로 올리기]로 반 명단을 올려 둘 수 있어요.</div>';
@@ -606,7 +607,7 @@ function clsDraw(){
   $('clsMsg').textContent = CLS.order.length ? (CLS.order.length + '명 순서 정함 (' + avail + '명 중)') : (avail + '명' + (CLS.names.length - avail ? ' · 이미 줄에 있는 ' + (CLS.names.length - avail) + '명 제외' : ''));
   $('clsGo').disabled = !CLS.order.length;
   $('clsRoster').disabled = !avail; $('clsRoster').textContent = '명단으로 올리기' + (avail ? ' (' + avail + '명)' : '');
-  $('clsGo').textContent = CLS.order.length ? '이 순서로 줄 세우기 (' + CLS.order.length + '명)' : '이 순서로 줄 세우기';
+  $('clsGo').textContent = CLS.order.length ? '이 순서로 질문 대기 (' + CLS.order.length + '명)' : '이 순서로 질문 대기';
 }
 function clsTap(nm){
   var k = CLS.order.indexOf(nm);
@@ -620,7 +621,7 @@ function clsGo(){
   if(!names.length){ $('clsMsg').textContent = '이름을 눌러 순서를 정해 주세요.'; return; }
   return clsInsert(names, '대기', '반 전체: ');
 }
-/* 명단으로 올리기 — 순서 없이 '명단' 상태로. 학생이 전자칠판/자기 페이지에서 [질문 대기]를 누르거나 교사가 [줄 세우기]를 누르면 대기 */
+/* 명단으로 올리기 — 순서 없이 '명단' 상태로. 학생이 전자칠판/자기 페이지에서 [질문 대기]를 누르거나 교사가 [질문 대기]를 누르면 대기 */
 function clsRoster(){
   var names = CLS.names.filter(function(x){ return !x.dup; }).map(function(x){ return x.nm; });
   if(!names.length){ $('clsMsg').textContent = '올릴 친구가 없어요(모두 이미 줄에 있어요).'; return; }
@@ -645,7 +646,7 @@ function clsInsert(names, status, notePrefix){
   .then(function(n){
     showErr('');
     return load().then(function(){
-      $('upd').textContent = n + '명을 ' + (status==='명단' ? '명단에 올렸어요' : '줄에 세웠어요') + ' · ' + kstHM();
+      $('upd').textContent = n + '명을 ' + (status==='명단' ? '명단에 올렸어요' : '질문 대기에 넣었어요') + ' · ' + kstHM();
       if(status==='명단'){ $('clsSel').value = ''; clsPick(); $('clsMsg').textContent = c.name + ' ' + n + '명을 명단에 올렸어요. 다른 반도 이어서 올릴 수 있어요.'; }
       else clsClose();
     });
