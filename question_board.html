@@ -45,6 +45,23 @@
   .next li .t{font-family:var(--sans);font-weight:400;font-size:.55em;color:var(--ink-soft);}
   .next li.more{font-family:var(--sans);font-weight:400;font-size:clamp(14px,1.8vw,26px);color:var(--ink-soft);}
   .next .none{font-family:var(--serif);font-size:clamp(16px,2vw,30px);color:var(--ink-soft);}
+  .next li .eta{font-family:var(--sans);font-weight:400;font-size:.5em;color:var(--ink-soft);margin-left:auto;white-space:nowrap;}
+  /* 아직 안 온 친구 — 전자칠판을 터치해 도착 체크 (2026-09-06 제안 ①) */
+  .arrive{display:none;padding:0 3vw 1.6vh;}
+  .arrive .box{background:var(--surface);border-radius:1.6vw;box-shadow:0 2px 14px rgba(42,51,47,.06);padding:1.6vh 2vw;display:flex;align-items:center;gap:1.2vw;flex-wrap:wrap;}
+  .arrive .lbl{font-family:var(--serif);font-weight:700;font-size:clamp(14px,1.7vw,24px);color:var(--ink-soft);margin-right:.5vw;}
+  .arrive .lbl small{display:block;font-family:var(--sans);font-weight:400;font-size:.7em;}
+  .arrive button{border:1px solid var(--line);background:#FBFCFB;color:var(--ink);border-radius:999px;padding:1.2vh 2vw;font-family:var(--serif);font-weight:700;font-size:clamp(16px,2.2vw,34px);cursor:pointer;min-height:44px;}
+  .arrive button:active{background:var(--accent-bg);}
+  #cf{position:fixed;inset:0;background:rgba(20,26,23,.55);display:none;align-items:center;justify-content:center;z-index:60;padding:4vw;}
+  #cf .box{background:var(--surface);border-radius:2vw;padding:4vh 4vw;text-align:center;max-width:720px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25);}
+  #cf .q{font-family:var(--serif);font-weight:700;font-size:clamp(24px,4vw,60px);margin:0 0 1vh;}
+  #cf .q b{color:var(--accent);}
+  #cf .sub{color:var(--ink-soft);font-size:clamp(14px,1.6vw,22px);margin:0 0 3vh;}
+  #cf .btns{display:flex;gap:2vw;justify-content:center;}
+  #cf .btns button{flex:1;max-width:300px;border:0;border-radius:1.4vw;padding:2.2vh 2vw;font-family:var(--serif);font-weight:700;font-size:clamp(18px,2.4vw,34px);cursor:pointer;min-height:56px;}
+  #cf .yes{background:var(--accent);color:#fff;}
+  #cf .no{background:#EEF1EF;color:var(--ink);}
   .foot{display:flex;gap:2vw;padding:0 3vw 1.6vh;font-size:clamp(11px,1.2vw,16px);color:var(--ink-soft);}
   .foot .sp{flex:1;}
   .foot .err{color:#B4544A;}
@@ -129,6 +146,8 @@
     <div class="next" id="next"><div class="none">기다리는 학생이 없어요</div></div>
   </div>
 </div>
+<div class="arrive" id="arrive"><div class="box"><span class="lbl">아직 안 온 친구<small>도착했으면 이름을 눌러 주세요</small></span><span id="arriveList"></span></div></div>
+<div id="cf"><div class="box"><p class="q" id="cfQ"></p><p class="sub">맞으면 지금 시각으로 줄에 서요. 먼저 온 순서대로 호출돼요.</p><div class="btns"><button type="button" class="no" onclick="cfNo()">아니요</button><button type="button" class="yes" id="cfYes" onclick="cfYes()">네, 도착했어요</button></div></div></div>
 <div class="foot"><span id="cnt"></span><span class="sp"></span><span id="upd"></span><span class="err" id="err"></span></div>
 
 <script>
@@ -142,7 +161,7 @@ function hm(d){ return new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',ho
 function sb(path, opts){
   var o = opts || {}; o.headers = o.headers || {};
   if(o.body && !o.headers['Content-Type']) o.headers['Content-Type'] = 'application/json';
-  return fetch(SB + path, o).then(function(r){ if(!r.ok) throw new Error('수파베이스 ' + r.status); return r.json(); });
+  return fetch(SB + path, o).then(function(r){ if(!r.ok) throw new Error('수파베이스 ' + r.status); return r.text().then(function(t){ return t ? JSON.parse(t) : null; }); });
 }
 function tick(){ $('clock').textContent = hm(new Date()); }
 setInterval(tick, 1000); tick();
@@ -160,12 +179,17 @@ function showPick(){
 function go(){ var v = $('psel').value; if(!v) return; location.search = '?t=' + encodeURIComponent(v); }
 
 function load(){
-  var q = '/question_queue?select=id,ord,name,school,grade,teacher,status,called_at&qdate=eq.' + kstToday()
-        + '&status=in.(대기,호출)&order=ord.asc,id.asc' + (T==='all' ? '' : '&teacher=eq.' + encodeURIComponent(T));
+  var q = '/question_queue?select=id,ord,name,school,grade,teacher,status,called_at,done_at&qdate=eq.' + kstToday()
+        + '&status=in.(예약,대기,호출,완료)&order=ord.asc,id.asc' + (T==='all' ? '' : '&teacher=eq.' + encodeURIComponent(T));
   return sb(q).then(function(rows){
     rows = rows || [];
     var call = rows.filter(function(r){ return r.status==='호출'; }).sort(function(a,b){ return String(a.called_at).localeCompare(String(b.called_at)); });
     var wait = rows.filter(function(r){ return r.status==='대기'; });
+    var resv = rows.filter(function(r){ return r.status==='예약'; });
+    var done = rows.filter(function(r){ return r.status==='완료' && r.called_at && r.done_at; });
+    var avg = avgMinutes(done);   // 오늘 질문 하나에 걸린 평균(분) — 표본 2건 미만이면 기본 5분
+    // 예상 대기: 호출 중인 친구가 있으면 그 친구가 끝날 때까지 + 앞 사람 수 × 평균
+    var etaOf = function(i){ var m = Math.round(avg * (i + (call.length ? 1 : 0))); return m <= 0 ? '곧 차례' : '약 ' + m + '분'; };
     var tag = function(r){ return T==='all' ? '<small>'+esc(r.teacher)+' 선생님께</small>' : ''; };
     var key = call.map(function(r){ return r.id; }).join(',');
     if(key !== LAST_CALL){   // 호출 명단이 바뀌었을 때만 다시 그려 애니메이션이 한 번만 돈다
@@ -176,13 +200,43 @@ function load(){
     }
     var MAX = 8;
     $('next').innerHTML = wait.length
-      ? '<ol>' + wait.slice(0, MAX).map(function(r, i){ return '<li><span class="i">'+(i+1)+'</span><span>'+esc(r.name)+'</span>'+(T==='all'?'<span class="t">'+esc(r.teacher)+'T</span>':'')+'</li>'; }).join('')
+      ? '<ol>' + wait.slice(0, MAX).map(function(r, i){ return '<li><span class="i">'+(i+1)+'</span><span>'+esc(r.name)+'</span>'+(T==='all'?'<span class="t">'+esc(r.teacher)+'T</span>':'')+'<span class="eta">'+etaOf(i)+'</span></li>'; }).join('')
         + (wait.length > MAX ? '<li class="more">… 외 '+(wait.length-MAX)+'명</li>' : '') + '</ol>'
       : '<div class="none">기다리는 학생이 없어요</div>';
-    $('cnt').textContent = '대기 ' + wait.length + '명' + (call.length ? ' · 호출 ' + call.length + '명' : '');
+    // 아직 안 온 친구(클리닉 신청) — 이름을 눌러 도착 체크
+    RESV = resv;
+    $('arrive').style.display = resv.length ? 'block' : 'none';
+    $('arriveList').innerHTML = resv.map(function(r){ return '<button type="button" onclick="cfOpen('+r.id+')">'+esc(r.name)+(T==='all'?' <small>'+esc(r.teacher)+'T</small>':'')+'</button>'; }).join('');
+    $('cnt').textContent = '대기 ' + wait.length + '명' + (call.length ? ' · 호출 ' + call.length + '명' : '') + (resv.length ? ' · 안 온 친구 ' + resv.length + '명' : '') + (done.length >= 2 ? ' · 질문당 약 ' + Math.round(avg) + '분' : '');
     $('upd').textContent = hm(new Date()) + ' 확인';
     $('err').textContent = '';
   }).catch(function(e){ $('err').textContent = '연결이 잘 안 돼요 — 잠시 후 다시 받아요'; });
+}
+
+var RESV = [], CF_ID = null;
+function avgMinutes(done){
+  var mins = done.map(function(r){ return (new Date(r.done_at) - new Date(r.called_at)) / 60000; })
+                 .filter(function(m){ return m > 0.3 && m < 60; });      // 0.3분 미만(잘못 누름)·60분 초과(잊고 둔 것)는 뺀다
+  if(mins.length < 2) return 5;
+  mins.sort(function(a,b){ return a-b; });
+  var mid = mins.slice(Math.floor(mins.length*0.1), Math.ceil(mins.length*0.9));   // 양끝 10% 제외
+  return Math.max(1, mid.reduce(function(a,b){ return a+b; }, 0) / mid.length);
+}
+function cfOpen(id){
+  var r = RESV.filter(function(x){ return x.id===id; })[0]; if(!r) return;
+  CF_ID = id;
+  $('cfQ').innerHTML = '<b>' + esc(r.name) + '</b> 맞나요?';
+  $('cfYes').disabled = false; $('cfYes').textContent = '네, 도착했어요';
+  $('cf').style.display = 'flex';
+}
+function cfNo(){ $('cf').style.display = 'none'; CF_ID = null; }
+function cfYes(){
+  var id = CF_ID; if(!id) return;
+  $('cfYes').disabled = true; $('cfYes').textContent = '줄 서는 중…';
+  var qt = new Date(Date.now() + 9*3600*1000).toISOString().slice(11,16);
+  sb('/question_queue?id=eq.' + id + '&status=eq.예약', { method:'PATCH', headers:{ 'Prefer':'return=minimal' }, body: JSON.stringify({ status:'대기', ord: Date.now(), qtime: qt }) })
+    .then(function(){ cfNo(); return load(); })
+    .catch(function(){ $('cfYes').disabled = false; $('cfYes').textContent = '다시 눌러 주세요'; });
 }
 
 if(!T){ showPick(); }

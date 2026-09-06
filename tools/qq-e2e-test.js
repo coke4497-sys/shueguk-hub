@@ -463,18 +463,39 @@ function restGet(url) {
 
   /* ══ ③ 강의실 디스플레이 ═══════════════════════════════ */
   console.log('③ 강의실 디스플레이 (question_board.html)');
-  ROWS.forEach(r => { r.status = r === b ? '호출' : (r === c ? '대기' : '완료'); }); b.called_at = new Date().toISOString(); c.teacher = '이수경';
+  ROWS.forEach(r => { r.status = r === b ? '호출' : (r === c ? '대기' : '완료'); r.called_at = null; r.done_at = null; }); b.called_at = new Date().toISOString(); c.teacher = '이수경';
+  // 오늘 끝난 질문 2건(3분·4분) → 질문당 평균 3.5분 → 1번 대기 예상 약 4분(호출 중 1명 포함)
+  const t0 = Date.parse(today + 'T10:00:00+09:00');
+  ROWS.push({ id: NEXT++, created_at: new Date(t0).toISOString(), qdate: today, ord: 1, name: '완료1', school: '', grade: '', student_id: '0', teacher: '이수경', qtime: '10:00', unit: '', text: '', photo: '', status: '완료', called_at: new Date(t0).toISOString(), done_at: new Date(t0 + 3 * 60000).toISOString(), note: '', clinic_id: null });
+  ROWS.push({ id: NEXT++, created_at: new Date(t0).toISOString(), qdate: today, ord: 2, name: '완료2', school: '', grade: '', student_id: '0', teacher: '이수경', qtime: '10:00', unit: '', text: '', photo: '', status: '완료', called_at: new Date(t0).toISOString(), done_at: new Date(t0 + 4 * 60000).toISOString(), note: '', clinic_id: null });
+  const rv3 = { id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord: Date.parse(today + 'T17:30:00+09:00'), name: '정예약', school: '화정고', grade: '고1', student_id: '0', teacher: '이수경', qtime: '17:30', unit: '', text: '', photo: '', status: '예약', called_at: null, done_at: null, note: '', clinic_id: 56 };
+  ROWS.push(rv3);
   const bp = await ctx.newPage();
   bp.on('pageerror', e => { bad++; console.error('  ✗ pageerror', e.message); });
   await bp.goto(`http://localhost:${PORT}/question_board.html?t=이수경`);
   await bp.waitForFunction(() => document.querySelector('#now .nm'));
   ok(await bp.$eval('#now .nm', e => e.textContent) === '박민수', '지금 호출 이름 크게');
   ok(await bp.$$eval('#next li', e => e.map(x => x.textContent)).then(l => l.length === 1 && /최유진/.test(l[0])), '다음 순서 목록');
-  ok(/대기 1명 · 호출 1명/.test(await bp.$eval('#cnt', e => e.textContent)), '인원 표시');
-  ok(/이수경 선생님/.test(await bp.$eval('#who', e => e.textContent)), '선생님 이름');
+  ok(/대기 1명 · 호출 1명 · 안 온 친구 1명 · 질문당 약 4분/.test(await bp.$eval('#cnt', e => e.textContent)), '인원 표시 + 평균 소요');
+  ok(/약 4분/.test(await bp.$eval('#next li .eta', e => e.textContent)), '예상 대기(호출 중 1명 + 평균 3.5분 → 약 4분)');
+  // 전자칠판 도착 체크: 이름 터치 → 확인 → 줄에 선다
+  ok(await bp.$eval('#arrive', e => e.style.display) === 'block' && /정예약/.test(await bp.$eval('#arriveList', e => e.textContent)), '아직 안 온 친구 이름 버튼');
   await shot(bp, 'board');
+  await bp.click('#arriveList button');
+  await bp.waitForFunction(() => document.getElementById('cf').style.display === 'flex');
+  ok(/정예약/.test(await bp.$eval('#cfQ', e => e.textContent)) && /맞나요/.test(await bp.$eval('#cfQ', e => e.textContent)), '"○○○ 맞나요?" 확인 창');
+  await bp.click('#cf .no');
+  ok(await bp.$eval('#cf', e => e.style.display) === 'none' && rv3.status === '예약', '아니요 → 그대로');
+  await bp.click('#arriveList button');
+  await bp.waitForFunction(() => document.getElementById('cf').style.display === 'flex');
+  await bp.click('#cfYes');
+  await bp.waitForFunction(() => document.querySelectorAll('#next li').length === 2);
+  const bpc = calls.filter(x => x.method === 'PATCH').pop(); const bpb = JSON.parse(bpc.body);
+  ok(/id=eq\.\d+.*status=eq\.%EC%98%88%EC%95%BD|status=eq\.예약/.test(decodeURIComponent(bpc.path)) && bpb.status === '대기' && typeof bpb.ord === 'number' && /^\d\d:\d\d$/.test(bpb.qtime), '도착 PATCH(예약일 때만 · 대기 · 지금 시각)');
+  ok(rv3.status === '대기' && await bp.$eval('#arrive', e => e.style.display) === 'none' && /정예약/.test(await bp.$eval('#next', e => e.textContent)), '도착 → 다음 순서 맨 뒤, 안 온 친구 칸 사라짐');
+  ok(/이수경 선생님/.test(await bp.$eval('#who', e => e.textContent)), '선생님 이름');
   const bq = calls.filter(x => x.path.startsWith('/rest/v1/question_queue')).pop();
-  ok(/status=in\.\(대기,호출\)/.test(decodeURIComponent(bq.path)) && bq.auth === 'Bearer tok', '대기·호출만 조회 + 교사 인증');
+  ok(/status=in\.\(예약,대기,호출,완료\)/.test(decodeURIComponent(bq.path)) && bq.auth === 'Bearer tok', '오늘 예약·대기·호출·완료 조회 + 교사 인증');
   // 호출 해제되면 '없어요'
   b.status = '완료';
   await bp.waitForFunction(() => /호출된 학생이 없어요/.test(document.getElementById('now').textContent), null, { timeout: 8000 });
