@@ -429,10 +429,24 @@ function restGet(url) {
   await tp.waitForFunction(() => /고2 가/.test(document.getElementById('clsSel').textContent));
   ok(true, '내신 전환 · 모든 강사 보기');
   await tp.selectOption('#clsSel', '정규|r001');
-  await tp.waitForFunction(() => document.querySelectorAll('#clsStu input').length === 4);
-  const boxes = await tp.$$eval('#clsStu input', i => i.map(x => ({ v: x.value, c: x.checked })));
-  ok(boxes.map(b => b.v).join(',') === '김철수,박민수,한동명,새친구', '명단 이름 정리(앞뒤 괄호 제거)');
-  ok(boxes.find(b => b.v === '박민수').c === false && boxes.find(b => b.v === '김철수').c === true, '이미 줄에 있는 친구는 체크 해제');
+  await tp.waitForFunction(() => document.querySelectorAll('#clsStu button').length === 4);
+  const chips = await tp.$$eval('#clsStu button', b => b.map(x => ({ v: x.textContent.replace(/^[–\d]*/, '').replace(/\s*\(.*\)$/, '').trim(), dim: x.disabled })));
+  ok(chips.map(b => b.v).join(',') === '김철수,박민수,한동명,새친구', '명단 이름 정리(앞뒤 괄호 제거)');
+  ok(chips.find(b => b.v === '박민수').dim === true && chips.find(b => b.v === '김철수').dim === false, '이미 줄에 있는 친구는 누를 수 없음');
+  ok(await tp.$eval('#clsGo', b => b.disabled), '순서를 정하기 전엔 줄 세우기 비활성');
+  // 누르는 순서대로 번호: 한동명(1) → 김철수(2) → 한동명 다시(빠짐) → 김철수(1) 한동명(2) 새친구(3)
+  await tp.click('#clsStu button:has-text("한동명")');
+  await tp.click('#clsStu button:has-text("김철수")');
+  ok(await tp.$eval('#clsStu button:has-text("한동명") .num', e => e.textContent) === '1' && await tp.$eval('#clsStu button:has-text("김철수") .num', e => e.textContent) === '2', '누르는 순서대로 번호');
+  await tp.click('#clsStu button:has-text("한동명")');
+  ok(await tp.$eval('#clsStu button:has-text("김철수") .num', e => e.textContent) === '1' && await tp.$eval('#clsStu button:has-text("한동명") .num', e => e.textContent) === '', '다시 누르면 빠지고 번호가 당겨짐');
+  await tp.click('#clsStu button:has-text("한동명")');
+  await tp.click('#clsStu button:has-text("새친구")');
+  ok(/3명 순서 정함/.test(await tp.$eval('#clsMsg', e => e.textContent)) && /\(3명\)/.test(await tp.$eval('#clsGo', e => e.textContent)), '인원 표시');
+  await tp.click('#clsNone'.replace('#clsNone', '#clsTools button:has-text("모두 지우기")'));
+  ok(await tp.$eval('#clsGo', b => b.disabled), '모두 지우기');
+  await tp.click('#clsTools button:has-text("명단 순서로 전부")');
+  ok(/3명 순서 정함/.test(await tp.$eval('#clsMsg', e => e.textContent)), '명단 순서로 전부 → 줄에 없는 3명');
   await tp.click('#clsGo');
   await tp.waitForFunction(() => document.getElementById('cls').style.display === 'none' && document.querySelectorAll('#waiting .item').length === 6);
   const post = calls.filter(x => x.method === 'POST' && x.path.startsWith('/rest/v1/question_queue')).pop();

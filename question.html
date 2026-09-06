@@ -72,8 +72,14 @@
   #cls .seg button{border:1px solid var(--line);background:var(--surface);color:var(--ink-soft);border-radius:999px;padding:6px 12px;font-family:inherit;font-size:13px;cursor:pointer;}
   #cls .seg button.on{background:var(--accent);border-color:var(--accent);color:#fff;}
   #cls .stu{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:6px;margin:8px 0 12px;}
-  #cls .stu label{display:flex;align-items:center;gap:6px;font-size:13.5px;padding:6px 8px;border:1px solid var(--line-soft);border-radius:9px;cursor:pointer;}
-  #cls .stu label.dim{opacity:.5;}
+  #cls .stu button{display:flex;align-items:center;gap:8px;font-family:inherit;font-size:14px;padding:8px 10px;border:1px solid var(--line-soft);border-radius:10px;background:var(--surface);color:var(--ink);cursor:pointer;min-height:40px;text-align:left;}
+  #cls .stu button .num{width:22px;height:22px;border-radius:999px;border:1px dashed var(--line);font-size:12px;display:inline-flex;align-items:center;justify-content:center;color:var(--ink-soft);flex:none;}
+  #cls .stu button.on{background:#F3F8F5;border-color:var(--accent);}
+  #cls .stu button.on .num{background:var(--accent);border:0;color:#fff;font-weight:700;}
+  #cls .stu button.dim{opacity:.45;cursor:default;}
+  #cls .stu button.dim small{color:var(--ink-soft);}
+  #cls .tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px;}
+  #cls .tools .btn{font-size:12.5px;padding:6px 10px;}
   #cls .foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
   #cls .foot .sp{flex:1;}
   #cls .msg{font-size:12.5px;color:var(--ink-soft);}
@@ -199,6 +205,7 @@
   <div class="row"><span class="seg"><button type="button" id="clsBook정규" class="on" onclick="clsBook('정규')">정규</button> <button type="button" id="clsBook내신" onclick="clsBook('내신')">내신</button></span>
     <label style="font-size:12.5px;color:var(--ink-soft)"><input type="checkbox" id="clsAllT" onchange="clsFill()"> 모든 강사 반 보기</label></div>
   <div class="row"><select id="clsSel" onchange="clsPick()"><option value="">반을 고르세요</option></select></div>
+  <div class="tools" id="clsTools" style="display:none"><span class="msg">이름을 <b>누르는 순서대로</b> 번호가 붙어요. 다시 누르면 빠져요.</span><span class="sp" style="flex:1"></span><button class="btn" type="button" onclick="clsAll()">명단 순서로 전부</button><button class="btn" type="button" onclick="clsNone()">모두 지우기</button></div>
   <div class="stu" id="clsStu"></div>
   <div class="foot"><span class="msg" id="clsMsg"></span><span class="sp"></span>
     <button class="btn" type="button" onclick="clsClose()">닫기</button>
@@ -412,7 +419,7 @@ function moveDown(id){
  * tt_classes(정규/내신) 명단을 그대로 줄 세운다 — 학생 페이지 없이도 한 반이 통째로 대기열에 들어간다.
  * 이름은 명단 토큰에서 앞 괄호(학교 구분)·뒤 괄호(특이사항)를 떼고, students 표에서 같은 이름을 찾아 학교·학년·학생ID를 붙인다
  * (이름이 유일할 때만 — 동명이인은 이름만). 이미 오늘 이 선생님께 예약/대기/호출 중인 학생은 건너뛴다. 순서는 체크한 목록 순. */
-var CLS = { book:'정규', classes:null, picked:null, names:[] };
+var CLS = { book:'정규', classes:null, picked:null, names:[], order:[] };
 // 시간표(tt_classes)의 담당T는 성 없이 '은지'·'지원', 이수경 선생님은 '슈'로 적혀 있고, 학생정보(students)의 담당T는
 // '이은지'·'김지원'·'이수경'처럼 성이 붙어 있다(2026-09-06 사용자 신고 "반 불러오기가 안돼요"로 확인). 둘을 같은 열쇠로 맞춘다.
 function teacherKey(t){
@@ -424,7 +431,7 @@ function sameTeacher(a, b){ return teacherKey(a) === teacherKey(b); }
 function plainName(tok){ return String(tok||'').replace(/^\([^)]*\)/, '').replace(/\([^)]*\)\s*$/, '').trim(); }
 function clsOpen(){
   if(!TEACHER){ showErr('먼저 선생님을 고르세요.'); return; }
-  $('cls').style.display = 'flex'; $('clsMsg').textContent = ''; $('clsStu').innerHTML = ''; $('clsGo').disabled = true; CLS.picked = null;
+  $('cls').style.display = 'flex'; $('clsMsg').textContent = ''; $('clsStu').innerHTML = ''; $('clsTools').style.display = 'none'; $('clsGo').disabled = true; CLS.picked = null; CLS.order = [];
   if(CLS.classes) clsFill();
   else sb('/tt_classes?select=book,class_id,day,start_time,teacher,name,roster&class_id=not.like.w*&order=book,day,start_time').then(function(rows){ CLS.classes = rows || []; clsFill(); })
         .catch(function(e){ $('clsMsg').textContent = '반 목록을 불러오지 못했어요 — ' + e.message; });
@@ -440,26 +447,41 @@ function clsFill(){
     var n = c.roster.split(/\s+/).filter(Boolean).length;
     return '<option value="'+esc(c.book+'|'+c.class_id)+'">'+esc(c.day+' '+c.start_time+' · '+c.name+' · '+c.teacher+'T ('+n+'명)')+'</option>';
   }).join('');
-  $('clsStu').innerHTML = ''; $('clsGo').disabled = true; CLS.picked = null;
+  $('clsStu').innerHTML = ''; $('clsTools').style.display = 'none'; $('clsGo').disabled = true; CLS.picked = null; CLS.order = [];
 }
+/* 반을 고르면 명단이 이름 버튼으로 뜬다 — 누르는 순서대로 번호(줄 순서)가 붙는다 (2026-09-06 사용자 "불러온 다음에 줄세우기") */
 function clsPick(){
-  var v = $('clsSel').value; CLS.picked = null; $('clsStu').innerHTML = ''; $('clsGo').disabled = true;
+  var v = $('clsSel').value; CLS.picked = null; CLS.order = []; CLS.names = []; $('clsStu').innerHTML = ''; $('clsTools').style.display = 'none'; $('clsGo').disabled = true;
   if(!v) return;
   var c = (CLS.classes||[]).filter(function(x){ return x.book+'|'+x.class_id === v; })[0]; if(!c) return;
   CLS.picked = c;
   var open = {}; ROWS.forEach(function(r){ if(['예약','대기','호출'].indexOf(r.status)>=0 && (TEACHER==='all' ? sameTeacher(r.teacher, c.teacher) : true)) open[r.name] = r.status; });
-  var toks = c.roster.split(/\s+/).filter(Boolean);
-  $('clsStu').innerHTML = toks.map(function(t, i){
-    var nm = plainName(t), dup = open[nm];
-    return '<label'+(dup?' class="dim"':'')+'><input type="checkbox" value="'+esc(nm)+'" data-i="'+i+'"'+(dup?'':' checked')+'> '+esc(nm)+(dup?' <small>('+esc(dup)+')</small>':'')+'</label>';
-  }).join('');
-  $('clsMsg').textContent = toks.length + '명 · 이미 줄에 있는 친구는 체크가 풀려 있어요. 체크한 순서(명단 순)대로 줄을 세워요.';
-  $('clsGo').disabled = false;
+  CLS.names = c.roster.split(/\s+/).filter(Boolean).map(function(t){ var nm = plainName(t); return { nm: nm, dup: open[nm] || '' }; });
+  $('clsTools').style.display = 'flex';
+  clsDraw();
 }
+function clsDraw(){
+  $('clsStu').innerHTML = CLS.names.map(function(x){
+    var k = CLS.order.indexOf(x.nm);
+    if(x.dup) return '<button type="button" class="dim" disabled><span class="num">–</span>'+esc(x.nm)+' <small>('+esc(x.dup)+')</small></button>';
+    return '<button type="button"'+(k>=0?' class="on"':'')+' onclick="clsTap(\''+esc(x.nm).replace(/'/g,"\\'")+'\')"><span class="num">'+(k>=0?(k+1):'')+'</span>'+esc(x.nm)+'</button>';
+  }).join('');
+  var avail = CLS.names.filter(function(x){ return !x.dup; }).length;
+  $('clsMsg').textContent = CLS.order.length ? (CLS.order.length + '명 순서 정함 (' + avail + '명 중)') : ('이름을 눌러 순서를 정하세요 (' + avail + '명' + (CLS.names.length - avail ? ' · 이미 줄에 있는 ' + (CLS.names.length - avail) + '명 제외' : '') + ')');
+  $('clsGo').disabled = !CLS.order.length;
+  $('clsGo').textContent = CLS.order.length ? '이 순서로 줄 세우기 (' + CLS.order.length + '명)' : '이 순서로 줄 세우기';
+}
+function clsTap(nm){
+  var k = CLS.order.indexOf(nm);
+  if(k >= 0) CLS.order.splice(k, 1); else CLS.order.push(nm);
+  clsDraw();
+}
+function clsAll(){ CLS.order = CLS.names.filter(function(x){ return !x.dup; }).map(function(x){ return x.nm; }); clsDraw(); }
+function clsNone(){ CLS.order = []; clsDraw(); }
 function clsGo(){
   var c = CLS.picked; if(!c) return;
-  var names = Array.prototype.slice.call(document.querySelectorAll('#clsStu input:checked')).map(function(i){ return i.value; });
-  if(!names.length){ $('clsMsg').textContent = '체크된 친구가 없어요.'; return; }
+  var names = CLS.order.slice();
+  if(!names.length){ $('clsMsg').textContent = '이름을 눌러 순서를 정해 주세요.'; return; }
   var teacher = TEACHER==='all' ? (TEACHERS.filter(function(t){ return sameTeacher(t, c.teacher); })[0] || c.teacher) : TEACHER;
   $('clsGo').disabled = true; $('clsMsg').textContent = '학생 정보를 맞추는 중…';
   // students 표에서 이름 → 학교·학년·학생ID (유일한 이름만)
