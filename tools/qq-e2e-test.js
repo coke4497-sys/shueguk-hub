@@ -40,10 +40,11 @@ const calls = [];   // 요청 기록 {method, path, auth, body}
 const jsonpUrls = [];   // 옛 백엔드(jsonp) 호출 주소
 const STU_EXTRA = [ { name: '한동명', student_id: '11111111', school: '화정고', grade: '2026 고등 1학년', teacher: '이수경' }, { name: '한동명', student_id: '22222222', school: '능곡고', grade: '2026 고등 1학년', teacher: '이수경' } ];
 const CLASSES = [
-  { book: '정규', class_id: 'r001', day: '금', start_time: '5:30', teacher: '이수경', name: '고1 가', roster: '김철수 박민수 한동명 (화정)새친구(8/30부터)' },
-  { book: '정규', class_id: 'r002', day: '토', start_time: '2:00', teacher: '김지원', name: '고2 가', roster: '이영희' },
-  { book: '내신', class_id: 'n001', day: '수', start_time: '7:00', teacher: '이수경', name: '고1 확인', roster: '김철수' },
-  { book: '정규', class_id: 'w260912a', day: '토', start_time: '9:30', teacher: '이수경', name: '이 주만', roster: '유령' },
+  // 시간표의 담당T 표기는 실제 데이터처럼 성 없이('지원'), 이수경 선생님은 '슈'
+  { book: '정규', class_id: 'r001', day: '금', start_time: '5:30', teacher: '슈', name: '고1 가', roster: '김철수 박민수 한동명 (화정)새친구(8/30부터)' },
+  { book: '정규', class_id: 'r002', day: '토', start_time: '2:00', teacher: '지원', name: '고2 가', roster: '이영희' },
+  { book: '내신', class_id: 'n001', day: '수', start_time: '7:00', teacher: '슈', name: '고1 확인', roster: '김철수' },
+  { book: '정규', class_id: 'w260912a', day: '토', start_time: '9:30', teacher: '슈', name: '이 주만', roster: '유령' },
 ];
 function stuOk(p) { return STUDENTS.some(s => s.name === (p.name || '').trim() && s.student_id === (p.student_id || '').trim()); }
 function pos(r) {
@@ -420,7 +421,7 @@ function restGet(url) {
   await tp.click('#clsBtn');
   await tp.waitForFunction(() => document.getElementById('cls').style.display === 'flex' && document.querySelectorAll('#clsSel option').length > 1);
   const opts = await tp.$$eval('#clsSel option', o => o.map(x => x.textContent));
-  ok(opts.length === 2 && /고1 가/.test(opts[1]) && !opts.some(t => /고2 가|이 주만|고1 확인/.test(t)), '정규 · 이 강사 반만 (이 주만 반·다른 강사 제외)');
+  ok(opts.length === 2 && /고1 가/.test(opts[1]) && !opts.some(t => /고2 가|이 주만|고1 확인/.test(t)), '정규 · 이 강사 반만 (이수경↔슈 표기 대조, 이 주만 반·다른 강사 제외)');
   await tp.click('#clsBook내신');
   await tp.waitForFunction(() => /고1 확인/.test(document.getElementById('clsSel').textContent));
   await tp.click('#clsBook정규');
