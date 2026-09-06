@@ -16,6 +16,7 @@ const { chromium } = require('playwright');
 
 const ROOT = path.join(__dirname, '..');
 const REPORT = path.join(ROOT, '..', 'shueguk-report');
+const CLINIC = path.join(ROOT, '..', 'shueguk-clinic');
 const PORT = 8937;
 const SB = 'https://bangdbhqpphqqdwcledg.supabase.co';
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png' };
@@ -36,16 +37,42 @@ const STUDENTS = [
 const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 let ROWS = [], NEXT = 1, ORD = 1000;
 const calls = [];   // 요청 기록 {method, path, auth, body}
+const jsonpUrls = [];   // 옛 백엔드(jsonp) 호출 주소
+const STU_EXTRA = [ { name: '한동명', student_id: '11111111', school: '화정고', grade: '2026 고등 1학년', teacher: '이수경' }, { name: '한동명', student_id: '22222222', school: '능곡고', grade: '2026 고등 1학년', teacher: '이수경' } ];
+const CLASSES = [
+  { book: '정규', class_id: 'r001', day: '금', start_time: '5:30', teacher: '이수경', name: '고1 가', roster: '김철수 박민수 한동명 (화정)새친구(8/30부터)' },
+  { book: '정규', class_id: 'r002', day: '토', start_time: '2:00', teacher: '김지원', name: '고2 가', roster: '이영희' },
+  { book: '내신', class_id: 'n001', day: '수', start_time: '7:00', teacher: '이수경', name: '고1 확인', roster: '김철수' },
+  { book: '정규', class_id: 'w260912a', day: '토', start_time: '9:30', teacher: '이수경', name: '이 주만', roster: '유령' },
+];
 function stuOk(p) { return STUDENTS.some(s => s.name === (p.name || '').trim() && s.student_id === (p.student_id || '').trim()); }
 function pos(r) {
   if (r.status !== '대기') return null;
   return ROWS.filter(q => q.qdate === r.qdate && q.teacher === r.teacher && q.status === '대기' && (q.ord < r.ord || (q.ord === r.ord && q.id < r.id))).length + 1;
 }
 function hm(iso) { return iso ? new Date(iso).toISOString().slice(11, 16) : null; }
-function rowJson(r) { return { id: r.id, teacher: r.teacher, qtime: r.qtime, unit: r.unit, text: r.text, hasPhoto: r.photo !== '', status: r.status, position: pos(r), time: hm(r.created_at), calledAt: hm(r.called_at), doneAt: hm(r.done_at) }; }
+function rowJson(r) { return { id: r.id, teacher: r.teacher, qtime: r.qtime, unit: r.unit, text: r.text, clinic: !!r.clinic_id, hasPhoto: r.photo !== '', status: r.status, position: pos(r), time: hm(r.created_at), calledAt: hm(r.called_at), doneAt: hm(r.done_at) }; }
+let lastClinic = null;   // clinic_submit 페이로드
+const SLOT_TODAY = '일월화수목금토'[new Date(Date.now() + 9 * 3600e3).getUTCDay()] + ' 저녁 5:30–7:00';
 function rpc(fn, args) {
   const p = (args && args.p) || {};
   if (fn === 'qq_teachers') return ['이수경', '김지원'];
+  if (fn === 'clinic_form') return { result: 'success', open: true, cap: 9, counts: {}, tcounts: {}, slots: [SLOT_TODAY, '토 3:30–5:00'],
+    teachers: [{ teacher: '이수경', slots: [SLOT_TODAY, '토 3:30–5:00'], open: true }, { teacher: '김지원', slots: ['토 3:30–5:00'], open: true }] };
+  if (fn === 'clinic_submit') {
+    lastClinic = p;
+    const reqs = p.requests || [];
+    const r = { id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord: Date.parse(today + 'T17:30:00+09:00'), name: p.name, school: p.school || '', grade: p.grade || '', student_id: p.studentId || '', teacher: p.teacher, qtime: '17:30',
+      unit: [...new Set(reqs.map(x => x.area).filter(Boolean))].join(', '), text: reqs.map(x => '· ' + [x.type, x.area].filter(Boolean).join(' · ') + (x.content ? ' — ' + x.content : '')).join('\n'),
+      photo: p.photo || '', status: '예약', called_at: null, done_at: null, note: '', clinic_id: 900 + NEXT };
+    ROWS.push(r);
+    return { result: 'success', saved: reqs.length, queueId: r.id };
+  }
+  if (fn === 'qq_arrive') {
+    const r = ROWS.find(x => x.id === +p.id && x.student_id === p.student_id && x.status === '예약' && x.qdate === today);
+    if (r) { r.status = '대기'; r.ord = Date.now(); r.qtime = new Date(Date.now() + 9 * 3600e3).toISOString().slice(11, 16); }
+    return { ok: true, changed: !!r, position: r ? pos(r) : null };
+  }
   if (fn === 'qq_submit') {
     if (!stuOk(p)) return { ok: false, error: 'unknown_student' };
     if (!(p.teacher || '').trim()) return { ok: false, error: 'no_teacher' };
@@ -93,6 +120,7 @@ function restGet(url) {
     let p = decodeURIComponent(req.url.split('?')[0]);
     let f;
     if (p.startsWith('/report/')) f = path.join(REPORT, p.slice('/report/'.length));
+    else if (p.startsWith('/clinic/')) f = path.join(CLINIC, p.slice('/clinic/'.length));
     else f = path.join(ROOT, p === '/' ? 'index.html' : p);
     if (!fs.existsSync(f) || fs.statSync(f).isDirectory()) { res.writeHead(404); res.end(); return; }
     res.writeHead(200, { 'Content-Type': MIME[path.extname(f)] || 'text/plain' });
@@ -120,9 +148,24 @@ function restGet(url) {
         const out = rpc(fn, rec.body ? JSON.parse(rec.body) : {});
         return out === null ? json({ error: 'unknown fn ' + fn }, 404) : json(out);
       }
+      if (rec.path.startsWith('/rest/v1/tt_classes')) {
+        if (rec.auth !== 'Bearer tok') return json({ error: 'need teacher' }, 401);
+        return json(/class_id=not\.like\.w/.test(decodeURIComponent(url)) ? CLASSES.filter(c => !/^w/.test(c.class_id)) : CLASSES);
+      }
+      if (rec.path.startsWith('/rest/v1/students')) {
+        if (rec.auth !== 'Bearer tok') return json({ error: 'need teacher' }, 401);
+        const m = decodeURIComponent(url).match(/name=in\.\((.*?)\)/);
+        const names = m ? m[1].split(',').map(x => x.replace(/"/g, '')) : [];
+        return json(STUDENTS.concat(STU_EXTRA).filter(x => names.includes(x.name)).map(x => ({ name: x.name, school: x.school, grade: x.grade, student_id: x.student_id, enrolled: '재원' })));
+      }
       if (rec.path.startsWith('/rest/v1/question_queue')) {
         if (rec.auth !== 'Bearer tok') return json({ error: 'need teacher' }, 401);
         if (req.method() === 'GET') return json(restGet(url));
+        if (req.method() === 'POST') {
+          const arr = JSON.parse(rec.body);
+          (Array.isArray(arr) ? arr : [arr]).forEach(x => ROWS.push(Object.assign({ id: NEXT++, created_at: new Date().toISOString(), qdate: today, called_at: null, done_at: null, clinic_id: null, photo: '' }, x)));
+          return json(null, 201);
+        }
         if (req.method() === 'PATCH') {
           const id = +new URL(url).searchParams.get('id').replace('eq.', '');
           const r = ROWS.find(x => x.id === id); if (!r) return json({}, 404);
@@ -132,6 +175,8 @@ function restGet(url) {
       return json({ error: 'unhandled ' + rec.path }, 404);
     }
     if (url.includes('script.google.com') || url.includes('script.googleusercontent.com')) {
+      const cbm = url.match(/[?&]callback=([^&]+)/);
+      if (cbm) { jsonpUrls.push(url); return route.fulfill({ status: 200, contentType: 'text/javascript', body: `window[${JSON.stringify(cbm[1])}] && window[${JSON.stringify(cbm[1])}]({result:'success'})` }); }
       if (/[?&]key=/.test(url) && !/action=/.test(url)) {
         return json({ result: 'success', info: { name: '김철수', id: '12345678', school: '화정고', grade: '2026 고등 1학년', teacher: '이수경', enrolled: '재원', classA: '금 5:30', classB: '' }, authed: false, examCount: 0, notices: [], homework: [], analyses: [], clinic: null, stars: null, mockGates: { grades: [], open: false }, clinicEligible: false, vocaTaken: false, mockSignups: [] });
       }
@@ -225,6 +270,19 @@ function restGet(url) {
     ok(cancelBody.id === ROWS[2].id && cancelBody.student_id === '12345678', 'qq_cancel 페이로드');
     ok(await pg.$$eval('#qqList .qq-cancel', b => b.length) === 0, '취소 버튼은 대기 건에만');
 
+    // 클리닉 신청으로 미리 들어온 '예약' 줄 → [도착했어요] 로 그 시각에 줄 서기
+    ROWS.push({ id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord: Date.parse(today + 'T17:30:00+09:00'), name: '김철수', school: '화정고', grade: '고1', student_id: '12345678', teacher: '김지원', qtime: '17:30', unit: '독서 · 인문', text: '· 질문 · 독서 · 인문 — 비문학 3번', photo: '', status: '예약', called_at: null, done_at: null, note: '', clinic_id: 77 });
+    const resvId = NEXT - 1;
+    await pg.evaluate(() => qqRefresh());
+    await pg.waitForFunction(() => /클리닉 신청/.test(document.getElementById('qqList').textContent));
+    ok(/도착했어요 → 줄 서기/.test(await pg.$eval('#qqList', e => e.textContent)) && /클리닉/.test(await pg.$eval('#qqList .qq-item:has-text("클리닉 신청") .ndate', e => e.textContent)), '예약 줄: 클리닉 신청 표시 + 도착 버튼');
+    ok(await pg.$$eval('#qqList .qq-cancel', b => b.length) === 0, '예약 줄에는 취소 버튼 없음');
+    await pg.click('#qqArr' + resvId);
+    await pg.waitForFunction(() => document.querySelectorAll('#qqList .ntag.wait').length >= 1 && !/도착했어요 → 줄 서기/.test(document.getElementById('qqList').textContent));
+    const arr = JSON.parse(calls.filter(c => c.path.includes('qq_arrive')).pop().body).p;
+    ok(arr.id === resvId && arr.student_id === '12345678', 'qq_arrive 페이로드');
+    ok(ROWS.find(r => r.id === resvId).status === '대기' && /대기 중/.test(await pg.$eval('#qqList', e => e.textContent)), '도착 → 대기로 바뀜');
+
     // 뒤로 가면 클리닉 화면 → 그 카드와 허브 클리닉 카드 설명이 상태를 알려 준다
     await pg.click('#qqBack');
     await pg.waitForFunction(() => document.getElementById('clinicView').style.display === 'block');
@@ -235,6 +293,32 @@ function restGet(url) {
     await pg.close();
   } else {
     console.log('① 학생 페이지 — ../shueguk-report/s.html 이 없어 건너뜀');
+  }
+
+  /* ══ ①-b 클리닉 신청 폼 — 사진 첨부 + 대기열 예약 ═══════════ */
+  if (fs.existsSync(path.join(CLINIC, 'index.html'))) {
+    console.log('①-b 클리닉 신청 폼 (index.html 사진 첨부)');
+    const cp = await ctx.newPage();
+    cp.on('pageerror', e => { bad++; console.error('  ✗ pageerror', e.message); });
+    await cp.goto(`http://localhost:${PORT}/clinic/index.html?key=abc&nm=김철수&sid=12345678&tc=이수경&sc=화정고&gr=고1`);
+    await cp.waitForFunction(() => document.getElementById('teacher').value === '이수경' && document.querySelectorAll('#clinic-time option').length > 1);
+    if (!(await cp.$eval('#school', e => e.value))) await cp.selectOption('#school', { index: 1 });
+    await cp.fill('#phone', '5678');
+    await cp.selectOption('#clinic-time', SLOT_TODAY);
+    await cp.selectOption('#requests .req-card .area', '독서 · 인문');
+    await cp.fill('#requests .req-card .content', '비문학 3번 선지');
+    await cp.setInputFiles('#photo', { name: 'q.png', mimeType: 'image/png', buffer: PNG1 });
+    await cp.waitForFunction(() => document.getElementById('photoPrev').style.display === 'block');
+    ok(true, '사진 미리보기');
+    await cp.click('#submit');
+    await cp.waitForFunction(() => document.getElementById('done').style.display === 'block');
+    ok(lastClinic && /^data:image\/jpeg;base64,/.test(lastClinic.photo) && lastClinic.studentId === '12345678' && lastClinic.teacher === '이수경' && lastClinic.requests[0].content === '비문학 3번 선지', 'clinic_submit 페이로드에 사진·학생ID·요청');
+    ok(jsonpUrls.some(u => /action=submit/.test(u)) && !jsonpUrls.some(u => /photo=/.test(u)), '시트 사본(옛 백엔드)에는 사진을 보내지 않음');
+    const rv = ROWS.find(r => r.status === '예약' && r.name === '김철수' && r.teacher === '이수경');
+    ok(!!rv && rv.photo === lastClinic.photo, '가짜 DB에 예약 줄 생성(사진 포함)');
+    await cp.close();
+  } else {
+    console.log('①-b 클리닉 신청 폼 — ../shueguk-clinic/index.html 이 없어 건너뜀');
   }
 
   /* ══ ② 교사 페이지 ══════════════════════════════════════ */
@@ -310,7 +394,54 @@ function restGet(url) {
   await tp.click('#calling .item button:has-text("완료 → 다음 호출")');
   await tp.waitForFunction(() => document.querySelectorAll('#calling .item').length === 0);
   ok(c.status === '완료', '마지막 완료 → 더 부를 친구 없음');
+  // 아직 안 온 친구(예약) → [도착] → 줄 맨 뒤(지금 시각)
+  const rv2 = { id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord: Date.parse(today + 'T17:30:00+09:00'), name: '정예약', school: '화정고', grade: '고1', student_id: '0', teacher: '이수경', qtime: '17:30', unit: '독서 · 인문', text: '· 질문 · 독서 · 인문 — 비문학', photo: '', status: '예약', called_at: null, done_at: null, note: '', clinic_id: 55 };
+  ROWS.push(rv2);
+  c.status = '대기'; b.status = '대기'; b.ord = 1000; c.ord = 2000;
+  await tp.evaluate(() => load());
+  await tp.waitForFunction(() => document.querySelectorAll('#resv .item').length === 1);
+  ok(/정예약/.test(await tp.$eval('#resv', e => e.textContent)) && /클리닉 신청/.test(await tp.$eval('#resv', e => e.textContent)), '아직 안 온 친구에 예약 표시');
+  ok(await tp.$$eval('#waiting .item', e => e.length) === 2, '예약은 대기 순서에 없음');
+  await tp.click('#resv .item button:has-text("도착")');
+  await tp.waitForFunction(() => document.querySelectorAll('#resv .item').length === 0 && document.querySelectorAll('#waiting .item').length === 3);
+  const pa = calls.filter(x => x.method === 'PATCH').pop(); const pab = JSON.parse(pa.body);
+  ok(pab.status === '대기' && typeof pab.ord === 'number' && /^\d\d:\d\d$/.test(pab.qtime), '도착 PATCH {대기, ord=지금, qtime=지금}');
+  ok(await tp.$eval('#waiting .item:nth-child(3) .nm', e => e.textContent) === '정예약', '도착한 친구는 줄 맨 뒤');
+
+  // ▲▼ 순서 조정
+  await tp.click('#waiting .item:nth-child(3) .ord button[title="한 칸 위로"]');
+  await tp.waitForFunction(() => document.querySelector('#waiting .item:nth-child(2) .nm').textContent === '정예약');
+  ok(await tp.$$eval('#waiting .item .nm', e => e.map(x => x.textContent).join(',')) === '박민수,정예약,최유진', '▲ 한 칸 위로');
+  await tp.click('#waiting .item:nth-child(2) .ord button[title="한 칸 아래로"]');
+  await tp.waitForFunction(() => document.querySelector('#waiting .item:nth-child(3) .nm').textContent === '정예약');
+  ok(await tp.$eval('#waiting .item:nth-child(1) .ord button[title="한 칸 위로"]', b => b.disabled), '맨 앞은 ▲ 비활성');
+
+  // 반 전체 불러오기
+  await tp.click('#clsBtn');
+  await tp.waitForFunction(() => document.getElementById('cls').style.display === 'flex' && document.querySelectorAll('#clsSel option').length > 1);
+  const opts = await tp.$$eval('#clsSel option', o => o.map(x => x.textContent));
+  ok(opts.length === 2 && /고1 가/.test(opts[1]) && !opts.some(t => /고2 가|이 주만|고1 확인/.test(t)), '정규 · 이 강사 반만 (이 주만 반·다른 강사 제외)');
+  await tp.click('#clsBook내신');
+  await tp.waitForFunction(() => /고1 확인/.test(document.getElementById('clsSel').textContent));
+  await tp.click('#clsBook정규');
+  await tp.check('#clsAllT');
+  await tp.waitForFunction(() => /고2 가/.test(document.getElementById('clsSel').textContent));
+  ok(true, '내신 전환 · 모든 강사 보기');
+  await tp.selectOption('#clsSel', '정규|r001');
+  await tp.waitForFunction(() => document.querySelectorAll('#clsStu input').length === 4);
+  const boxes = await tp.$$eval('#clsStu input', i => i.map(x => ({ v: x.value, c: x.checked })));
+  ok(boxes.map(b => b.v).join(',') === '김철수,박민수,한동명,새친구', '명단 이름 정리(앞뒤 괄호 제거)');
+  ok(boxes.find(b => b.v === '박민수').c === false && boxes.find(b => b.v === '김철수').c === true, '이미 줄에 있는 친구는 체크 해제');
+  await tp.click('#clsGo');
+  await tp.waitForFunction(() => document.getElementById('cls').style.display === 'none' && document.querySelectorAll('#waiting .item').length === 6);
+  const post = calls.filter(x => x.method === 'POST' && x.path.startsWith('/rest/v1/question_queue')).pop();
+  const posted = JSON.parse(post.body);
+  ok(posted.length === 3 && posted.map(x => x.name).join(',') === '김철수,한동명,새친구' && posted[0].ord < posted[1].ord && posted[1].ord < posted[2].ord, '체크한 순서대로 ord 부여');
+  ok(posted[0].student_id === '12345678' && posted[0].school === '화정고' && posted[0].grade === '고1' && posted[1].student_id === '' && posted[2].student_id === '', '학생 정보: 유일한 이름만 붙임(동명이인·미등록은 이름만)');
+  ok(posted.every(x => x.teacher === '이수경' && x.status === '대기' && x.unit === '고1 가' && /^\d\d:\d\d$/.test(x.qtime)), '선생님·상태·단원(반이름)·시각');
+  ok(await tp.$$eval('#waiting .item .nm', e => e.map(x => x.textContent).slice(-3).join(',')) === '김철수,한동명,새친구', '줄 맨 뒤에 반 학생 추가');
   // 전체 보기 준비: 이수경 대기 2명 만들기
+  ROWS.forEach(r => { if (r.status === '대기' && !['박민수', '최유진', '이영희'].includes(r.name)) r.status = '완료'; });
   c.status = '대기'; b.status = '대기';
 
   // 전체 보기
@@ -332,7 +463,7 @@ function restGet(url) {
 
   /* ══ ③ 강의실 디스플레이 ═══════════════════════════════ */
   console.log('③ 강의실 디스플레이 (question_board.html)');
-  ROWS.forEach(r => { r.status = r === b ? '호출' : (r === c ? '대기' : '완료'); }); b.called_at = new Date().toISOString();
+  ROWS.forEach(r => { r.status = r === b ? '호출' : (r === c ? '대기' : '완료'); }); b.called_at = new Date().toISOString(); c.teacher = '이수경';
   const bp = await ctx.newPage();
   bp.on('pageerror', e => { bad++; console.error('  ✗ pageerror', e.message); });
   await bp.goto(`http://localhost:${PORT}/question_board.html?t=이수경`);
