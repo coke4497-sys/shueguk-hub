@@ -413,6 +413,14 @@ function moveDown(id){
  * 이름은 명단 토큰에서 앞 괄호(학교 구분)·뒤 괄호(특이사항)를 떼고, students 표에서 같은 이름을 찾아 학교·학년·학생ID를 붙인다
  * (이름이 유일할 때만 — 동명이인은 이름만). 이미 오늘 이 선생님께 예약/대기/호출 중인 학생은 건너뛴다. 순서는 체크한 목록 순. */
 var CLS = { book:'정규', classes:null, picked:null, names:[] };
+// 시간표(tt_classes)의 담당T는 성 없이 '은지'·'지원', 이수경 선생님은 '슈'로 적혀 있고, 학생정보(students)의 담당T는
+// '이은지'·'김지원'·'이수경'처럼 성이 붙어 있다(2026-09-06 사용자 신고 "반 불러오기가 안돼요"로 확인). 둘을 같은 열쇠로 맞춘다.
+function teacherKey(t){
+  t = String(t||'').replace(/\s+/g,'').replace(/T$/,'').replace(/선생님$/,'');
+  if(t === '이수경' || t === '수경' || t === '슈') return '슈';
+  return t.length >= 3 ? t.slice(-2) : t;
+}
+function sameTeacher(a, b){ return teacherKey(a) === teacherKey(b); }
 function plainName(tok){ return String(tok||'').replace(/^\([^)]*\)/, '').replace(/\([^)]*\)\s*$/, '').trim(); }
 function clsOpen(){
   if(!TEACHER){ showErr('먼저 선생님을 고르세요.'); return; }
@@ -426,7 +434,7 @@ function clsBook(b){ CLS.book = b; $('clsBook정규').className = b==='정규' ?
 var DAY_ORDER = { '월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':7 };
 function clsFill(){
   var sel = $('clsSel'), all = $('clsAllT').checked;
-  var list = (CLS.classes||[]).filter(function(c){ return c.book===CLS.book && (all || TEACHER==='all' || c.teacher===TEACHER); });
+  var list = (CLS.classes||[]).filter(function(c){ return c.book===CLS.book && (all || TEACHER==='all' || sameTeacher(c.teacher, TEACHER)); });
   list.sort(function(a,b){ return (DAY_ORDER[a.day]||9)-(DAY_ORDER[b.day]||9) || String(a.start_time).localeCompare(String(b.start_time)) || a.name.localeCompare(b.name); });
   sel.innerHTML = '<option value="">반을 고르세요' + (list.length ? '' : ' (이 강사의 ' + CLS.book + ' 반이 없어요)') + '</option>' + list.map(function(c){
     var n = c.roster.split(/\s+/).filter(Boolean).length;
@@ -439,7 +447,7 @@ function clsPick(){
   if(!v) return;
   var c = (CLS.classes||[]).filter(function(x){ return x.book+'|'+x.class_id === v; })[0]; if(!c) return;
   CLS.picked = c;
-  var open = {}; ROWS.forEach(function(r){ if(['예약','대기','호출'].indexOf(r.status)>=0 && (TEACHER==='all' ? r.teacher===c.teacher : true)) open[r.name] = r.status; });
+  var open = {}; ROWS.forEach(function(r){ if(['예약','대기','호출'].indexOf(r.status)>=0 && (TEACHER==='all' ? sameTeacher(r.teacher, c.teacher) : true)) open[r.name] = r.status; });
   var toks = c.roster.split(/\s+/).filter(Boolean);
   $('clsStu').innerHTML = toks.map(function(t, i){
     var nm = plainName(t), dup = open[nm];
@@ -452,7 +460,7 @@ function clsGo(){
   var c = CLS.picked; if(!c) return;
   var names = Array.prototype.slice.call(document.querySelectorAll('#clsStu input:checked')).map(function(i){ return i.value; });
   if(!names.length){ $('clsMsg').textContent = '체크된 친구가 없어요.'; return; }
-  var teacher = TEACHER==='all' ? c.teacher : TEACHER;
+  var teacher = TEACHER==='all' ? (TEACHERS.filter(function(t){ return sameTeacher(t, c.teacher); })[0] || c.teacher) : TEACHER;
   $('clsGo').disabled = true; $('clsMsg').textContent = '학생 정보를 맞추는 중…';
   // students 표에서 이름 → 학교·학년·학생ID (유일한 이름만)
   sb('/students?select=name,school,grade,student_id,enrolled&name=in.(' + names.map(function(n){ return '"'+n.replace(/"/g,'')+'"'; }).join(',') + ')')
