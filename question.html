@@ -50,7 +50,7 @@
   .brand .live i{width:7px;height:7px;border-radius:50%;background:var(--live);animation:livepulse 1.8s ease-in-out infinite;}
   .brand .live.off i{animation:none;background:var(--ink-faint);}
   @keyframes livepulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.8)}}
-  /* 도구줄 — [선생님 ○○ ▾] [전자칠판 화면 열기] [학생 불러오기 ▾] …… 안내 · [도움말 펼치기] [새로고침] */
+  /* 도구줄 — [선생님 ○○ ▾] [안내 화면 열기] [학생 불러오기 ▾] …… 안내 · [도움말 펼치기] [새로고침] */
   .bar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px;}
   .bar label{font-size:13px;color:var(--ink-soft);}
   .bar .tsel{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border-radius:12px;box-shadow:var(--shadow);padding:0 12px 0 14px;font-size:13px;color:var(--ink-soft);}
@@ -270,7 +270,7 @@
 
   <div class="bar">
     <span class="tsel"><label for="tsel">선생님</label><select id="tsel"></select></span>
-    <button class="btn board" id="boardBtn" onclick="openBoard()">전자칠판 화면 열기</button>
+    <button class="btn board" id="boardBtn" onclick="openBoard()" title="강의실 전자칠판에 띄우는 안내 화면(클리닉 호출)을 새 창으로 열어요">안내 화면 열기</button>
     <details class="dd" id="loadDd"><summary class="btn">학생 불러오기</summary><div class="menu">
       <button class="btn" id="clsBtn" onclick="ddClose(this);clsOpen()">반 전체 불러오기</button>
       <button class="btn" id="clinBtn" onclick="ddClose(this);clinOpen()">클리닉 신청자 불러오기</button>
