@@ -484,6 +484,30 @@ function restGet(url) {
   ok(await tp.$eval('#done', e => e.style.display) === 'none', '끝난 질문은 접혀 있음');
   await tp.click('#doneTog');
   ok(/김철수/.test(await tp.$eval('#done', e => e.textContent)) && /완료/.test(await tp.$eval('#done', e => e.textContent)), '끝난 질문 목록');
+  // 끝난 질문 지우기 — 줄마다 [지우기](완료·취소·건너뜀만), 제목 옆 [모두 지우기](그 선생님·오늘)
+  ok(await tp.$$eval('#done .item button:has-text("지우기")', b => b.length) >= 1 && await tp.$eval('#doneClear', e => e.style.display) !== 'none', '끝난 질문 줄마다 [지우기] + [모두 지우기]');
+  ROWS.push({ id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord: 5, name: '옛완료', school: '', grade: '', student_id: '0', teacher: '이수경', qtime: '10:00', unit: '', text: '', photo: '', status: '완료', called_at: new Date().toISOString(), done_at: new Date().toISOString(), note: '', clinic_id: null });
+  await tp.evaluate(() => load());
+  await tp.waitForFunction(() => /옛완료/.test(document.getElementById('done').textContent));
+  await tp.click('#done .item:has-text("옛완료") button:has-text("지우기")');
+  await tp.waitForFunction(() => !/옛완료/.test(document.getElementById('done').textContent));
+  const dd1 = calls.filter(x => x.method === 'DELETE').pop();
+  ok(/status=in\.\(완료,취소,건너뜀\)/.test(decodeURIComponent(dd1.path)) && !ROWS.some(r => r.name === '옛완료'), '[지우기] → 그 줄만 DELETE(끝난 상태일 때만)');
+  ROWS.push({ id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord: 6, name: '옛취소', school: '', grade: '', student_id: '0', teacher: '이수경', qtime: '10:00', unit: '', text: '', photo: '', status: '취소', called_at: null, done_at: new Date().toISOString(), note: '', clinic_id: null });
+  ROWS.push({ id: NEXT++, created_at: new Date().toISOString(), qdate: today, ord: 7, name: '남완료', school: '', grade: '', student_id: '0', teacher: '김지원', qtime: '10:00', unit: '', text: '', photo: '', status: '완료', called_at: new Date().toISOString(), done_at: new Date().toISOString(), note: '', clinic_id: null });
+  await tp.evaluate(() => load());
+  await tp.waitForFunction(() => /옛취소/.test(document.getElementById('done').textContent));
+  const keepA = ROWS.find(r => r.name === '김철수');
+  await tp.click('#doneClear');
+  await tp.waitForFunction(() => /아직 끝난 질문이 없어요/.test(document.getElementById('done').textContent));
+  const dd2 = calls.filter(x => x.method === 'DELETE').pop();
+  ok(/teacher=eq\.이수경/.test(decodeURIComponent(dd2.path)) && /status=in\.\(완료,취소,건너뜀\)/.test(decodeURIComponent(dd2.path)) && !ROWS.some(r => r.name === '옛취소') && !ROWS.some(r => r.name === '김철수' && r.status === '완료') && ROWS.some(r => r.name === '남완료') && ROWS.some(r => r.status === '호출' || r.status === '질문중'), '[모두 지우기] → 그 선생님·오늘 끝난 줄만 DELETE(다른 선생님·진행 중 줄은 그대로)');
+  ok(await tp.$eval('#doneClear', e => e.style.display) === 'none', '끝난 질문이 없으면 [모두 지우기] 숨김');
+  ROWS.splice(ROWS.findIndex(r => r.name === '남완료'), 1);
+  // 뒤 검사가 김철수 완료 줄을 기대하므로 되돌려 둔다
+  ROWS.push(keepA);   // 같은 객체를 되돌려 뒤 검사의 a 참조가 살아 있게
+  await tp.evaluate(() => load());
+  await tp.waitForFunction(() => /김철수/.test(document.getElementById('done').textContent));
 
   // [···] → 건너뜀 → 다음 친구(박민수) 자동 호출
   await tp.click('#calling .item summary.more');
