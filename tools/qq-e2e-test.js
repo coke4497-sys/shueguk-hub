@@ -39,6 +39,7 @@ const today = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 let ROWS = [], NEXT = 1, ORD = 1000;
 const calls = [];   // 요청 기록 {method, path, auth, body}
 const jsonpUrls = [];   // 옛 백엔드(jsonp) 호출 주소
+const sheetPosts = [];  // 시트 사본 POST(sendBeacon — 클리닉 폼)
 const STU_EXTRA = [ { name: '한동명', student_id: '11111111', school: '화정고', grade: '2026 고등 1학년', teacher: '이수경' }, { name: '한동명', student_id: '22222222', school: '능곡고', grade: '2026 고등 1학년', teacher: '이수경' } ];
 const TS_TODAY = today + ' 10:00';
 const CLINIC_REQS = [   // 오늘 요일 시간대(SLOT_TODAY)로 신청한 두 명 + 다른 요일 한 명 + 클리어된 한 명
@@ -206,6 +207,11 @@ function restGet(url) {
       return json({ error: 'unhandled ' + rec.path }, 404);
     }
     if (url.includes('script.google.com') || url.includes('script.googleusercontent.com')) {
+      if (route.request().method() === 'POST') {   // 시트 사본 sendBeacon/keepalive POST(doPost) — 2026-09-11
+        let body = null; try { body = JSON.parse(route.request().postData() || 'null'); } catch (e) {}
+        sheetPosts.push({ url, body, type: route.request().resourceType() });
+        return json({ result: 'success', saved: 1 });
+      }
       const cbm = url.match(/[?&]callback=([^&]+)/);
       if (cbm) { jsonpUrls.push(url); return route.fulfill({ status: 200, contentType: 'text/javascript', body: `window[${JSON.stringify(cbm[1])}] && window[${JSON.stringify(cbm[1])}]({result:'success'})` }); }
       if (/[?&]key=/.test(url) && !/action=/.test(url)) {
@@ -355,7 +361,10 @@ function restGet(url) {
     await cp.click('#submit');
     await cp.waitForFunction(() => document.getElementById('done').style.display === 'block');
     ok(lastClinic && /^data:image\/jpeg;base64,/.test(lastClinic.photo) && lastClinic.studentId === '12345678' && lastClinic.teacher === '이수경' && lastClinic.requests[0].content === '비문학 3번 선지', 'clinic_submit 페이로드에 사진·학생ID·요청');
-    ok(jsonpUrls.some(u => /action=submit/.test(u)) && !jsonpUrls.some(u => /photo=/.test(u)), '시트 사본(옛 백엔드)에는 사진을 보내지 않음');
+    await cp.waitForTimeout(300);
+    const sp = sheetPosts.find(x => x.body && x.body.name === '김철수');
+    ok(!!sp && sp.body.teacher === '이수경' && sp.body.studentId === '12345678' && sp.body.requests[0].content === '비문학 3번 선지', '시트 사본은 POST(sendBeacon — 창을 닫아도 전송)로 doPost에');
+    ok(!!sp && !('photo' in sp.body) && !jsonpUrls.some(u => /action=submit/.test(u)), '시트 사본에는 사진을 보내지 않고, 옛 jsonp 사본은 더 쓰지 않음');
     const rv = ROWS.find(r => r.status === '예약' && r.name === '김철수' && r.teacher === '이수경');
     ok(!!rv && rv.photo === lastClinic.photo, '가짜 DB에 예약 줄 생성(사진 포함)');
     await cp.close();
