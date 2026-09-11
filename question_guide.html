@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>클리닉 호출 안내 · 슈국 티쳐스</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 클리닉 호출 사용 안내 (2026-09-11 사용자 "이걸 선생님들께 안내하고 싶어요") — 교사 인증 조각 없음, 링크로 공유해도 됨 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#E6EDEA; --surface:#FFFFFF; --soft:#F3F6F4; --ink:#2A332F; --ink-soft:#65726B; --ink-mute:#8C978F;
+    --accent:#4C6E66; --line:#D7E3DD;
+    --yel:#F9EFD0; --yel-ink:#9B8046; --pnk:#F7E2DE; --pnk-ink:#B0736A; --lav:#EDE4F4; --lav-ink:#8D83A8; --sky:#E9EDF8; --sky-ink:#64749E;
+    --cream:#FBF4EA;
+    --sans:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+    --serif:"Gowun Batang","Apple SD Gothic Neo",serif;
+    --disp:"Do Hyeon","Gowun Dodum",sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1E2624; --surface:#27312E; --soft:#2F3A36; --ink:#E8EEEB; --ink-soft:#B3BFB9; --ink-mute:#8C978F;
+      --accent:#9FC1B7; --line:#3A4744;
+      --yel:#4A4230; --yel-ink:#E4D2A0; --pnk:#4A3532; --pnk-ink:#EBB9B0; --lav:#3A3446; --lav-ink:#CFC2E4; --sky:#30364A; --sky-ink:#B7C2E6;
+      --cream:#3A3630;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1E2624; --surface:#27312E; --soft:#2F3A36; --ink:#E8EEEB; --ink-soft:#B3BFB9; --ink-mute:#8C978F;
+    --accent:#9FC1B7; --line:#3A4744;
+    --yel:#4A4230; --yel-ink:#E4D2A0; --pnk:#4A3532; --pnk-ink:#EBB9B0; --lav:#3A3446; --lav-ink:#CFC2E4; --sky:#30364A; --sky-ink:#B7C2E6;
+    --cream:#3A3630;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.75;padding:0 20px;padding-block:32px 72px;}
+  .page{max-width:760px;margin:0 auto;}
+  a{color:var(--accent);}
+  /* 머리 */
+  .head{margin-bottom:28px;}
+  .head .eyebrow{font-family:var(--serif);font-size:14px;letter-spacing:.08em;color:var(--ink-soft);margin:0 0 6px;}
+  .head h1{font-family:var(--disp);font-weight:400;font-size:44px;line-height:1.1;margin:0 0 10px;color:var(--ink);letter-spacing:.01em;text-wrap:balance;}
+  .head p{margin:0;color:var(--ink-soft);max-width:62ch;}
+  /* 3단계 요약 */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 36px;}
+  .steps div{background:var(--surface);border-radius:16px;padding:16px 18px;box-shadow:0 2px 12px rgba(42,51,47,.05);}
+  .steps .n{font-family:var(--disp);font-size:26px;line-height:1;color:var(--lav-ink);margin-bottom:8px;}
+  .steps b{display:block;font-family:var(--serif);font-size:16px;margin-bottom:4px;}
+  .steps span{font-size:14px;color:var(--ink-soft);}
+  /* 절 */
+  section{background:var(--surface);border-radius:20px;padding:26px 28px;margin:0 0 18px;box-shadow:0 2px 12px rgba(42,51,47,.05);}
+  section h2{font-family:var(--serif);font-weight:700;font-size:21px;margin:0 0 6px;color:var(--accent);text-wrap:balance;}
+  section .lead{margin:0 0 16px;color:var(--ink-soft);font-size:15px;}
+  section p{margin:0 0 12px;max-width:66ch;}
+  section p:last-child{margin-bottom:0;}
+  ol,ul{margin:0 0 12px;padding-left:22px;max-width:66ch;}
+  li{margin:0 0 8px;}
+  li:last-child{margin-bottom:0;}
+  /* 버튼 이름 표기 */
+  kbd{font-family:var(--sans);font-size:.92em;background:var(--lav);color:var(--lav-ink);border-radius:8px;padding:1px 8px;white-space:nowrap;font-weight:700;}
+  kbd.y{background:var(--yel);color:var(--yel-ink);}
+  kbd.p{background:var(--pnk);color:var(--pnk-ink);}
+  kbd.s{background:var(--sky);color:var(--sky-ink);}
+  /* 링크 카드 */
+  .links{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 0;}
+  .links a{display:block;background:var(--soft);border-radius:12px;padding:12px 14px;text-decoration:none;color:var(--ink);}
+  .links a b{display:block;font-family:var(--serif);color:var(--accent);margin-bottom:2px;}
+  .links a span{font-size:13px;color:var(--ink-soft);display:block;}
+  /* 전자칠판 미니 그림 */
+  .board{background:var(--cream);border-radius:16px;padding:18px 20px;margin:14px 0 6px;display:grid;grid-template-columns:2fr 1fr;gap:12px;}
+  .board .call{text-align:center;padding:8px 0;}
+  .board .call small{display:block;font-size:12px;color:var(--ink-soft);}
+  .board .call .nm{font-family:var(--disp);font-size:52px;line-height:1.05;color:var(--ink);}
+  .board .next{display:flex;gap:6px;margin-top:10px;}
+  .board .next span{flex:1;background:var(--soft);border-radius:8px;padding:6px 8px;font-family:var(--disp);font-size:18px;text-align:center;color:var(--ink);}
+  .board .next span:first-child{background:var(--yel);}
+  .board .side{background:var(--surface);border-radius:12px;padding:10px 12px;font-size:13px;}
+  .board .side b{display:block;font-family:var(--serif);margin-bottom:6px;}
+  .board .side div{display:flex;justify-content:space-between;align-items:center;background:var(--soft);border-radius:8px;padding:5px 8px;margin-bottom:5px;font-family:var(--disp);font-size:15px;}
+  .board .side div kbd{font-size:11px;font-weight:400;}
+  .cap{font-size:13px;color:var(--ink-mute);margin:0 0 14px;}
+  /* 세 가지 길 */
+  .ways{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:6px 0 14px;}
+  .ways div{background:var(--soft);border-radius:14px;padding:14px 16px;font-size:14.5px;}
+  .ways b{display:block;font-family:var(--serif);font-size:15.5px;margin-bottom:6px;color:var(--ink);}
+  .ways .tag{display:inline-block;font-size:12px;border-radius:999px;padding:1px 9px;margin-bottom:8px;}
+  .ways .t1{background:var(--sky);color:var(--sky-ink);} .ways .t2{background:var(--pnk);color:var(--pnk-ink);} .ways .t3{background:var(--yel);color:var(--yel-ink);}
+  /* 버튼 표 */
+  table{width:100%;border-collapse:collapse;font-size:15px;margin:6px 0 4px;}
+  th,td{text-align:left;vertical-align:top;padding:9px 6px;border-bottom:1px solid var(--line);}
+  th{font-family:var(--serif);font-weight:700;color:var(--ink-soft);font-size:13.5px;letter-spacing:.04em;}
+  td:first-child{white-space:nowrap;width:38%;}
+  tr:last-child td{border-bottom:0;}
+  .tbl{overflow-x:auto;}
+  /* 주의 */
+  .note{background:var(--soft);border-radius:14px;padding:14px 18px;font-size:15px;}
+  .note b{font-family:var(--serif);}
+  .foot{margin-top:26px;font-size:13.5px;color:var(--ink-mute);text-align:center;font-family:var(--serif);}
+  @media (max-width:640px){
+    body{font-size:15.5px;}
+    .head h1{font-size:36px;}
+    .steps,.links,.ways,.board{grid-template-columns:1fr;}
+    section{padding:20px 18px;border-radius:16px;}
+    td:first-child{width:auto;white-space:normal;}
+  }
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important;animation:none !important;} }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="head">
+    <p class="eyebrow">이수경국어 · 티쳐스 페이지 안내</p>
+    <h1>클리닉 호출, 이렇게 씁니다</h1>
+    <p>질문하러 온 친구들이 줄을 서고, 선생님이 버튼 하나로 차례대로 부르는 새 기능이에요. 강의실 전자칠판에 지금 누가 올 차례인지 크게 보여 줍니다. 클리닉 메뉴 안 <b>'클리닉 호출'</b> 묶음에 있어요.</p>
+  </div>
+
+  <div class="steps">
+    <div><div class="n">1</div><b>전자칠판 켜기</b><span>강의실 TV에 대기 화면을 전체 화면으로 띄워 두세요.</span></div>
+    <div><div class="n">2</div><b>친구들이 줄 서기</b><span>학생이 직접 올리거나, 선생님이 반 전체를 불러와요.</span></div>
+    <div><div class="n">3</div><b>부르고, 완료</b><span><kbd>질문 시작</kbd> 한 번, 그다음은 <kbd>완료 → 다음 호출</kbd>만.</span></div>
+  </div>
+
+  <section>
+    <h2>어디서 여나요</h2>
+    <p class="lead">티쳐스 페이지 → 학습 관리 → 클리닉 → 맨 아래 '클리닉 호출' 묶음.</p>
+    <div class="links">
+      <a href="https://coke4497-sys.github.io/shueguk-hub/clinic.html" target="_blank" rel="noopener"><b>클리닉 메뉴</b><span>두 화면으로 가는 입구</span></a>
+      <a href="https://coke4497-sys.github.io/shueguk-hub/question.html" target="_blank" rel="noopener"><b>순서 정하기</b><span>선생님이 부르고 정리하는 화면</span></a>
+      <a href="https://coke4497-sys.github.io/shueguk-hub/question_board.html" target="_blank" rel="noopener"><b>전자칠판 대기 화면</b><span>강의실 TV에 띄우는 화면</span></a>
+    </div>
+  </section>
+
+  <section>
+    <h2>수업 전에, 전자칠판 대기 화면 켜기</h2>
+    <ol>
+      <li>강의실 전자칠판(TV)에서 <b>전자칠판 대기 화면</b>을 열고, 처음 한 번 <b>어느 선생님 화면인지</b> 고릅니다.</li>
+      <li>오른쪽 위 <kbd>전체 화면</kbd>을 누르면 시계·대기 목록만 남아요. 3초마다 저절로 새로 받으니 그대로 두면 됩니다.</li>
+    </ol>
+    <div class="board" aria-hidden="true">
+      <div>
+        <div class="call"><small>지금 선생님께 오세요</small><div class="nm">민서연</div><small>고3파이널A · 오늘 3번째 호출</small></div>
+        <div class="next"><span>박지우</span><span>안지민</span><span>이찬욱</span><span>이하영</span></div>
+      </div>
+      <div class="side"><b>아직 줄 안 선 친구</b><div>이채민 <kbd>질문 대기</kbd></div><div>임예진 <kbd>질문 대기</kbd></div><div>전서현 <kbd>질문 대기</kbd></div></div>
+    </div>
+    <p class="cap">위쪽에 지금 올 차례인 친구 이름이 크게, 아래에 다음 순서와 예상 대기 시간, 오른쪽에 아직 줄에 서지 않은 친구가 보여요.</p>
+    <p>학생은 이 화면에서 <b>자기 이름 옆 <kbd>질문 대기</kbd>를 눌러</b> 줄을 설 수 있어요. "○○○ 맞나요?" 확인이 한 번 뜹니다.</p>
+  </section>
+
+  <section>
+    <h2>친구들이 줄에 서는 세 가지 길</h2>
+    <p class="lead">어느 길로 왔든 <b>줄에 선 시각 순서</b>로 호출돼요. 먼저 온 친구가 먼저입니다.</p>
+    <div class="ways">
+      <div><span class="tag t1">학생이 직접</span><b>학생 페이지 '질문하기'</b>학생이 자기 페이지 클리닉 카드에서 선생님·질문 단원·내용(사진도 가능)을 올리면 바로 줄에 섭니다.</div>
+      <div><span class="tag t2">클리닉 신청</span><b>신청한 친구는 '예약'</b>클리닉을 신청한 친구는 그날 '아직 줄 안 선 친구'에 미리 올라와요. 학원에 도착해 <kbd>질문 대기</kbd>를 누르면 그 시각으로 줄에 섭니다. 아직 안 온 친구가 앞자리를 차지하지 않아요.</div>
+      <div><span class="tag t3">반 전체</span><b>선생님이 반 명단을 올림</b>순서 정하기의 <kbd>반 전체 불러오기</kbd>로 반을 고르고 <kbd>명단으로 올리기</kbd>. 출석한 친구가 전자칠판에서 자기 이름을 누르거나, 선생님이 대신 <kbd>질문 대기</kbd>를 눌러 줍니다.</div>
+    </div>
+    <p>반 명단은 여러 반을 이어서 올려 둘 수 있어요. 미리 순서를 정해 두고 싶으면 반 불러오기 창의 '순서를 미리 정해서…'를 펼쳐 이름을 누르는 순서대로 번호를 매기고 <kbd>이 순서로 질문 대기</kbd>를 누르면 됩니다.</p>
+  </section>
+
+  <section>
+    <h2>부르기 — 순서 정하기 화면</h2>
+    <p class="lead">위에서 선생님을 고르면 내게 온 질문만 보여요. 화면은 호출 중 → 대기 → 아직 줄 안 선 친구 → 오늘 끝난 질문 순서입니다.</p>
+    <div class="tbl"><table>
+      <tr><th>버튼</th><th>하는 일</th></tr>
+      <tr><td><kbd>질문 시작</kbd></td><td>맨 앞 친구를 부릅니다. 전자칠판에 이름이 크게 나와요.</td></tr>
+      <tr><td><kbd>완료 → 다음 호출</kbd></td><td>지금 친구 끝, 다음 친구 자동 호출. 평소에는 이 버튼만 누르면 됩니다.</td></tr>
+      <tr><td><kbd>건너뜀 → 다음 호출</kbd></td><td>불렀는데 자리에 없을 때. 다음 친구를 부릅니다.</td></tr>
+      <tr><td><kbd>맨 뒤로</kbd> · <kbd>다시 대기로</kbd></td><td>순서를 줄 맨 뒤로 보냅니다.</td></tr>
+      <tr><td>▲ ▼ · <kbd>이 친구 먼저 호출</kbd></td><td>대기 순서를 손으로 바꾸거나, 순서와 상관없이 한 명을 바로 부릅니다.</td></tr>
+      <tr><td><kbd>질문 대기</kbd></td><td>'아직 줄 안 선 친구'를 지금 시각으로 줄에 세웁니다.</td></tr>
+      <tr><td><kbd>내리기</kbd> · <kbd>지우기</kbd></td><td>올려 둔 반을 통째로 내리거나, 대기 카드 한 장을 지웁니다. 잘못 불러온 반을 정리할 때 쓰세요.</td></tr>
+      <tr><td><kbd>클리닉 신청자 불러오기</kbd></td><td>오늘 클리닉 신청자가 목록에 안 보일 때, 신청 내용을 찾아 '예약'으로 올립니다.</td></tr>
+    </table></div>
+    <p>질문 내용·단원·사진이 카드에 같이 보이니 부르기 전에 미리 읽어 두면 좋아요. 20분 넘게 기다린 친구는 카드가 붉게 표시됩니다.</p>
+  </section>
+
+  <section>
+    <h2>휴대폰이 리모컨이 됩니다</h2>
+    <p>순서 정하기 화면은 휴대폰에서도 그대로 열려요. 폰 홈 화면에 추가해 두고 자리에서 <kbd>완료 → 다음 호출</kbd>만 누르면 전자칠판이 바로 바뀝니다. 컴퓨터 앞으로 갈 필요가 없어요.</p>
+  </section>
+
+  <section>
+    <h2>알아 두세요</h2>
+    <div class="note">
+      <p><b>전자칠판 대기 화면은 강의실 기기에서만 열어 주세요.</b> 학생 휴대폰으로 링크를 보내지 않습니다.</p>
+      <p><b>기록은 그날 하루짜리예요.</b> 다음 날이면 줄이 비어 있고, 어제 남긴 사진은 일주일 뒤 자동으로 지워집니다.</p>
+      <p><b>예상 대기 시간은 참고용이에요.</b> 오늘 그 선생님이 질문 하나에 평균 몇 분 걸렸는지로 계산합니다. 처음 두 명까지는 5분 기준으로 잡아요.</p>
+      <p>불편한 점이나 고치고 싶은 것은 시간표 페이지의 <b>[수정 요청]</b>에 남겨 주세요.</p>
+    </div>
+  </section>
+
+  <p class="foot"><a href="clinic.html">클리닉 메뉴로 돌아가기</a> · 이수경국어 · 2026년 9월</p>
+</div>
+
+</body>
+</html>
