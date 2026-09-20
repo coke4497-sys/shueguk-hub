@@ -16,6 +16,8 @@
      · 강조 = 주1회 학생은 5회부터, 주2회 학생은 9회부터(사용자 지정) — 일반화해 '4 × 주당 횟수'를 넘으면 강조(CORE.RULE.perWeek).
        주당 횟수는 정규 시간표 명단에 든 반 수(정규에 없으면 내신 명단 기준). 못 세면 강조하지 않는다.
      · 보기 = 전체 / 학년 / 학교 / 개인 (사용자 요청) — 표는 늘 학년별 가나다순.
+     · 논술 수업(반이름에 '논술')은 별도 집계(사용자 2026-09-20 "논술 수강생은 별도로 집계") — 정규·내신·합계·주당 횟수·강조에
+       넣지 않고 '논술' 열과 아래 '논술 수강생' 표에 따로 센다.
      · [표 복사]는 지금 보이는 목록을 탭 구분 글자로 복사한다 — 구글 시트에 그대로 붙여 넣을 수 있다. -->
 <link rel="preconnect" href="https://bangdbhqpphqqdwcledg.supabase.co">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -115,6 +117,7 @@
   table.p th{ background:var(--head2); color:#3B4660; font-size:12px; padding:7px 8px; text-align:left; }
   table.p td{ padding:7px 8px; border-bottom:1px solid var(--line); }
   table.p td.n{ background:#F6F2FA; }
+  table.p td.ns{ background:#F9F5E4; }
   .person .mv{ font-size:12.5px; color:var(--muted); margin-top:10px; }
   table.t td.l{ text-align:left; }
   table.t td.no{ color:var(--muted); font-size:12px; }
@@ -126,6 +129,9 @@
   .cc{ display:inline-block; background:#F1F3F8; border-radius:6px; padding:2px 7px; margin:2px 3px 2px 0; white-space:nowrap; }
   .cc b{ color:var(--sky-d); }
   .cc.jb{ background:#FBEAED; }
+  .cc.ns{ background:#F4EFD9; }
+  table.t td.ns{ font-family:'Gowun Batang',serif; font-size:14px; color:#8B7A3A; white-space:nowrap; }
+  section.nonsul > h2::before{ background:#E4D48F; }
   tr.d td{ background:#FAFBFD; text-align:left; font-size:12.5px; color:#4F5A74; padding:10px 14px 12px; }
   tr.d .dl{ margin:0 0 4px; }
   tr.d .dl b{ font-weight:700; color:var(--ink); }
@@ -271,6 +277,8 @@ var CORE = (function(){
   function gradeShort(g){ var m = /(고등|중등)\s*(\d)학년/.exec(String(g || '')); return m ? (m[1] === '고등' ? '고' : '중') + m[2] : ''; }
   function gradeFromClass(name){ var m = /(중|고)\s?([1-3])/.exec(String(name || '')); return m ? m[1] + m[2] : ''; }
   function md(s){ return (+s.slice(5, 7)) + '/' + (+s.slice(8, 10)); }
+  /* 논술 수업은 별도 집계 — 반이름에 '논술'(논술B 국어·수학 등) */
+  function isNonsul(name){ return /논술/.test(String(name || '')); }
 
   /* 그 달의 범위 — 중등 1일~말일, 고등 7일~다음 달 6일 */
   function windows(year, month, rule){
@@ -358,7 +366,7 @@ var CORE = (function(){
         (wadd[key] || []).concat(onceIn[key] || []).forEach(function(n){ names.push(canon(n)); });
         names.forEach(function(n){
           var s = sess[n] = sess[n] || {};
-          s[ds + '|' + c.id] = { date: ds, cls: c.name, when: c.day + c.start, kind: c.kind, book: book };
+          s[ds + '|' + c.id] = { date: ds, cls: c.name, when: c.day + c.start, kind: c.kind, book: book, nonsul: isNonsul(c.name) };
         });
       });
     }
@@ -367,7 +375,7 @@ var CORE = (function(){
     ['정규', '내신'].forEach(function(bk){
       var cnt = {};
       classes.forEach(function(c){
-        if (c.book !== bk || c.wk) return;
+        if (c.book !== bk || c.wk || isNonsul(c.name)) return;   // 논술은 주당 횟수에 안 넣는다
         var seen = {};
         c.roster.split(/\s+/).forEach(function(t){ var p = plainName(t); if (!p) return; var n = canon(p); if (!seen[n]){ seen[n] = 1; cnt[n] = (cnt[n] || 0) + 1; } });
       });
@@ -393,15 +401,18 @@ var CORE = (function(){
       var byCls = [], idx = {};
       items.forEach(function(it){
         var lb = it.cls + ' ' + it.when + (it.kind === '직보' ? '(직보)' : '');
-        if (idx[lb] == null){ idx[lb] = byCls.length; byCls.push({ label: lb, jb: it.kind === '직보', dates: [] }); }
+        if (idx[lb] == null){ idx[lb] = byCls.length; byCls.push({ label: lb, jb: it.kind === '직보', ns: it.nonsul, dates: [] }); }
         byCls[idx[lb]].dates.push(it.date);
       });
-      var regular = items.filter(function(it){ return it.book === '정규'; }).length, naeshin = items.length - regular;
+      var main = items.filter(function(it){ return !it.nonsul; }), nonsul = items.length - main.length;
+      var regular = main.filter(function(it){ return it.book === '정규'; }).length, naeshin = main.length - regular;
       var weekly = weeklyOf[n] || 0, thr = threshold(weekly, rule);
-      rows.push({ grade: grade || '미상', name: n, school: school, count: items.length, regular: regular, naeshin: naeshin,
-                  weekly: weekly, threshold: thr, over: thr > 0 && items.length > thr,
+      function detailOf(list){ return list.map(function(b){ return b.label + ' ' + b.dates.length + '회(' + b.dates.map(md).join(', ') + ')'; }).join(' / '); }
+      rows.push({ grade: grade || '미상', name: n, school: school, count: main.length, regular: regular, naeshin: naeshin, nonsul: nonsul,
+                  weekly: weekly, threshold: thr, over: thr > 0 && main.length > thr,
                   win: w, items: items, byCls: byCls, notes: ns,
-                  detail: byCls.map(function(b){ return b.label + ' ' + b.dates.length + '회(' + b.dates.map(md).join(', ') + ')'; }).join(' / '),
+                  detail: detailOf(byCls.filter(function(b){ return !b.ns; })),
+                  nonsulDetail: detailOf(byCls.filter(function(b){ return b.ns; })),
                   noteText: ns.map(function(x){ return md(x.date) + ' ' + x.cls + (x.kind === '휴강' ? ' 휴강' : ' → ' + (x.to ? md(x.to) : '?') + '로 옮김'); }).join('; ') });
     });
     rows.sort(function(a, b){
@@ -411,7 +422,7 @@ var CORE = (function(){
     });
     return { rows: rows, windows: win, weeks: weeks };
   }
-  return { RULE: RULE, threshold: threshold, windows: windows, build: build, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
+  return { RULE: RULE, threshold: threshold, windows: windows, build: build, isNonsul: isNonsul, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
 })();
 /* ==/SESSIONS-CORE== */
 </script>
@@ -542,11 +553,13 @@ var CORE = (function(){
   function summaryHtml(all){
     const over = all.filter(r => r.over).length;
     const reg = all.reduce((t, r) => t + r.regular, 0), nae = all.reduce((t, r) => t + r.naeshin, 0);
+    const nsn = all.filter(r => r.nonsul).length, nsc = all.reduce((t, r) => t + r.nonsul, 0);
     const w = RESULT.windows;
     return '<div class="tiles">'
       + tile('대상 학생', all.length + '명', '이 달에 수업이 있는 학생')
       + tile('강조 학생', over + '명', all.length ? Math.round(over / all.length * 100) + '% · 주1회 5회↑ · 주2회 9회↑' : '', over ? 'bad' : '')
-      + tile('정규 · 내신', reg + ' · ' + nae, '전체 수업 횟수 합')
+      + tile('정규 · 내신', reg + ' · ' + nae, '전체 수업 횟수 합 (논술 제외)')
+      + tile('논술 (별도)', nsn + '명', nsc ? '논술 수업 ' + nsc + '회' : '논술 수업 없음')
       + tile('기준 기간', mdLabel(w.mid.from) + '~' + mdLabel(w.mid.to), '중등 · 고등 ' + mdLabel(w.high.from) + '~' + mdLabel(w.high.to))
       + '</div>';
   }
@@ -556,7 +569,7 @@ var CORE = (function(){
   }
   function noteHtml(){
     return '<p class="note">주마다 슈국 캘린더의 정규/내신 기간에 맞는 시간표로 셉니다(미지정 주는 정규 — 그 주 수업은 정규 회차에 들어가요). '
-      + '이 주만 휴강·이동·보충·추가/빼기·1회 이동·직전보강을 반영했고, 확인 수업·직전보강·논술 특강도 한 회로 셉니다. '
+      + '이 주만 휴강·이동·보충·추가/빼기·1회 이동·직전보강을 반영했고, 확인 수업·직전보강도 한 회로 셉니다. <b>논술 수업은 별도</b>로 세어 합계·강조에 넣지 않습니다. '
       + '다른 날로 옮겨 진행한 수업은 <b>실제 수업 날짜</b>로 셉니다. 이름을 누르면 날짜별 내역이 펼쳐집니다. '
       + (DATA && DATA.at ? '기준: ' + DATA.at.toLocaleString('ko-KR', { hour12: false }) + ' 시간표.' : '') + '</p>';
   }
@@ -567,31 +580,45 @@ var CORE = (function(){
     groups.forEach(g => {
       const ov = g.rows.filter(r => r.over).length;
       h += '<section><h2>' + esc(g.grade) + ' <span class="hint">' + g.rows.length + '명' + (ov ? ' · 강조 ' + ov + '명' : '') + '</span></h2>'
-        + '<div class="tbl-wrap"><table class="t"><thead><tr><th>No</th><th>이름</th><th>학교</th><th>정규</th><th>내신</th><th>합계</th><th>주당</th><th></th><th style="text-align:left">수업(반 · 회차)</th></tr></thead><tbody>';
+        + '<div class="tbl-wrap"><table class="t"><thead><tr><th>No</th><th>이름</th><th>학교</th><th>정규</th><th>내신</th><th>합계</th><th>논술</th><th>주당</th><th></th><th style="text-align:left">수업(반 · 회차)</th></tr></thead><tbody>';
       g.rows.forEach((r, i) => {
         const key = r.grade + '|' + r.name;
         h += '<tr class="r' + (r.over ? ' over' : '') + '" data-key="' + esc(key) + '"><td class="no">' + (i + 1) + '</td><td class="nm">' + esc(r.name) + '</td>'
-          + '<td class="sch">' + esc(r.school) + '</td><td class="bk">' + r.regular + '</td><td class="bk">' + r.naeshin + '</td><td class="cnt">' + r.count + '</td>'
+          + '<td class="sch">' + esc(r.school) + '</td><td class="bk">' + r.regular + '</td><td class="bk">' + r.naeshin + '</td><td class="cnt">' + r.count + '</td><td class="ns">' + (r.nonsul || '') + '</td>'
           + '<td class="wk">' + (r.weekly ? '주' + r.weekly + '회' : '—') + '</td><td>' + (r.over ? '<span class="ov">' + (r.threshold + 1) + '회↑</span>' : '') + '</td>'
-          + '<td class="cls">' + r.byCls.map(b => '<span class="cc' + (b.jb ? ' jb' : '') + '">' + esc(b.label) + ' <b>' + b.dates.length + '</b></span>').join('')
+          + '<td class="cls">' + r.byCls.map(b => '<span class="cc' + (b.jb ? ' jb' : '') + (b.ns ? ' ns' : '') + '">' + esc(b.label) + ' <b>' + b.dates.length + '</b></span>').join('')
           + (r.notes.length && !r.byCls.length ? '<span class="cc">휴강·이동만 ' + r.notes.length + '건</span>' : '') + '</td></tr>';
         if (OPEN[key]){
-          h += '<tr class="d"><td colspan="9">' + r.byCls.map(b => '<div class="dl"><b>' + esc(b.label) + '</b> · ' + b.dates.map(mdLabel).join(', ') + '</div>').join('')
+          h += '<tr class="d"><td colspan="10">' + r.byCls.map(b => '<div class="dl"><b>' + esc(b.label) + '</b> · ' + b.dates.map(mdLabel).join(', ') + '</div>').join('')
             + (r.notes.length ? '<div class="mv">참고 — ' + esc(r.noteText) + '</div>' : '') + '</td></tr>';
         }
       });
       h += '</tbody></table></div></section>';
     });
+    h += nonsulHtml(rows);
     return h;
+  }
+  /* 논술 수강생 별도 표 — 논술 수업이 있는 학생만, 학년별 가나다순 그대로 */
+  function nonsulHtml(rows){
+    const ns = rows.filter(r => r.nonsul);
+    if (!ns.length) return '';
+    let h = '<section class="nonsul"><h2>논술 수강생 <span class="hint">별도 집계 · ' + ns.length + '명 · 합계·강조에 넣지 않음</span></h2>'
+      + '<div class="tbl-wrap"><table class="t"><thead><tr><th>No</th><th>이름</th><th>학년</th><th>학교</th><th>논술 회차</th><th style="text-align:left">논술 수업(반 · 회차)</th></tr></thead><tbody>';
+    ns.forEach((r, i) => {
+      h += '<tr class="r" data-key="' + esc(r.grade + '|' + r.name) + '"><td class="no">' + (i + 1) + '</td><td class="nm">' + esc(r.name) + '</td><td class="sch">' + esc(r.grade) + '</td><td class="sch">' + esc(r.school) + '</td>'
+        + '<td class="cnt">' + r.nonsul + '</td><td class="cls">' + r.byCls.filter(b => b.ns).map(b => '<span class="cc ns">' + esc(b.label) + ' <b>' + b.dates.length + '</b></span>').join('') + '</td></tr>';
+    });
+    return h + '</tbody></table></div></section>';
   }
   const WDK = ['일', '월', '화', '수', '목', '금', '토'];
   function dayLabel(s){ const d = new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); return mdLabel(s) + ' (' + WDK[d.getDay()] + ')'; }
   function personHtml(r){
     return '<div class="person"><h3>' + esc(r.name) + '</h3><div class="meta">' + esc(r.grade) + (r.school ? ' · ' + esc(r.school) : '') + ' · 기준 기간 ' + mdLabel(r.win.from) + '~' + mdLabel(r.win.to)
       + (r.weekly ? ' · 주' + r.weekly + '회 (강조 기준 ' + (r.threshold + 1) + '회부터)' : ' · 주당 횟수 모름') + '</div>'
-      + '<div class="sum"><span>정규 <b>' + r.regular + '</b>회</span><span>내신 <b>' + r.naeshin + '</b>회</span><span class="' + (r.over ? 'over' : '') + '">합계 <b>' + r.count + '</b>회' + (r.over ? ' · 강조' : '') + '</span></div>'
+      + '<div class="sum"><span>정규 <b>' + r.regular + '</b>회</span><span>내신 <b>' + r.naeshin + '</b>회</span><span class="' + (r.over ? 'over' : '') + '">합계 <b>' + r.count + '</b>회' + (r.over ? ' · 강조' : '') + '</span>'
+      + (r.nonsul ? '<span>논술 <b>' + r.nonsul + '</b>회 (별도)</span>' : '') + '</div>'
       + '<table class="p"><thead><tr><th>No</th><th>날짜</th><th>구분</th><th>반</th><th>시간</th></tr></thead><tbody>'
-      + r.items.map((it, i) => '<tr><td>' + (i + 1) + '</td><td>' + dayLabel(it.date) + '</td><td class="' + (it.book === '내신' ? 'n' : '') + '">' + esc(it.book) + '</td><td>' + esc(it.cls) + (it.kind === '직보' ? ' (직보)' : '') + '</td><td>' + esc(it.when) + '</td></tr>').join('')
+      + r.items.map((it, i) => '<tr><td>' + (i + 1) + '</td><td>' + dayLabel(it.date) + '</td><td class="' + (it.nonsul ? 'ns' : it.book === '내신' ? 'n' : '') + '">' + (it.nonsul ? '논술(별도)' : esc(it.book)) + '</td><td>' + esc(it.cls) + (it.kind === '직보' ? ' (직보)' : '') + '</td><td>' + esc(it.when) + '</td></tr>').join('')
       + '</tbody></table>'
       + (r.notes.length ? '<div class="mv">참고 — ' + esc(r.noteText) + '</div>' : '') + '</div>';
   }
@@ -599,9 +626,9 @@ var CORE = (function(){
 
   /* ── 내보내기: 지금 보이는 목록 그대로 ── */
   function exportRows(){
-    const head = ['학년', '이름', '학교', MONTH + '월 정규', MONTH + '월 내신', '합계', '주당 횟수', '강조', '기준 기간', '수업 상세(반 · 날짜)', '휴강·옮긴 수업(참고)'];
-    const body = visibleRows().map(r => [r.grade, r.name, r.school, r.regular, r.naeshin, r.count, r.weekly ? '주' + r.weekly + '회' : '', r.over ? '○' : '',
-      mdLabel(r.win.from) + '~' + mdLabel(r.win.to), r.detail, r.noteText]);
+    const head = ['학년', '이름', '학교', MONTH + '월 정규', MONTH + '월 내신', '합계', '논술(별도)', '주당 횟수', '강조', '기준 기간', '수업 상세(반 · 날짜)', '논술 상세', '휴강·옮긴 수업(참고)'];
+    const body = visibleRows().map(r => [r.grade, r.name, r.school, r.regular, r.naeshin, r.count, r.nonsul || '', r.weekly ? '주' + r.weekly + '회' : '', r.over ? '○' : '',
+      mdLabel(r.win.from) + '~' + mdLabel(r.win.to), r.detail, r.nonsulDetail, r.noteText]);
     return [head].concat(body);
   }
   function tsvText(){ return exportRows().map(r => r.map(v => String(v).replace(/[\t\n]/g, ' ')).join('\t')).join('\n'); }
