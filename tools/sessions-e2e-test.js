@@ -27,7 +27,8 @@ const DB = {
     cls('내신', 'n1', '목', '5:30', '고1 화정B(천재수)', '강준서'), cls('내신', 'n2', '토', '3:30', '고1 확인', '강준서 이소율'),
     cls('내신', 'n3', '금', '5:00', '중2 화정A', '김건'), cls('내신', 'n4', '목', '5:30', '고3파이널A', '박민선'),
     cls('정규', 'r9', '일', '6:00', '논술B 국어', '박민선'), cls('내신', 'n9', '일', '6:00', '논술B 국어', '박민선'),
-    cls('정규', 'w261025a', '일', '3:30', '고1 나', '')   // r2 10/17 수업을 10/25(일)로 옮긴 복사본
+    cls('정규', 'w261025a', '일', '3:30', '고1 나', ''),  // r2 10/17 수업을 10/25(일)로 옮긴 복사본
+    cls('내신', 'w261029b', '목', '7:00', '고1 직보', '이소율', '직보')   // 이소율 10/31 확인의 실제 진행(직보) — 한 번만
   ],
   tt_log: [
     { id: 1, at: '2026-09-20T03:00:00Z', kind: '주간반휴강', student: '', from_class_id: 'n3', to_class_id: '', reason: '', apply_date: '2026-10-09' },
@@ -96,7 +97,7 @@ const DB = {
   await pg.click('tr.r[data-key$="|이소율"]');
   await pg.waitForSelector('tr.d');
   const sdet = await pg.textContent('tr.d');
-  ok(sdet.includes('10/21(10/24 진행)') && sdet.includes('10/31(대체)') && !sdet.includes('빠짐'), '학생 옮기기는 원래 날짜에 진행일, 직보 대체는 (대체)로 센다 — ' + sdet.replace(/\s+/g, ' ').slice(0, 120));
+  ok(sdet.includes('10/21(10/24 진행)') && sdet.includes('10/31(10/29 진행)') && !sdet.includes('고1 직보') && !sdet.includes('빠짐'), '학생 옮기기는 원래 날짜에 진행일, 직보 대체는 10/31(10/29 진행) 한 번만 — ' + sdet.replace(/\s+/g, ' ').slice(0, 140));
   await pg.click('tr.r[data-key$="|이소율"]');
   const p = await rowOf('박민선');
   ok(p.cells[5] === '5' && p.cells[7] === '주1회' && p.over && p.cells[8] === '5회↑', '박민선 주1회 5회(논술 4회 제외) → 강조');
