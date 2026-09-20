@@ -75,6 +75,7 @@ const DB = {
   ok((await pg.textContent('#winLabel')).includes('중등 10/1~10/31') && (await pg.textContent('#winLabel')).includes('고등 10/7~11/6'), '중등·고등 기준 기간 표시');
   const tiles = await pg.$$eval('.tile .v', els => els.map(e => e.textContent));
   ok(tiles[0] === '4명', '대상 학생 타일 4명 — ' + tiles.join(' | '));
+  ok(tiles[4] === '중등 10/1~10/31\n고등 10/7~11/6' && (await pg.$eval('.tile .v.v2', el => getComputedStyle(el).fontSize)) === '16.5px', '기준 기간 타일: 중등·고등 두 줄 같은 크기');
   ok(tiles[1] === '2명', '강조 학생 2명(강준서 10회·박민선 5회) — ' + tiles[1]);
   const weeks = await pg.$$eval('.weeks span', els => els.map(e => e.textContent));
   ok(weeks.length === 6 && weeks.some(w => w.includes('10/14주 정규(미지정)')), '주차 띠: 미지정 주는 정규(미지정) — ' + weeks.join(' · '));
