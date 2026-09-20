@@ -28,7 +28,8 @@ const DB = {
     cls('내신', 'n3', '금', '5:00', '중2 화정A', '김건'), cls('내신', 'n4', '목', '5:30', '고3파이널A', '박민선'),
     cls('정규', 'r9', '일', '6:00', '논술B 국어', '박민선'), cls('내신', 'n9', '일', '6:00', '논술B 국어', '박민선'),
     cls('정규', 'w261025a', '일', '3:30', '고1 나', ''),  // r2 10/17 수업을 10/25(일)로 옮긴 복사본
-    cls('내신', 'w261029b', '목', '7:00', '고1 직보', '이소율', '직보')   // 이소율 10/31 확인의 실제 진행(직보) — 한 번만
+    cls('내신', 'w261029b', '목', '7:00', '고1 직보', '이소율', '직보'),   // 이소율 10/31 확인의 실제 진행(직보) — 한 번만
+    cls('정규', 'w261016a', '금', '7:00', '중2 화정A', ''), cls('정규', 'w261023b', '금', '7:00', '중2 화정A', '')   // 김건 n3 10/30 수업을 10/16·10/23 두 번에 나눠 진행
   ],
   tt_log: [
     { id: 1, at: '2026-09-20T03:00:00Z', kind: '주간반휴강', student: '', from_class_id: 'n3', to_class_id: '', reason: '', apply_date: '2026-10-09' },
@@ -36,7 +37,9 @@ const DB = {
     { id: 3, at: '2026-09-20T03:00:00Z', kind: '주간반이동', student: '', from_class_id: 'r2', to_class_id: 'w261025a', reason: '', apply_date: '2026-10-17' },
     { id: 4, at: '2026-09-20T04:00:00Z', kind: '주간추가', student: '이소율', from_class_id: '', to_class_id: 'r2', reason: '', apply_date: '2026-10-24' },   // 다른 주로 옮기기 짝
     { id: 5, at: '2026-09-20T04:00:01Z', kind: '주간빼기', student: '이소율', from_class_id: 'r1', to_class_id: '', reason: '', apply_date: '2026-10-21' },
-    { id: 9, at: '2026-09-20T05:00:00Z', kind: '주간빼기', student: '이소율', from_class_id: 'n2', to_class_id: '', reason: '직전 보강 대체', apply_date: '2026-10-31' }   // 짝 없는 빼기(이웃 id 아님)
+    { id: 9, at: '2026-09-20T05:00:00Z', kind: '주간빼기', student: '이소율', from_class_id: 'n2', to_class_id: '', reason: '직전 보강 대체', apply_date: '2026-10-31' },   // 짝 없는 빼기(이웃 id 아님)
+    { id: 11, at: '2026-09-20T06:00:00Z', kind: '주간반보강', student: '', from_class_id: 'n3', to_class_id: 'w261016a', reason: '10/30(금) 수업 앞당겨 진행 1/2', apply_date: '2026-10-16' },
+    { id: 12, at: '2026-09-20T06:00:00Z', kind: '주간반이동', student: '', from_class_id: 'n3', to_class_id: 'w261023b', reason: '10/30(금) 수업 앞당겨 진행 2/2', apply_date: '2026-10-30' }
   ]
 };
 /* 강준서(고1 주2회, 10/7~11/6): n1 10/8·10/29·11/5(3) + n2 10/10·10/31(2) + 직보 10/12 + r1 10/14·10/21 + r2 10/17·10/24 = 10 → 강조 / 이소율 = 8(내신 2 정규 4... n2 2 + r1 2 + r2 2 = 6) */
@@ -120,7 +123,7 @@ const DB = {
   await pg.click('tr.r[data-key$="|김건"]');
   await pg.waitForSelector('tr.d');
   const det = await pg.textContent('tr.d');
-  ok(det.includes('10/17, 10/24') && det.includes('10/2, 10/30') && det.includes('10/9 중2 화정A 휴강'), '펼친 줄에 날짜와 휴강 참고 — ' + det.replace(/\s+/g, ' ').slice(0, 120));
+  ok(det.includes('10/17, 10/24') && det.includes('10/2, 10/30(10/16·10/23 진행)') && det.includes('10/9 중2 화정A 휴강'), '펼친 줄에 날짜와 휴강 참고, 나눠 한 수업은 원래 날짜에 진행일 둘 — ' + det.replace(/\s+/g, ' ').slice(0, 140));
   await pg.check('#onlyOver');
   await pg.waitForFunction(() => document.querySelectorAll('section:not(.nonsul) tr.r').length === 2);
   ok((await pg.$$eval('section:not(.nonsul) tr.r td.nm', els => els.map(e => e.textContent))).join() === '강준서,박민선', '강조 학생만 보기');
@@ -156,6 +159,9 @@ const DB = {
   await pg.waitForFunction(() => document.querySelector('.person') && document.querySelector('.person').textContent.includes('박민선'));
   ok((await pg.textContent('.person .sum')).includes('논술 4회 (별도)') && (await pg.$$eval('.person table.p td.ns', els => els.length)) === 4, '개인 카드: 논술 4회(별도)·논술 줄 구분색');
   ok((await pg.textContent('.person .sum')).includes('정규 5회') && (await pg.textContent('.person .sum')).includes('내신 0회') && (await pg.$$eval('.person table.p td.n', els => els.length)) === 0, '고3은 내신 주 수업도 정규로 — 정규 5 · 내신 0, 내신 구분색 없음');
+  await pg.fill('#q', '김건');
+  await pg.waitForFunction(() => document.querySelector('.person') && document.querySelector('.person').textContent.includes('김건'));
+  ok((await pg.$$eval('.person table.p td.hd', els => els.map(e => e.textContent).filter(Boolean))).join() === '10/16 (금) 금7:00 · 10/23 (금) 금7:00에 나눠 진행' && (await pg.$$eval('.person table.p tbody tr', els => els.length)) === 4, '개인 카드 비고: 나눠 진행한 실행 시간 각각, 조각은 따로 세지 않음(4줄)');
   await pg.fill('#q', '강준서');
   await pg.waitForFunction(() => document.querySelector('.person') && document.querySelector('.person').textContent.includes('강준서'));
   ok((await pg.$$eval('.person table.p td.n', els => els.length)) === 5, '내신 날짜 5줄은 구분 색');
