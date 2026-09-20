@@ -18,6 +18,11 @@
      · 짝이 없는 '이 주만 빼기'도 **사유가 직보·대체·당겨서·이동이면 그 수업을 한 것으로 센다**(사용자 2026-09-20 "10/3, 4주차는 9/29 직전보강으로
        3시간 대체했잖아요" — 직전보강이 그 주 수업을 대신한 것). 사유의 'M/D'나 요일('화 1:00')로 진행일을 붙이고, 없으면 '(대체)'로만.
        연휴·휴강·빈 사유 등은 수업 없음으로 보고 참고 열에 적는다(REPL_RE / NOREPL_RE).
+     · **대체 수업은 한 번만 센다**(사용자 2026-09-20 "다른 데이터도 원래의 날짜 기준인지 다시 점검"): 직보로 대체된 수업의 실제 진행 쪽은
+       보통 '이 주만' 반(직보)이나 '이 주만 추가'로 따로 기록돼 있어 그대로 두면 원래 날짜와 진행일에 두 번 센다. 그래서 명단 밖에서
+       들어온 세션(w반·이 주만 추가·1회)을 '추가 세션'으로 표시해 두고, 대체 세션의 진행일(사유의 날짜·요일, 모르면 원래 날짜 앞 3주~뒤 1주
+       안의 가장 가까운 직보)에 있는 추가 세션을 지운다(`claimExtras`). 그러려면 달 범위 밖의 진행일도 봐야 해서 날짜 훑기는 범위 앞뒤 5주를
+       더 돈다(집계 자체는 범위 안만).
      · 집계 로직은 SESSIONS-CORE 블록 한 곳 — tools/sessions-test.js 가 그 블록만 떼어 검증한다. 고치면 테스트도 함께.
      · 학생마다 정규 몇 회·내신 몇 회로 나눠 적는다(그 주의 기간이 정규면 정규, 내신이면 내신 — 사용자 2026-09-20 "내신 몇 회, 정규 몇 회로 기록").
      · 강조 = 주1회 학생은 5회부터, 주2회 학생은 9회부터(사용자 지정) — 일반화해 '4 × 주당 횟수'를 넘으면 강조(CORE.RULE.perWeek).
@@ -385,17 +390,19 @@ var CORE = (function(){
     }
 
     var sess = {}, notes = {}, weeks = [];
-    function addSess(n, c, ds, book, kind, held, heldWhen, alt){
+    function addSess(n, c, ds, book, kind, held, heldWhen, alt, extra){
       var s = sess[n] = sess[n] || {};
-      s[ds + '|' + c.id] = { date: ds, cls: c.name, when: c.day + c.start, kind: kind, book: book, nonsul: isNonsul(c.name),
-                             held: held && held !== ds ? held : '', heldWhen: held && held !== ds ? (heldWhen || '') : '', alt: alt || '' };
+      s[ds + '|' + c.id] = { key: ds + '|' + c.id, date: ds, cls: c.name, when: c.day + c.start, kind: kind, book: book, nonsul: isNonsul(c.name),
+                             held: held && held !== ds ? held : '', heldWhen: held && held !== ds ? (heldWhen || '') : '', alt: alt || '', extra: !!extra };
     }
     var from = parse(win.mid.from < win.high.from ? win.mid.from : win.high.from);
     var to = parse(win.mid.to > win.high.to ? win.mid.to : win.high.to);
+    var fromYmd = ymd(from), toYmd = ymd(to);
     var seenWeek = {};
-    for (var d = from; d <= to; d = addDays(d, 1)){
+    /* 범위 앞뒤 5주를 더 훑는다 — 대체 수업의 진행일(범위 밖일 수 있음)에 있는 추가 세션을 찾아 지우기 위해. 집계는 범위 안만. */
+    for (var d = addDays(from, -35); d <= addDays(to, 35); d = addDays(d, 1)){
       var ds = ymd(d), wed = ymd(weekWed(d)), book = period[wed] || '정규', wd = wdOf(d);
-      if (!seenWeek[wed]){ seenWeek[wed] = 1; weeks.push({ wed: wed, book: book, specified: !!period[wed] }); }
+      if (ds >= fromYmd && ds <= toYmd && !seenWeek[wed]){ seenWeek[wed] = 1; weeks.push({ wed: wed, book: book, specified: !!period[wed] }); }
       classes.forEach(function(c){
         if (c.book !== book) return;
         if (c.wk ? c.wk !== ds : c.day !== wd) return;
@@ -441,14 +448,38 @@ var CORE = (function(){
           }
           names.splice(i, 1); push(notes, n, { date: ds, cls: c.name, kind: '빠짐', reason: x.reason });
         });
-        (wadd[hkey] || []).concat(onceIn[hkey] || []).forEach(function(n){ names.push(canon(n)); });
+        var viaAdd = {};
+        (wadd[hkey] || []).concat(onceIn[hkey] || []).forEach(function(n){ n = canon(n); names.push(n); viaAdd[n] = 1; });
         Object.keys(mvOf).forEach(function(n){ if (names.indexOf(n) < 0) names.push(n); });
+        var wkExtra = !!(c.wk && !copyOf[c.id]);   // '이 주만' 반(직보·보충·새 반)은 명단 밖 추가 세션
         names.forEach(function(n){
           var m = mvOf[n], al = altOf[n];
           if (al) addSess(n, c, ds, book, hc.kind, al.held, '', al.reason);
-          else addSess(n, c, ds, book, hc.kind, m ? m.held : (held !== ds ? held : ''), m ? m.heldWhen : (held !== ds ? hc.day + hc.start : ''));
+          else addSess(n, c, ds, book, hc.kind, m ? m.held : (held !== ds ? held : ''), m ? m.heldWhen : (held !== ds ? hc.day + hc.start : ''), '', !m && (wkExtra || viaAdd[n]));
         });
       });
+    }
+    /* 대체 수업은 한 번만: 사유로 센 세션(alt)의 진행일에 있는 '추가 세션'(직보·이 주만 반·이 주만 추가)은 그 수업의 실제 진행이라 지운다.
+     * 진행일을 모르면 원래 날짜 앞 3주~뒤 1주 안의 가장 가까운 추가 세션(직보 우선)을 그것으로 본다. */
+    function claimExtras(items){
+      var extras = items.filter(function(it){ return it.extra && !it.held && !it.alt; }), used = {};
+      items.filter(function(it){ return it.alt; }).sort(function(a, b){ return a.date < b.date ? -1 : 1; }).forEach(function(al){
+        var cands = extras.filter(function(e){
+          if (used[e.key]) return false;
+          if (al.held) return e.date === al.held;
+          var t = parse(e.date) - parse(al.date);
+          return t >= -21 * 86400e3 && t <= 7 * 86400e3;
+        });
+        if (!cands.length) return;
+        cands.sort(function(a, b){
+          var ja = a.kind === '직보' ? 0 : 1, jb = b.kind === '직보' ? 0 : 1;
+          if (ja !== jb) return ja - jb;
+          return Math.abs(parse(a.date) - parse(al.date)) - Math.abs(parse(b.date) - parse(al.date));
+        });
+        var e = cands[0]; used[e.key] = 1;
+        al.held = e.date; al.heldWhen = e.when;
+      });
+      return items.filter(function(it){ return !used[it.key]; });
     }
     /* 주당 횟수 = 정규 시간표 명단에 든 반 수(이 주만 반 제외). 정규에 없으면 내신 명단으로. */
     var weeklyOf = {};
@@ -470,7 +501,7 @@ var CORE = (function(){
         var ss = st.map(function(x){ return x.school || ''; }).filter(function(g, i, a){ return a.indexOf(g) === i; });
         school = ss.length === 1 ? ss[0] : '동명이인';
       }
-      var items = Object.keys(sess[n] || {}).map(function(k){ return sess[n][k]; });
+      var items = claimExtras(Object.keys(sess[n] || {}).map(function(k){ return sess[n][k]; }));
       if (!grade) items.concat(notes[n] || []).some(function(it){ grade = gradeFromClass(it.cls); return !!grade; });
       var w = (grade.charAt(0) === '중') ? win.mid : win.high;
       items = items.filter(function(it){ return it.date >= w.from && it.date <= w.to; })
