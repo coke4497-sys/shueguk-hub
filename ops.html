@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>슈국 운영 · 슈국 티쳐스</title>
-<meta name="description" content="이수경국어 슈국 운영 — 공지 보내기" />
+<meta name="description" content="이수경국어 슈국 운영 — 공지 보내기 · 월별 수업 회차" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet" />
@@ -83,11 +83,14 @@
 <script>
   const ICON = {
     bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
-    copy:'<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'
+    copy:'<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+    tally:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M7 14h3M14 14h3M7 18h3M14 18h3"/>'
   };
   const REPORT = "https://coke4497-sys.github.io/shueguk-report/";
   const menus = [
     { title:"공지 보내기",      icon:"bell", tone:"sky", url:REPORT+"notice.html", desc:"알려드립니다 공지 작성·관리" },
+    // 월별 수업 회차 (2026-09-20 사용자 요청 — 수강료를 회차별로 받아 한 달 수업 횟수 확인) — 허브 자체 페이지
+    { title:"월별 수업 회차",    icon:"tally", tone:"sky", url:"sessions.html", desc:"학생별 한 달 수업 횟수 — 정규·내신 나눠 세고 주1회 5회·주2회 9회부터 강조" },
   ];
   const svg = inner => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
   const ARROW = svg('<path d="M5 12h14M13 6l6 6-6 6"/>');
