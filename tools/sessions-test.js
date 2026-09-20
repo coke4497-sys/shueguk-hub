@@ -119,7 +119,9 @@ ok('명단 밖 학생은 반이름으로 학년 추정', j && j.grade === '중2'
 
 /* 박민선(고3 주1회): r4/n4 목 5:30 — 10/8(내신) 10/15·10/22(정규) 10/29·11/5(내신) = 5 → 5회부터 강조 */
 const p = by['박민선'];
-ok('박민선 5회 (내신 3 · 정규 2) → 주1회 5회부터 강조', p && p.count === 5 && p.naeshin === 3 && p.regular === 2 && p.weekly === 1 && p.over === true, p && [p.count, p.naeshin, p.regular, p.weekly]);
+ok('박민선(고3) 5회 — 내신 주 수업도 전부 정규(정규 5 · 내신 0) → 주1회 5회부터 강조', p && p.count === 5 && p.naeshin === 0 && p.regular === 5 && p.weekly === 1 && p.over === true, p && [p.count, p.naeshin, p.regular, p.weekly]);
+ok('중3·고3 내내 정규 — 날짜별 구분도 정규', p && p.items.every(it => it.book === '정규') && CORE.ALL_REGULAR['중3'] && CORE.ALL_REGULAR['고3'] && !CORE.ALL_REGULAR['고1']);
+ok('고1은 그대로 정규·내신 나뉨', a && a.naeshin === 4);
 ok('논술은 별도: 일요일 10/11·18·25·11/1 = 4회, 합계·주당 횟수에 안 들어감', p && p.nonsul === 4 && p.weekly === 1 && p.count === 5, p && [p.nonsul, p.weekly, p.count]);
 ok('논술 상세는 따로, 본 상세에는 없음', p && /논술B 국어 일6:00 4회\(10\/11, 10\/18, 10\/25, 11\/1\)/.test(p.nonsulDetail) && !/논술/.test(p.detail), p && [p.detail, p.nonsulDetail]);
 ok('논술 판정은 반이름', CORE.isNonsul('논술B 수학') && !CORE.isNonsul('고1 가'));

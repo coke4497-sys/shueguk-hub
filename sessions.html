@@ -16,6 +16,7 @@
      · 강조 = 주1회 학생은 5회부터, 주2회 학생은 9회부터(사용자 지정) — 일반화해 '4 × 주당 횟수'를 넘으면 강조(CORE.RULE.perWeek).
        주당 횟수는 정규 시간표 명단에 든 반 수(정규에 없으면 내신 명단 기준). 못 세면 강조하지 않는다.
      · 보기 = 전체 / 학년 / 학교 / 개인 (사용자 요청) — 표는 늘 학년별 가나다순.
+     · 중3·고3은 내신 주에도 정규 수업(정규·내신 시간표 명단이 같음)이라 전부 정규 회차로 적는다(사용자 2026-09-20 "중3, 고3은 내내 정규 수업을 진행합니다" — CORE.ALL_REGULAR).
      · 논술 수업(반이름에 '논술')은 별도 집계(사용자 2026-09-20 "논술 수강생은 별도로 집계") — 정규·내신·합계·주당 횟수·강조에
        넣지 않고 '논술' 열과 아래 '논술 수강생' 표에 따로 센다.
      · [표 복사]는 지금 보이는 목록을 탭 구분 글자로 복사한다 — 구글 시트에 그대로 붙여 넣을 수 있다. -->
@@ -257,6 +258,8 @@ var CORE = (function(){
   var WD = ['월','화','수','목','금','토','일'];
   var GORD = { '중1':0, '중2':1, '중3':2, '고1':3, '고2':4, '고3':5 };
   var STUDENT_KINDS = { '1회':1, '주간추가':1, '주간빼기':1 };
+  /* 중3·고3은 내신 주에도 같은 수업(정규·내신 명단 동일)이라 전부 정규로 적는다 — 사용자 2026-09-20 */
+  var ALL_REGULAR = { '중3':1, '고3':1 };
 
   function pad(n){ return (n < 10 ? '0' : '') + n; }
   function ymd(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -404,6 +407,7 @@ var CORE = (function(){
         if (idx[lb] == null){ idx[lb] = byCls.length; byCls.push({ label: lb, jb: it.kind === '직보', ns: it.nonsul, dates: [] }); }
         byCls[idx[lb]].dates.push(it.date);
       });
+      if (ALL_REGULAR[grade]) items = items.map(function(it){ var o = {}; for (var k in it) o[k] = it[k]; o.book = '정규'; return o; });
       var main = items.filter(function(it){ return !it.nonsul; }), nonsul = items.length - main.length;
       var regular = main.filter(function(it){ return it.book === '정규'; }).length, naeshin = main.length - regular;
       var weekly = weeklyOf[n] || 0, thr = threshold(weekly, rule);
@@ -422,7 +426,7 @@ var CORE = (function(){
     });
     return { rows: rows, windows: win, weeks: weeks };
   }
-  return { RULE: RULE, threshold: threshold, windows: windows, build: build, isNonsul: isNonsul, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
+  return { RULE: RULE, ALL_REGULAR: ALL_REGULAR, threshold: threshold, windows: windows, build: build, isNonsul: isNonsul, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
 })();
 /* ==/SESSIONS-CORE== */
 </script>
@@ -569,7 +573,7 @@ var CORE = (function(){
   }
   function noteHtml(){
     return '<p class="note">주마다 슈국 캘린더의 정규/내신 기간에 맞는 시간표로 셉니다(미지정 주는 정규 — 그 주 수업은 정규 회차에 들어가요). '
-      + '이 주만 휴강·이동·보충·추가/빼기·1회 이동·직전보강을 반영했고, 확인 수업·직전보강도 한 회로 셉니다. <b>논술 수업은 별도</b>로 세어 합계·강조에 넣지 않습니다. '
+      + '이 주만 휴강·이동·보충·추가/빼기·1회 이동·직전보강을 반영했고, 확인 수업·직전보강도 한 회로 셉니다. <b>중3·고3은 내내 정규 수업</b>이라 전부 정규 회차로 적고, <b>논술 수업은 별도</b>로 세어 합계·강조에 넣지 않습니다. '
       + '다른 날로 옮겨 진행한 수업은 <b>실제 수업 날짜</b>로 셉니다. 이름을 누르면 날짜별 내역이 펼쳐집니다. '
       + (DATA && DATA.at ? '기준: ' + DATA.at.toLocaleString('ko-KR', { hour12: false }) + ' 시간표.' : '') + '</p>';
   }

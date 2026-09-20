@@ -88,6 +88,7 @@ const DB = {
   ok(s.cells[5] === '6' && !s.over, '이소율 6회는 강조 아님');
   const p = await rowOf('박민선');
   ok(p.cells[5] === '5' && p.cells[7] === '주1회' && p.over && p.cells[8] === '5회↑', '박민선 주1회 5회(논술 4회 제외) → 강조');
+  ok(p.cells[3] === '5' && p.cells[4] === '0', '고3 박민선 정규 5 · 내신 0 (내내 정규)');
   const k = await rowOf('김건');
   ok(k.cells[5] === '4' && !k.over, '김건 주1회 4회는 강조 아님');
   ok((await pg.$$eval('.cc.jb', els => els.length)) === 1, '직전보강 칩 표시');
@@ -136,6 +137,7 @@ const DB = {
   await pg.fill('#q', '박민선');
   await pg.waitForFunction(() => document.querySelector('.person') && document.querySelector('.person').textContent.includes('박민선'));
   ok((await pg.textContent('.person .sum')).includes('논술 4회 (별도)') && (await pg.$$eval('.person table.p td.ns', els => els.length)) === 4, '개인 카드: 논술 4회(별도)·논술 줄 구분색');
+  ok((await pg.textContent('.person .sum')).includes('정규 5회') && (await pg.textContent('.person .sum')).includes('내신 0회') && (await pg.$$eval('.person table.p td.n', els => els.length)) === 0, '고3은 내신 주 수업도 정규로 — 정규 5 · 내신 0, 내신 구분색 없음');
   await pg.fill('#q', '강준서');
   await pg.waitForFunction(() => document.querySelector('.person') && document.querySelector('.person').textContent.includes('강준서'));
   ok((await pg.$$eval('.person table.p td.n', els => els.length)) === 5, '내신 날짜 5줄은 구분 색');
