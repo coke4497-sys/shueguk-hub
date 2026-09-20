@@ -32,7 +32,10 @@ const DB = {
   tt_log: [
     { id: 1, at: '2026-09-20T03:00:00Z', kind: '주간반휴강', student: '', from_class_id: 'n3', to_class_id: '', reason: '', apply_date: '2026-10-09' },
     { id: 2, at: '2026-09-20T03:00:00Z', kind: '주간추가', student: '강준서', from_class_id: '', to_class_id: 'w261012b', reason: '', apply_date: '2026-10-12' },
-    { id: 3, at: '2026-09-20T03:00:00Z', kind: '주간반이동', student: '', from_class_id: 'r2', to_class_id: 'w261025a', reason: '', apply_date: '2026-10-17' }
+    { id: 3, at: '2026-09-20T03:00:00Z', kind: '주간반이동', student: '', from_class_id: 'r2', to_class_id: 'w261025a', reason: '', apply_date: '2026-10-17' },
+    { id: 4, at: '2026-09-20T04:00:00Z', kind: '주간추가', student: '이소율', from_class_id: '', to_class_id: 'r2', reason: '', apply_date: '2026-10-24' },   // 다른 주로 옮기기 짝
+    { id: 5, at: '2026-09-20T04:00:01Z', kind: '주간빼기', student: '이소율', from_class_id: 'r1', to_class_id: '', reason: '', apply_date: '2026-10-21' },
+    { id: 9, at: '2026-09-20T05:00:00Z', kind: '주간빼기', student: '이소율', from_class_id: 'n2', to_class_id: '', reason: '직전 보강 대체', apply_date: '2026-10-31' }   // 짝 없는 빼기(이웃 id 아님)
   ]
 };
 /* 강준서(고1 주2회, 10/7~11/6): n1 10/8·10/29·11/5(3) + n2 10/10·10/31(2) + 직보 10/12 + r1 10/14·10/21 + r2 10/17·10/24 = 10 → 강조 / 이소율 = 8(내신 2 정규 4... n2 2 + r1 2 + r2 2 = 6) */
@@ -86,9 +89,15 @@ const DB = {
   const rowOf = async name => pg.$eval(`tr.r[data-key$="|${name}"]`, tr => ({ cells: [...tr.cells].map(c => c.textContent.trim()), over: tr.classList.contains('over') }));
   const a = await rowOf('강준서');
   ok(a.cells[3] === '5' && a.cells[4] === '5' && a.cells[5] === '10', '강준서 정규 5 · 내신 5 · 합계 10 — ' + a.cells.slice(3, 6).join('/'));
+  ok((await pg.$eval('tr.r[data-key$="|강준서"] td.cls', el => el.textContent)).indexOf('고1 나') >= 0, '강준서 표 칩');
   ok(a.cells[7] === '주2회' && a.over && a.cells[8] === '9회↑', '강준서 주2회 → 9회부터 강조 배지');
   const s = await rowOf('이소율');
-  ok(s.cells[5] === '6' && !s.over, '이소율 6회는 강조 아님');
+  ok(s.cells[5] === '5' && !s.over, '이소율 5회(10/31 확인 이 주만 빠짐)는 강조 아님');
+  await pg.click('tr.r[data-key$="|이소율"]');
+  await pg.waitForSelector('tr.d');
+  const sdet = await pg.textContent('tr.d');
+  ok(sdet.includes('10/21(10/24 진행)') && sdet.includes('10/31 고1 확인 이 주만 빠짐(직전 보강 대체)'), '학생 옮기기는 원래 날짜에 진행일, 짝 없는 빼기는 참고 — ' + sdet.replace(/\s+/g, ' ').slice(0, 120));
+  await pg.click('tr.r[data-key$="|이소율"]');
   const p = await rowOf('박민선');
   ok(p.cells[5] === '5' && p.cells[7] === '주1회' && p.over && p.cells[8] === '5회↑', '박민선 주1회 5회(논술 4회 제외) → 강조');
   ok(p.cells[3] === '5' && p.cells[4] === '0', '고3 박민선 정규 5 · 내신 0 (내내 정규)');

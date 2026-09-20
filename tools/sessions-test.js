@@ -64,20 +64,30 @@ const DATA = {
     cls('내신', 'w261013z', '화', '5:00', '고1 확인', '강준서'),          // 내신 반인데 그 주(10/14)는 정규 → 안 보임
     cls('정규', 'r9', '일', '6:00', '논술B 국어', '박민선'),               // 논술 = 별도 집계 (합계·주당·강조 제외)
     cls('내신', 'n9', '일', '6:00', '논술B 국어', '박민선'),
-    cls('내신', 'w261031b', '토', '5:30', '고3파이널A', '')               // r4 11/12 수업을 10/31로 당겨 진행 → 11월로 센다
+    cls('내신', 'w261031b', '토', '5:30', '고3파이널A', ''),              // r4 11/12 수업을 10/31로 당겨 진행 → 11월로 센다
+    cls('내신', 'w261107a', '토', '4:30', '정리정독 중2', '')              // 김건 10/24 수업을 11/7로 미룬 자리(다른 주로 옮기기)
   ],
   logs: [
     { id: 1, at: '2026-09-20T03:00:00Z', kind: '주간반휴강', student: '', from_class_id: 'n3', to_class_id: '', apply_date: '2026-10-09' },
     { id: 2, at: '2026-09-20T03:00:00Z', kind: '주간반이동', student: '', from_class_id: 'r2', to_class_id: 'w261025a', apply_date: '2026-10-17' },
     { id: 3, at: '2026-09-20T03:00:00Z', kind: '주간반보강', student: '', from_class_id: 'r1', to_class_id: 'w261015a', apply_date: '2026-10-14' },
     { id: 4, at: '2026-09-20T03:00:00Z', kind: '주간추가', student: '강준서', from_class_id: '', to_class_id: 'w261012b', apply_date: '2026-10-12' },
-    { id: 5, at: '2026-09-20T03:00:00Z', kind: '주간빼기', student: '강준서', from_class_id: 'n2', to_class_id: '', apply_date: '2026-10-10' },
-    { id: 6, at: '2026-09-20T03:00:00Z', kind: '1회', student: '이소율', from_class_id: 'r1', to_class_id: 'r2', apply_date: '2026-10-24', reason: '가족 행사' },
+    { id: 20, at: '2026-09-20T03:00:00Z', kind: '주간빼기', student: '강준서', from_class_id: 'n2', to_class_id: '', apply_date: '2026-10-10' },   // id 4 추가와 이웃이 아니라 짝이 아님
+    { id: 6, at: '2026-09-20T03:00:00Z', kind: '1회', student: '이소율', from_class_id: 'r1', to_class_id: 'r3', apply_date: '2026-10-24', reason: '가족 행사' },   // 10/21(수) 수업을 10/24(토) 다른 반에서
     { id: 7, at: '2026-09-20T03:00:00Z', kind: '영구', student: '강준서', from_class_id: 'r1', to_class_id: 'r2', apply_date: null },  // 무관한 종류는 무시
-    { id: 8, at: '2026-09-20T03:00:00Z', kind: '주간반이동', student: '', from_class_id: 'r4', to_class_id: 'w261031b', apply_date: '2026-11-12', reason: '앞당겨 진행' }
+    { id: 8, at: '2026-09-20T03:00:00Z', kind: '주간반이동', student: '', from_class_id: 'r4', to_class_id: 'w261031b', apply_date: '2026-11-12', reason: '앞당겨 진행' },
+    // 학생 한 명 '다른 주로 옮기기' = 같은 순간의 주간추가+주간빼기 짝: 양지우 r1 10/21 → r2 10/24
+    { id: 9, at: '2026-09-20T04:00:00Z', kind: '주간추가', student: '양지우A', from_class_id: '', to_class_id: 'r2', apply_date: '2026-10-24', reason: '' },
+    { id: 10, at: '2026-09-20T04:00:01Z', kind: '주간빼기', student: '양지우A', from_class_id: 'r1', to_class_id: '', apply_date: '2026-10-21', reason: '' },
+    // 김건 10/24(중등 10월) 수업을 11/7로 미룸 → 10월로 센다
+    { id: 11, at: '2026-09-20T05:00:00Z', kind: '주간추가', student: '김건', from_class_id: '', to_class_id: 'w261107a', apply_date: '2026-11-07', reason: '' },
+    { id: 12, at: '2026-09-20T05:00:03Z', kind: '주간빼기', student: '김건', from_class_id: 'r3', to_class_id: '', apply_date: '2026-10-24', reason: '' },
+    // 짝 없는 빼기(사유만) = 수업 없음
+    { id: 13, at: '2026-09-21T05:00:00Z', kind: '주간빼기', student: '심지후', from_class_id: 'r3', to_class_id: '', apply_date: '2026-10-17', reason: '직전 보강 대체' }
   ]
 };
 const R = CORE.build(JSON.parse(JSON.stringify(DATA)), 2026, 10);
+const R11 = CORE.build(JSON.parse(JSON.stringify(DATA)), 2026, 11);
 const by = {}; R.rows.forEach(r => by[r.name] = r);
 const dates = (r, label) => { const b = r.byCls.find(x => x.label === label); return b ? b.dates.map(CORE.md).join(',') : '(없음)'; };
 
@@ -90,6 +100,7 @@ ok('강준서 합계 10', a && a.count === 10, a && a.detail);
 ok('강준서 내신 4 · 정규 6', a && a.naeshin === 4 && a.regular === 6, a && [a.naeshin, a.regular]);
 ok('강준서 내신 진도 3회 날짜', a && dates(a, '고1 화정B(천재수) 목5:30') === '10/8,10/29,11/5', a && a.detail);
 ok('주간빼기 10/10은 빠지고 10/31만', a && dates(a, '고1 확인 토3:30') === '10/31');
+ok('짝 없는 빼기는 참고에 사유와 함께', a && /10\/10 고1 확인 이 주만 빠짐/.test(a.noteText), a && a.noteText);
 ok('주간추가로 직보 10/12 포함(직보 표시)', a && dates(a, '고1 화정B 월1:30(직보)') === '10/12' && a.byCls.some(b => b.jb));
 ok('보강 복사본은 원본 명단으로 10/15', a && dates(a, '고1 가 목5:30') === '10/15');
 ok('옮긴 수업은 원래 날짜(10/17)로 세고 복사본 날짜(10/25)는 따로 안 셈', a && dates(a, '고1 나 토3:30') === '10/17,10/24' && !a.byCls.some(b => b.label === '고1 나 일3:30'));
@@ -98,27 +109,29 @@ ok('내신 반인데 정규 주(10/13)는 안 셈', a && !a.items.some(it => it.
 ok('강준서 주2회 → 기준 8 → 10회는 강조', a && a.weekly === 2 && a.threshold === 8 && a.over === true);
 ok('고등 범위 밖(10/1 목 n1)은 안 셈', a && !a.items.some(it => it.date < '2026-10-07'));
 
-/* 이소율: r1 10/14(10/21은 1회 이동으로 빠짐) + 보강 10/15 + r2 10/17(10/25에 진행, '10/17부터' 표기 OK) + 10/24(1회 이동 도착 = 명단과 겹쳐도 1회) = 4 */
+/* 이소율: r1 10/14 + 10/21(1회 이동으로 10/24 r3에서 진행 — 원래 날짜로 셈) + 보강 10/15 + r2 10/17(10/25에 진행, '10/17부터' 표기 OK)·10/24 = 5 */
 const s = by['이소율'];
 ok('이소율 한 줄로 합쳐짐(이소율A 표기 흡수)', s && !by['이소율A']);
-ok('이소율 합계 4 (정규 4 · 내신 0)', s && s.count === 4 && s.regular === 4 && s.naeshin === 0, s && s.detail);
-ok('1회 이동: 원래 반 10/21은 빠지고 10/24 도착', s && dates(s, '고1 가 수5:30') === '10/14' && dates(s, '고1 나 토3:30') === '10/17,10/24');
-ok('이소율 주2회(가+나) → 4회는 강조 아님', s && s.weekly === 2 && s.over === false);
+ok('이소율 합계 5 (정규 5 · 내신 0)', s && s.count === 5 && s.regular === 5 && s.naeshin === 0, s && s.detail);
+ok('1회 이동: 원래 반 10/21 줄에 10/24 진행으로 세고 도착 반(r3) 10/24는 따로 안 셈', s && dates(s, '고1 가 수5:30') === '10/14,10/21' && dates(s, '고1 나 토3:30') === '10/17,10/24' && !s.byCls.some(b => /정리정독/.test(b.label)) && s.items.some(it => it.date === '2026-10-21' && it.held === '2026-10-24' && it.heldWhen === '토4:30'), s && s.detail);
+ok('이소율 주2회(가+나) → 5회는 강조 아님', s && s.weekly === 2 && s.over === false);
 
 /* 양지우: 명단 '양지우A'(r1)·'양지우'(n2) → 한 사람. r1 2 + 보강 1 + n2 10/10·10/31 = 5 */
 const y = by['양지우'];
 ok('양지우 A 표기 합쳐 5회 (정규 3 · 내신 2)', y && y.count === 5 && y.regular === 3 && y.naeshin === 2 && !by['양지우A'], y && y.detail);
+ok('다른 주로 옮기기(추가+빼기 짝): r1 10/21 줄에 10/24 진행, r2 10/24는 따로 안 셈', y && dates(y, '고1 가 수5:30') === '10/14,10/21' && !y.byCls.some(b => b.label === '고1 나 토3:30') && y.items.some(it => it.date === '2026-10-21' && it.held === '2026-10-24'), y && y.detail);
 
 /* 김건(중2, 10/1~10/31): r3 토 정규 주 10/17·10/24(2) + n3 금 내신 주 10/2·10/30(2, 10/9 휴강) = 4 → 주1회 → 기준 4 → 강조 아님 */
 const k = by['김건'];
-ok('김건 합계 4 (정규 2 · 내신 2)', k && k.count === 4 && k.regular === 2 && k.naeshin === 2, k && k.detail);
+ok('김건 합계 4 (정규 2 · 내신 2) — 11/7로 미룬 10/24 수업도 10월', k && k.count === 4 && k.regular === 2 && k.naeshin === 2 && k.items.some(it => it.date === '2026-10-24' && it.held === '2026-11-07'), k && k.detail);
+ok('11월 김건: 11/7 복사본은 따로 안 셈', !(R11.rows.find(r => r.name === '김건') || { items: [] }).items.some(it => it.date === '2026-11-07'));
 ok('김건 휴강 참고 표기', k && k.noteText === '10/9 중2 화정A 휴강', k && k.noteText);
 ok('김건 중등 범위: 10/2 포함, 11월 제외', k && k.items.some(it => it.date === '2026-10-02') && !k.items.some(it => it.date >= '2026-11-01'));
 ok('김건 주1회 → 4회는 강조 아님(5회부터)', k && k.weekly === 1 && k.threshold === 4 && k.over === false);
 
 /* 심지후: 명단에 없음 → 반이름으로 중2, 앞 괄호 학교 구분 뗌 */
 const j = by['심지후'];
-ok('명단 밖 학생은 반이름으로 학년 추정', j && j.grade === '중2' && j.school === '' && j.count === 2, j);
+ok('명단 밖 학생은 반이름으로 학년 추정 · 짝 없는 빼기(10/17)는 수업 없음', j && j.grade === '중2' && j.school === '' && j.count === 1 && /10\/17 정리정독 중2 이 주만 빠짐\(직전 보강 대체\)/.test(j.noteText), j);
 
 /* 박민선(고3 주1회): r4/n4 목 5:30 — 10/8(내신) 10/15·10/22(정규) 10/29·11/5(내신) = 5 → 5회부터 강조 */
 const p = by['박민선'];
@@ -132,7 +145,6 @@ ok('논술 판정은 반이름', CORE.isNonsul('논술B 수학') && !CORE.isNons
 ok('논술 없는 학생은 0', a && a.nonsul === 0 && a.nonsulDetail === '');
 
 /* 다른 달·다른 규칙 */
-const R11 = CORE.build(JSON.parse(JSON.stringify(DATA)), 2026, 11);
 const a11 = R11.rows.find(r => r.name === '강준서') || {};
 ok('11월(11/7~12/6): 11/7 내신 확인 1 + 미지정 정규 4주 × 가·나 = 9', a11.count === 9 && a11.naeshin === 1 && a11.regular === 8, a11.detail);
 const p11 = R11.rows.find(r => r.name === '박민선') || {};
