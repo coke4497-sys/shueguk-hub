@@ -21,8 +21,16 @@
      · **대체 수업은 한 번만 센다**(사용자 2026-09-20 "다른 데이터도 원래의 날짜 기준인지 다시 점검"): 직보로 대체된 수업의 실제 진행 쪽은
        보통 '이 주만' 반(직보)이나 '이 주만 추가'로 따로 기록돼 있어 그대로 두면 원래 날짜와 진행일에 두 번 센다. 그래서 명단 밖에서
        들어온 세션(w반·이 주만 추가·1회)을 '추가 세션'으로 표시해 두고, 대체 세션의 진행일(사유의 날짜·요일, 모르면 원래 날짜 앞 3주~뒤 1주
-       안의 가장 가까운 직보)에 있는 추가 세션을 지운다(`claimExtras`). 그러려면 달 범위 밖의 진행일도 봐야 해서 날짜 훑기는 범위 앞뒤 5주를
+       안의 가장 가까운 직보)에 있는 추가 세션을 지운다(`claimExtras`). 그러려면 달 범위 밖의 진행일도 봐야 해서 날짜 훑기는 범위 앞뒤 6주를
        더 돈다(집계 자체는 범위 안만).
+     · **한 수업을 여러 번에 나눠 진행한 것도 원래 날짜 한 회 + 진행(날짜·시간)을 각각 기록**(사용자 2026-09-20 "두 번에 나누어 진행한 것도
+       원래의 날짜로 셉니다. 실행 시간을 각각 기록해주세요"): 세션마다 `runs`(진행 목록). 조각 판정은 추가 세션의 사유(보강 기록·이 주만 추가
+       기록)나 반이름 — '앞당겨·당겨·이동·직보·대체'(REPL_RE) 또는 'k/m'(1/3·2/3…, `partMark`) 또는 '나눠'. 붙일 곳은 ① 사유의 날짜(`datesInReason` —
+       '10/8(목)'·'9/4, 11, 18에')의 수업 줄(없으면 그 주, '확인'이라 적혀 있으면 확인 수업) ② 날짜가 없으면 뒤 6주 안 같은 반의 옮긴·대체 수업 중
+       진행일이 가장 가까운 것. 그 날 수업이 휴강·빠짐 참고로만 남아 있으면 참고를 수업 줄로 되살려 붙인다(n7 10/11 휴강 "9/6, 9/13, 9/20에
+       나눠서 이미 함"). 옮긴 수업의 이동 사유에 적힌 다른 날짜의 같은 반 추가 세션(하루 하나)도 그 줄로 끌어온다(`absorbParts`). 같은 날 다른
+       시간에 대체한 수업('목 7:00 직전대비')은 진행을 같은 날짜·그 시간으로 적어 '10/1(7:00 진행)'. 어디에도 못 붙인 추가 세션(진도 보강·서비스
+       보충·사유 없는 이 주만 반)은 그대로 자기 날짜에 센다.
      · 집계 로직은 SESSIONS-CORE 블록 한 곳 — tools/sessions-test.js 가 그 블록만 떼어 검증한다. 고치면 테스트도 함께.
      · 학생마다 정규 몇 회·내신 몇 회로 나눠 적는다(그 주의 기간이 정규면 정규, 내신이면 내신 — 사용자 2026-09-20 "내신 몇 회, 정규 몇 회로 기록").
      · 강조 = 주1회 학생은 5회부터, 주2회 학생은 9회부터(사용자 지정) — 일반화해 '4 × 주당 횟수'를 넘으면 강조(CORE.RULE.perWeek).
@@ -284,6 +292,28 @@ var CORE = (function(){
     if (w){ var wed = weekWed(o); return ymd(addDays(wed, WDK[w[1]] - 2)); }
     return '';
   }
+  /* 사유의 시각('목 7:00'·'4:15 수업 시작') → 'H:MM' (같은 날 다른 시간에 대체한 수업의 진행 시간 표기용) */
+  function timeFromReason(reason){ var m = /(\d{1,2}:\d{2})/.exec(String(reason || '')); return m ? m[1] : ''; }
+  /* 'k/m' 부분 표시(1/2·2/3…) — 한 수업을 여러 번에 나눠 한 조각. 날짜(9/6·10/11)와는 k≤m≤5 로 가른다 */
+  function partMark(s){ var m = /(?:^|[^\d])([1-5])\/([1-5])(?![\d\/])/.exec(String(s || '')); return !!(m && +m[1] <= +m[2]); }
+  /* 사유에 적힌 날짜들 — '10/8(목)'·'9/4, 11, 18에'·'9/6,12,19' (뒤따르는 날 수는 같은 달로) → yyyy-mm-dd 목록(중복 제외) */
+  function datesInReason(reason, refYmd){
+    var r = String(reason || ''), o = parse(refYmd) || new Date(), out = [], re = /(\d{1,2})\/(\d{1,2})(?![\d\/])((?:\s*,\s*\d{1,2}(?![\d\/:시분%]))*)/g, m;
+    function add(mo, da){
+      if (mo < 1 || mo > 12 || da < 1 || da > 31) return;
+      if (mo <= 5 && da <= 5 && mo <= da) return;   // k/m 부분 표시
+      var y = o.getFullYear(), d = new Date(y, mo - 1, da);
+      if (d - o > 200 * 86400e3) d = new Date(y - 1, mo - 1, da); if (o - d > 200 * 86400e3) d = new Date(y + 1, mo - 1, da);
+      var v = ymd(d); if (out.indexOf(v) < 0) out.push(v);
+    }
+    while ((m = re.exec(r))){
+      add(+m[1], +m[2]);
+      (m[3] || '').split(',').forEach(function(t){ t = t.trim(); if (/^\d{1,2}$/.test(t)) add(+m[1], +t); });
+    }
+    return out;
+  }
+  /* 반이름의 뿌리 — 교재 괄호·'k/m' 조각 표시·학교 구분을 뗀 이름(같은 수업의 조각인지 대조용) */
+  function baseCls(name){ return String(name || '').replace(/\([^)]*\)/g, '').replace(/\b[1-5]\/[1-5]\b/g, '').replace(/\s+/g, ' ').trim(); }
   /* 중3·고3은 내신 주에도 같은 수업(정규·내신 명단 동일)이라 전부 정규로 적는다 — 사용자 2026-09-20 */
   var ALL_REGULAR = { '중3':1, '고3':1 };
 
@@ -306,8 +336,13 @@ var CORE = (function(){
   function gradeShort(g){ var m = /(고등|중등)\s*(\d)학년/.exec(String(g || '')); return m ? (m[1] === '고등' ? '고' : '중') + m[2] : ''; }
   function gradeFromClass(name){ var m = /(중|고)\s?([1-3])/.exec(String(name || '')); return m ? m[1] + m[2] : ''; }
   function md(s){ return (+s.slice(5, 7)) + '/' + (+s.slice(8, 10)); }
-  /* 반별 날짜 표기 — 옮겨 진행한 수업은 '10/10(9/19 진행)' */
-  function dlabel(b, d){ return md(d) + (b.helds && b.helds[d] ? '(' + md(b.helds[d]) + ' 진행)' : (b.alts && b.alts[d] ? '(대체)' : '')); }
+  /* 반별 날짜 표기 — 옮겨 진행한 수업은 '10/10(9/19 진행)', 나눠 한 수업은 '10/8(9/3·9/10·9/17 진행)', 같은 날 다른 시간은 '10/1(7:00 진행)' */
+  function runLabel(d, r){ return r.date === d ? (r.when ? r.when.replace(/^[월화수목금토일]/, '') : '같은 날') : md(r.date); }
+  function dlabel(b, d){
+    var rs = b.runs && b.runs[d];
+    if (rs && rs.length) return md(d) + '(' + rs.map(function(r){ return runLabel(d, r); }).join('·') + ' 진행)';
+    return md(d) + (b.helds && b.helds[d] ? '(' + md(b.helds[d]) + ' 진행)' : (b.alts && b.alts[d] ? '(대체)' : ''));
+  }
   /* 논술 수업은 별도 집계 — 반이름에 '논술'(논술B 국어·수학 등) */
   function isNonsul(name){ return /논술/.test(String(name || '')); }
 
@@ -336,7 +371,7 @@ var CORE = (function(){
       var src = byId[g.from_class_id], cps = byId[g.to_class_id];
       if (src && cps) cps.forEach(function(cp){ cp.roster = src[0].roster; });
     });
-    var off = {}, moved = {}, copyOf = {}, wadd = {}, wdel = {}, onceIn = {}, stuMove = {};
+    var off = {}, moved = {}, copyOf = {}, wadd = {}, wdel = {}, onceIn = {}, stuMove = {}, copyReason = {};
     function push(m, k, v){ (m[k] = m[k] || []).push(v); }
     function whenOf(cid){ var c = byId[cid]; return c ? c[0].day + c[0].start : ''; }
     /* 학생 한 명 '다른 주로 옮기기' = 같은 학생으로 잇달아(id가 이웃, 2분 안) 기록된 주간추가+주간빼기 짝
@@ -361,7 +396,8 @@ var CORE = (function(){
       var st = plainName(g.student);
       if (g.kind === '주간반휴강') off[g.from_class_id + '|' + d] = g;
       else if (g.kind === '주간반이동'){ moved[g.from_class_id + '|' + d] = g; copyOf[g.to_class_id] = g; }
-      else if (g.kind === '주간추가' && st){ if (!paired[g.id]) push(wadd, g.to_class_id + '|' + d, st); }
+      else if (g.kind === '주간반보강'){ copyReason[g.to_class_id] = String(g.reason || '').trim(); }
+      else if (g.kind === '주간추가' && st){ if (!paired[g.id]) push(wadd, g.to_class_id + '|' + d, { name: st, reason: String(g.reason || '').trim() }); }
       else if (g.kind === '주간빼기' && st){ if (!paired[g.id]) push(wdel, g.from_class_id + '|' + d, { name: st, reason: String(g.reason || '').trim() }); }
       else if (g.kind === '1회' && st){
         /* 1회 이동 = 원래 반의 같은 주(월~일) 그 요일 수업을 옮겨 간 날에 한 것 — 원래 날짜 줄로 센다 */
@@ -370,7 +406,7 @@ var CORE = (function(){
           var wed = weekWed(dd);
           for (var k = -2; k <= 4; k++){ var x = addDays(wed, k); if (wdOf(x) === fr[0].day){ push(stuMove, g.from_class_id + '|' + ymd(x), { name: st, held: d, heldWhen: whenOf(g.to_class_id) }); placed = true; } }
         }
-        if (!placed) push(onceIn, g.to_class_id + '|' + d, st);   // 원래 반을 모르면 옮겨 간 날에 센다
+        if (!placed) push(onceIn, g.to_class_id + '|' + d, { name: st, reason: String(g.reason || '').trim() });   // 원래 반을 모르면 옮겨 간 날에 센다
       }
     });
     /* 학생 이름 → 학년·학교 (정확히 → 끝의 A만 떼고 → A를 붙여서: 슈국 스케쥴 asKey와 같은 규칙) */
@@ -390,17 +426,35 @@ var CORE = (function(){
     }
 
     var sess = {}, notes = {}, weeks = [];
-    function addSess(n, c, ds, book, kind, held, heldWhen, alt, extra){
-      var s = sess[n] = sess[n] || {};
-      s[ds + '|' + c.id] = { key: ds + '|' + c.id, date: ds, cls: c.name, when: c.day + c.start, kind: kind, book: book, nonsul: isNonsul(c.name),
-                             held: held && held !== ds ? held : '', heldWhen: held && held !== ds ? (heldWhen || '') : '', alt: alt || '', extra: !!extra };
+    /* 세션 한 줄. runs = 실제 진행(날짜·시간) 목록 — 옮긴 수업은 진행일 하나, 나눠 한 수업은 여럿, 같은 날 다른 시간에 대체하면 날짜가 같고 시간만 다르다.
+     * held/heldWhen(첫 진행일, 원래 날짜와 다를 때만)은 옛 화면·테스트 호환용으로 함께 둔다. */
+    function addSess(n, c, ds, book, kind, o){
+      o = o || {};
+      var s = sess[n] = sess[n] || {}, runs = [];
+      if (o.held && (o.held !== ds || o.heldWhen)) runs.push({ date: o.held, when: o.heldWhen || '' });
+      var it = { key: ds + '|' + c.id, date: ds, cls: c.name, when: c.day + c.start, kind: kind, book: book, nonsul: isNonsul(c.name),
+                 runs: runs, alt: o.alt || '', extra: !!o.extra, reason: o.reason || '', mvDates: o.mvDates || [] };
+      syncHeld(it);
+      s[it.key] = it;
+    }
+    /* 진행 한 건 더하기 — 같은 날짜가 이미 있으면(사유로 알아낸 진행일에 실제 세션이 있는 경우) 시간만 채운다 */
+    function addRun(it, date, when){
+      var same = it.runs.filter(function(r){ return r.date === date; })[0];
+      if (same && (!same.when || same.when === when || !when)){ if (when) same.when = when; }
+      else it.runs.push({ date: date, when: when || '' });
+      syncHeld(it);
+    }
+    function syncHeld(it){
+      it.runs.sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : (a.when < b.when ? -1 : 1); });
+      var f = it.runs.filter(function(r){ return r.date !== it.date; })[0];
+      it.held = f ? f.date : ''; it.heldWhen = f ? f.when : '';
     }
     var from = parse(win.mid.from < win.high.from ? win.mid.from : win.high.from);
     var to = parse(win.mid.to > win.high.to ? win.mid.to : win.high.to);
     var fromYmd = ymd(from), toYmd = ymd(to);
     var seenWeek = {};
-    /* 범위 앞뒤 5주를 더 훑는다 — 대체 수업의 진행일(범위 밖일 수 있음)에 있는 추가 세션을 찾아 지우기 위해. 집계는 범위 안만. */
-    for (var d = addDays(from, -35); d <= addDays(to, 35); d = addDays(d, 1)){
+    /* 범위 앞뒤 6주를 더 훑는다 — 대체·나눠 한 수업의 진행일(범위 밖일 수 있음)에 있는 추가 세션을 찾아 원래 날짜에 붙이기 위해. 집계는 범위 안만. */
+    for (var d = addDays(from, -42); d <= addDays(to, 42); d = addDays(d, 1)){
       var ds = ymd(d), wed = ymd(weekWed(d)), book = period[wed] || '정규', wd = wdOf(d);
       if (ds >= fromYmd && ds <= toYmd && !seenWeek[wed]){ seenWeek[wed] = 1; weeks.push({ wed: wed, book: book, specified: !!period[wed] }); }
       classes.forEach(function(c){
@@ -418,24 +472,27 @@ var CORE = (function(){
         /* 학생 한 명이 옮긴 수업(다른 주로 옮기기·1회 이동): 이 반·이 날짜 줄로 세되 실제 진행일을 붙인다 */
         var mvOf = {};
         (stuMove[key] || []).forEach(function(m){ mvOf[canon(m.name)] = m; });
+        function note(n, kind, x){ var o = { date: ds, cls: c.name, kind: kind, book: book, when: c.day + c.start, ckind: c.kind }; for (var k in x) o[k] = x[k]; push(notes, n, o); }
         if (off[key]){
-          names.forEach(function(n){ if (mvOf[n]) return; push(notes, n, { date: ds, cls: c.name, kind: '휴강' }); });
-          Object.keys(mvOf).forEach(function(n){ addSess(n, c, ds, book, c.kind, mvOf[n].held, mvOf[n].heldWhen); });
+          names.forEach(function(n){ if (mvOf[n]) return; note(n, '휴강', { reason: String(off[key].reason || '').trim() }); });
+          Object.keys(mvOf).forEach(function(n){ addSess(n, c, ds, book, c.kind, mvOf[n]); });
           return;
         }
         /* 반 전체를 옮긴 수업은 복사본(실제 진행일)을 따라가되 '원래 날짜' 줄로 센다 — 여러 번 옮겼으면 끝까지 따라간다 */
-        var held = ds, hc = c, hkey = key, hops = 0, lost = '';
+        var held = ds, hc = c, hkey = key, hops = 0, lost = '', mvDates = [];
         while (moved[hkey] && hops++ < 5){
           var mv = moved[hkey], cp = byId[mv.to_class_id];
           var hy = wkIdYmd(mv.to_class_id);
           if (!cp || !hy){ lost = '이동'; break; }
+          /* 이동 사유에 적힌 다른 날짜('9/4, 11, 18에 앞당겨 진행') = 그 수업을 나눠 한 날들 — 그 날의 같은 반 추가 세션을 이 줄로 끌어온다 */
+          datesInReason(mv.reason, hy).forEach(function(x){ if (x !== ds && x !== hy && mvDates.indexOf(x) < 0) mvDates.push(x); });
           hc = cp[0]; held = hy; hkey = hc.id + '|' + held;
           if (off[hkey]){ lost = '휴강'; break; }
         }
         (stuMove[hkey] || []).forEach(function(m){ mvOf[canon(m.name)] = m; });   // 복사본 쪽에 기록된 학생 이동도
         if (lost){
-          names.forEach(function(n){ if (mvOf[n]) return; push(notes, n, { date: ds, cls: c.name, kind: lost, to: held !== ds ? held : '' }); });
-          Object.keys(mvOf).forEach(function(n){ addSess(n, c, ds, book, c.kind, mvOf[n].held, mvOf[n].heldWhen); });
+          names.forEach(function(n){ if (mvOf[n]) return; note(n, lost, { to: held !== ds ? held : '' }); });
+          Object.keys(mvOf).forEach(function(n){ addSess(n, c, ds, book, c.kind, mvOf[n]); });
           return;
         }
         var altOf = {};
@@ -443,19 +500,22 @@ var CORE = (function(){
           var n = canon(x.name), i = names.indexOf(n);
           if (i < 0) return;
           if (REPL_RE.test(x.reason) && !NOREPL_RE.test(x.reason)){   // 직보·대체 등으로 다른 날 한 수업 — 이 날짜로 센다
-            altOf[n] = { reason: x.reason, held: heldFromReason(x.reason, ds) };
+            var ah = heldFromReason(x.reason, ds), at = timeFromReason(x.reason);
+            altOf[n] = { reason: x.reason, held: ah, heldWhen: ah && at ? wdOf(parse(ah)) + at : '' };   // 같은 날 다른 시간('목 7:00')이면 시간만 기록
             return;
           }
-          names.splice(i, 1); push(notes, n, { date: ds, cls: c.name, kind: '빠짐', reason: x.reason });
+          names.splice(i, 1); note(n, '빠짐', { reason: x.reason });
         });
         var viaAdd = {};
-        (wadd[hkey] || []).concat(onceIn[hkey] || []).forEach(function(n){ n = canon(n); names.push(n); viaAdd[n] = 1; });
+        (wadd[hkey] || []).concat(onceIn[hkey] || []).forEach(function(a){ var n = canon(a.name); names.push(n); viaAdd[n] = a.reason || ''; });
         Object.keys(mvOf).forEach(function(n){ if (names.indexOf(n) < 0) names.push(n); });
         var wkExtra = !!(c.wk && !copyOf[c.id]);   // '이 주만' 반(직보·보충·새 반)은 명단 밖 추가 세션
         names.forEach(function(n){
           var m = mvOf[n], al = altOf[n];
-          if (al) addSess(n, c, ds, book, hc.kind, al.held, '', al.reason);
-          else addSess(n, c, ds, book, hc.kind, m ? m.held : (held !== ds ? held : ''), m ? m.heldWhen : (held !== ds ? hc.day + hc.start : ''), '', !m && (wkExtra || viaAdd[n]));
+          if (al) addSess(n, c, ds, book, hc.kind, { held: al.held, heldWhen: al.heldWhen, alt: al.reason });
+          else if (m) addSess(n, c, ds, book, hc.kind, { held: m.held, heldWhen: m.heldWhen });
+          else addSess(n, c, ds, book, hc.kind, { held: held !== ds ? held : '', heldWhen: held !== ds ? hc.day + hc.start : '', mvDates: mvDates,
+                                                   extra: wkExtra || viaAdd[n] != null, reason: (c.wk && copyReason[c.id]) || (viaAdd[n] != null ? viaAdd[n] : '') });
         });
       });
     }
@@ -477,7 +537,66 @@ var CORE = (function(){
           return Math.abs(parse(a.date) - parse(al.date)) - Math.abs(parse(b.date) - parse(al.date));
         });
         var e = cands[0]; used[e.key] = 1;
-        al.held = e.date; al.heldWhen = e.when;
+        addRun(al, e.date, e.when);
+      });
+      return items.filter(function(it){ return !used[it.key]; });
+    }
+    /* 한 수업을 여러 번에 나눠 한 조각(사용자 2026-09-20 "두 번에 나누어 진행한 것도 원래의 날짜로 — 실행 시간을 각각 기록"):
+     * 명단 밖 추가 세션 가운데 사유(보강 기록·이 주만 추가 기록)나 반이름이 '앞당겨·당겨·이동·직보·대체'나 'k/m'(1/2·2/3…)이면 다른 수업의 조각으로 보고
+     * ① 사유에 날짜가 있으면 그 날짜(없으면 그 주)의 수업 줄에, ② 없으면 앞뒤 6주 안 같은 반의 옮긴·대체 수업 줄(진행일이 조각 날짜와 가장 가까운 것)에
+     * 진행(날짜·시간)으로 붙이고 따로 세지 않는다. 그 날짜의 수업이 휴강·빠짐 참고로만 남아 있으면 그 참고를 수업 줄로 되살려 붙인다.
+     * 옮긴 수업의 이동 사유에 적힌 다른 날짜(mvDates)의 같은 반 추가 세션도 그 줄의 진행으로 끌어온다. 어디에도 못 붙이면 그대로 추가 세션(자기 날짜)으로 센다. */
+    var PART_RE = /나누|나눠/;
+    function isPart(it){ return it.extra && (partMark(it.reason) || partMark(it.cls) || PART_RE.test(it.reason) || (REPL_RE.test(it.reason) && !NOREPL_RE.test(it.reason))); }
+    function wantsCheck(it){ return /확인/.test(it.reason) || /확인/.test(it.cls); }
+    function family(it, tg){ return wantsCheck(it) ? /확인/.test(tg.cls) : (baseCls(tg.cls) === baseCls(it.cls) || (partMark(it.cls) && !/확인/.test(tg.cls))); }
+    function runDist(tg, d){
+      var best = Infinity, t = parse(d);
+      (tg.runs.length ? tg.runs : [{ date: tg.date }]).forEach(function(r){ var x = Math.abs(parse(r.date) - t); if (x < best) best = x; });
+      return best;
+    }
+    function absorbParts(items, notesOf){
+      var used = {}, byDate = {};
+      items.forEach(function(it){ push(byDate, it.date, it); });
+      function attach(tg, p){ addRun(tg, p.date, p.when); used[p.key] = 1; }
+      /* ① 옮긴 수업의 이동 사유에 적힌 다른 날짜 → 그 날의 같은 반 추가 세션 */
+      items.forEach(function(tg){
+        (tg.mvDates || []).forEach(function(d){
+          /* 그 날 같은 반 추가 세션이 여럿이면 하나만(조각 표시가 있는 것 → 옮긴 복사본과 같은 시간 → 이른 시간) — 나머지(같은 날의 진짜 보충)는 그대로 */
+          var c = (byDate[d] || []).filter(function(e){ return !used[e.key] && e.extra && e !== tg && baseCls(e.cls) === baseCls(tg.cls); });
+          if (!c.length) return;
+          var w0 = tg.runs.length ? tg.runs[0].when : '';
+          c.sort(function(a, b){ return (isPart(a) ? 0 : 1) - (isPart(b) ? 0 : 1) || (a.when === w0 ? 0 : 1) - (b.when === w0 ? 0 : 1) || (a.when < b.when ? -1 : 1); });
+          attach(tg, c[0]);
+        });
+      });
+      /* ② 조각 세션 → 원래 수업 줄 */
+      items.filter(function(it){ return isPart(it) && !used[it.key]; }).sort(function(a, b){ return a.date < b.date ? -1 : 1; }).forEach(function(p){
+        var ds = datesInReason(p.reason, p.date).filter(function(d){ return d !== p.date; }), tg = null;
+        function pick(list){ list = list.filter(function(t){ return t !== p && !used[t.key] && !isPart(t); }); if (!list.length) return null;
+          list.sort(function(a, b){ return runDist(a, p.date) - runDist(b, p.date); }); return list[0]; }
+        if (ds.length){
+          var wed = ymd(weekWed(parse(ds[0])));
+          tg = pick(items.filter(function(t){ return ds.indexOf(t.date) >= 0 && family(p, t); }))
+            || pick(items.filter(function(t){ return ds.indexOf(t.date) >= 0 && !t.extra; }))
+            || pick(items.filter(function(t){ return ymd(weekWed(parse(t.date))) === wed && family(p, t); }));
+          if (!tg){   // 그 날짜·그 주의 수업이 휴강·빠짐 참고로만 남아 있으면 수업 줄로 되살린다
+            var nts = (notesOf || []).filter(function(x){ return !x.used && (x.kind === '휴강' || x.kind === '빠짐'); });
+            var nt = nts.filter(function(x){ return (ds.indexOf(x.date) >= 0 || ymd(weekWed(parse(x.date))) === wed) && family(p, { cls: x.cls }); })
+                        .sort(function(a, b){ return (ds.indexOf(a.date) >= 0 ? 0 : 1) - (ds.indexOf(b.date) >= 0 ? 0 : 1) || (a.date < b.date ? -1 : 1); })[0]
+                  || nts.filter(function(x){ return ds.indexOf(x.date) >= 0; }).sort(function(a, b){ return a.date < b.date ? -1 : 1; })[0];   // 날짜가 딱 맞으면 반이 달라도(정리정독으로 대신한 주 등)
+            if (nt){
+              nt.used = true;
+              tg = { key: nt.date + '|note|' + nt.cls, date: nt.date, cls: nt.cls, when: nt.when || '', kind: nt.ckind || '', book: nt.book || p.book, nonsul: isNonsul(nt.cls),
+                     runs: [], alt: nt.reason || (nt.kind === '휴강' ? '휴강 처리 뒤 나눠 진행' : ''), extra: false, reason: '', mvDates: [] };
+              items.push(tg); push(byDate, tg.date, tg);
+            }
+          }
+        } else {
+          var t0 = parse(p.date);
+          tg = pick(items.filter(function(t){ var dt = parse(t.date) - t0; return dt > 0 && dt <= 42 * 86400e3 && (t.runs.length || t.alt) && family(p, t); }));
+        }
+        if (tg) attach(tg, p);
       });
       return items.filter(function(it){ return !used[it.key]; });
     }
@@ -501,20 +620,21 @@ var CORE = (function(){
         var ss = st.map(function(x){ return x.school || ''; }).filter(function(g, i, a){ return a.indexOf(g) === i; });
         school = ss.length === 1 ? ss[0] : '동명이인';
       }
-      var items = claimExtras(Object.keys(sess[n] || {}).map(function(k){ return sess[n][k]; }));
+      var items = absorbParts(claimExtras(Object.keys(sess[n] || {}).map(function(k){ return sess[n][k]; })), notes[n] || []);
       if (!grade) items.concat(notes[n] || []).some(function(it){ grade = gradeFromClass(it.cls); return !!grade; });
       var w = (grade.charAt(0) === '중') ? win.mid : win.high;
       items = items.filter(function(it){ return it.date >= w.from && it.date <= w.to; })
-                   .sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
-      var ns = (notes[n] || []).filter(function(it){ return it.date >= w.from && it.date <= w.to; })
+                   .sort(function(a, b){ return a.date < b.date ? -1 : a.date > b.date ? 1 : (a.when < b.when ? -1 : 1); });
+      var ns = (notes[n] || []).filter(function(it){ return !it.used && it.date >= w.from && it.date <= w.to; })
                    .sort(function(a, b){ return a.date < b.date ? -1 : 1; });
       if (!items.length && !ns.length) return;
       var byCls = [], idx = {};
       items.forEach(function(it){
         var lb = it.cls + ' ' + it.when + (it.kind === '직보' ? '(직보)' : '');
-        if (idx[lb] == null){ idx[lb] = byCls.length; byCls.push({ label: lb, jb: it.kind === '직보', ns: it.nonsul, dates: [], helds: {}, alts: {} }); }
+        if (idx[lb] == null){ idx[lb] = byCls.length; byCls.push({ label: lb, jb: it.kind === '직보', ns: it.nonsul, dates: [], helds: {}, runs: {}, alts: {} }); }
         byCls[idx[lb]].dates.push(it.date);
         if (it.held) byCls[idx[lb]].helds[it.date] = it.held;
+        if (it.runs.length) byCls[idx[lb]].runs[it.date] = it.runs;
         if (it.alt) byCls[idx[lb]].alts[it.date] = it.alt;
       });
       if (ALL_REGULAR[grade]) items = items.map(function(it){ var o = {}; for (var k in it) o[k] = it[k]; o.book = '정규'; return o; });
@@ -540,7 +660,16 @@ var CORE = (function(){
     });
     return { rows: rows, windows: win, weeks: weeks };
   }
-  return { RULE: RULE, ALL_REGULAR: ALL_REGULAR, threshold: threshold, windows: windows, build: build, isNonsul: isNonsul, dlabel: dlabel, heldFromReason: heldFromReason, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
+  /* 개인 카드 비고 — 진행(날짜·시간)을 각각 적는다: '9/3 (목) 목밤10:00 · 9/10 (목) 목밤10:00 · 9/17 (목) 목밤10:00에 나눠 진행' */
+  function runNote(it, dayLabel){
+    var rs = it.runs || [];
+    if (!rs.length) return it.alt ? '대체 — ' + it.alt : '';
+    var same = rs.length === 1 && rs[0].date === it.date;
+    var txt = rs.map(function(r){ return (r.date === it.date && rs.length === 1 ? '같은 날' : dayLabel(r.date)) + (r.when ? ' ' + r.when : ''); }).join(' · ')
+            + (rs.length > 1 ? '에 나눠 진행' : same ? '에 대체 진행' : (rs[0].date < it.date ? '에 앞당겨 진행' : '에 미뤄 진행'));
+    return txt + (it.alt ? ' — ' + it.alt : '');
+  }
+  return { RULE: RULE, ALL_REGULAR: ALL_REGULAR, threshold: threshold, windows: windows, build: build, isNonsul: isNonsul, dlabel: dlabel, runNote: runNote, heldFromReason: heldFromReason, datesInReason: datesInReason, partMark: partMark, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
 })();
 /* ==/SESSIONS-CORE== */
 </script>
@@ -737,7 +866,7 @@ var CORE = (function(){
       + (r.nonsul ? '<span>논술 <b>' + r.nonsul + '</b>회 (별도)</span>' : '') + '</div>'
       + '<table class="p"><thead><tr><th>No</th><th>날짜</th><th>구분</th><th>반</th><th>시간</th><th>비고</th></tr></thead><tbody>'
       + r.items.map((it, i) => '<tr><td>' + (i + 1) + '</td><td>' + dayLabel(it.date) + '</td><td class="' + (it.nonsul ? 'ns' : it.book === '내신' ? 'n' : '') + '">' + (it.nonsul ? '논술(별도)' : esc(it.book)) + '</td><td>' + esc(it.cls) + (it.kind === '직보' ? ' (직보)' : '') + '</td><td>' + esc(it.when) + '</td>'
-        + '<td class="hd">' + (it.held ? esc(dayLabel(it.held) + (it.heldWhen ? ' ' + it.heldWhen : '') + '에 ' + (it.held < it.date ? '앞당겨' : '미뤄') + ' 진행' + (it.alt ? ' — ' + it.alt : '')) : (it.alt ? esc('대체 — ' + it.alt) : '')) + '</td></tr>').join('')
+        + '<td class="hd">' + esc(CORE.runNote(it, dayLabel)) + '</td></tr>').join('')
       + '</tbody></table>'
       + (r.notes.length ? '<div class="mv">참고 — ' + esc(r.noteText) + '</div>' : '') + '</div>';
   }
