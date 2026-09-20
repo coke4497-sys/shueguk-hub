@@ -83,7 +83,12 @@ const DATA = {
     { id: 11, at: '2026-09-20T05:00:00Z', kind: '주간추가', student: '김건', from_class_id: '', to_class_id: 'w261107a', apply_date: '2026-11-07', reason: '' },
     { id: 12, at: '2026-09-20T05:00:03Z', kind: '주간빼기', student: '김건', from_class_id: 'r3', to_class_id: '', apply_date: '2026-10-24', reason: '' },
     // 짝 없는 빼기(사유만) = 수업 없음
-    { id: 13, at: '2026-09-21T05:00:00Z', kind: '주간빼기', student: '심지후', from_class_id: 'r3', to_class_id: '', apply_date: '2026-10-17', reason: '직전 보강 대체' }
+    { id: 13, at: '2026-09-21T05:00:00Z', kind: '주간빼기', student: '심지후', from_class_id: 'r3', to_class_id: '', apply_date: '2026-10-17', reason: '9/11(금) 4:00 당겨서 진행' },   // 대체 = 수업 한 것
+    { id: 14, at: '2026-09-21T05:00:00Z', kind: '주간빼기', student: '심지후', from_class_id: 'r3', to_class_id: '', apply_date: '2026-10-24', reason: '추석연휴' },                  // 수업 없음
+    { id: 15, at: '2026-09-21T05:00:00Z', kind: '주간빼기', student: '김건', from_class_id: 'n3', to_class_id: '', apply_date: '2026-10-30', reason: '목 1:00 국어 직전대비 수업' },   // 요일 → 같은 주 목요일
+    // 같은 날짜의 추가+빼기(영구 이동 예약의 '그때까지 원래 반')는 짝이 아니다
+    { id: 16, at: '2026-09-21T06:00:00Z', kind: '주간추가', student: '박민선', from_class_id: '', to_class_id: 'r4', apply_date: '2026-10-15', reason: '' },
+    { id: 17, at: '2026-09-21T06:00:00Z', kind: '주간빼기', student: '박민선', from_class_id: 'r4', to_class_id: '', apply_date: '2026-10-15', reason: '' }
   ]
 };
 const R = CORE.build(JSON.parse(JSON.stringify(DATA)), 2026, 10);
@@ -131,11 +136,15 @@ ok('김건 주1회 → 4회는 강조 아님(5회부터)', k && k.weekly === 1 &
 
 /* 심지후: 명단에 없음 → 반이름으로 중2, 앞 괄호 학교 구분 뗌 */
 const j = by['심지후'];
-ok('명단 밖 학생은 반이름으로 학년 추정 · 짝 없는 빼기(10/17)는 수업 없음', j && j.grade === '중2' && j.school === '' && j.count === 1 && /10\/17 정리정독 중2 이 주만 빠짐\(직전 보강 대체\)/.test(j.noteText), j);
+ok('명단 밖 학생은 반이름으로 학년 추정', j && j.grade === '중2' && j.school === '', j);
+ok('짝 없는 빼기 — 당겨서 진행(대체)은 센다(사유의 9/11이 진행일), 추석연휴는 안 센다', j && j.count === 1 && j.items.some(it => it.date === '2026-10-17' && it.held === '2026-09-11' && it.alt === '9/11(금) 4:00 당겨서 진행') && /10\/24 정리정독 중2 이 주만 빠짐\(추석연휴\)/.test(j.noteText) && /10\/17\(9\/11 진행\)/.test(j.detail), j && [j.detail, j.noteText]);
+ok('사유의 요일로 진행일: 10/30(금) 빼기 "목 1:00" → 같은 주 목요일 10/29', k && k.items.some(it => it.date === '2026-10-30' && it.held === '2026-10-29' && it.alt) && k.count === 4, k && k.detail);
+ok('heldFromReason: M/D · 요일 · 없음', CORE.heldFromReason('9/20(일) 이동', '2026-10-10') === '2026-09-20' && CORE.heldFromReason('이주 목요일에 직보', '2026-10-07') === '2026-10-08' && CORE.heldFromReason('화 2:00 국어 직전대비 수업', '2026-10-04') === '2026-09-29' && CORE.heldFromReason('직전 보강 대체', '2026-10-03') === '' && CORE.heldFromReason('시험 끝, 직보로 대체 < 9/16(수) 4:00', '2026-09-19') === '2026-09-16');
 
 /* 박민선(고3 주1회): r4/n4 목 5:30 — 10/8(내신) 10/15·10/22(정규) 10/29·11/5(내신) = 5 → 5회부터 강조 */
 const p = by['박민선'];
 ok('박민선(고3) 5회 — 내신 주 수업도 전부 정규(정규 5 · 내신 0) → 주1회 5회부터 강조', p && p.count === 5 && p.naeshin === 0 && p.regular === 5 && p.weekly === 1 && p.over === true, p && [p.count, p.naeshin, p.regular, p.weekly]);
+ok('같은 날짜의 추가+빼기는 짝이 아니라 그대로 1회', p && p.items.filter(it => it.date === '2026-10-15').length === 1 && p.count === 5);
 ok('11/12 수업을 10/31에 당겨 해도 10월에는 안 센다(복사본 제외)', p && !p.items.some(it => it.date === '2026-10-31' || it.held === '2026-10-31'));
 ok('중3·고3 내내 정규 — 날짜별 구분도 정규', p && p.items.every(it => it.book === '정규') && CORE.ALL_REGULAR['중3'] && CORE.ALL_REGULAR['고3'] && !CORE.ALL_REGULAR['고1']);
 ok('고1은 그대로 정규·내신 나뉨', a && a.naeshin === 4);

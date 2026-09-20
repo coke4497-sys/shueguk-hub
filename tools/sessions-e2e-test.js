@@ -92,11 +92,11 @@ const DB = {
   ok((await pg.$eval('tr.r[data-key$="|강준서"] td.cls', el => el.textContent)).indexOf('고1 나') >= 0, '강준서 표 칩');
   ok(a.cells[7] === '주2회' && a.over && a.cells[8] === '9회↑', '강준서 주2회 → 9회부터 강조 배지');
   const s = await rowOf('이소율');
-  ok(s.cells[5] === '5' && !s.over, '이소율 5회(10/31 확인 이 주만 빠짐)는 강조 아님');
+  ok(s.cells[5] === '6' && !s.over, '이소율 6회(10/31 확인은 직보로 대체 → 센다)는 강조 아님');
   await pg.click('tr.r[data-key$="|이소율"]');
   await pg.waitForSelector('tr.d');
   const sdet = await pg.textContent('tr.d');
-  ok(sdet.includes('10/21(10/24 진행)') && sdet.includes('10/31 고1 확인 이 주만 빠짐(직전 보강 대체)'), '학생 옮기기는 원래 날짜에 진행일, 짝 없는 빼기는 참고 — ' + sdet.replace(/\s+/g, ' ').slice(0, 120));
+  ok(sdet.includes('10/21(10/24 진행)') && sdet.includes('10/31(대체)') && !sdet.includes('빠짐'), '학생 옮기기는 원래 날짜에 진행일, 직보 대체는 (대체)로 센다 — ' + sdet.replace(/\s+/g, ' ').slice(0, 120));
   await pg.click('tr.r[data-key$="|이소율"]');
   const p = await rowOf('박민선');
   ok(p.cells[5] === '5' && p.cells[7] === '주1회' && p.over && p.cells[8] === '5회↑', '박민선 주1회 5회(논술 4회 제외) → 강조');
