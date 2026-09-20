@@ -26,11 +26,13 @@ const DB = {
     cls('정규', 'w261012b', '월', '1:30', '고1 화정B', '', '직보'),
     cls('내신', 'n1', '목', '5:30', '고1 화정B(천재수)', '강준서'), cls('내신', 'n2', '토', '3:30', '고1 확인', '강준서 이소율'),
     cls('내신', 'n3', '금', '5:00', '중2 화정A', '김건'), cls('내신', 'n4', '목', '5:30', '고3파이널A', '박민선'),
-    cls('정규', 'r9', '일', '6:00', '논술B 국어', '박민선'), cls('내신', 'n9', '일', '6:00', '논술B 국어', '박민선')
+    cls('정규', 'r9', '일', '6:00', '논술B 국어', '박민선'), cls('내신', 'n9', '일', '6:00', '논술B 국어', '박민선'),
+    cls('정규', 'w261025a', '일', '3:30', '고1 나', '')   // r2 10/17 수업을 10/25(일)로 옮긴 복사본
   ],
   tt_log: [
     { id: 1, at: '2026-09-20T03:00:00Z', kind: '주간반휴강', student: '', from_class_id: 'n3', to_class_id: '', reason: '', apply_date: '2026-10-09' },
-    { id: 2, at: '2026-09-20T03:00:00Z', kind: '주간추가', student: '강준서', from_class_id: '', to_class_id: 'w261012b', reason: '', apply_date: '2026-10-12' }
+    { id: 2, at: '2026-09-20T03:00:00Z', kind: '주간추가', student: '강준서', from_class_id: '', to_class_id: 'w261012b', reason: '', apply_date: '2026-10-12' },
+    { id: 3, at: '2026-09-20T03:00:00Z', kind: '주간반이동', student: '', from_class_id: 'r2', to_class_id: 'w261025a', reason: '', apply_date: '2026-10-17' }
   ]
 };
 /* 강준서(고1 주2회, 10/7~11/6): n1 10/8·10/29·11/5(3) + n2 10/10·10/31(2) + 직보 10/12 + r1 10/14·10/21 + r2 10/17·10/24 = 10 → 강조 / 이소율 = 8(내신 2 정규 4... n2 2 + r1 2 + r2 2 = 6) */
@@ -101,6 +103,10 @@ const DB = {
   ok((await pg.$eval('tr.r.over td', el => getComputedStyle(el).backgroundColor)) === 'rgb(253, 243, 245)', '강조 줄 배경색');
 
   console.log('② 펼치기·강조만');
+  await pg.click('tr.r[data-key$="|강준서"]');
+  await pg.waitForSelector('tr.d');
+  ok((await pg.textContent('tr.d')).includes('10/17(10/25 진행)'), '옮긴 수업은 원래 날짜에 실제 진행일을 붙여 표시');
+  await pg.click('tr.r[data-key$="|강준서"]');
   await pg.click('tr.r[data-key$="|김건"]');
   await pg.waitForSelector('tr.d');
   const det = await pg.textContent('tr.d');
@@ -135,6 +141,7 @@ const DB = {
   const person = await pg.textContent('.person');
   ok(person.includes('정규 5회') && person.includes('내신 5회') && person.includes('합계 10회') && person.includes('강조'), '개인 카드 요약 — 정규·내신·합계·강조');
   ok((await pg.$$eval('.person table.p tbody tr', els => els.length)) === 10, '개인 카드 날짜 줄 10개');
+  ok((await pg.$$eval('.person table.p td.hd', els => els.map(e => e.textContent).filter(Boolean))).join() === '10/25 (일) 일3:30에 미뤄 진행', '개인 카드 비고: 옮겨 진행한 날짜');
   await pg.fill('#q', '박민선');
   await pg.waitForFunction(() => document.querySelector('.person') && document.querySelector('.person').textContent.includes('박민선'));
   ok((await pg.textContent('.person .sum')).includes('논술 4회 (별도)') && (await pg.$$eval('.person table.p td.ns', els => els.length)) === 4, '개인 카드: 논술 4회(별도)·논술 줄 구분색');

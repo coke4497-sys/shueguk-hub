@@ -63,7 +63,8 @@ const DATA = {
     cls('내신', 'n4', '목', '5:30', '고3파이널A', '박민선'),
     cls('내신', 'w261013z', '화', '5:00', '고1 확인', '강준서'),          // 내신 반인데 그 주(10/14)는 정규 → 안 보임
     cls('정규', 'r9', '일', '6:00', '논술B 국어', '박민선'),               // 논술 = 별도 집계 (합계·주당·강조 제외)
-    cls('내신', 'n9', '일', '6:00', '논술B 국어', '박민선')
+    cls('내신', 'n9', '일', '6:00', '논술B 국어', '박민선'),
+    cls('내신', 'w261031b', '토', '5:30', '고3파이널A', '')               // r4 11/12 수업을 10/31로 당겨 진행 → 11월로 센다
   ],
   logs: [
     { id: 1, at: '2026-09-20T03:00:00Z', kind: '주간반휴강', student: '', from_class_id: 'n3', to_class_id: '', apply_date: '2026-10-09' },
@@ -72,7 +73,8 @@ const DATA = {
     { id: 4, at: '2026-09-20T03:00:00Z', kind: '주간추가', student: '강준서', from_class_id: '', to_class_id: 'w261012b', apply_date: '2026-10-12' },
     { id: 5, at: '2026-09-20T03:00:00Z', kind: '주간빼기', student: '강준서', from_class_id: 'n2', to_class_id: '', apply_date: '2026-10-10' },
     { id: 6, at: '2026-09-20T03:00:00Z', kind: '1회', student: '이소율', from_class_id: 'r1', to_class_id: 'r2', apply_date: '2026-10-24', reason: '가족 행사' },
-    { id: 7, at: '2026-09-20T03:00:00Z', kind: '영구', student: '강준서', from_class_id: 'r1', to_class_id: 'r2', apply_date: null }   // 무관한 종류는 무시
+    { id: 7, at: '2026-09-20T03:00:00Z', kind: '영구', student: '강준서', from_class_id: 'r1', to_class_id: 'r2', apply_date: null },  // 무관한 종류는 무시
+    { id: 8, at: '2026-09-20T03:00:00Z', kind: '주간반이동', student: '', from_class_id: 'r4', to_class_id: 'w261031b', apply_date: '2026-11-12', reason: '앞당겨 진행' }
   ]
 };
 const R = CORE.build(JSON.parse(JSON.stringify(DATA)), 2026, 10);
@@ -82,7 +84,7 @@ const dates = (r, label) => { const b = r.byCls.find(x => x.label === label); re
 ok('주차 목록 6개, 10/14·10/21은 미지정 정규', R.weeks.length === 6 && R.weeks.filter(w => !w.specified).map(w => w.wed).join() === '2026-10-14,2026-10-21', R.weeks);
 ok('순서: 중2(김건·심지후) → 고1(강준서·양지우·이소율) → 고3', R.rows.map(r => r.name).join() === '김건,심지후,강준서,양지우,이소율,박민선', R.rows.map(r => r.grade + r.name));
 
-/* 강준서: n1 목 10/8·10/29·11/5(3) + n2 토 10/31(1, 10/10은 주간빼기) + 직보 10/12(1) + r1 수 10/14·10/21(2) + 보강 10/15(1) + r2 토 10/24(1) + 이동 복사본 10/25(1) = 10 */
+/* 강준서: n1 목 10/8·10/29·11/5(3) + n2 토 10/31(1, 10/10은 주간빼기) + 직보 10/12(1) + r1 수 10/14·10/21(2) + 보강 10/15(1) + r2 토 10/17(10/25에 진행)·10/24(2) = 10 */
 const a = by['강준서'];
 ok('강준서 합계 10', a && a.count === 10, a && a.detail);
 ok('강준서 내신 4 · 정규 6', a && a.naeshin === 4 && a.regular === 6, a && [a.naeshin, a.regular]);
@@ -90,16 +92,17 @@ ok('강준서 내신 진도 3회 날짜', a && dates(a, '고1 화정B(천재수)
 ok('주간빼기 10/10은 빠지고 10/31만', a && dates(a, '고1 확인 토3:30') === '10/31');
 ok('주간추가로 직보 10/12 포함(직보 표시)', a && dates(a, '고1 화정B 월1:30(직보)') === '10/12' && a.byCls.some(b => b.jb));
 ok('보강 복사본은 원본 명단으로 10/15', a && dates(a, '고1 가 목5:30') === '10/15');
-ok('옮긴 10/17은 빠지고 복사본 10/25로', a && dates(a, '고1 나 토3:30') === '10/24' && dates(a, '고1 나 일3:30') === '10/25');
+ok('옮긴 수업은 원래 날짜(10/17)로 세고 복사본 날짜(10/25)는 따로 안 셈', a && dates(a, '고1 나 토3:30') === '10/17,10/24' && !a.byCls.some(b => b.label === '고1 나 일3:30'));
+ok('옮긴 수업 줄에 실제 진행일 기록', a && a.items.some(it => it.date === '2026-10-17' && it.held === '2026-10-25' && it.heldWhen === '일3:30') && /고1 나 토3:30 2회\(10\/17\(10\/25 진행\), 10\/24\)/.test(a.detail), a && a.detail);
 ok('내신 반인데 정규 주(10/13)는 안 셈', a && !a.items.some(it => it.date === '2026-10-13'));
 ok('강준서 주2회 → 기준 8 → 10회는 강조', a && a.weekly === 2 && a.threshold === 8 && a.over === true);
 ok('고등 범위 밖(10/1 목 n1)은 안 셈', a && !a.items.some(it => it.date < '2026-10-07'));
 
-/* 이소율: r1 10/14(10/21은 1회 이동으로 빠짐) + 보강 10/15 + r2 10/24(1회 이동 도착 = 명단과 겹쳐도 1회) + 복사본 10/25(10/17부터 표기 OK) = 4 */
+/* 이소율: r1 10/14(10/21은 1회 이동으로 빠짐) + 보강 10/15 + r2 10/17(10/25에 진행, '10/17부터' 표기 OK) + 10/24(1회 이동 도착 = 명단과 겹쳐도 1회) = 4 */
 const s = by['이소율'];
 ok('이소율 한 줄로 합쳐짐(이소율A 표기 흡수)', s && !by['이소율A']);
 ok('이소율 합계 4 (정규 4 · 내신 0)', s && s.count === 4 && s.regular === 4 && s.naeshin === 0, s && s.detail);
-ok('1회 이동: 원래 반 10/21은 빠지고 10/24 도착', s && dates(s, '고1 가 수5:30') === '10/14' && dates(s, '고1 나 토3:30') === '10/24');
+ok('1회 이동: 원래 반 10/21은 빠지고 10/24 도착', s && dates(s, '고1 가 수5:30') === '10/14' && dates(s, '고1 나 토3:30') === '10/17,10/24');
 ok('이소율 주2회(가+나) → 4회는 강조 아님', s && s.weekly === 2 && s.over === false);
 
 /* 양지우: 명단 '양지우A'(r1)·'양지우'(n2) → 한 사람. r1 2 + 보강 1 + n2 10/10·10/31 = 5 */
@@ -120,6 +123,7 @@ ok('명단 밖 학생은 반이름으로 학년 추정', j && j.grade === '중2'
 /* 박민선(고3 주1회): r4/n4 목 5:30 — 10/8(내신) 10/15·10/22(정규) 10/29·11/5(내신) = 5 → 5회부터 강조 */
 const p = by['박민선'];
 ok('박민선(고3) 5회 — 내신 주 수업도 전부 정규(정규 5 · 내신 0) → 주1회 5회부터 강조', p && p.count === 5 && p.naeshin === 0 && p.regular === 5 && p.weekly === 1 && p.over === true, p && [p.count, p.naeshin, p.regular, p.weekly]);
+ok('11/12 수업을 10/31에 당겨 해도 10월에는 안 센다(복사본 제외)', p && !p.items.some(it => it.date === '2026-10-31' || it.held === '2026-10-31'));
 ok('중3·고3 내내 정규 — 날짜별 구분도 정규', p && p.items.every(it => it.book === '정규') && CORE.ALL_REGULAR['중3'] && CORE.ALL_REGULAR['고3'] && !CORE.ALL_REGULAR['고1']);
 ok('고1은 그대로 정규·내신 나뉨', a && a.naeshin === 4);
 ok('논술은 별도: 일요일 10/11·18·25·11/1 = 4회, 합계·주당 횟수에 안 들어감', p && p.nonsul === 4 && p.weekly === 1 && p.count === 5, p && [p.nonsul, p.weekly, p.count]);
@@ -131,6 +135,8 @@ ok('논술 없는 학생은 0', a && a.nonsul === 0 && a.nonsulDetail === '');
 const R11 = CORE.build(JSON.parse(JSON.stringify(DATA)), 2026, 11);
 const a11 = R11.rows.find(r => r.name === '강준서') || {};
 ok('11월(11/7~12/6): 11/7 내신 확인 1 + 미지정 정규 4주 × 가·나 = 9', a11.count === 9 && a11.naeshin === 1 && a11.regular === 8, a11.detail);
+const p11 = R11.rows.find(r => r.name === '박민선') || {};
+ok('11월 박민선: 10/31에 당겨 한 11/12 수업이 11/12 줄로 들어감(10/31 진행)', p11.items && p11.items.some(it => it.date === '2026-11-12' && it.held === '2026-10-31' && it.heldWhen === '토5:30') && /11\/12\(10\/31 진행\)/.test(p11.detail), p11.detail);
 const R9 = CORE.build(JSON.parse(JSON.stringify(DATA)), 2026, 10, { midStart: 1, highStart: 1, perWeek: 3 });
 ok('규칙 바꾸면(고등도 1일 시작·3배) 강준서 10/1 포함·기준 6', (R9.rows.find(r => r.name === '강준서') || {}).items.some(it => it.date === '2026-10-01') && R9.rows.find(r => r.name === '강준서').threshold === 6);
 
