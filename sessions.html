@@ -11,8 +11,10 @@
        + students(학년·학교). 교사 신분(조용한 인증)으로 표를 직접 읽어 화면에서 센다 — 백엔드 변경 없음.
      · 세는 규칙은 슈국 스케쥴(리포트 timetable.html)의 주차별 화면과 같다: 주마다 슈국 캘린더 기간에 맞는 시간표,
        기간 미지정 주는 정규, 'w…' 이 주만 반은 그 날짜에만, 휴강은 안 센다.
-     · 반 전체를 다른 날로 옮긴 수업(주간반이동)은 **원래 수업 날짜의 달**로 센다(사용자 2026-09-20 "9/19에 당겨서 수업했지만 실제로는
-       10/10의 수업이므로 10월 수강료" — 복사본은 실제 진행일에 세지 않고, 원래 날짜 줄에 '9/19 진행'으로 적는다).
+     · 옮긴 수업은 **원래 수업 날짜의 달**로 센다(사용자 2026-09-20 "9/19에 당겨서 수업했지만 실제로는 10/10의 수업이므로 10월 수강료",
+       "이동한 수업은 원래 날짜로 생각해야 해요") — 세 가지 모두: ① 반 전체 이동(주간반이동 — 복사본은 실제 진행일에 세지 않음)
+       ② 학생 한 명 '다른 주로 옮기기'(같은 순간에 기록된 주간추가+주간빼기 짝) ③ 1회 이동(원래 반의 그 주 날짜로).
+       원래 날짜 줄에 '9/19 진행'으로 적는다. 짝이 없는 '이 주만 빼기'는 수업이 없는 것으로 보고 참고 열에 사유와 함께 적는다.
      · 집계 로직은 SESSIONS-CORE 블록 한 곳 — tools/sessions-test.js 가 그 블록만 떼어 검증한다. 고치면 테스트도 함께.
      · 학생마다 정규 몇 회·내신 몇 회로 나눠 적는다(그 주의 기간이 정규면 정규, 내신이면 내신 — 사용자 2026-09-20 "내신 몇 회, 정규 몇 회로 기록").
      · 강조 = 주1회 학생은 5회부터, 주2회 학생은 9회부터(사용자 지정) — 일반화해 '4 × 주당 횟수'를 넘으면 강조(CORE.RULE.perWeek).
@@ -314,22 +316,41 @@ var CORE = (function(){
       var src = byId[g.from_class_id], cps = byId[g.to_class_id];
       if (src && cps) cps.forEach(function(cp){ cp.roster = src[0].roster; });
     });
-    var off = {}, moved = {}, copyOf = {}, wadd = {}, wdel = {}, onceIn = {}, onceOut = {};
+    var off = {}, moved = {}, copyOf = {}, wadd = {}, wdel = {}, onceIn = {}, stuMove = {};
     function push(m, k, v){ (m[k] = m[k] || []).push(v); }
+    function whenOf(cid){ var c = byId[cid]; return c ? c[0].day + c[0].start : ''; }
+    /* 학생 한 명 '다른 주로 옮기기' = 같은 학생으로 잇달아(id가 이웃, 2분 안) 기록된 주간추가+주간빼기 짝
+     * (슈국 스케쥴 submitWeekStudentMove가 추가→빼기 순으로 한 번에 남긴다) —
+     * 원래 반·원래 날짜(빼기) 줄로 세고 실제 진행일(추가)을 붙인다. 짝이 된 추가는 따로 세지 않는다. */
+    var paired = {};
+    var adds = logs.filter(function(g){ return g.kind === '주간추가' && plainName(g.student); });
+    logs.forEach(function(g){
+      if (g.kind !== '주간빼기' || !plainName(g.student)) return;
+      var t = Date.parse(g.at), best = null;
+      adds.forEach(function(a){
+        if (paired[a.id] || plainName(a.student) !== plainName(g.student) || Math.abs(Number(a.id) - Number(g.id)) !== 1) return;
+        var dt = Math.abs(Date.parse(a.at) - t);
+        if (dt <= 120000 && (!best || dt < best.dt)) best = { a: a, dt: dt };
+      });
+      if (!best) return;
+      paired[best.a.id] = 1; paired[g.id] = 1;
+      push(stuMove, g.from_class_id + '|' + applyYmd(g), { name: plainName(g.student), held: applyYmd(best.a), heldWhen: whenOf(best.a.to_class_id) });
+    });
     logs.forEach(function(g){
       var d = applyYmd(g); if (!d) return;
       var st = plainName(g.student);
       if (g.kind === '주간반휴강') off[g.from_class_id + '|' + d] = g;
       else if (g.kind === '주간반이동'){ moved[g.from_class_id + '|' + d] = g; copyOf[g.to_class_id] = g; }
-      else if (g.kind === '주간추가' && st) push(wadd, g.to_class_id + '|' + d, st);
-      else if (g.kind === '주간빼기' && st) push(wdel, g.from_class_id + '|' + d, st);
+      else if (g.kind === '주간추가' && st){ if (!paired[g.id]) push(wadd, g.to_class_id + '|' + d, st); }
+      else if (g.kind === '주간빼기' && st){ if (!paired[g.id]) push(wdel, g.from_class_id + '|' + d, { name: st, reason: String(g.reason || '').trim() }); }
       else if (g.kind === '1회' && st){
-        push(onceIn, g.to_class_id + '|' + d, st);
-        var fr = byId[g.from_class_id], dd = parse(d);
-        if (fr && dd){   // 원래 반은 같은 주(월~일)의 그 요일 수업에서 빠진다
+        /* 1회 이동 = 원래 반의 같은 주(월~일) 그 요일 수업을 옮겨 간 날에 한 것 — 원래 날짜 줄로 센다 */
+        var fr = byId[g.from_class_id], dd = parse(d), placed = false;
+        if (fr && dd){
           var wed = weekWed(dd);
-          for (var k = -2; k <= 4; k++){ var x = addDays(wed, k); if (wdOf(x) === fr[0].day) push(onceOut, g.from_class_id + '|' + ymd(x), st); }
+          for (var k = -2; k <= 4; k++){ var x = addDays(wed, k); if (wdOf(x) === fr[0].day){ push(stuMove, g.from_class_id + '|' + ymd(x), { name: st, held: d, heldWhen: whenOf(g.to_class_id) }); placed = true; } }
         }
+        if (!placed) push(onceIn, g.to_class_id + '|' + d, st);   // 원래 반을 모르면 옮겨 간 날에 센다
       }
     });
     /* 학생 이름 → 학년·학교 (정확히 → 끝의 A만 떼고 → A를 붙여서: 슈국 스케쥴 asKey와 같은 규칙) */
@@ -349,6 +370,11 @@ var CORE = (function(){
     }
 
     var sess = {}, notes = {}, weeks = [];
+    function addSess(n, c, ds, book, kind, held, heldWhen){
+      var s = sess[n] = sess[n] || {};
+      s[ds + '|' + c.id] = { date: ds, cls: c.name, when: c.day + c.start, kind: kind, book: book, nonsul: isNonsul(c.name),
+                             held: held && held !== ds ? held : '', heldWhen: held && held !== ds ? heldWhen : '' };
+    }
     var from = parse(win.mid.from < win.high.from ? win.mid.from : win.high.from);
     var to = parse(win.mid.to > win.high.to ? win.mid.to : win.high.to);
     var seenWeek = {};
@@ -367,8 +393,12 @@ var CORE = (function(){
           var p = plainName(t); if (p) names.push(canon(p));
         });
         var key = c.id + '|' + ds;
+        /* 학생 한 명이 옮긴 수업(다른 주로 옮기기·1회 이동): 이 반·이 날짜 줄로 세되 실제 진행일을 붙인다 */
+        var mvOf = {};
+        (stuMove[key] || []).forEach(function(m){ mvOf[canon(m.name)] = m; });
         if (off[key]){
-          names.forEach(function(n){ push(notes, n, { date: ds, cls: c.name, kind: '휴강' }); });
+          names.forEach(function(n){ if (mvOf[n]) return; push(notes, n, { date: ds, cls: c.name, kind: '휴강' }); });
+          Object.keys(mvOf).forEach(function(n){ addSess(n, c, ds, book, c.kind, mvOf[n].held, mvOf[n].heldWhen); });
           return;
         }
         /* 반 전체를 옮긴 수업은 복사본(실제 진행일)을 따라가되 '원래 날짜' 줄로 센다 — 여러 번 옮겼으면 끝까지 따라간다 */
@@ -380,16 +410,21 @@ var CORE = (function(){
           hc = cp[0]; held = hy; hkey = hc.id + '|' + held;
           if (off[hkey]){ lost = '휴강'; break; }
         }
+        (stuMove[hkey] || []).forEach(function(m){ mvOf[canon(m.name)] = m; });   // 복사본 쪽에 기록된 학생 이동도
         if (lost){
-          names.forEach(function(n){ push(notes, n, { date: ds, cls: c.name, kind: lost, to: held !== ds ? held : '' }); });
+          names.forEach(function(n){ if (mvOf[n]) return; push(notes, n, { date: ds, cls: c.name, kind: lost, to: held !== ds ? held : '' }); });
+          Object.keys(mvOf).forEach(function(n){ addSess(n, c, ds, book, c.kind, mvOf[n].held, mvOf[n].heldWhen); });
           return;
         }
-        (wdel[hkey] || []).concat(onceOut[hkey] || []).forEach(function(n){ var i = names.indexOf(canon(n)); if (i >= 0) names.splice(i, 1); });
+        (wdel[hkey] || []).forEach(function(x){
+          var n = canon(x.name), i = names.indexOf(n);
+          if (i >= 0){ names.splice(i, 1); push(notes, n, { date: ds, cls: c.name, kind: '빠짐', reason: x.reason }); }
+        });
         (wadd[hkey] || []).concat(onceIn[hkey] || []).forEach(function(n){ names.push(canon(n)); });
+        Object.keys(mvOf).forEach(function(n){ if (names.indexOf(n) < 0) names.push(n); });
         names.forEach(function(n){
-          var s = sess[n] = sess[n] || {};
-          s[ds + '|' + c.id] = { date: ds, cls: c.name, when: c.day + c.start, kind: hc.kind, book: book, nonsul: isNonsul(c.name),
-                                 held: held !== ds ? held : '', heldWhen: held !== ds ? hc.day + hc.start : '' };
+          var m = mvOf[n];
+          addSess(n, c, ds, book, hc.kind, m ? m.held : (held !== ds ? held : ''), m ? m.heldWhen : (held !== ds ? hc.day + hc.start : ''));
         });
       });
     }
@@ -438,7 +473,11 @@ var CORE = (function(){
                   win: w, items: items, byCls: byCls, notes: ns,
                   detail: detailOf(byCls.filter(function(b){ return !b.ns; })),
                   nonsulDetail: detailOf(byCls.filter(function(b){ return b.ns; })),
-                  noteText: ns.map(function(x){ return md(x.date) + ' ' + x.cls + (x.kind === '휴강' ? (x.to ? ' → ' + md(x.to) + '로 옮겼으나 휴강' : ' 휴강') : ' → 옮긴 수업을 찾지 못함'); }).join('; ') });
+                  noteText: ns.map(function(x){
+                    if (x.kind === '빠짐') return md(x.date) + ' ' + x.cls + ' 이 주만 빠짐' + (x.reason ? '(' + x.reason + ')' : '');
+                    if (x.kind === '휴강') return md(x.date) + ' ' + x.cls + (x.to ? ' → ' + md(x.to) + '로 옮겼으나 휴강' : ' 휴강');
+                    return md(x.date) + ' ' + x.cls + ' → 옮긴 수업을 찾지 못함';
+                  }).join('; ') });
     });
     rows.sort(function(a, b){
       var ga = GORD[a.grade] == null ? 9 : GORD[a.grade], gb = GORD[b.grade] == null ? 9 : GORD[b.grade];
@@ -595,7 +634,7 @@ var CORE = (function(){
   function noteHtml(){
     return '<p class="note">주마다 슈국 캘린더의 정규/내신 기간에 맞는 시간표로 셉니다(미지정 주는 정규 — 그 주 수업은 정규 회차에 들어가요). '
       + '이 주만 휴강·이동·보충·추가/빼기·1회 이동·직전보강을 반영했고, 확인 수업·직전보강도 한 회로 셉니다. <b>중3·고3은 내내 정규 수업</b>이라 전부 정규 회차로 적고, <b>논술 수업은 별도</b>로 세어 합계·강조에 넣지 않습니다. '
-      + '반 전체를 다른 날로 옮겨 진행한 수업은 <b>원래 수업 날짜의 달</b>로 셉니다(10/10 수업을 9/19에 당겨 했으면 10월 — 날짜 옆에 \'9/19 진행\'으로 표시). 이름을 누르면 날짜별 내역이 펼쳐집니다. '
+      + '옮긴 수업(반 전체 이동·다른 주로 옮기기·1회 이동)은 <b>원래 수업 날짜의 달</b>로 셉니다(10/10 수업을 9/19에 당겨 했으면 10월 — 날짜 옆에 \'9/19 진행\'으로 표시). 짝 없이 \'이 주만 빼기\'만 한 수업은 세지 않고 참고에 사유를 적습니다. 이름을 누르면 날짜별 내역이 펼쳐집니다. '
       + (DATA && DATA.at ? '기준: ' + DATA.at.toLocaleString('ko-KR', { hour12: false }) + ' 시간표.' : '') + '</p>';
   }
   function tablesHtml(rows){
