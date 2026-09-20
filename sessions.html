@@ -10,7 +10,9 @@
      · 원본: 수파베이스 tt_classes(정규·내신 시간표) + tt_period(주별 정규/내신) + tt_log(이 주만 휴강·이동·보충·추가/빼기·1회 이동)
        + students(학년·학교). 교사 신분(조용한 인증)으로 표를 직접 읽어 화면에서 센다 — 백엔드 변경 없음.
      · 세는 규칙은 슈국 스케쥴(리포트 timetable.html)의 주차별 화면과 같다: 주마다 슈국 캘린더 기간에 맞는 시간표,
-       기간 미지정 주는 정규, 'w…' 이 주만 반은 그 날짜에만, 휴강·옮겨 간 원본은 안 세고 복사본은 그 날짜에 센다.
+       기간 미지정 주는 정규, 'w…' 이 주만 반은 그 날짜에만, 휴강은 안 센다.
+     · 반 전체를 다른 날로 옮긴 수업(주간반이동)은 **원래 수업 날짜의 달**로 센다(사용자 2026-09-20 "9/19에 당겨서 수업했지만 실제로는
+       10/10의 수업이므로 10월 수강료" — 복사본은 실제 진행일에 세지 않고, 원래 날짜 줄에 '9/19 진행'으로 적는다).
      · 집계 로직은 SESSIONS-CORE 블록 한 곳 — tools/sessions-test.js 가 그 블록만 떼어 검증한다. 고치면 테스트도 함께.
      · 학생마다 정규 몇 회·내신 몇 회로 나눠 적는다(그 주의 기간이 정규면 정규, 내신이면 내신 — 사용자 2026-09-20 "내신 몇 회, 정규 몇 회로 기록").
      · 강조 = 주1회 학생은 5회부터, 주2회 학생은 9회부터(사용자 지정) — 일반화해 '4 × 주당 횟수'를 넘으면 강조(CORE.RULE.perWeek).
@@ -120,6 +122,7 @@
   table.p td{ padding:7px 8px; border-bottom:1px solid var(--line); }
   table.p td.n{ background:#F6F2FA; }
   table.p td.ns{ background:#F9F5E4; }
+  table.p td.hd{ color:var(--muted); font-size:12px; }
   .person .mv{ font-size:12.5px; color:var(--muted); margin-top:10px; }
   table.t td.l{ text-align:left; }
   table.t td.no{ color:var(--muted); font-size:12px; }
@@ -281,6 +284,8 @@ var CORE = (function(){
   function gradeShort(g){ var m = /(고등|중등)\s*(\d)학년/.exec(String(g || '')); return m ? (m[1] === '고등' ? '고' : '중') + m[2] : ''; }
   function gradeFromClass(name){ var m = /(중|고)\s?([1-3])/.exec(String(name || '')); return m ? m[1] + m[2] : ''; }
   function md(s){ return (+s.slice(5, 7)) + '/' + (+s.slice(8, 10)); }
+  /* 반별 날짜 표기 — 옮겨 진행한 수업은 '10/10(9/19 진행)' */
+  function dlabel(b, d){ return md(d) + (b.helds && b.helds[d] ? '(' + md(b.helds[d]) + ' 진행)' : ''); }
   /* 논술 수업은 별도 집계 — 반이름에 '논술'(논술B 국어·수학 등) */
   function isNonsul(name){ return /논술/.test(String(name || '')); }
 
@@ -309,13 +314,13 @@ var CORE = (function(){
       var src = byId[g.from_class_id], cps = byId[g.to_class_id];
       if (src && cps) cps.forEach(function(cp){ cp.roster = src[0].roster; });
     });
-    var off = {}, moved = {}, wadd = {}, wdel = {}, onceIn = {}, onceOut = {};
+    var off = {}, moved = {}, copyOf = {}, wadd = {}, wdel = {}, onceIn = {}, onceOut = {};
     function push(m, k, v){ (m[k] = m[k] || []).push(v); }
     logs.forEach(function(g){
       var d = applyYmd(g); if (!d) return;
       var st = plainName(g.student);
       if (g.kind === '주간반휴강') off[g.from_class_id + '|' + d] = g;
-      else if (g.kind === '주간반이동') moved[g.from_class_id + '|' + d] = g;
+      else if (g.kind === '주간반이동'){ moved[g.from_class_id + '|' + d] = g; copyOf[g.to_class_id] = g; }
       else if (g.kind === '주간추가' && st) push(wadd, g.to_class_id + '|' + d, st);
       else if (g.kind === '주간빼기' && st) push(wdel, g.from_class_id + '|' + d, st);
       else if (g.kind === '1회' && st){
@@ -353,6 +358,7 @@ var CORE = (function(){
       classes.forEach(function(c){
         if (c.book !== book) return;
         if (c.wk ? c.wk !== ds : c.day !== wd) return;
+        if (c.wk && copyOf[c.id]) return;   // 옮겨 온 복사본은 원래 수업 날짜에 센다(아래)
         var names = [];
         c.roster.split(/\s+/).forEach(function(t){
           if (!t) return;
@@ -361,16 +367,29 @@ var CORE = (function(){
           var p = plainName(t); if (p) names.push(canon(p));
         });
         var key = c.id + '|' + ds;
-        if (off[key] || moved[key]){
-          var mv = moved[key], toYmd = mv ? wkIdYmd(mv.to_class_id) : '';
-          names.forEach(function(n){ push(notes, n, { date: ds, cls: c.name, kind: mv ? '이동' : '휴강', to: toYmd }); });
+        if (off[key]){
+          names.forEach(function(n){ push(notes, n, { date: ds, cls: c.name, kind: '휴강' }); });
           return;
         }
-        (wdel[key] || []).concat(onceOut[key] || []).forEach(function(n){ var i = names.indexOf(canon(n)); if (i >= 0) names.splice(i, 1); });
-        (wadd[key] || []).concat(onceIn[key] || []).forEach(function(n){ names.push(canon(n)); });
+        /* 반 전체를 옮긴 수업은 복사본(실제 진행일)을 따라가되 '원래 날짜' 줄로 센다 — 여러 번 옮겼으면 끝까지 따라간다 */
+        var held = ds, hc = c, hkey = key, hops = 0, lost = '';
+        while (moved[hkey] && hops++ < 5){
+          var mv = moved[hkey], cp = byId[mv.to_class_id];
+          var hy = wkIdYmd(mv.to_class_id);
+          if (!cp || !hy){ lost = '이동'; break; }
+          hc = cp[0]; held = hy; hkey = hc.id + '|' + held;
+          if (off[hkey]){ lost = '휴강'; break; }
+        }
+        if (lost){
+          names.forEach(function(n){ push(notes, n, { date: ds, cls: c.name, kind: lost, to: held !== ds ? held : '' }); });
+          return;
+        }
+        (wdel[hkey] || []).concat(onceOut[hkey] || []).forEach(function(n){ var i = names.indexOf(canon(n)); if (i >= 0) names.splice(i, 1); });
+        (wadd[hkey] || []).concat(onceIn[hkey] || []).forEach(function(n){ names.push(canon(n)); });
         names.forEach(function(n){
           var s = sess[n] = sess[n] || {};
-          s[ds + '|' + c.id] = { date: ds, cls: c.name, when: c.day + c.start, kind: c.kind, book: book, nonsul: isNonsul(c.name) };
+          s[ds + '|' + c.id] = { date: ds, cls: c.name, when: c.day + c.start, kind: hc.kind, book: book, nonsul: isNonsul(c.name),
+                                 held: held !== ds ? held : '', heldWhen: held !== ds ? hc.day + hc.start : '' };
         });
       });
     }
@@ -405,20 +424,21 @@ var CORE = (function(){
       var byCls = [], idx = {};
       items.forEach(function(it){
         var lb = it.cls + ' ' + it.when + (it.kind === '직보' ? '(직보)' : '');
-        if (idx[lb] == null){ idx[lb] = byCls.length; byCls.push({ label: lb, jb: it.kind === '직보', ns: it.nonsul, dates: [] }); }
+        if (idx[lb] == null){ idx[lb] = byCls.length; byCls.push({ label: lb, jb: it.kind === '직보', ns: it.nonsul, dates: [], helds: {} }); }
         byCls[idx[lb]].dates.push(it.date);
+        if (it.held) byCls[idx[lb]].helds[it.date] = it.held;
       });
       if (ALL_REGULAR[grade]) items = items.map(function(it){ var o = {}; for (var k in it) o[k] = it[k]; o.book = '정규'; return o; });
       var main = items.filter(function(it){ return !it.nonsul; }), nonsul = items.length - main.length;
       var regular = main.filter(function(it){ return it.book === '정규'; }).length, naeshin = main.length - regular;
       var weekly = weeklyOf[n] || 0, thr = threshold(weekly, rule);
-      function detailOf(list){ return list.map(function(b){ return b.label + ' ' + b.dates.length + '회(' + b.dates.map(md).join(', ') + ')'; }).join(' / '); }
+      function detailOf(list){ return list.map(function(b){ return b.label + ' ' + b.dates.length + '회(' + b.dates.map(function(d){ return dlabel(b, d); }).join(', ') + ')'; }).join(' / '); }
       rows.push({ grade: grade || '미상', name: n, school: school, count: main.length, regular: regular, naeshin: naeshin, nonsul: nonsul,
                   weekly: weekly, threshold: thr, over: thr > 0 && main.length > thr,
                   win: w, items: items, byCls: byCls, notes: ns,
                   detail: detailOf(byCls.filter(function(b){ return !b.ns; })),
                   nonsulDetail: detailOf(byCls.filter(function(b){ return b.ns; })),
-                  noteText: ns.map(function(x){ return md(x.date) + ' ' + x.cls + (x.kind === '휴강' ? ' 휴강' : ' → ' + (x.to ? md(x.to) : '?') + '로 옮김'); }).join('; ') });
+                  noteText: ns.map(function(x){ return md(x.date) + ' ' + x.cls + (x.kind === '휴강' ? (x.to ? ' → ' + md(x.to) + '로 옮겼으나 휴강' : ' 휴강') : ' → 옮긴 수업을 찾지 못함'); }).join('; ') });
     });
     rows.sort(function(a, b){
       var ga = GORD[a.grade] == null ? 9 : GORD[a.grade], gb = GORD[b.grade] == null ? 9 : GORD[b.grade];
@@ -427,7 +447,7 @@ var CORE = (function(){
     });
     return { rows: rows, windows: win, weeks: weeks };
   }
-  return { RULE: RULE, ALL_REGULAR: ALL_REGULAR, threshold: threshold, windows: windows, build: build, isNonsul: isNonsul, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
+  return { RULE: RULE, ALL_REGULAR: ALL_REGULAR, threshold: threshold, windows: windows, build: build, isNonsul: isNonsul, dlabel: dlabel, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
 })();
 /* ==/SESSIONS-CORE== */
 </script>
@@ -575,7 +595,7 @@ var CORE = (function(){
   function noteHtml(){
     return '<p class="note">주마다 슈국 캘린더의 정규/내신 기간에 맞는 시간표로 셉니다(미지정 주는 정규 — 그 주 수업은 정규 회차에 들어가요). '
       + '이 주만 휴강·이동·보충·추가/빼기·1회 이동·직전보강을 반영했고, 확인 수업·직전보강도 한 회로 셉니다. <b>중3·고3은 내내 정규 수업</b>이라 전부 정규 회차로 적고, <b>논술 수업은 별도</b>로 세어 합계·강조에 넣지 않습니다. '
-      + '다른 날로 옮겨 진행한 수업은 <b>실제 수업 날짜</b>로 셉니다. 이름을 누르면 날짜별 내역이 펼쳐집니다. '
+      + '반 전체를 다른 날로 옮겨 진행한 수업은 <b>원래 수업 날짜의 달</b>로 셉니다(10/10 수업을 9/19에 당겨 했으면 10월 — 날짜 옆에 \'9/19 진행\'으로 표시). 이름을 누르면 날짜별 내역이 펼쳐집니다. '
       + (DATA && DATA.at ? '기준: ' + DATA.at.toLocaleString('ko-KR', { hour12: false }) + ' 시간표.' : '') + '</p>';
   }
   function tablesHtml(rows){
@@ -594,7 +614,7 @@ var CORE = (function(){
           + '<td class="cls">' + r.byCls.map(b => '<span class="cc' + (b.jb ? ' jb' : '') + (b.ns ? ' ns' : '') + '">' + esc(b.label) + ' <b>' + b.dates.length + '</b></span>').join('')
           + (r.notes.length && !r.byCls.length ? '<span class="cc">휴강·이동만 ' + r.notes.length + '건</span>' : '') + '</td></tr>';
         if (OPEN[key]){
-          h += '<tr class="d"><td colspan="10">' + r.byCls.map(b => '<div class="dl"><b>' + esc(b.label) + '</b> · ' + b.dates.map(mdLabel).join(', ') + '</div>').join('')
+          h += '<tr class="d"><td colspan="10">' + r.byCls.map(b => '<div class="dl"><b>' + esc(b.label) + '</b> · ' + b.dates.map(d => esc(CORE.dlabel(b, d))).join(', ') + '</div>').join('')
             + (r.notes.length ? '<div class="mv">참고 — ' + esc(r.noteText) + '</div>' : '') + '</td></tr>';
         }
       });
@@ -622,8 +642,9 @@ var CORE = (function(){
       + (r.weekly ? ' · 주' + r.weekly + '회 (강조 기준 ' + (r.threshold + 1) + '회부터)' : ' · 주당 횟수 모름') + '</div>'
       + '<div class="sum"><span>정규 <b>' + r.regular + '</b>회</span><span>내신 <b>' + r.naeshin + '</b>회</span><span class="' + (r.over ? 'over' : '') + '">합계 <b>' + r.count + '</b>회' + (r.over ? ' · 강조' : '') + '</span>'
       + (r.nonsul ? '<span>논술 <b>' + r.nonsul + '</b>회 (별도)</span>' : '') + '</div>'
-      + '<table class="p"><thead><tr><th>No</th><th>날짜</th><th>구분</th><th>반</th><th>시간</th></tr></thead><tbody>'
-      + r.items.map((it, i) => '<tr><td>' + (i + 1) + '</td><td>' + dayLabel(it.date) + '</td><td class="' + (it.nonsul ? 'ns' : it.book === '내신' ? 'n' : '') + '">' + (it.nonsul ? '논술(별도)' : esc(it.book)) + '</td><td>' + esc(it.cls) + (it.kind === '직보' ? ' (직보)' : '') + '</td><td>' + esc(it.when) + '</td></tr>').join('')
+      + '<table class="p"><thead><tr><th>No</th><th>날짜</th><th>구분</th><th>반</th><th>시간</th><th>비고</th></tr></thead><tbody>'
+      + r.items.map((it, i) => '<tr><td>' + (i + 1) + '</td><td>' + dayLabel(it.date) + '</td><td class="' + (it.nonsul ? 'ns' : it.book === '내신' ? 'n' : '') + '">' + (it.nonsul ? '논술(별도)' : esc(it.book)) + '</td><td>' + esc(it.cls) + (it.kind === '직보' ? ' (직보)' : '') + '</td><td>' + esc(it.when) + '</td>'
+        + '<td class="hd">' + (it.held ? esc(dayLabel(it.held) + ' ' + it.heldWhen + '에 ' + (it.held < it.date ? '앞당겨' : '미뤄') + ' 진행') : '') + '</td></tr>').join('')
       + '</tbody></table>'
       + (r.notes.length ? '<div class="mv">참고 — ' + esc(r.noteText) + '</div>' : '') + '</div>';
   }
