@@ -133,7 +133,11 @@ ok('다른 주로 옮기기(추가+빼기 짝): r1 10/21 줄에 10/24 진행, r2
 
 /* 김건(중2, 10/1~10/31): r3 토 정규 주 10/17·10/24(2) + n3 금 내신 주 10/2·10/30(2, 10/9 휴강) = 4 → 주1회 → 기준 4 → 강조 아님 */
 const k = by['김건'];
-ok('김건 합계 4 (정규 2 · 내신 2) — 11/7로 미룬 10/24 수업도 10월', k && k.count === 4 && k.regular === 2 && k.naeshin === 2 && k.items.some(it => it.date === '2026-10-24' && it.held === '2026-11-07'), k && k.detail);
+/* 2026-10 중2는 슈국 캘린더가 내신 주여도 전부 정규 수업(GRADE_BOOK 예외) */
+ok('김건 합계 4 — 11/7로 미룬 10/24 수업도 10월, 2026-10 중2는 전부 정규', k && k.count === 4 && k.regular === 4 && k.naeshin === 0 && k.forceBook === '정규' && k.items.some(it => it.date === '2026-10-24' && it.held === '2026-11-07'), k && [k.regular, k.naeshin, k.detail]);
+ok('중2 10월 수강료 = 정규 단가로만 (4회 × 47,500)', k && k.amtReal === 4 * 47500 && k.rate['정규'] === 47500, k && k.amtReal);
+ok('예외는 그 달·그 학년만 — 고1 강준서는 그대로 정규·내신이 나뉜다', a && a.naeshin === 4 && !a.forceBook, a && [a.regular, a.naeshin]);
+ok('bookOf: 2026-10 중2 = 정규 · 다른 달 중2 = 없음 · 중3·고3은 늘 정규', CORE.bookOf('2026-10', '중2') === '정규' && CORE.bookOf('2026-11', '중2') === '' && CORE.bookOf('2026-11', '중3') === '정규' && CORE.bookOf('2026-10', '고1') === '');
 ok('11월 김건: 11/7 복사본은 따로 안 셈', !(R11.rows.find(r => r.name === '김건') || { items: [] }).items.some(it => it.date === '2026-11-07'));
 ok('김건 휴강 참고 표기', k && k.noteText === '10/9 중2 화정A 휴강', k && k.noteText);
 ok('김건 중등 범위: 10/2 포함, 11월 제외', k && k.items.some(it => it.date === '2026-10-02') && !k.items.some(it => it.date >= '2026-11-01'));
