@@ -85,30 +85,30 @@ const DB = {
   ok((await pg.textContent('#winLabel')).includes('중등 10/1~10/31') && (await pg.textContent('#winLabel')).includes('고등 10/7~11/6'), '중등·고등 기준 기간 표시');
   const tiles = await pg.$$eval('.tile .v', els => els.map(e => e.textContent));
   ok(tiles[0] === '5명', '대상 학생 타일 5명 — ' + tiles.join(' | '));
-  ok(tiles[6] === '중등 10/1~10/31\n고등 10/7~11/6' && (await pg.$eval('.tile .v.v2', el => getComputedStyle(el).fontSize)) === '16.5px', '기준 기간 타일: 중등·고등 두 줄 같은 크기');
-  ok(tiles[1] === '3명', '기준보다 많이 3명(강준서·이소율·박민선) — ' + tiles[1]);
-  ok(tiles[2] === '1명', '기준보다 적게 1명(유채아) — ' + tiles[2]);
-  ok(tiles[3] === '2명', '예정과 다름 2명(강준서 +1 · 김건 -1) — ' + tiles[3]);
+  ok(tiles[3] === '중등 10/1~10/31\n고등 10/7~11/6' && (await pg.$eval('.tile .v.v2', el => getComputedStyle(el).fontSize)) === '16.5px', '기준 기간 타일: 중등·고등 두 줄 같은 크기');
+  /* 청구 합계 = 강준서 312,500 + 이소율 187,500 + 김건 157,500 + 유채아 95,000 + 박민선 312,500 */
+  ok(tiles[1] === '1,065,000원', '청구 합계 타일 — ' + tiles[1]);
   const weeks = await pg.$$eval('.weeks span', els => els.map(e => e.textContent));
   ok(weeks.length === 6 && weeks.some(w => w.includes('10/14주 정규(미지정)')), '주차 띠: 미지정 주는 정규(미지정) — ' + weeks.join(' · '));
   const heads = await pg.$$eval('section:not(.nonsul) h2', els => els.map(e => e.textContent.trim().replace(/\s+/g, ' ')));
   ok(heads.length === 3 && heads[0].startsWith('중2') && heads[1].startsWith('고1') && heads[2].startsWith('고3'), '학년 순서 중2→고1→고3 — ' + heads.join(' / '));
   const rowOf = async name => pg.$eval(`tr.r[data-key$="|${name}"]`, tr => ({ cells: [...tr.cells].map(c => c.textContent.trim()), over: tr.classList.contains('over'), under: tr.classList.contains('under') }));
   const a = await rowOf('강준서');
-  ok(a.cells[3] === '5' && a.cells[4] === '5' && a.cells[5] === '10', '강준서 정규 5 · 내신 5 · 합계 10 — ' + a.cells.slice(3, 6).join('/'));
+  ok(a.cells[3] === '5156,250' && a.cells[4] === '5156,250' && a.cells[6] === '312,500',
+     '강준서 정규 5회 156,250 · 내신 5회 156,250 · 청구 312,500 — ' + a.cells.slice(3, 7).join(' / '));
+  const heads8 = await pg.$$eval('table.t thead th', els => els.slice(0, 8).map(e => e.textContent.trim()));
+  ok(heads8.join('|') === 'No|이름|학교|정규|내신|논술|청구 금액(원)|수업(반 · 회차)', '열은 회차·금액·청구 금액만 — ' + heads8.join('|'));
   ok((await pg.$eval('tr.r[data-key$="|강준서"] td.cls', el => el.textContent)).indexOf('고1 나') >= 0, '강준서 표 칩');
-  ok(a.cells[7] === '주2회' && a.cells[8] === '8' && a.over && a.cells[10] === '+2회', '강준서 주2회 · 기준 8 · +2회 배지 — ' + a.cells.slice(7, 11).join('/'));
-  ok(a.cells[9] === '9+1', '강준서 예정 9회 · 실제가 1회 더 많음 — ' + a.cells[9]);
   const s = await rowOf('이소율');
-  ok(s.cells[5] === '6' && s.cells[8] === '4' && s.cells[9] === '6' && s.over, '이소율 6회(10/31 확인은 직보로 대체 → 센다) · 기준 4 · 예정 6 — ' + s.cells.slice(5, 11).join('/'));
+  ok(s.cells[3] === '4125,000' && s.cells[4] === '262,500' && s.cells[6] === '187,500', '이소율 정규 4 · 내신 2 · 청구 187,500 — ' + s.cells.slice(3, 7).join(' / '));
   await pg.click('tr.r[data-key$="|이소율"]');
   await pg.waitForSelector('tr.d');
   const sdet = await pg.textContent('tr.d');
   /* 펼친 줄 = 주차별 상세 (2026-09-21) */
-  ok((await pg.textContent('.dt-sum')).replace(/\s+/g, ' ').includes('수강료 기준 4회 · 시간표 예정 6회 · 실제 6회'), '상세 요약: 기준·예정·실제 — ' + (await pg.textContent('.dt-sum')).replace(/\s+/g, ' ').slice(0, 60));
+  ok((await pg.textContent('.dt-sum')).replace(/\s+/g, ' ').includes('정규 4회 · 내신 2회 · 합계 6회'), '상세 요약: 정규·내신·합계');
   const pay = (await pg.textContent('tr.d .dt-pay')).replace(/\s+/g, ' ');
-  ok(pay.includes('실제 정규 4회 × 31,250 + 내신 2회 × 31,250 = 187,500원') && pay.includes('받은 금액 4회 × 31,250(내신 단가) = 125,000원') && pay.includes('정산 +62,500원 (더 받을 금액)'),
-     '상세 수강료 줄: 회차 × 단가 · 받은 금액 · 정산 — ' + pay.slice(0, 160));
+  ok(pay.includes('정규 4회 × 31,250 = 125,000') && pay.includes('내신 2회 × 31,250 = 62,500') && pay.includes('청구 187,500원'),
+     '상세 수강료 줄: 회차 × 단가 = 금액 · 청구 — ' + pay.slice(0, 160));
   const wkh = await pg.$$eval('tr.d .dt-h', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
   ok(wkh.length === 5 && wkh[0].startsWith('10/7~10/13 내신') && wkh[1].startsWith('10/14~10/20 정규(미지정)'), '주차별 머리줄 — ' + wkh.join(' / '));
   const rows1 = await pg.$$eval('tr.d table.dt-t tr', els => els.map(e => [...e.cells].map(c => c.textContent.replace(/\s+/g, ' ').trim())));
@@ -123,30 +123,22 @@ const DB = {
      '학생 옮기기·직보 대체는 원래 날짜 줄에 진행 날짜·시간으로 — ' + sr.join(' / ').slice(0, 200));
   await pg.click('tr.r[data-key$="|이소율"]');
   const p = await rowOf('박민선');
-  ok(p.cells[5] === '5' && p.cells[7] === '주1회' && p.over && p.cells[10] === '+1회', '박민선 주1회 5회(논술 4회 제외) → 기준보다 +1회');
-  ok(p.cells[3] === '5' && p.cells[4] === '0', '고3 박민선 정규 5 · 내신 0 (내내 정규)');
+  ok(p.cells[3] === '5312,500' && p.cells[4] === '0' && p.cells[6] === '312,500', '고3 박민선 정규 5회 × 62,500 = 312,500 · 내신 0 — ' + p.cells.slice(3, 7).join(' / '));
   const k = await rowOf('김건');
-  ok(k.cells[5] === '4' && !k.over && !k.under && k.cells[10] === '0', '김건 주1회 4회는 기준과 같아 0');
-  /* 수강료 (2026-09-21 사용자 단가: 중2 정규 47,500·내신 31,250 / 중3 47,500 / 고1·고2 31,250 / 고3 62,500) */
-  /* 회차는 기준과 같아도 금액은 다를 수 있다 — 중2는 정규 47,500 > 내신 단가 31,250이라 정규 회차가 섞이면 더 받는다 */
-  ok(k.cells[11] === '+32,500' && k.cells[10] === '0', '김건(중2 4회 = 기준이지만 정규 2회가 섞여 +32,500) — ' + k.cells.slice(10, 12).join('/'));
-  ok(a.cells[11] === '+62,500', '강준서(고1 10회 − 기준 8회) × 31,250 = +62,500 — ' + a.cells[11]);
-  ok(p.cells[11] === '+62,500', '박민선(고3 5회 − 기준 4회) × 62,500 = +62,500 — ' + p.cells[11]);
-  const yu = await rowOf('유채아');
-  ok(yu.cells[11] === '-95,000', '유채아(중2 실제 2회 − 기준 4회, 정규 단가 47,500) = -95,000 — ' + yu.cells[11]);
-  ok(tiles[4] === '+125,000원', '수강료 정산 타일 합계 — ' + tiles[4]);
-  ok(k.cells[9] === '5-1', '김건 예정 5회인데 10/9 휴강으로 4회 — ' + k.cells[9]);
+  /* 수강료 (2026-09-21 사용자 단가: 중2 정규 47,500·내신 31,250 / 중3 47,500 / 고1·고2 31,250 / 고3 62,500)
+   * 중2는 두 단가가 달라 회차가 같아도 금액이 다르다 */
+  ok(k.cells[3] === '295,000' && k.cells[4] === '262,500' && k.cells[6] === '157,500',
+     '김건(중2) 정규 2회 95,000 + 내신 2회 62,500 = 157,500 — ' + k.cells.slice(3, 7).join(' / '));
   const y = await rowOf('유채아');
-  ok(y.under && !y.over && y.cells[5] === '2' && y.cells[8] === '4' && y.cells[9] === '2' && y.cells[10] === '-2회',
-     '내신 반이 없는 학생: 기준 4 · 예정 2 · 실제 2 → 기준 미달(파랑) — ' + y.cells.slice(5, 11).join('/'));
-  ok((await pg.$eval('tr.r.under td', el => getComputedStyle(el).backgroundColor)) === 'rgb(238, 242, 250)', '미달 줄 배경색(연하늘)');
+  ok(y.cells[3] === '295,000' && y.cells[4] === '0' && y.cells[6] === '95,000',
+     '내신 반이 없는 학생도 정규 2회 = 95,000으로 청구 — ' + y.cells.slice(3, 7).join(' / '));
+  ok(!(await pg.$('tr.r.over')) && !(await pg.$('tr.r.under')), '기준 초과·미달 강조는 없앴다');
   ok((await pg.$$eval('.cc.jb', els => els.length)) === 1, '직전보강 칩 표시');
-  ok(p.cells[6] === '4' && a.cells[6] === '', '논술 열: 박민선 4, 없는 학생은 빈칸');
-  ok(tiles[5] === '1명' && (await pg.$$eval('.tile .s', els => els[5].textContent)) === '논술 수업 4회', '논술 타일(별도) 1명 · 4회 — ' + tiles[5]);
+  ok(p.cells[5] === '4' && a.cells[5] === '', '논술 열: 박민선 4, 없는 학생은 빈칸');
+  ok(tiles[2] === '1명' && (await pg.$$eval('.tile .s', els => els[2].textContent)) === '논술 수업 4회 · 단가 없음', '논술 타일(별도) 1명 · 4회');
   const nsSec = await pg.$eval('section.nonsul', el => el.textContent.replace(/\s+/g, ' '));
   ok(/논술 수강생.*1명/.test(nsSec) && nsSec.includes('박민선') && nsSec.includes('논술B 국어 일6:00 4'), '논술 수강생 별도 표 — ' + nsSec.slice(0, 80));
   ok((await pg.$$eval('table.t', els => els.length)) === 4, '학년 표 3개 + 논술 표 1개');
-  ok((await pg.$eval('tr.r.over td', el => getComputedStyle(el).backgroundColor)) === 'rgb(253, 243, 245)', '강조 줄 배경색');
 
   console.log('② 펼치기·거르기');
   await pg.click('tr.r[data-key$="|강준서"]');
@@ -161,14 +153,8 @@ const DB = {
      && kr.includes('10/30 (금) | 금5:00 | 내신 중2 화정A | 10/16 (금) 금7:00 · 10/23 (금) 금7:00에 나눠 진행')
      && kh.some(x => x.indexOf('10/7~10/13') === 0 && x.indexOf('수업 없음') > 0) && koff.some(x => x.includes('10/9 중2 화정A 휴강')),
      '주차별 상세: 수업 줄·나눠 진행·수업 없는 주의 휴강 참고 — ' + kr.join(' / ').slice(0, 180));
-  await pg.selectOption('#flagSel', 'base');
-  await pg.waitForFunction(() => document.querySelectorAll('section:not(.nonsul) tr.r').length === 4);
-  ok((await pg.$$eval('section:not(.nonsul) tr.r td.nm', els => els.map(e => e.textContent))).join() === '유채아,강준서,이소율,박민선', '기준과 다른 학생만 보기(많이 3 · 적게 1)');
-  ok((await pg.$$eval('section.nonsul tr.r', els => els.length)) === 1, '거른 뒤에도 논술 표는 보이는 학생 기준');
-  await pg.selectOption('#flagSel', 'plan');
-  await pg.waitForFunction(() => document.querySelectorAll('section:not(.nonsul) tr.r').length === 2);
-  ok((await pg.$$eval('section:not(.nonsul) tr.r td.nm', els => els.map(e => e.textContent))).join() === '김건,강준서', '예정과 다른 학생만 보기');
-  await pg.selectOption('#flagSel', 'all');
+  ok(!(await pg.$('#flagSel')) && !(await pg.$('#onlyOver')), '기준·예정 거르기 드롭다운은 없앴다');
+  ok((await pg.$$eval('section:not(.nonsul) tr.r td.nm', els => els.map(e => e.textContent))).join() === '김건,유채아,강준서,이소율,박민선', '전체 학생이 그대로 보인다');
 
   console.log('③ 보기 전환');
   await pg.click('#vseg button[data-v="grade"]');
@@ -187,13 +173,12 @@ const DB = {
   ok((await pg.textContent('tr.r td.nm')) === '이소율', '학교 보기: 무원고 = 이소율');
   await pg.click('#vseg button[data-v="person"]');
   await pg.waitForSelector('#q:not([hidden])');
-  ok(await pg.$eval('#flagWrap', el => el.hidden), '개인 보기에서는 거르기 드롭다운이 숨는다');
   ok((await pg.textContent('#view')).includes('이름을 넣으면'), '개인 보기 안내');
   await pg.fill('#q', '강준서');
   await pg.waitForSelector('.person');
   const person = await pg.textContent('.person');
-  ok(person.includes('정규 5회') && person.includes('내신 5회') && person.includes('합계 10회') && person.includes('기준보다 +2')
-     && person.includes('수강료 기준 8회') && person.includes('시간표 예정 9회'), '개인 카드 요약 — 정규·내신·합계·기준·예정');
+  ok(person.includes('정규 5회') && person.includes('내신 5회') && person.includes('합계 10회') && person.includes('청구 312,500원')
+     && person.includes('정규 5회 × 31,250 = 156,250'), '개인 카드 요약 — 정규·내신·합계·청구 금액');
   ok((await pg.$$eval('.person table.p tbody tr', els => els.length)) === 10, '개인 카드 날짜 줄 10개');
   ok((await pg.$$eval('.person table.p td.hd', els => els.map(e => e.textContent).filter(Boolean))).join() === '10/25 (일) 일3:30에 미뤄 진행', '개인 카드 비고: 옮겨 진행한 날짜');
   await pg.fill('#q', '박민선');
@@ -216,26 +201,26 @@ const DB = {
   await pg.waitForSelector('table.t');
   const tsv = await pg.evaluate(() => tsvText());
   const lines = tsv.split('\n');
-  ok(lines[0].split('\t').join('|') === '학년|이름|학교|10월 정규|10월 내신|합계|논술(별도)|주당 횟수|수강료 기준|시간표 예정|기준 차이|예정 차이|회당(정규)|회당(내신)|받은 금액|실제 금액|정산액|기준 기간|수업 상세(반 · 날짜)|논술 상세|휴강·옮긴 수업(참고)', 'TSV 머리글 — ' + lines[0]);
-  ok(lines.length === 6 && lines[3].startsWith('고1\t강준서\t화정고\t5\t5\t10\t\t주2회\t8\t9\t+2\t+1\t31250\t31250\t250000\t312500\t62500\t10/7~11/6\t'), 'TSV 줄: 강준서(금액 포함) — ' + lines[3].slice(0, 110));
-  ok(lines[1].startsWith('중2\t김건\t서정중\t2\t2\t4\t\t주1회\t4\t5\t\t-1\t47500\t31250\t125000\t157500\t32500\t10/1~10/31'), 'TSV 줄: 김건(기준과 같으면 빈칸·예정 -1·금액) — ' + lines[1].slice(0, 90));
-  ok(lines[2].startsWith('중2\t유채아\t고양중\t2\t0\t2\t\t주1회\t4\t2\t-2\t\t47500\t31250\t190000\t95000\t-95000\t10/1~10/31'), 'TSV 줄: 유채아(기준 미달·정산 -95,000) — ' + lines[2].slice(0, 90));
-  ok(lines[5].split('\t')[6] === '4' && lines[5].split('\t')[19].startsWith('논술B 국어 일6:00 4회('), 'TSV 줄: 박민선 논술 4·논술 상세');
+  ok(lines[0].split('\t').join('|') === '학년|이름|학교|10월 정규 회차|정규 금액|10월 내신 회차|내신 금액|합계 회차|청구 금액|논술(별도)|기준 기간|수업 상세(반 · 날짜)|논술 상세|휴강·옮긴 수업(참고)', 'TSV 머리글 — ' + lines[0]);
+  ok(lines.length === 6 && lines[3].startsWith('고1\t강준서\t화정고\t5\t156250\t5\t156250\t10\t312500\t\t10/7~11/6\t'), 'TSV 줄: 강준서 — ' + lines[3].slice(0, 80));
+  ok(lines[1].startsWith('중2\t김건\t서정중\t2\t95000\t2\t62500\t4\t157500\t\t10/1~10/31'), 'TSV 줄: 김건(중2는 단가가 달라 금액이 갈린다) — ' + lines[1].slice(0, 70));
+  ok(lines[2].startsWith('중2\t유채아\t고양중\t2\t95000\t0\t0\t2\t95000\t\t10/1~10/31'), 'TSV 줄: 유채아(내신 0회) — ' + lines[2].slice(0, 70));
+  ok(lines[5].split('\t')[9] === '4' && lines[5].split('\t')[12].startsWith('논술B 국어 일6:00 4회('), 'TSV 줄: 박민선 논술 4·논술 상세');
   const csv = await pg.evaluate(() => csvText());
-  ok(csv.charCodeAt(0) === 0xFEFF && csv.split('\r\n').length === 6 && csv.includes('"강준서","화정고","5","5","10"'), 'CSV(BOM·따옴표)');
+  ok(csv.charCodeAt(0) === 0xFEFF && csv.split('\r\n').length === 6 && csv.includes('"강준서","화정고","5","156250","5","156250","10","312500"'), 'CSV(BOM·따옴표)');
   await pg.click('#mNext');
   await pg.waitForFunction(() => document.getElementById('mLabel').textContent === '2026년 11월');
   ok((await pg.textContent('#winLabel')).includes('고등 11/7~12/6') && pg.url().includes('m=2026-11'), '다음 달 → 11/7~12/6, 주소 ?m=2026-11');
   await pg.waitForSelector('table.t');
   const a11 = await rowOf('강준서');
-  ok(a11.cells[5] === '9' && a11.cells[4] === '1', '11월 강준서 9회(내신 1 + 미지정 정규 8)');
+  ok(a11.cells[3].indexOf('8') === 0 && a11.cells[4].indexOf('1') === 0 && a11.cells[6] === '281,250', '11월 강준서 정규 8 · 내신 1 · 청구 281,250 — ' + a11.cells.slice(3, 7).join(' / '));
 
   console.log('⑤ kind 열이 없는 DB');
   kindCol = false; reqs.length = 0;
   await pg.goto(`http://localhost:${PORT}/sessions.html?m=2026-10`);
   await pg.waitForSelector('table.t');
   ok(reqs.filter(u => /tt_classes/.test(u)).length === 2 && reqs.some(u => /tt_classes/.test(u) && !/kind/.test(u)), 'kind 400이면 옛 열로 다시 읽는다');
-  ok((await rowOf('강준서')).cells[5] === '10', '폴백 뒤에도 같은 결과');
+  ok((await rowOf('강준서')).cells[6] === '312,500', '폴백 뒤에도 같은 결과');
   ok(!errors.length, '페이지 오류 없음' + (errors.length ? ' — ' + errors.join(' | ') : ''));
 
   await browser.close(); server.close();
