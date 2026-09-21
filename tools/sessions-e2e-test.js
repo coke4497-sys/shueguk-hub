@@ -104,13 +104,26 @@ const DB = {
   await pg.click('tr.r[data-key$="|이소율"]');
   await pg.waitForSelector('tr.d');
   const sdet = await pg.textContent('tr.d');
-  ok(sdet.includes('10/21(10/24 진행)') && sdet.includes('10/31(10/29 진행)') && !sdet.includes('고1 직보') && !sdet.includes('빠짐'), '학생 옮기기는 원래 날짜에 진행일, 직보 대체는 10/31(10/29 진행) 한 번만 — ' + sdet.replace(/\s+/g, ' ').slice(0, 140));
+  /* 펼친 줄 = 주차별 상세 (2026-09-21) */
+  ok((await pg.textContent('.dt-sum')).replace(/\s+/g, ' ').includes('수강료 기준 4회 · 시간표 예정 6회 · 실제 6회'), '상세 요약: 기준·예정·실제 — ' + (await pg.textContent('.dt-sum')).replace(/\s+/g, ' ').slice(0, 60));
+  const wkh = await pg.$$eval('tr.d .dt-h', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
+  ok(wkh.length === 5 && wkh[0].startsWith('10/7~10/13 내신') && wkh[1].startsWith('10/14~10/20 정규(미지정)'), '주차별 머리줄 — ' + wkh.join(' / '));
+  const rows1 = await pg.$$eval('tr.d table.dt-t tr', els => els.map(e => [...e.cells].map(c => c.textContent.replace(/\s+/g, ' ').trim())));
+  ok(rows1.length === 6 && rows1[0][0] === '10/10 (토)' && rows1[0][1] === '토3:30' && rows1[0][2] === '내신 고1 확인', '수업 줄: 날짜(요일)·시간·구분+반 — ' + rows1[0].join(' | '));
+  ok(rows1.some(c => c[2] === '정규 고1 가' && c[1] === '수5:30'), '정규 주 수업도 구분 배지와 함께');
+  ok(rows1.some(c => c[3] && c[3].includes('진행')), '옮겨 진행한 수업은 비고에 진행 날짜·시간');
+  const dtRows = () => pg.$$eval('tr.d table.dt-t tr', els => els.map(e => [...e.cells].map(c => c.textContent.replace(/\s+/g, ' ').trim()).join(' | ')));
+  const sr = await dtRows();
+  ok(sr.includes('10/21 (수) | 수5:30 | 정규 고1 가 | 10/24 (토) 토3:30에 미뤄 진행')
+     && sr.includes('10/31 (토) | 토3:30 | 내신 고1 확인 | 10/29 (목) 목7:00에 앞당겨 진행 — 직전 보강 대체')
+     && !sdet.includes('고1 직보') && !sdet.includes('빠짐'),
+     '학생 옮기기·직보 대체는 원래 날짜 줄에 진행 날짜·시간으로 — ' + sr.join(' / ').slice(0, 200));
   await pg.click('tr.r[data-key$="|이소율"]');
   const p = await rowOf('박민선');
   ok(p.cells[5] === '5' && p.cells[7] === '주1회' && p.over && p.cells[10] === '+1회', '박민선 주1회 5회(논술 4회 제외) → 기준보다 +1회');
   ok(p.cells[3] === '5' && p.cells[4] === '0', '고3 박민선 정규 5 · 내신 0 (내내 정규)');
   const k = await rowOf('김건');
-  ok(k.cells[5] === '4' && !k.over && !k.under && k.cells[10] === '', '김건 주1회 4회는 기준과 같아 표시 없음');
+  ok(k.cells[5] === '4' && !k.over && !k.under && k.cells[10] === '0', '김건 주1회 4회는 기준과 같아 0');
   ok(k.cells[9] === '5-1', '김건 예정 5회인데 10/9 휴강으로 4회 — ' + k.cells[9]);
   const y = await rowOf('유채아');
   ok(y.under && !y.over && y.cells[5] === '2' && y.cells[8] === '4' && y.cells[9] === '2' && y.cells[10] === '-2회',
@@ -127,12 +140,16 @@ const DB = {
   console.log('② 펼치기·거르기');
   await pg.click('tr.r[data-key$="|강준서"]');
   await pg.waitForSelector('tr.d');
-  ok((await pg.textContent('tr.d')).includes('10/17(10/25 진행)'), '옮긴 수업은 원래 날짜에 실제 진행일을 붙여 표시');
+  ok((await dtRows()).includes('10/17 (토) | 토3:30 | 정규 고1 나 | 10/25 (일) 일3:30에 미뤄 진행'), '옮긴 수업은 원래 날짜 줄에 실제 진행일·시간');
   await pg.click('tr.r[data-key$="|강준서"]');
   await pg.click('tr.r[data-key$="|김건"]');
   await pg.waitForSelector('tr.d');
-  const det = await pg.textContent('tr.d');
-  ok(det.includes('10/17, 10/24') && det.includes('10/2, 10/30(10/16·10/23 진행)') && det.includes('10/9 중2 화정A 휴강'), '펼친 줄에 날짜와 휴강 참고, 나눠 한 수업은 원래 날짜에 진행일 둘 — ' + det.replace(/\s+/g, ' ').slice(0, 140));
+  const kr = await dtRows(), kh = await pg.$$eval('tr.d .dt-h', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
+  const koff = await pg.$$eval('tr.d .dt-off', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
+  ok(kr.includes('10/17 (토) | 토4:30 | 정규 정리정독 중2 | ') && kr.includes('10/24 (토) | 토4:30 | 정규 정리정독 중2 | ')
+     && kr.includes('10/30 (금) | 금5:00 | 내신 중2 화정A | 10/16 (금) 금7:00 · 10/23 (금) 금7:00에 나눠 진행')
+     && kh.some(x => x.indexOf('10/7~10/13') === 0 && x.indexOf('수업 없음') > 0) && koff.some(x => x.includes('10/9 중2 화정A 휴강')),
+     '주차별 상세: 수업 줄·나눠 진행·수업 없는 주의 휴강 참고 — ' + kr.join(' / ').slice(0, 180));
   await pg.selectOption('#flagSel', 'base');
   await pg.waitForFunction(() => document.querySelectorAll('section:not(.nonsul) tr.r').length === 4);
   ok((await pg.$$eval('section:not(.nonsul) tr.r td.nm', els => els.map(e => e.textContent))).join() === '유채아,강준서,이소율,박민선', '기준과 다른 학생만 보기(많이 3 · 적게 1)');
