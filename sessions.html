@@ -41,6 +41,10 @@
        + 그 학생 기준 기간에 걸친 주차마다 '10/7~10/13 [내신] 2회' 머리줄과 수업 표(날짜(요일) · 시간 · 구분 배지+반이름(+직보) · 비고=진행 날짜·시간),
        수업이 없는 주는 '수업 없음' + 그 주 휴강·빠짐 참고. 구분 배지는 반이름 **앞**에 둔다 — 주차마다 표가 따로라 뒤에 두면 x 위치가 들쭉날쭉했다.
      · 표의 '차이' 열 이름은 **'기준 차이'**(= 실제 − 수강료 기준), 배지 title에 계산식을 적었다. 예정 열 옆 작은 숫자가 예정 차이.
+     · **수강료 금액**(사용자 2026-09-21 단가 지정): `RATES` — 중2 정규 47,500·내신 31,250 / 중3 47,500 / 고1·고2 정규·내신 31,250 / 고3 62,500원.
+       `amtReal` = 정규 회차 × 정규 단가 + 내신 회차 × 내신 단가, `amtBase` = 기준 회차 × **그 달 주차가 더 많은 기간**의 단가(`weeklyIn`이 돌려주는 `book`),
+       `amtDiff` = 실제 − 기준(+ 더 받을 금액 / − 돌려줄 금액). 표의 '정산(원)' 열·'수강료 정산' 타일·상세와 개인 카드의 계산 줄·내보내기 다섯 열.
+       **회차가 기준과 같아도 금액은 다를 수 있다** — 중2는 정규 단가가 내신보다 높아 정규 회차가 섞이면 더 받게 된다. 논술과 단가 없는 학년(중1·미상)은 금액에서 뺀다.
      · 집계 로직은 SESSIONS-CORE 블록 한 곳 — tools/sessions-test.js 가 그 블록만 떼어 검증한다. 고치면 테스트도 함께.
      · 학생마다 정규 몇 회·내신 몇 회로 나눠 적는다(그 주의 기간이 정규면 정규, 내신이면 내신 — 사용자 2026-09-20 "내신 몇 회, 정규 몇 회로 기록").
      · 강조 = 주1회 학생은 5회부터, 주2회 학생은 9회부터(사용자 지정) — 일반화해 '4 × 주당 횟수'를 넘으면 강조(CORE.RULE.perWeek).
@@ -199,6 +203,14 @@
   table.dt-t td.d5{ color:var(--muted); font-size:11.5px; width:auto; }
   .dt-off{ font-size:11.5px; color:var(--muted); margin-top:3px; }
   .same{ display:inline-block; color:var(--muted); font-size:11.5px; }
+  table.t td.amt{ white-space:nowrap; font-size:13px; font-variant-numeric:tabular-nums; }
+  table.t td.amt.p{ color:var(--bad); font-weight:700; }
+  table.t td.amt.m{ color:#3E5A8C; font-weight:700; }
+  table.t td.amt.z{ color:var(--muted); }
+  .dt-pay{ font-size:12.5px; color:#4F5A74; margin:0 0 10px; padding:7px 10px; background:#fff; border-radius:8px; }
+  .dt-pay b{ font-family:'Gowun Batang',serif; font-size:14px; color:var(--ink); }
+  .dt-pay .p{ color:var(--bad); font-weight:700; }
+  .dt-pay .m{ color:#3E5A8C; font-weight:700; }
   .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
     background:var(--ink); color:#fff; padding:11px 22px; border-radius:99px; font-size:13px;
     opacity:0; transition:all .25s; pointer-events:none; z-index:50; }
@@ -359,6 +371,13 @@ var CORE = (function(){
   }
   /* 반이름의 뿌리 — 교재 괄호·'k/m' 조각 표시·학교 구분을 뗀 이름(같은 수업의 조각인지 대조용) */
   function baseCls(name){ return String(name || '').replace(/\([^)]*\)/g, '').replace(/\b[1-5]\/[1-5]\b/g, '').replace(/\s+/g, ' ').trim(); }
+  /* 회당 수강료 — 사용자 2026-09-21 지정. 없는 학년(중1·미상)은 금액을 계산하지 않는다.
+   * 중3·고3은 내신 주 수업도 정규로 세므로(ALL_REGULAR) 두 값이 같다. 논술은 단가가 없어 금액에서 뺀다. */
+  var RATES = { '중2': { '정규': 47500, '내신': 31250 },
+                '중3': { '정규': 47500, '내신': 47500 },
+                '고1': { '정규': 31250, '내신': 31250 },
+                '고2': { '정규': 31250, '내신': 31250 },
+                '고3': { '정규': 62500, '내신': 62500 } };
   /* 중3·고3은 내신 주에도 같은 수업(정규·내신 명단 동일)이라 전부 정규로 적는다 — 사용자 2026-09-20 */
   var ALL_REGULAR = { '중3':1, '고3':1 };
 
@@ -679,10 +698,12 @@ var CORE = (function(){
     /* 그 달 주차 구성으로 주당 횟수를 정한다 — 주차마다 그 기간의 반 수를 더해 평균(반올림).
      * 평균이 0이면(그 기간 수업이 없는 학생) 다른 기간의 반 수를 써서 '기준은 있는데 이 달 예정이 0회'가 드러나게 한다. */
     function weeklyIn(wks, n){
-      var reg = rosterW['정규'][n] || 0, nae = rosterW['내신'][n] || 0, ks = Object.keys(wks), sum = 0;
-      ks.forEach(function(k){ sum += (wks[k] === '정규' ? reg : nae); });
+      var reg = rosterW['정규'][n] || 0, nae = rosterW['내신'][n] || 0, ks = Object.keys(wks), sum = 0, rc = 0;
+      ks.forEach(function(k){ if (wks[k] === '정규') rc++; sum += (wks[k] === '정규' ? reg : nae); });
       var w = ks.length ? Math.round(sum / ks.length) : 0;
-      return w || Math.max(reg, nae);
+      var bk = rc > ks.length - rc ? '정규' : '내신';                      // 주차가 더 많은 기간(같으면 내신)이 기준 단가
+      if (!w){ w = Math.max(reg, nae); bk = reg >= nae ? '정규' : '내신'; }   // 그 기간 수업이 없는 학생은 다른 기간 기준
+      return { weekly: w, book: bk };
     }
     var rows = [];
     Object.keys(sess).concat(Object.keys(notes)).concat(Object.keys(rosterNames)).filter(function(n, i, a){ return a.indexOf(n) === i; }).forEach(function(n){
@@ -714,14 +735,20 @@ var CORE = (function(){
       var main = items.filter(function(it){ return !it.nonsul; }), nonsul = items.length - main.length;
       var regular = main.filter(function(it){ return it.book === '정규'; }).length, naeshin = main.length - regular;
       var mid = grade.charAt(0) === '중';
-      var weekly = weeklyIn(mid ? wkMid : wkHigh, n), thr = threshold(weekly, rule);
+      var wk = weeklyIn(mid ? wkMid : wkHigh, n), weekly = wk.weekly, thr = threshold(weekly, rule);
       var plan = (mid ? planMid[n] : planHigh[n]) || 0;
+      /* 수강료 — 기준 금액(받은 돈) · 실제 금액(등원한 회차) · 정산액(실제 − 기준). 논술은 단가가 없어 뺀다. */
+      var rate = RATES[grade] || null;
+      var amtBase = rate ? thr * rate[wk.book] : 0;
+      var amtReal = rate ? regular * rate['정규'] + naeshin * rate['내신'] : 0;
       function detailOf(list){ return list.map(function(b){ return b.label + ' ' + b.dates.length + '회(' + b.dates.map(function(d){ return dlabel(b, d); }).join(', ') + ')'; }).join(' / '); }
       rows.push({ grade: grade || '미상', name: n, school: school, count: main.length, regular: regular, naeshin: naeshin, nonsul: nonsul,
                   weekly: weekly, threshold: thr,
                   over: thr > 0 && main.length > thr, under: thr > 0 && main.length < thr, diff: thr > 0 ? main.length - thr : 0,
                   plan: plan, planDiff: main.length - plan, noClass: plan === 0 && main.length === 0 && nonsul === 0,
                   regWeekly: rosterW['정규'][n] || 0, naeWeekly: rosterW['내신'][n] || 0,
+                  rate: rate, baseBook: wk.book, baseRate: rate ? rate[wk.book] : 0,
+                  amtBase: amtBase, amtReal: amtReal, amtDiff: rate ? amtReal - amtBase : 0,
                   win: w, items: items, byCls: byCls, notes: ns,
                   detail: detailOf(byCls.filter(function(b){ return !b.ns; })),
                   nonsulDetail: detailOf(byCls.filter(function(b){ return b.ns; })),
@@ -747,7 +774,7 @@ var CORE = (function(){
             + (rs.length > 1 ? '에 나눠 진행' : same ? '에 대체 진행' : (rs[0].date < it.date ? '에 앞당겨 진행' : '에 미뤄 진행'));
     return txt + (it.alt ? ' — ' + it.alt : '');
   }
-  return { RULE: RULE, ALL_REGULAR: ALL_REGULAR, threshold: threshold, windows: windows, build: build, isNonsul: isNonsul, dlabel: dlabel, runNote: runNote, heldFromReason: heldFromReason, datesInReason: datesInReason, partMark: partMark, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
+  return { RULE: RULE, RATES: RATES, ALL_REGULAR: ALL_REGULAR, threshold: threshold, windows: windows, build: build, isNonsul: isNonsul, dlabel: dlabel, runNote: runNote, heldFromReason: heldFromReason, datesInReason: datesInReason, partMark: partMark, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
 })();
 /* ==/SESSIONS-CORE== */
 </script>
@@ -777,6 +804,9 @@ var CORE = (function(){
     clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2400); }
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
   function mdLabel(s){ return CORE.md(s); }
+  /* 수강료 표기 — 부호를 앞에 두고 천 단위 쉼표 */
+  function won(n){ return (n < 0 ? '-' : '') + Math.abs(Math.round(n)).toLocaleString('ko-KR'); }
+  function wonSign(n){ return (n > 0 ? '+' : '') + won(n); }
 
   /* ── 달 고르기: 주소 ?m=2026-10, 없으면 오늘 기준(20일 이후면 다음 달 — 수강료 회차는 다음 달 것을 미리 본다) ── */
   function initMonth(){
@@ -888,6 +918,9 @@ var CORE = (function(){
       + tile('기준보다 많이', over + '명', '수강료 기준 회차를 넘게 등원', over ? 'bad' : '')
       + tile('기준보다 적게', under + '명', noc ? '이 중 ' + noc + '명은 이 달 수업 없음' : '수강료 기준 회차보다 적게 등원', under ? 'blue' : '')
       + tile('예정과 다름', pdiff + '명', '시간표 예정과 실제가 어긋난 학생')
+      + tile('수강료 정산', wonSign(all.reduce((t, r) => t + (r.rate ? r.amtDiff : 0), 0)) + '원',
+             '더 받을 ' + all.filter(r => r.amtDiff > 0).length + '명 · 돌려줄 ' + all.filter(r => r.amtDiff < 0).length + '명',
+             all.reduce((t, r) => t + (r.rate ? r.amtDiff : 0), 0) < 0 ? 'blue' : 'bad')
       + tile('논술 (별도)', nsn + '명', nsc ? '논술 수업 ' + nsc + '회' : '논술 수업 없음')
       + tile('기준 기간', '중등 ' + mdLabel(w.mid.from) + '~' + mdLabel(w.mid.to) + '\n고등 ' + mdLabel(w.high.from) + '~' + mdLabel(w.high.to), '', 'v2')
       + '</div>';
@@ -903,7 +936,10 @@ var CORE = (function(){
       + '<p class="note"><b>기준</b>은 수강료를 받은 회차입니다 — 주1회 학생 4회, 주2회 학생 8회. 주당 횟수는 <b>그 달 주차 구성</b>으로 정하므로, 중2처럼 정규는 주1회·내신은 주2회(진도+확인)인 학생은 내신 주가 많은 달에 주2회가 기준이 됩니다. '
       + '<b>예정</b>은 그 달 시간표에 원래 잡혀 있던 회차입니다(휴강·이동을 빼기 전). 기준과 예정이 다른 것은 대개 달력 때문이에요 — 고등 기준 기간에는 수·목·금이 다섯 번, 토·일이 네 번 들어오는 달이 있습니다. '
       + '그래서 <b>기준과 다른 학생</b>은 수강료 정산 대상이고, <b>예정과 다른 학생</b>은 휴강·보충처럼 시간표대로 되지 않은 학생입니다. 위 드롭다운으로 갈라 볼 수 있어요. '
-      + '내신 반이 없어 내신 주에 수업이 없는 학생도 \'이 달 수업 없음\'으로 목록에 남습니다. '
+      + '내신 반이 없어 내신 주에 수업이 없는 학생도 \'이 달 수업 없음\'으로 목록에 남습니다.</p>'
+      + '<p class="note"><b>수강료</b>는 회당 단가 × 회차입니다 — 중2 정규 47,500 · 내신 31,250, 중3 47,500, 고1·고2 정규·내신 모두 31,250, 고3 62,500원. '
+      + '<b>받은 금액</b>은 기준 회차에 그 달 주차가 더 많은 기간의 단가를 곱한 값, <b>실제 금액</b>은 정규·내신 회차에 각각 단가를 곱한 값이고, '
+      + '<b>정산</b>은 실제에서 받은 금액을 뺀 것입니다. 더 받을 금액은 분홍, 돌려줄 금액은 파랑이에요. 논술은 단가가 없어 금액에서 뺐습니다. '
       + (DATA && DATA.at ? '기준: ' + DATA.at.toLocaleString('ko-KR', { hour12: false }) + ' 시간표.' : '') + '</p>';
   }
   function tablesHtml(rows){
@@ -913,7 +949,7 @@ var CORE = (function(){
     groups.forEach(g => {
       const ov = g.rows.filter(r => r.over).length, un = g.rows.filter(r => r.under).length;
       h += '<section><h2>' + esc(g.grade) + ' <span class="hint">' + g.rows.length + '명' + (ov ? ' · 많이 ' + ov + '명' : '') + (un ? ' · 적게 ' + un + '명' : '') + '</span></h2>'
-        + '<div class="tbl-wrap"><table class="t"><thead><tr><th>No</th><th>이름</th><th>학교</th><th>정규</th><th>내신</th><th>합계</th><th>논술</th><th>주당</th><th title="수강료를 받은 회차 = 주당 횟수 × 4">기준</th><th title="그 달 시간표에 원래 잡혀 있던 회차">예정</th><th title="실제 − 수강료 기준">기준 차이</th><th style="text-align:left">수업(반 · 회차)</th></tr></thead><tbody>';
+        + '<div class="tbl-wrap"><table class="t"><thead><tr><th>No</th><th>이름</th><th>학교</th><th>정규</th><th>내신</th><th>합계</th><th>논술</th><th>주당</th><th title="수강료를 받은 회차 = 주당 횟수 × 4">기준</th><th title="그 달 시간표에 원래 잡혀 있던 회차">예정</th><th title="실제 − 수강료 기준">기준 차이</th><th title="실제 금액 − 기준 금액 (회당 수강료 × 회차)">정산(원)</th><th style="text-align:left">수업(반 · 회차)</th></tr></thead><tbody>';
       g.rows.forEach((r, i) => {
         const key = r.grade + '|' + r.name;
         h += '<tr class="r' + (r.over ? ' over' : r.under ? ' under' : '') + '" data-key="' + esc(key) + '"><td class="no">' + (i + 1) + '</td><td class="nm">' + esc(r.name) + '</td>'
@@ -922,10 +958,13 @@ var CORE = (function(){
           + '<td class="base">' + (r.threshold || '—') + '</td>'
           + '<td class="plan">' + r.plan + (r.planDiff ? '<span class="pd">' + (r.planDiff > 0 ? '+' : '') + r.planDiff + '</span>' : '') + '</td>'
           + '<td>' + diffBadge(r) + '</td>'
+          + '<td class="amt ' + (!r.rate ? 'z' : r.amtDiff > 0 ? 'p' : r.amtDiff < 0 ? 'm' : 'z') + '"'
+          + (r.rate ? ' title="실제 ' + won(r.amtReal) + '원 − 기준 ' + won(r.amtBase) + '원"' : '') + '>'
+          + (r.rate ? (r.amtDiff ? wonSign(r.amtDiff) : '0') : '단가 없음') + '</td>'
           + '<td class="cls">' + r.byCls.map(b => '<span class="cc' + (b.jb ? ' jb' : '') + (b.ns ? ' ns' : '') + '">' + esc(b.label) + ' <b>' + b.dates.length + '</b></span>').join('')
           + (r.noClass ? '<span class="nocls">이 달 수업 없음</span>' : '')
           + (r.notes.length && !r.byCls.length && !r.noClass ? '<span class="cc">휴강·이동만 ' + r.notes.length + '건</span>' : '') + '</td></tr>';
-        if (OPEN[key]) h += '<tr class="d"><td colspan="12">' + detailHtml(r) + '</td></tr>';
+        if (OPEN[key]) h += '<tr class="d"><td colspan="13">' + detailHtml(r) + '</td></tr>';
       });
       h += '</tbody></table></div></section>';
     });
@@ -954,6 +993,7 @@ var CORE = (function(){
       + '<span>수강료 기준 <b>' + (r.threshold || '—') + '</b>회</span>'
       + '<span>시간표 예정 <b>' + r.plan + '</b>회' + (r.planDiff ? ' · 실제 ' + (r.planDiff > 0 ? '+' : '') + r.planDiff : '') + '</span>'
       + (r.nonsul ? '<span>논술 <b>' + r.nonsul + '</b>회 (별도)</span>' : '') + '</div>'
+      + payHtml(r)
       + (r.noClass ? '<div class="mv">이 달은 시간표에 잡힌 수업이 없어요 — 주차 기간과 소속 반을 확인해 주세요.</div>' : '')
       + '<table class="p"><thead><tr><th>No</th><th>날짜</th><th>구분</th><th>반</th><th>시간</th><th>비고</th></tr></thead><tbody>'
       + r.items.map((it, i) => '<tr><td>' + (i + 1) + '</td><td>' + dayLabel(it.date) + '</td><td class="' + (it.nonsul ? 'ns' : it.book === '내신' ? 'n' : '') + '">' + (it.nonsul ? '논술(별도)' : esc(it.book)) + '</td><td>' + esc(it.cls) + (it.kind === '직보' ? ' (직보)' : '') + '</td><td>' + esc(it.when) + '</td>'
@@ -974,7 +1014,8 @@ var CORE = (function(){
     r.items.forEach(it => { const k = CORE.ymd(CORE.weekWed(dparse(it.date))); (items[k] = items[k] || []).push(it); });
     r.notes.forEach(x => { const k = CORE.ymd(CORE.weekWed(dparse(x.date))); (notes[k] = notes[k] || []).push(x); });
     let h = '<div class="dt-sum">수강료 기준 <b>' + (r.threshold || '—') + '</b>회 · 시간표 예정 <b>' + r.plan + '</b>회 · 실제 <b>' + r.count + '</b>회 ' + diffBadge(r)
-      + (r.regWeekly !== r.naeWeekly ? ' <span class="dt-w">정규 주' + r.regWeekly + '회 · 내신 주' + r.naeWeekly + '회</span>' : '') + '</div>';
+      + (r.regWeekly !== r.naeWeekly ? ' <span class="dt-w">정규 주' + r.regWeekly + '회 · 내신 주' + r.naeWeekly + '회</span>' : '') + '</div>'
+      + payHtml(r);
     wks.forEach(w => {
       const from = w.wed > r.win.from ? w.wed : r.win.from;
       const toW = CORE.ymd(dadd(dparse(w.wed), 6));
@@ -1000,6 +1041,18 @@ var CORE = (function(){
     if (!wks.length) h += '<div class="dt-off">이 달 기준 기간에 걸친 주차가 없어요.</div>';
     return h;
   }
+  /* 수강료 계산 줄 — 회차마다 단가를 곱해 실제 금액을 내고 받은 금액(기준)과 견준다 */
+  function payHtml(r){
+    if (!r.rate) return '<div class="dt-pay">' + esc(r.grade) + ' 회당 수강료가 정해지지 않아 금액을 계산하지 않았어요.</div>';
+    const parts = [];
+    if (r.regular) parts.push('정규 ' + r.regular + '회 × ' + won(r.rate['정규']));
+    if (r.naeshin) parts.push('내신 ' + r.naeshin + '회 × ' + won(r.rate['내신']));
+    return '<div class="dt-pay">실제 ' + (parts.length ? parts.join(' + ') + ' = ' : '') + '<b>' + won(r.amtReal) + '</b>원'
+      + ' &nbsp;·&nbsp; 받은 금액 ' + r.threshold + '회 × ' + won(r.baseRate) + '(' + r.baseBook + ' 단가) = <b>' + won(r.amtBase) + '</b>원'
+      + ' &nbsp;·&nbsp; 정산 <span class="' + (r.amtDiff > 0 ? 'p' : r.amtDiff < 0 ? 'm' : '') + '">' + wonSign(r.amtDiff) + '원</span>'
+      + (r.amtDiff > 0 ? ' (더 받을 금액)' : r.amtDiff < 0 ? ' (돌려줄 금액)' : '')
+      + (r.nonsul ? ' <span class="dt-w">논술 ' + r.nonsul + '회는 단가가 없어 금액에서 뺐어요</span>' : '') + '</div>';
+  }
   /* 기준 대비 차이 — 분홍 = 더 옴, 파랑 = 덜 옴. 기준을 못 세면 빈칸 */
   function diffBadge(r){
     if (!r.threshold) return '';
@@ -1013,9 +1066,11 @@ var CORE = (function(){
   /* ── 내보내기: 지금 보이는 목록 그대로 ── */
   function exportRows(){
     const head = ['학년', '이름', '학교', MONTH + '월 정규', MONTH + '월 내신', '합계', '논술(별도)', '주당 횟수', '수강료 기준', '시간표 예정', '기준 차이', '예정 차이',
+                  '회당(정규)', '회당(내신)', '받은 금액', '실제 금액', '정산액',
                   '기준 기간', '수업 상세(반 · 날짜)', '논술 상세', '휴강·옮긴 수업(참고)'];
     const body = visibleRows().map(r => [r.grade, r.name, r.school, r.regular, r.naeshin, r.count, r.nonsul || '', r.weekly ? '주' + r.weekly + '회' : '',
       r.threshold || '', r.plan, r.threshold ? (r.diff > 0 ? '+' + r.diff : r.diff || '') : '', r.planDiff > 0 ? '+' + r.planDiff : (r.planDiff || ''),
+      r.rate ? r.rate['정규'] : '', r.rate ? r.rate['내신'] : '', r.rate ? r.amtBase : '', r.rate ? r.amtReal : '', r.rate ? r.amtDiff : '',
       mdLabel(r.win.from) + '~' + mdLabel(r.win.to), r.detail, r.nonsulDetail, r.noClass ? '이 달 수업 없음' : r.noteText]);
     return [head].concat(body);
   }
