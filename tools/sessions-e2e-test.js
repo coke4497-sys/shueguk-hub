@@ -86,8 +86,8 @@ const DB = {
   const tiles = await pg.$$eval('.tile .v', els => els.map(e => e.textContent));
   ok(tiles[0] === '5명', '대상 학생 타일 5명 — ' + tiles.join(' | '));
   ok(tiles[3] === '중등 10/1~10/31\n고등 10/7~11/6' && (await pg.$eval('.tile .v.v2', el => getComputedStyle(el).fontSize)) === '16.5px', '기준 기간 타일: 중등·고등 두 줄 같은 크기');
-  /* 청구 합계 = 강준서 312,500 + 이소율 187,500 + 김건 157,500 + 유채아 95,000 + 박민선 312,500 */
-  ok(tiles[1] === '1,065,000원', '청구 합계 타일 — ' + tiles[1]);
+  /* 청구 합계 = 강준서 312,500 + 이소율 187,500 + 김건 190,000 + 유채아 95,000 + 박민선 312,500 */
+  ok(tiles[1] === '1,097,500원', '청구 합계 타일 — ' + tiles[1]);
   const weeks = await pg.$$eval('.weeks span', els => els.map(e => e.textContent));
   ok(weeks.length === 6 && weeks.some(w => w.includes('10/14주 정규(미지정)')), '주차 띠: 미지정 주는 정규(미지정) — ' + weeks.join(' · '));
   const heads = await pg.$$eval('section:not(.nonsul) h2', els => els.map(e => e.textContent.trim().replace(/\s+/g, ' ')));
@@ -126,9 +126,9 @@ const DB = {
   ok(p.cells[3] === '5312,500' && p.cells[4] === '0' && p.cells[6] === '312,500', '고3 박민선 정규 5회 × 62,500 = 312,500 · 내신 0 — ' + p.cells.slice(3, 7).join(' / '));
   const k = await rowOf('김건');
   /* 수강료 (2026-09-21 사용자 단가: 중2 정규 47,500·내신 31,250 / 중3 47,500 / 고1·고2 31,250 / 고3 62,500)
-   * 중2는 두 단가가 달라 회차가 같아도 금액이 다르다 */
-  ok(k.cells[3] === '295,000' && k.cells[4] === '262,500' && k.cells[6] === '157,500',
-     '김건(중2) 정규 2회 95,000 + 내신 2회 62,500 = 157,500 — ' + k.cells.slice(3, 7).join(' / '));
+   * 2026-10 중2는 내신 주에도 전부 정규 수업(GRADE_BOOK 예외)이라 정규 단가로만 계산된다 */
+  ok(k.cells[3] === '4190,000' && k.cells[4] === '0' && k.cells[6] === '190,000',
+     '김건(중2 10월) 정규 4회 × 47,500 = 190,000 · 내신 0 — ' + k.cells.slice(3, 7).join(' / '));
   const y = await rowOf('유채아');
   ok(y.cells[3] === '295,000' && y.cells[4] === '0' && y.cells[6] === '95,000',
      '내신 반이 없는 학생도 정규 2회 = 95,000으로 청구 — ' + y.cells.slice(3, 7).join(' / '));
@@ -150,8 +150,9 @@ const DB = {
   const kr = await dtRows(), kh = await pg.$$eval('tr.d .dt-h', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
   const koff = await pg.$$eval('tr.d .dt-off', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
   ok(kr.includes('10/17 (토) | 토4:30 | 정규 정리정독 중2 | ') && kr.includes('10/24 (토) | 토4:30 | 정규 정리정독 중2 | ')
-     && kr.includes('10/30 (금) | 금5:00 | 내신 중2 화정A | 10/16 (금) 금7:00 · 10/23 (금) 금7:00에 나눠 진행')
-     && kh.some(x => x.indexOf('10/7~10/13') === 0 && x.indexOf('수업 없음') > 0) && koff.some(x => x.includes('10/9 중2 화정A 휴강')),
+     && kr.includes('10/30 (금) | 금5:00 | 정규 중2 화정A | 10/16 (금) 금7:00 · 10/23 (금) 금7:00에 나눠 진행')
+     && kh.every(x => x.indexOf('내신') < 0) && kh.some(x => x.indexOf('10/7~10/13') === 0 && x.indexOf('수업 없음') > 0)
+     && koff.some(x => x.includes('10/9 중2 화정A 휴강')),
      '주차별 상세: 수업 줄·나눠 진행·수업 없는 주의 휴강 참고 — ' + kr.join(' / ').slice(0, 180));
   ok(!(await pg.$('#flagSel')) && !(await pg.$('#onlyOver')), '기준·예정 거르기 드롭다운은 없앴다');
   ok((await pg.$$eval('section:not(.nonsul) tr.r td.nm', els => els.map(e => e.textContent))).join() === '김건,유채아,강준서,이소율,박민선', '전체 학생이 그대로 보인다');
@@ -203,7 +204,7 @@ const DB = {
   const lines = tsv.split('\n');
   ok(lines[0].split('\t').join('|') === '학년|이름|학교|10월 정규 회차|정규 금액|10월 내신 회차|내신 금액|합계 회차|청구 금액|논술(별도)|기준 기간|수업 상세(반 · 날짜)|논술 상세|휴강·옮긴 수업(참고)', 'TSV 머리글 — ' + lines[0]);
   ok(lines.length === 6 && lines[3].startsWith('고1\t강준서\t화정고\t5\t156250\t5\t156250\t10\t312500\t\t10/7~11/6\t'), 'TSV 줄: 강준서 — ' + lines[3].slice(0, 80));
-  ok(lines[1].startsWith('중2\t김건\t서정중\t2\t95000\t2\t62500\t4\t157500\t\t10/1~10/31'), 'TSV 줄: 김건(중2는 단가가 달라 금액이 갈린다) — ' + lines[1].slice(0, 70));
+  ok(lines[1].startsWith('중2\t김건\t서정중\t4\t190000\t0\t0\t4\t190000\t\t10/1~10/31'), 'TSV 줄: 김건(10월 중2는 전부 정규) — ' + lines[1].slice(0, 70));
   ok(lines[2].startsWith('중2\t유채아\t고양중\t2\t95000\t0\t0\t2\t95000\t\t10/1~10/31'), 'TSV 줄: 유채아(내신 0회) — ' + lines[2].slice(0, 70));
   ok(lines[5].split('\t')[9] === '4' && lines[5].split('\t')[12].startsWith('논술B 국어 일6:00 4회('), 'TSV 줄: 박민선 논술 4·논술 상세');
   const csv = await pg.evaluate(() => csvText());

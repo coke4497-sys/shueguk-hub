@@ -40,6 +40,10 @@
      · **이름을 누르면 주차별 상세**(사용자 2026-09-21 "주차별 정규/내신 수업(반, 날짜, 요일, 시간)을 상세히"): `detailHtml(r)` — 요약(기준·예정·실제·차이)
        + 그 학생 기준 기간에 걸친 주차마다 '10/7~10/13 [내신] 2회' 머리줄과 수업 표(날짜(요일) · 시간 · 구분 배지+반이름(+직보) · 비고=진행 날짜·시간),
        수업이 없는 주는 '수업 없음' + 그 주 휴강·빠짐 참고. 구분 배지는 반이름 **앞**에 둔다 — 주차마다 표가 따로라 뒤에 두면 x 위치가 들쭉날쭉했다.
+     · **학년별 기간 예외 `GRADE_BOOK`**(사용자 2026-09-21 "중2는 10월에 모두 정규 수업입니다"): 슈국 캘린더는 주 단위로만 정규/내신을 정해 학년별 예외를 담지 못한다.
+       `GRADE_BOOK['2026-10']['중2'] = '정규'` — 중2 내신 반 15개를 10월 내내 휴강하고 정리정독 정규 수업으로 대체한 달이라, 내신 주 수업도 정규 회차·정규 단가로 센다.
+       `bookOf(ym, grade)`가 이 예외와 ALL_REGULAR(중3·고3)를 함께 본다. 적용 결과는 row의 `forceBook`이고 주차별 상세의 기간 배지도 이 값을 따른다.
+       **이런 달이 또 생기면 `GRADE_BOOK`에 '연-월': { 학년: '정규' } 한 줄을 더하면 된다.** 실데이터 2026-10 중2 48명: 정규 220회·내신 0회, 청구 10,450,000원.
      · **화면은 청구서 형태로 줄였다**(사용자 2026-09-21 "예정, 돌려줄 금액, 차이, 이런거 불필요. 정규 몇회 얼마, 내신 몇회 얼마, 청구 금액만 딱"):
        표 열 = No · 이름 · 학교 · **정규(회차+금액)** · **내신(회차+금액)** · 논술 · **청구 금액** · 수업. 기준·예정·기준 차이·정산 열과
        초과·미달 줄 강조, 거르기 드롭다운(`#flagSel`), 범례의 분홍/파랑은 **전부 뺐다**. 범례 자리에는 단가표를 적는다.
@@ -378,6 +382,11 @@ var CORE = (function(){
                 '고3': { '정규': 62500, '내신': 62500 } };
   /* 중3·고3은 내신 주에도 같은 수업(정규·내신 명단 동일)이라 전부 정규로 적는다 — 사용자 2026-09-20 */
   var ALL_REGULAR = { '중3':1, '고3':1 };
+  /* 달마다 다른 예외 — 슈국 캘린더는 내신 주인데 그 학년만 정규 수업을 한 달.
+   * 사용자 2026-09-21 "중2는 10월에 모두 정규 수업입니다" — 중2 내신 반 15개를 10월 내내 휴강하고 정리정독 정규 수업으로 대체했다.
+   * 이런 달이 또 생기면 여기에 '연-월': { 학년: '정규'|'내신' } 한 줄을 더하면 된다. */
+  var GRADE_BOOK = { '2026-10': { '중2': '정규' } };
+  function bookOf(ym, grade){ return (GRADE_BOOK[ym] || {})[grade] || (ALL_REGULAR[grade] ? '정규' : ''); }
 
   function pad(n){ return (n < 10 ? '0' : '') + n; }
   function ymd(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -417,6 +426,7 @@ var CORE = (function(){
 
   /* data = { classes, periods, logs, students } (수파베이스 행 그대로) → 학생별 회차 */
   function build(data, year, month, rule){
+    var ymKey = year + '-' + pad(month);
     var win = windows(year, month, rule);
     var period = {};
     (data.periods || []).forEach(function(p){ period[String(p.week_wednesday).slice(0, 10)] = p.book; });
@@ -729,7 +739,8 @@ var CORE = (function(){
         if (it.runs.length) byCls[idx[lb]].runs[it.date] = it.runs;
         if (it.alt) byCls[idx[lb]].alts[it.date] = it.alt;
       });
-      if (ALL_REGULAR[grade]) items = items.map(function(it){ var o = {}; for (var k in it) o[k] = it[k]; o.book = '정규'; return o; });
+      var forceBook = bookOf(ymKey, grade);
+      if (forceBook) items = items.map(function(it){ var o = {}; for (var k in it) o[k] = it[k]; o.book = forceBook; return o; });
       var main = items.filter(function(it){ return !it.nonsul; }), nonsul = items.length - main.length;
       var regular = main.filter(function(it){ return it.book === '정규'; }).length, naeshin = main.length - regular;
       var mid = grade.charAt(0) === '중';
@@ -745,7 +756,7 @@ var CORE = (function(){
                   over: thr > 0 && main.length > thr, under: thr > 0 && main.length < thr, diff: thr > 0 ? main.length - thr : 0,
                   plan: plan, planDiff: main.length - plan, noClass: plan === 0 && main.length === 0 && nonsul === 0,
                   regWeekly: rosterW['정규'][n] || 0, naeWeekly: rosterW['내신'][n] || 0,
-                  rate: rate, baseBook: wk.book, baseRate: rate ? rate[wk.book] : 0,
+                  rate: rate, baseBook: wk.book, baseRate: rate ? rate[wk.book] : 0, forceBook: forceBook,
                   amtBase: amtBase, amtReal: amtReal, amtDiff: rate ? amtReal - amtBase : 0,
                   win: w, items: items, byCls: byCls, notes: ns,
                   detail: detailOf(byCls.filter(function(b){ return !b.ns; })),
@@ -772,7 +783,7 @@ var CORE = (function(){
             + (rs.length > 1 ? '에 나눠 진행' : same ? '에 대체 진행' : (rs[0].date < it.date ? '에 앞당겨 진행' : '에 미뤄 진행'));
     return txt + (it.alt ? ' — ' + it.alt : '');
   }
-  return { RULE: RULE, RATES: RATES, ALL_REGULAR: ALL_REGULAR, threshold: threshold, windows: windows, build: build, isNonsul: isNonsul, dlabel: dlabel, runNote: runNote, heldFromReason: heldFromReason, datesInReason: datesInReason, partMark: partMark, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
+  return { RULE: RULE, RATES: RATES, ALL_REGULAR: ALL_REGULAR, GRADE_BOOK: GRADE_BOOK, bookOf: bookOf, threshold: threshold, windows: windows, build: build, isNonsul: isNonsul, dlabel: dlabel, runNote: runNote, heldFromReason: heldFromReason, datesInReason: datesInReason, partMark: partMark, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
 })();
 /* ==/SESSIONS-CORE== */
 </script>
@@ -922,6 +933,8 @@ var CORE = (function(){
       + '이 주만 휴강·이동·보충·추가/빼기·1회 이동·직전보강을 반영했고, 확인 수업·직전보강도 한 회로 셉니다. <b>중3·고3은 내내 정규 수업</b>이라 전부 정규 회차로 적고, <b>논술 수업은 별도</b>로 세어 합계·강조에 넣지 않습니다. '
       + '옮긴 수업(반 전체 이동·다른 주로 옮기기·1회 이동)은 <b>원래 수업 날짜의 달</b>로 셉니다(10/10 수업을 9/19에 당겨 했으면 10월 — 날짜 옆에 \'9/19 진행\'으로 표시). \'이 주만 빼기\'는 사유가 직보·대체·당겨서·이동이면 그 수업을 한 것으로 세고(\'(대체)\' 표시), 연휴·휴강이면 세지 않고 참고에 적습니다. 이름을 누르면 날짜별 내역이 펼쳐집니다.</p>'
       + '<b>청구 금액</b>은 정규 회차 × 정규 단가 + 내신 회차 × 내신 단가입니다(단가는 위 줄). 논술과 단가가 없는 학년은 금액에서 뺐어요. '
+      + '<b>2026년 10월 중2는 내신 주에도 전부 정규 수업</b>으로 셉니다 — 내신 반을 그 달 내내 휴강하고 정리정독 정규 수업으로 대체했기 때문이에요(사용자 확인). '
+      + '이런 달이 또 있으면 알려 주세요. '
       + '내신 반이 없어 내신 주에 수업이 없는 학생도 \'이 달 수업 없음\'으로 0회·0원으로 목록에 남습니다. '
       + (DATA && DATA.at ? '기준: ' + DATA.at.toLocaleString('ko-KR', { hour12: false }) + ' 시간표.' : '') + '</p>';
   }
@@ -1001,8 +1014,9 @@ var CORE = (function(){
       const its = (items[w.wed] || []).slice().sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : (a.when < b.when ? -1 : 1));
       const ns = items[w.wed] ? (notes[w.wed] || []) : (notes[w.wed] || []);
       const main = its.filter(x => !x.nonsul).length;
+      const wbook = r.forceBook || w.book;
       h += '<div class="dt-wk"><div class="dt-h">' + mdLabel(from) + '~' + mdLabel(to)
-        + ' <span class="dt-b' + (w.book === '내신' ? ' n' : '') + '">' + w.book + (w.specified ? '' : '(미지정)') + '</span>'
+        + ' <span class="dt-b' + (wbook === '내신' ? ' n' : '') + '">' + wbook + (w.specified || r.forceBook ? '' : '(미지정)') + '</span>'
         + '<span class="dt-n">' + (main ? main + '회' : '수업 없음') + '</span></div>';
       if (its.length){
         h += '<table class="dt-t"><tbody>' + its.map(it =>
