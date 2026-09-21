@@ -121,7 +121,10 @@ const s = by['이소율'];
 ok('이소율 한 줄로 합쳐짐(이소율A 표기 흡수)', s && !by['이소율A']);
 ok('이소율 합계 5 (정규 5 · 내신 0)', s && s.count === 5 && s.regular === 5 && s.naeshin === 0, s && s.detail);
 ok('1회 이동: 원래 반 10/21 줄에 10/24 진행으로 세고 도착 반(r3) 10/24는 따로 안 셈', s && dates(s, '고1 가 수5:30') === '10/14,10/21' && dates(s, '고1 나 토3:30') === '10/17,10/24' && !s.byCls.some(b => /정리정독/.test(b.label)) && s.items.some(it => it.date === '2026-10-21' && it.held === '2026-10-24' && it.heldWhen === '토4:30'), s && s.detail);
-ok('이소율 주2회(가+나) → 5회는 강조 아님', s && s.weekly === 2 && s.over === false);
+/* 주당 횟수는 '그 달 주차 구성'으로 정한다 — 이소율은 정규 2반·내신 0반이고 10월은 내신 주가 더 많아 주1회(기준 4).
+ * 그래서 5회는 기준보다 1회 많음. 정규 주가 더 많은 달이면 주2회가 된다. */
+ok('이소율 주1회(정규 2반이지만 내신 주가 우세) → 기준 4 · 5회는 초과', s && s.weekly === 1 && s.threshold === 4 && s.over === true && s.under === false, s && [s.weekly, s.regWeekly, s.naeWeekly]);
+ok('이소율 예정 4회(정규 주 2주 × 2반) · 실제 5회', s && s.plan === 4 && s.planDiff === 1, s && [s.plan, s.count]);
 
 /* 양지우: 명단 '양지우A'(r1)·'양지우'(n2) → 한 사람. r1 2 + 보강 1 + n2 10/10·10/31 = 5 */
 const y = by['양지우'];
@@ -245,6 +248,48 @@ ok('datesInReason: 날짜 여러 개·같은 달 뒤따르는 날·k/m 제외', 
 ok('partMark: 1/2·2/3·3/3은 조각, 9/6·10/11은 날짜', CORE.partMark('진도수업 2/3') && CORE.partMark('고2 서정B 1/2') && !CORE.partMark('9/6 앞당겨') && !CORE.partMark('10/11(일)') && !CORE.partMark('1/20'));
 const dl = d => d.slice(5).replace('-', '/');
 ok('runNote: 나눠 진행·같은 날 대체·앞당겨', /에 나눠 진행$/.test(CORE.runNote(h.items.find(x => x.date === '2026-10-08'), dl)) && CORE.runNote(n9.items.find(x => x.date === '2026-10-01'), dl) === '같은 날 목7:00에 대체 진행 — 목 7:00 국어 직전대비 수업' && CORE.runNote({ date: '2026-10-17', runs: [{ date: '2026-10-25', when: '일3:30' }], alt: '' }, dl) === '10/25 일3:30에 미뤄 진행', [CORE.runNote(h.items.find(x => x.date === '2026-10-08'), dl), CORE.runNote(n9.items.find(x => x.date === '2026-10-01'), dl)]);
+
+/* ── 수강료 기준·예정 회차·미달 (2026-09-21 사용자 "주1회 4회 · 주2회 8회 기준. 그 이상 오거나 그 이하로 등원하면 수강료가 달라진다") ──
+ * 중2식(정규 1반 · 내신 2반)·내신 주만 있는 달에 수업이 없는 학생·휴강으로 덜 온 학생을 확인한다. */
+const DATA3 = {
+  periods: [{ week_wednesday: '2026-10-28', book: '내신' }, { week_wednesday: '2026-11-04', book: '내신' },
+            { week_wednesday: '2026-11-11', book: '내신' }, { week_wednesday: '2026-11-18', book: '내신' },
+            { week_wednesday: '2026-11-25', book: '내신' }],
+  students: [
+    { name: '한서윤', school: '화정중', grade: '2026 중등 2학년', enrolled: '재원' },
+    { name: '유채아', school: '고양중', grade: '2026 중등 2학년', enrolled: '재원' },
+    { name: '오지후', school: '백양중', grade: '2026 중등 2학년', enrolled: '재원' }
+  ],
+  classes: [
+    /* 중2식: 정규는 진도 한 반, 내신은 진도+확인 두 반 → 11월(전부 내신 주)에는 주2회가 기준 */
+    cls('정규', 'r1', '토', '4:30', '중2 화정A', '한서윤 오지후'),
+    cls('내신', 'n1', '토', '4:30', '중2 화정A(비상)', '한서윤 오지후'),
+    cls('내신', 'n2', '일', '2:00', '중2 확인(비상)', '한서윤 오지후'),
+    /* 유채아는 내신 반이 없다 — 내신 주만 있는 달에는 수업이 0회 */
+    cls('정규', 'r2', '금', '5:00', '정리정독 중2', '유채아'),
+    cls('내신', 'w261121a', '토', '7:00', '중2 보충', '')   /* 이 주만 보충 — 예정에는 없고 실제만 늘어난다 */
+  ],
+  logs: [
+    { id: 1, at: '2026-10-20T03:00:00Z', kind: '주간반휴강', student: '', from_class_id: 'n2', to_class_id: '', apply_date: '2026-11-08', reason: '' },
+    { id: 2, at: '2026-10-20T03:00:00Z', kind: '주간반휴강', student: '', from_class_id: 'n2', to_class_id: '', apply_date: '2026-11-15', reason: '' },
+    { id: 3, at: '2026-10-20T03:00:00Z', kind: '주간추가', student: '오지후', from_class_id: '', to_class_id: 'w261121a', apply_date: '2026-11-21', reason: '보충' }
+  ]
+};
+const S11 = CORE.build(JSON.parse(JSON.stringify(DATA3)), 2026, 11);
+const g = n => S11.rows.find(r => r.name === n) || {};
+const han = g('한서윤'), yu = g('유채아'), oh = g('오지후');
+ok('중2 정규 1반·내신 2반 → 내신 달에는 주2회가 기준(8회)', han.weekly === 2 && han.threshold === 8 && han.regWeekly === 1 && han.naeWeekly === 2, [han.weekly, han.regWeekly, han.naeWeekly]);
+ok('예정 회차는 휴강을 빼기 전 시간표대로', han.plan === 9, [han.plan, han.detail]);
+ok('휴강 2회로 7회 → 기준 미달(-1)·예정 미달(-2)', han.count === 7 && han.under === true && han.over === false && han.diff === -1 && han.planDiff === -2, [han.count, han.diff, han.planDiff]);
+ok('이 주만 보충은 예정에 없고 실제만 늘어난다 — 8회, 기준 맞음', oh.count === 8 && oh.plan === 9 && oh.under === false && oh.over === false && oh.diff === 0 && oh.planDiff === -1, [oh.count, oh.plan, oh.diff, oh.planDiff]);
+ok('내신 반이 없는 학생도 목록에 남는다(수업 0회)', !!yu.name && yu.count === 0 && yu.plan === 0 && yu.noClass === true, yu);
+ok('그 학생 기준은 정규 주1회로 잡아 미달이 드러난다', yu.weekly === 1 && yu.threshold === 4 && yu.under === true && yu.diff === -4, [yu.weekly, yu.threshold, yu.diff]);
+/* 정규 주만 있는 달이면 같은 중2가 주1회 기준 */
+const S12 = CORE.build(JSON.parse(JSON.stringify(DATA3)), 2026, 12);
+const han12 = S12.rows.find(r => r.name === '한서윤') || {};
+ok('정규 주만 있는 달에는 같은 학생이 주1회 기준(4회)', han12.weekly === 1 && han12.threshold === 4, [han12.weekly, han12.plan]);
+ok('유채아는 정규 달에는 수업이 있다', (S12.rows.find(r => r.name === '유채아') || {}).plan > 0);
+ok('threshold: 주당 횟수 × 4', CORE.threshold(1) === 4 && CORE.threshold(2) === 8 && CORE.threshold(0) === 0);
 
 console.log(`\n${pass + fail}건 중 ${pass}건 통과` + (fail ? `, ${fail}건 실패` : ''));
 if (fail) process.exit(1);
