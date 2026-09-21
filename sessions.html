@@ -37,10 +37,12 @@
        ③ 주당 횟수는 **그 달 주차 구성**으로 정한다(`weeklyIn`) — 주차마다 그 기간의 명단 반 수를 더해 평균(반올림), 0이면 다른 기간의 반 수.
           중2 48명은 정규 1반·내신 2반이라 예전처럼 정규만 보면 내신 달 기준이 절반이 됐다(11월 47명이 전부 잘못 강조됐다).
        ④ 명단에 이름이 있으면 그 달 수업이 0회여도 목록에 남긴다(`rosterNames`) — 내신 반이 없어 내신 주에 수업이 없는 학생(유채아)이 안 보이던 문제.
-     · **이름을 누르면 주차별 상세**(사용자 2026-09-21 "주차별 정규/내신 수업(반, 날짜, 요일, 시간)을 상세히"): `detailHtml(r)` — 요약(기준·예정·실제·차이)
-       + 그 학생 기준 기간에 걸친 주차마다 '10/7~10/13 [내신] 2회' 머리줄과 수업 표(날짜(요일) · 시간 · 구분 배지+반이름(+직보) · 비고=진행 날짜·시간),
-       수업이 없는 주는 '수업 없음' + 그 주 휴강·빠짐 참고. 구분 배지는 반이름 **앞**에 둔다 — 주차마다 표가 따로라 뒤에 두면 x 위치가 들쭉날쭉했다.
-       **진행하지 않은 휴강은 작고 흐리게**(사용자 2026-09-21 "수업을 진행하지 않은 내신 휴강은 중요하지 않으니 작게" — `.dt-off` 10.5px `#9AA6A0`),
+     · **이름을 누르면 주차별 상세**(사용자 2026-09-21 "주차별 정규/내신 수업(반, 날짜, 요일, 시간)을 상세히"): `detailHtml(r)` — 요약(정규·내신 회차와 금액)
+       + **표 하나**(`table.dt-t`, 머리글 날짜 · 시간 · 구분 · 반 · 비고)에 그 학생 기준 기간의 주차를 차례로 담는다. 주차 사이는 `tr.wkr` 구분줄
+       ('10/7~10/13 [내신] 2회' / 수업이 없으면 '수업 없음'), 그 주 휴강·빠짐 참고는 `tr.offr` 작은 줄.
+       **주차마다 표를 따로 두지 말 것**(사용자 2026-09-21 휴대폰 화면 + "가시성을 고려해 표로 정리해주세요") — 표가 여럿이면 열 너비가 주차마다 달라져
+       날짜·시간이 어긋나 보였다. 지금은 `table-layout:fixed`에 날짜 82px · 시간 66px · 비고 30%로 고정돼 주차가 바뀌어도 줄이 맞는다.
+       **진행하지 않은 휴강은 작고 흐리게**(사용자 2026-09-21 "수업을 진행하지 않은 내신 휴강은 중요하지 않으니 작게" — `tr.offr` 10.5px `#9AA6A0`),
        그냥 휴강한 수업은 '휴강' 한 번만 앞에 적고 날짜·반만 잇는다(줄마다 '휴강'이 반복되지 않게). 옮겼다 휴강·이 주만 빠짐은 사유가 있어 그대로 적는다.
      · **학년별 기간 예외 `GRADE_BOOK`**(사용자 2026-09-21 "중2는 10월에 모두 정규 수업입니다"): 슈국 캘린더는 주 단위로만 정규/내신을 정해 학년별 예외를 담지 못한다.
        `GRADE_BOOK['2026-10']['중2'] = '정규'` — 중2 내신 반 15개를 10월 내내 휴강하고 정리정독 정규 수업으로 대체한 달이라, 내신 주 수업도 정규 회차·정규 단가로 센다.
@@ -197,23 +199,25 @@
   .dt-sum{ font-size:13px; color:var(--ink); margin:0 0 10px; }
   .dt-sum b{ font-family:'Gowun Batang',serif; font-size:15px; color:var(--sky-d); }
   .dt-w{ font-size:11.5px; color:var(--muted); margin-left:6px; }
-  .dt-wk{ margin:0 0 9px; }
-  .dt-h{ display:flex; align-items:center; gap:7px; font-size:12px; color:#3B4660; font-weight:700; margin-bottom:3px; }
-  .dt-n{ font-weight:400; color:var(--muted); }
+  .dt-n{ font-weight:400; color:var(--muted); margin-left:7px; }
   .dt-b{ display:inline-block; background:#EAF1E9; color:#3F5A46; border-radius:5px; padding:1px 6px; font-size:11px; font-weight:400; }
   .dt-b.n{ background:#EFEAF6; color:#574A72; }
   .dt-b.s{ background:#F9F5E4; color:#8B7A3A; }
   .dt-jb{ display:inline-block; background:#FBE9E7; color:#C8463F; border-radius:5px; padding:0 5px; font-size:10.5px; }
-  table.dt-t{ width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; }
-  table.dt-t td{ padding:5px 9px; border-bottom:1px solid var(--line); font-size:12.5px; text-align:left; vertical-align:top; }
+  /* 주차별 상세 = 표 하나 — 주차는 구분 줄(wkr), 진행하지 않은 수업은 작은 줄(offr) (사용자 2026-09-21 "가시성을 고려해 표로") */
+  table.dt-t{ width:100%; border-collapse:collapse; background:#fff; border-radius:8px; overflow:hidden; table-layout:fixed; }
+  table.dt-t th{ background:#EEF1F6; color:#4F5A74; font-size:11px; font-weight:400; padding:5px 9px; text-align:left; white-space:nowrap; }
+  table.dt-t td{ padding:6px 9px; border-bottom:1px solid var(--line); font-size:12.5px; text-align:left; vertical-align:top; }
   table.dt-t tr:last-child td{ border-bottom:none; }
-  table.dt-t td.d1{ white-space:nowrap; font-weight:700; color:var(--ink); width:88px; }
-  table.dt-t td.d2{ white-space:nowrap; color:#4F5A74; width:74px; }
-  table.dt-t td.d3{ color:var(--ink); white-space:nowrap; width:1%; }
-  table.dt-t td.d5{ color:var(--muted); font-size:11.5px; width:auto; }
+  table.dt-t .d1{ white-space:nowrap; font-weight:700; color:var(--ink); width:82px; }
+  table.dt-t .d2{ white-space:nowrap; color:#4F5A74; width:66px; }
+  table.dt-t .d3{ color:var(--ink); width:auto; }
+  table.dt-t .d5{ color:var(--muted); font-size:11px; width:30%; }
+  table.dt-t tr.wkr td{ background:#F5F7FA; font-size:11.5px; font-weight:700; color:#3B4660; padding:4px 9px; }
   /* 진행하지 않은 수업(휴강·이 주만 빠짐) — 청구에 안 들어가니 작고 흐리게 (사용자 2026-09-21) */
-  .dt-off{ font-size:10.5px; color:#9AA6A0; margin-top:2px; line-height:1.5; }
-  .dt-off b{ font-weight:400; color:#B2BCB6; }
+  table.dt-t tr.offr td{ font-size:10.5px; color:#9AA6A0; padding:3px 9px 4px; line-height:1.5; }
+  table.dt-t tr.offr b{ font-weight:400; color:#B2BCB6; }
+  .dt-none{ font-size:11.5px; color:var(--muted); }
   .same{ display:inline-block; color:var(--muted); font-size:11.5px; }
   table.t td .amt2{ display:block; font-family:'Gowun Dodum',sans-serif; font-size:11px; color:var(--muted); margin-top:1px; font-variant-numeric:tabular-nums; }
   table.t td.bill{ font-family:'Gowun Batang',serif; font-size:16px; font-weight:700; color:var(--ink); white-space:nowrap; font-variant-numeric:tabular-nums; }
@@ -1011,36 +1015,37 @@ var CORE = (function(){
     let h = '<div class="dt-sum">정규 <b>' + r.regular + '</b>회 · 내신 <b>' + r.naeshin + '</b>회 · 합계 <b>' + r.count + '</b>회'
       + (r.nonsul ? ' · 논술 <b>' + r.nonsul + '</b>회(별도)' : '') + '</div>'
       + payHtml(r);
+    /* 주차마다 표를 따로 두면 열 너비가 제각각이라 휴대폰에서 어긋나 보인다 — 표 하나에 주차를 구분 줄로 넣는다 */
+    h += '<table class="dt-t"><thead><tr><th class="d1">날짜</th><th class="d2">시간</th><th class="d3">구분 · 반</th><th class="d5">비고</th></tr></thead><tbody>';
     wks.forEach(w => {
       const from = w.wed > r.win.from ? w.wed : r.win.from;
       const toW = CORE.ymd(dadd(dparse(w.wed), 6));
       const to = toW < r.win.to ? toW : r.win.to;
       const its = (items[w.wed] || []).slice().sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : (a.when < b.when ? -1 : 1));
-      const ns = items[w.wed] ? (notes[w.wed] || []) : (notes[w.wed] || []);
+      const ns = notes[w.wed] || [];
       const main = its.filter(x => !x.nonsul).length;
       const wbook = r.forceBook || w.book;
-      h += '<div class="dt-wk"><div class="dt-h">' + mdLabel(from) + '~' + mdLabel(to)
+      h += '<tr class="wkr"><td colspan="4">' + mdLabel(from) + '~' + mdLabel(to)
         + ' <span class="dt-b' + (wbook === '내신' ? ' n' : '') + '">' + wbook + (w.specified || r.forceBook ? '' : '(미지정)') + '</span>'
-        + '<span class="dt-n">' + (main ? main + '회' : '수업 없음') + '</span></div>';
-      if (its.length){
-        h += '<table class="dt-t"><tbody>' + its.map(it =>
-          '<tr><td class="d1">' + dayLabel(it.date) + '</td><td class="d2">' + esc(it.when) + '</td>'
+        + '<span class="dt-n">' + (main ? main + '회' : '수업 없음') + '</span></td></tr>';
+      its.forEach(it => {
+        h += '<tr><td class="d1">' + dayLabel(it.date) + '</td><td class="d2">' + esc(it.when) + '</td>'
           + '<td class="d3"><span class="dt-b' + (it.nonsul ? ' s' : it.book === '내신' ? ' n' : '') + '">' + (it.nonsul ? '논술(별도)' : esc(it.book)) + '</span> '
           + esc(it.cls) + (it.kind === '직보' ? ' <span class="dt-jb">직보</span>' : '') + '</td>'
-          + '<td class="d5">' + esc(CORE.runNote(it, dayLabel)) + '</td></tr>').join('') + '</tbody></table>';
-      }
+          + '<td class="d5">' + esc(CORE.runNote(it, dayLabel)) + '</td></tr>';
+      });
       if (ns.length){
-        /* 그냥 휴강한 수업은 '휴강' 한 번만 앞에 적고 날짜·반만 잇는다 — 같은 말이 줄마다 반복되지 않게 */
+        /* 진행하지 않은 수업 — 그냥 휴강은 '휴강' 한 번만 앞에 적고 날짜·반만 잇는다 */
         const off = ns.filter(x => x.kind === '휴강' && !x.to), etc = ns.filter(x => !(x.kind === '휴강' && !x.to));
         const parts = [];
         if (off.length) parts.push('<b>휴강</b> ' + off.map(x => mdLabel(x.date) + ' ' + esc(x.cls)).join(' · '));
         etc.forEach(x => parts.push(mdLabel(x.date) + ' ' + esc(x.cls) + ' ' + (x.kind === '빠짐' ? '이 주만 빠짐' + (x.reason ? '(' + esc(x.reason) + ')' : '')
           : x.kind === '휴강' ? '휴강 → ' + mdLabel(x.to) + '로 옮겼으나 휴강' : '옮긴 수업을 찾지 못함')));
-        h += '<div class="dt-off">' + parts.join(' / ') + '</div>';
+        h += '<tr class="offr"><td colspan="4">' + parts.join(' / ') + '</td></tr>';
       }
-      h += '</div>';
     });
-    if (!wks.length) h += '<div class="dt-off">이 달 기준 기간에 걸친 주차가 없어요.</div>';
+    h += '</tbody></table>';
+    if (!wks.length) h += '<div class="dt-none">이 달 기준 기간에 걸친 주차가 없어요.</div>';
     return h;
   }
   /* 회차 칸 아래에 그 회차의 금액을 작게 */
