@@ -109,13 +109,15 @@ const DB = {
   const pay = (await pg.textContent('tr.d .dt-pay')).replace(/\s+/g, ' ');
   ok(pay.includes('정규 4회 × 31,250 = 125,000') && pay.includes('내신 2회 × 31,250 = 62,500') && pay.includes('청구 187,500원'),
      '상세 수강료 줄: 회차 × 단가 = 금액 · 청구 — ' + pay.slice(0, 160));
-  const wkh = await pg.$$eval('tr.d .dt-h', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
-  ok(wkh.length === 5 && wkh[0].startsWith('10/7~10/13 내신') && wkh[1].startsWith('10/14~10/20 정규(미지정)'), '주차별 머리줄 — ' + wkh.join(' / '));
-  const rows1 = await pg.$$eval('tr.d table.dt-t tr', els => els.map(e => [...e.cells].map(c => c.textContent.replace(/\s+/g, ' ').trim())));
+  ok((await pg.$$eval('tr.d table.dt-t', els => els.length)) === 1, '주차별 상세는 표 하나');
+  ok((await pg.$$eval('tr.d table.dt-t thead th', els => els.map(e => e.textContent.trim()))).join('|') === '날짜|시간|구분 · 반|비고', '상세 표 머리글');
+  const wkh = await pg.$$eval('tr.d tr.wkr', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
+  ok(wkh.length === 5 && wkh[0].startsWith('10/7~10/13 내신') && wkh[1].startsWith('10/14~10/20 정규(미지정)'), '주차 구분 줄 — ' + wkh.join(' / '));
+  const rows1 = await pg.$$eval('tr.d table.dt-t tbody tr:not(.wkr):not(.offr)', els => els.map(e => [...e.cells].map(c => c.textContent.replace(/\s+/g, ' ').trim())));
   ok(rows1.length === 6 && rows1[0][0] === '10/10 (토)' && rows1[0][1] === '토3:30' && rows1[0][2] === '내신 고1 확인', '수업 줄: 날짜(요일)·시간·구분+반 — ' + rows1[0].join(' | '));
   ok(rows1.some(c => c[2] === '정규 고1 가' && c[1] === '수5:30'), '정규 주 수업도 구분 배지와 함께');
   ok(rows1.some(c => c[3] && c[3].includes('진행')), '옮겨 진행한 수업은 비고에 진행 날짜·시간');
-  const dtRows = () => pg.$$eval('tr.d table.dt-t tr', els => els.map(e => [...e.cells].map(c => c.textContent.replace(/\s+/g, ' ').trim()).join(' | ')));
+  const dtRows = () => pg.$$eval('tr.d table.dt-t tbody tr:not(.wkr):not(.offr)', els => els.map(e => [...e.cells].map(c => c.textContent.replace(/\s+/g, ' ').trim()).join(' | ')));
   const sr = await dtRows();
   ok(sr.includes('10/21 (수) | 수5:30 | 정규 고1 가 | 10/24 (토) 토3:30에 미뤄 진행')
      && sr.includes('10/31 (토) | 토3:30 | 내신 고1 확인 | 10/29 (목) 목7:00에 앞당겨 진행 — 직전 보강 대체')
@@ -147,14 +149,14 @@ const DB = {
   await pg.click('tr.r[data-key$="|강준서"]');
   await pg.click('tr.r[data-key$="|김건"]');
   await pg.waitForSelector('tr.d');
-  const kr = await dtRows(), kh = await pg.$$eval('tr.d .dt-h', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
-  const koff = await pg.$$eval('tr.d .dt-off', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
+  const kr = await dtRows(), kh = await pg.$$eval('tr.d tr.wkr', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
+  const koff = await pg.$$eval('tr.d tr.offr', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
   ok(kr.includes('10/17 (토) | 토4:30 | 정규 정리정독 중2 | ') && kr.includes('10/24 (토) | 토4:30 | 정규 정리정독 중2 | ')
      && kr.includes('10/30 (금) | 금5:00 | 정규 중2 화정A | 10/16 (금) 금7:00 · 10/23 (금) 금7:00에 나눠 진행')
      && kh.every(x => x.indexOf('내신') < 0) && kh.some(x => x.indexOf('10/7~10/13') === 0 && x.indexOf('수업 없음') > 0)
      && koff.some(x => x.includes('휴강 10/9 중2 화정A')),
      '주차별 상세: 수업 줄·나눠 진행·수업 없는 주의 휴강 참고 — ' + kr.join(' / ').slice(0, 180));
-  ok((await pg.$eval('tr.d .dt-off', el => getComputedStyle(el).fontSize)) === '10.5px', '진행하지 않은 휴강은 작게 표시');
+  ok((await pg.$eval('tr.d tr.offr td', el => getComputedStyle(el).fontSize)) === '10.5px', '진행하지 않은 휴강은 작게 표시');
   ok(!(await pg.$('#flagSel')) && !(await pg.$('#onlyOver')), '기준·예정 거르기 드롭다운은 없앴다');
   ok((await pg.$$eval('section:not(.nonsul) tr.r td.nm', els => els.map(e => e.textContent))).join() === '김건,유채아,강준서,이소율,박민선', '전체 학생이 그대로 보인다');
 
