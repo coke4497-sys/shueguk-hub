@@ -152,8 +152,9 @@ const DB = {
   ok(kr.includes('10/17 (토) | 토4:30 | 정규 정리정독 중2 | ') && kr.includes('10/24 (토) | 토4:30 | 정규 정리정독 중2 | ')
      && kr.includes('10/30 (금) | 금5:00 | 정규 중2 화정A | 10/16 (금) 금7:00 · 10/23 (금) 금7:00에 나눠 진행')
      && kh.every(x => x.indexOf('내신') < 0) && kh.some(x => x.indexOf('10/7~10/13') === 0 && x.indexOf('수업 없음') > 0)
-     && koff.some(x => x.includes('10/9 중2 화정A 휴강')),
+     && koff.some(x => x.includes('휴강 10/9 중2 화정A')),
      '주차별 상세: 수업 줄·나눠 진행·수업 없는 주의 휴강 참고 — ' + kr.join(' / ').slice(0, 180));
+  ok((await pg.$eval('tr.d .dt-off', el => getComputedStyle(el).fontSize)) === '10.5px', '진행하지 않은 휴강은 작게 표시');
   ok(!(await pg.$('#flagSel')) && !(await pg.$('#onlyOver')), '기준·예정 거르기 드롭다운은 없앴다');
   ok((await pg.$$eval('section:not(.nonsul) tr.r td.nm', els => els.map(e => e.textContent))).join() === '김건,유채아,강준서,이소율,박민선', '전체 학생이 그대로 보인다');
 
