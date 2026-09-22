@@ -102,10 +102,11 @@ ok('주차 목록 6개, 10/14·10/21은 미지정 정규', R.weeks.length === 6 
 ok('순서: 중2(김건·심지후) → 고1(강준서·양지우·이소율) → 고3', R.rows.map(r => r.name).join() === '김건,심지후,강준서,양지우,이소율,박민선', R.rows.map(r => r.grade + r.name));
 
 /* 강준서: n1 목 10/8·10/29·11/5(3) + n2 토 10/31(1, 10/10은 주간빼기) + r1 수 10/14(10/12 직보로 진행)·10/21(2) + 보강 10/15(1) + r2 토 10/17(10/25에 진행)·10/24(2) = 9
- * 10/12 직보는 그 주(10/14~10/20) 수업의 진행이라 따로 세지 않는다 — 2026-09-22 규칙. */
+ * 10/12 직보는 그 주(10/14~10/20) 수업의 진행이라 따로 세지 않는다 — 2026-09-22 규칙.
+ * 그 직보로 한 10/14는 정규 주라도 내신으로 센다(같은 날 규칙) → 내신 5 · 정규 4 */
 const a = by['강준서'];
 ok('강준서 합계 9(직보는 그 주 수업의 진행)', a && a.count === 9, a && a.detail);
-ok('강준서 내신 4 · 정규 5', a && a.naeshin === 4 && a.regular === 5, a && [a.naeshin, a.regular]);
+ok('강준서 내신 5 · 정규 4(직보로 한 10/14는 내신)', a && a.naeshin === 5 && a.regular === 4, a && [a.naeshin, a.regular]);
 ok('강준서 내신 진도 3회 날짜', a && dates(a, '고1 화정B(천재수) 목5:30') === '10/8,10/29,11/5', a && a.detail);
 ok('주간빼기 10/10은 빠지고 10/31만', a && dates(a, '고1 확인 토3:30') === '10/31');
 ok('짝 없는 빼기는 참고에 사유와 함께', a && /10\/10 고1 확인 이 주만 빠짐/.test(a.noteText), a && a.noteText);
@@ -138,7 +139,7 @@ const k = by['김건'];
 /* 2026-10 중2는 슈국 캘린더가 내신 주여도 전부 정규 수업(GRADE_BOOK 예외) */
 ok('김건 합계 4 — 11/7로 미룬 10/24 수업도 10월, 2026-10 중2는 전부 정규', k && k.count === 4 && k.regular === 4 && k.naeshin === 0 && k.forceBook === '정규' && k.items.some(it => it.date === '2026-10-24' && it.held === '2026-11-07'), k && [k.regular, k.naeshin, k.detail]);
 ok('중2 10월 수강료 = 정규 단가로만 (4회 × 47,500)', k && k.amtReal === 4 * 47500 && k.rate['정규'] === 47500, k && k.amtReal);
-ok('예외는 그 달·그 학년만 — 고1 강준서는 그대로 정규·내신이 나뉜다', a && a.naeshin === 4 && !a.forceBook, a && [a.regular, a.naeshin]);
+ok('예외는 그 달·그 학년만 — 고1 강준서는 그대로 정규·내신이 나뉜다', a && a.naeshin === 5 && a.regular === 4 && !a.forceBook, a && [a.regular, a.naeshin]);
 ok('bookOf: 2026-10 중2 = 정규 · 다른 달 중2 = 없음 · 중3·고3은 늘 정규', CORE.bookOf('2026-10', '중2') === '정규' && CORE.bookOf('2026-11', '중2') === '' && CORE.bookOf('2026-11', '중3') === '정규' && CORE.bookOf('2026-10', '고1') === '');
 ok('11월 김건: 11/7 복사본은 따로 안 셈', !(R11.rows.find(r => r.name === '김건') || { items: [] }).items.some(it => it.date === '2026-11-07'));
 ok('김건 휴강 참고 표기', k && k.noteText === '10/9 중2 화정A 휴강', k && k.noteText);
@@ -163,7 +164,7 @@ ok('박민선(고3) 5회 — 내신 주 수업도 전부 정규(정규 5 · 내�
 ok('같은 날짜의 추가+빼기는 짝이 아니라 그대로 1회', p && p.items.filter(it => it.date === '2026-10-15').length === 1 && p.count === 5);
 ok('11/12 수업을 10/31에 당겨 해도 10월에는 안 센다(복사본 제외)', p && !p.items.some(it => it.date === '2026-10-31' || it.held === '2026-10-31'));
 ok('중3·고3 내내 정규 — 날짜별 구분도 정규', p && p.items.every(it => it.book === '정규') && CORE.ALL_REGULAR['중3'] && CORE.ALL_REGULAR['고3'] && !CORE.ALL_REGULAR['고1']);
-ok('고1은 그대로 정규·내신 나뉨', a && a.naeshin === 4);
+ok('고1은 그대로 정규·내신 나뉨', a && a.naeshin === 5 && a.regular === 4);
 ok('논술은 별도: 일요일 10/11·18·25·11/1 = 4회, 합계·주당 횟수에 안 들어감', p && p.nonsul === 4 && p.weekly === 1 && p.count === 5, p && [p.nonsul, p.weekly, p.count]);
 ok('논술 상세는 따로, 본 상세에는 없음', p && /논술B 국어 일6:00 4회\(10\/11, 10\/18, 10\/25, 11\/1\)/.test(p.nonsulDetail) && !/논술/.test(p.detail), p && [p.detail, p.nonsulDetail]);
 ok('논술 판정은 반이름', CORE.isNonsul('논술B 수학') && !CORE.isNonsul('고1 가'));
@@ -327,7 +328,9 @@ ok('① 직보 세션은 따로 세지 않는다(10/12 줄 없음)', !sy.items.s
 ok('① 그 주 수업 두 개가 직보 진행으로 남아 2회', sy.items.filter(wk).length === 2 && sy.items.filter(wk).every(it => it.held === '2026-10-12' && it.heldWhen === '월1:30'), sy.detail);
 ok('① 비고는 "10/12 월1:30에 직보로 진행"', CORE.runNote(sy.items.filter(wk)[0], dl) === '10/12 월1:30에 직보로 진행', CORE.runNote(sy.items.filter(wk)[0], dl));
 ok('① 표기는 10/15(10/12 진행)·10/17(10/12 진행)', /10\/15\(10\/12 진행\)/.test(sy.detail) && /10\/17\(10\/12 진행\)/.test(sy.detail), sy.detail);
-ok('① 회차는 늘지 않는다 — 목 5회 + 토 4회 = 9회', sy.count === 9 && sy.regular === 9, [sy.count, sy.detail]);
+ok('① 회차는 늘지 않는다 — 목 5회 + 토 4회 = 9회', sy.count === 9, [sy.count, sy.detail]);
+ok('① 직보로 한 그 주 두 수업은 정규 주라도 내신으로 센다 — 정규 7 · 내신 2', sy.regular === 7 && sy.naeshin === 2, [sy.regular, sy.naeshin]);
+ok('② 옮겨서 만든 직보도 내신 — 한도윤 정규 8 · 내신 1', hd.regular === 8 && hd.naeshin === 1, [hd.regular, hd.naeshin]);
 ok('② 옮겨서 만든 직보는 원래 날짜(10/15) 한 회, 진행 10/12', hd.items.filter(it => it.date === '2026-10-15').length === 1 && hd.items.find(it => it.date === '2026-10-15').held === '2026-10-12', hd.detail);
 ok('② 옮긴 직보는 그 주 다른 수업(10/17)을 먹지 않는다', hd.items.some(it => it.date === '2026-10-17' && !it.runs.length) && hd.count === 9, [hd.count, hd.detail]);
 
