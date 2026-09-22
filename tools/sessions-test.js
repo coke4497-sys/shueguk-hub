@@ -101,14 +101,16 @@ const dates = (r, label) => { const b = r.byCls.find(x => x.label === label); re
 ok('주차 목록 6개, 10/14·10/21은 미지정 정규', R.weeks.length === 6 && R.weeks.filter(w => !w.specified).map(w => w.wed).join() === '2026-10-14,2026-10-21', R.weeks);
 ok('순서: 중2(김건·심지후) → 고1(강준서·양지우·이소율) → 고3', R.rows.map(r => r.name).join() === '김건,심지후,강준서,양지우,이소율,박민선', R.rows.map(r => r.grade + r.name));
 
-/* 강준서: n1 목 10/8·10/29·11/5(3) + n2 토 10/31(1, 10/10은 주간빼기) + 직보 10/12(1) + r1 수 10/14·10/21(2) + 보강 10/15(1) + r2 토 10/17(10/25에 진행)·10/24(2) = 10 */
+/* 강준서: n1 목 10/8·10/29·11/5(3) + n2 토 10/31(1, 10/10은 주간빼기) + r1 수 10/14(10/12 직보로 진행)·10/21(2) + 보강 10/15(1) + r2 토 10/17(10/25에 진행)·10/24(2) = 9
+ * 10/12 직보는 그 주(10/14~10/20) 수업의 진행이라 따로 세지 않는다 — 2026-09-22 규칙. */
 const a = by['강준서'];
-ok('강준서 합계 10', a && a.count === 10, a && a.detail);
-ok('강준서 내신 4 · 정규 6', a && a.naeshin === 4 && a.regular === 6, a && [a.naeshin, a.regular]);
+ok('강준서 합계 9(직보는 그 주 수업의 진행)', a && a.count === 9, a && a.detail);
+ok('강준서 내신 4 · 정규 5', a && a.naeshin === 4 && a.regular === 5, a && [a.naeshin, a.regular]);
 ok('강준서 내신 진도 3회 날짜', a && dates(a, '고1 화정B(천재수) 목5:30') === '10/8,10/29,11/5', a && a.detail);
 ok('주간빼기 10/10은 빠지고 10/31만', a && dates(a, '고1 확인 토3:30') === '10/31');
 ok('짝 없는 빼기는 참고에 사유와 함께', a && /10\/10 고1 확인 이 주만 빠짐/.test(a.noteText), a && a.noteText);
-ok('주간추가로 직보 10/12 포함(직보 표시)', a && dates(a, '고1 화정B 월1:30(직보)') === '10/12' && a.byCls.some(b => b.jb));
+ok('직보 10/12은 그 주 수업(10/14)의 진행으로 붙고 따로 안 셈', a && !a.byCls.some(b => b.jb) && a.items.some(it => it.date === '2026-10-14' && it.held === '2026-10-12' && it.heldWhen === '월1:30'), a && a.detail);
+ok('보강 복사본(10/15)은 그 주 정규 수업이 아니라 직보에 먹히지 않는다', a && a.items.some(it => it.date === '2026-10-15' && !it.runs.length), a && a.detail);
 ok('보강 복사본은 원본 명단으로 10/15', a && dates(a, '고1 가 목5:30') === '10/15');
 ok('옮긴 수업은 원래 날짜(10/17)로 세고 복사본 날짜(10/25)는 따로 안 셈', a && dates(a, '고1 나 토3:30') === '10/17,10/24' && !a.byCls.some(b => b.label === '고1 나 일3:30'));
 ok('옮긴 수업 줄에 실제 진행일 기록', a && a.items.some(it => it.date === '2026-10-17' && it.held === '2026-10-25' && it.heldWhen === '일3:30') && /고1 나 토3:30 2회\(10\/17\(10\/25 진행\), 10\/24\)/.test(a.detail), a && a.detail);
@@ -294,6 +296,40 @@ const han12 = S12.rows.find(r => r.name === '한서윤') || {};
 ok('정규 주만 있는 달에는 같은 학생이 주1회 기준(4회)', han12.weekly === 1 && han12.threshold === 4, [han12.weekly, han12.plan]);
 ok('유채아는 정규 달에는 수업이 있다', (S12.rows.find(r => r.name === '유채아') || {}).plan > 0);
 ok('threshold: 주당 횟수 × 4', CORE.threshold(1) === 4 && CORE.threshold(2) === 8 && CORE.threshold(0) === 0);
+
+/* ── 직보 주에는 그 주 수업을 직보로 몰아서 한다 (2026-09-22 사용자 "월요일에 직보를 3시간 한 주간에는 그 주의 수업을 그것으로 대체해서 수업에 오지 않습니다") ──
+ * ① [이 주만 반 추가]로 새 직보 반을 만들고 학생을 넣으면 원래 수업(고1 가·고1 나)이 그대로 남아 직보가 덧붙어 세어졌다(10/12 화정B·화정D 15명).
+ *    이제 직보를 따로 세지 않고 그 주 수업들의 '진행'으로 붙인다 — 그 주 회차는 원래대로 2회.
+ * ② [이 주만 시간 옮기기]로 만든 직보는 원본이 그 날 숨어 이미 1:1이므로 종전 그대로(그 주 다른 수업을 먹지 않는다). */
+const DATA4 = {
+  periods: [],   /* 미지정 = 전부 정규 */
+  students: [
+    { name: '서윤우', school: '화정고', grade: '2026 고등 1학년', enrolled: '재원' },
+    { name: '한도윤', school: '화수고', grade: '2026 고등 1학년', enrolled: '재원' }
+  ],
+  classes: [
+    cls('정규', 'r1', '목', '5:30', '고1 가', '서윤우'),
+    cls('정규', 'r2', '토', '3:30', '고1 나', '서윤우'),
+    cls('정규', 'w261012b', '월', '1:30', '고1 화정B(천재수 공통국어2)', '', '직보'),   /* ① 새 반 — 서윤우를 주간추가 */
+    cls('정규', 'r3', '목', '7:00', '고1 다', '한도윤'),
+    cls('정규', 'r4', '토', '5:00', '고1 라', '한도윤'),
+    cls('정규', 'w261012c', '월', '1:00', '고1 다', '', '직보')                        /* ② r3을 10/15 → 10/12로 옮긴 복사본 */
+  ],
+  logs: [
+    { id: 1, at: '2026-10-10T03:00:00Z', kind: '주간추가', student: '서윤우', from_class_id: '', to_class_id: 'w261012b', apply_date: '2026-10-12', reason: '' },
+    { id: 2, at: '2026-10-10T03:00:00Z', kind: '주간반이동', student: '', from_class_id: 'r3', to_class_id: 'w261012c', apply_date: '2026-10-15', reason: '시험 대비 직보' }
+  ]
+};
+const J10 = CORE.build(JSON.parse(JSON.stringify(DATA4)), 2026, 10);
+const sy = J10.rows.find(r => r.name === '서윤우') || {}, hd = J10.rows.find(r => r.name === '한도윤') || {};
+const wk = it => it.date >= '2026-10-14' && it.date <= '2026-10-20';
+ok('① 직보 세션은 따로 세지 않는다(10/12 줄 없음)', !sy.items.some(it => it.date === '2026-10-12'), sy.detail);
+ok('① 그 주 수업 두 개가 직보 진행으로 남아 2회', sy.items.filter(wk).length === 2 && sy.items.filter(wk).every(it => it.held === '2026-10-12' && it.heldWhen === '월1:30'), sy.detail);
+ok('① 비고는 "10/12 월1:30에 직보로 진행"', CORE.runNote(sy.items.filter(wk)[0], dl) === '10/12 월1:30에 직보로 진행', CORE.runNote(sy.items.filter(wk)[0], dl));
+ok('① 표기는 10/15(10/12 진행)·10/17(10/12 진행)', /10\/15\(10\/12 진행\)/.test(sy.detail) && /10\/17\(10\/12 진행\)/.test(sy.detail), sy.detail);
+ok('① 회차는 늘지 않는다 — 목 5회 + 토 4회 = 9회', sy.count === 9 && sy.regular === 9, [sy.count, sy.detail]);
+ok('② 옮겨서 만든 직보는 원래 날짜(10/15) 한 회, 진행 10/12', hd.items.filter(it => it.date === '2026-10-15').length === 1 && hd.items.find(it => it.date === '2026-10-15').held === '2026-10-12', hd.detail);
+ok('② 옮긴 직보는 그 주 다른 수업(10/17)을 먹지 않는다', hd.items.some(it => it.date === '2026-10-17' && !it.runs.length) && hd.count === 9, [hd.count, hd.detail]);
 
 console.log(`\n${pass + fail}건 중 ${pass}건 통과` + (fail ? `, ${fail}건 실패` : ''));
 if (fail) process.exit(1);

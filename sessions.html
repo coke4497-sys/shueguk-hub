@@ -18,6 +18,13 @@
      · 짝이 없는 '이 주만 빼기'도 **사유가 직보·대체·당겨서·이동이면 그 수업을 한 것으로 센다**(사용자 2026-09-20 "10/3, 4주차는 9/29 직전보강으로
        3시간 대체했잖아요" — 직전보강이 그 주 수업을 대신한 것). 사유의 'M/D'나 요일('화 1:00')로 진행일을 붙이고, 없으면 '(대체)'로만.
        연휴·휴강·빈 사유 등은 수업 없음으로 보고 참고 열에 적는다(REPL_RE / NOREPL_RE).
+     · **직보 주에는 그 주 수업을 직보로 몰아서 한다**(사용자 2026-09-22 "월요일에 직보를 3시간 한 주간에는 그 주의 수업을 그것으로 대체해서 수업에 오지 않습니다"):
+       직보를 [이 주만 시간 옮기기]로 만들면 원래 수업이 그 날 숨어 1:1로 맞는다(10월 직보 22개 중 20개). 그런데 **[이 주만 반 추가]로 새 반을 만들고 학생을 넣은 경우**
+       (10/12 고1 화정B·화정D 15명)에는 원래 수업(고1 가·고1 나)이 그대로 남아 직보가 **덧붙어** 세어졌다 — 3시간 직보가 그 주 90분 수업 두 개를 대신한 것인데 3회로.
+       `claimJikbo`가 남은 직보 추가 세션을 **같은 주 수업들의 '진행'으로 붙이고 따로 세지 않는다**(비고 '10/12 월1:30에 직보로 진행', `jbRun`) — 회차는 원래 그 주 수업 수 그대로.
+       붙이는 대상은 그 주의 **명단 수업만**(`!extra`) — 이 주만 보강·추가로 따로 연 수업은 직보가 대신한 것이 아니므로 그대로 둔다. 이미 진행일이 붙은 수업(옮긴 수업)도 건드리지 않는다.
+       주차 줄에도 '10/12 직보로 진행'을 적는다(`jbLine` — 비고 열은 좁은 화면에서 가로로 밀려 안 보인다).
+       claimExtras(사유로 센 수업이 자기 직보를 먼저 가져감) 뒤, absorbParts 앞에 돈다. 실데이터 2026-10: 15명이 정규 5회 → 4회(청구 합계 124,350,000 → 123,881,250), 9·11월은 변화 없음.
      · **대체 수업은 한 번만 센다**(사용자 2026-09-20 "다른 데이터도 원래의 날짜 기준인지 다시 점검"): 직보로 대체된 수업의 실제 진행 쪽은
        보통 '이 주만' 반(직보)이나 '이 주만 추가'로 따로 기록돼 있어 그대로 두면 원래 날짜와 진행일에 두 번 센다. 그래서 명단 밖에서
        들어온 세션(w반·이 주만 추가·1회)을 '추가 세션'으로 표시해 두고, 대체 세션의 진행일(사유의 날짜·요일, 모르면 원래 날짜 앞 3주~뒤 1주
@@ -214,6 +221,8 @@
   table.dt-t .d3{ color:var(--ink); width:auto; }
   table.dt-t .d5{ color:var(--muted); font-size:11px; width:30%; }
   table.dt-t tr.wkr td{ background:#F5F7FA; font-size:11.5px; font-weight:700; color:#3B4660; padding:4px 9px; }
+  /* 직보로 몰아서 한 주 — 비고 열은 좁은 화면에서 가로로 밀려 안 보이므로 주차 줄에도 적는다 (사용자 2026-09-22) */
+  table.dt-t tr.wkr .dt-jbw{ margin-left:8px; font-weight:400; font-size:11px; color:#B0736A; }
   /* 진행하지 않은 수업(휴강·이 주만 빠짐) — 청구에 안 들어가니 작고 흐리게 (사용자 2026-09-21) */
   table.dt-t tr.offr td{ font-size:10.5px; color:#9AA6A0; padding:3px 9px 4px; line-height:1.5; }
   table.dt-t tr.offr b{ font-weight:400; color:#B2BCB6; }
@@ -513,7 +522,7 @@ var CORE = (function(){
       var s = sess[n] = sess[n] || {}, runs = [];
       if (o.held && (o.held !== ds || o.heldWhen)) runs.push({ date: o.held, when: o.heldWhen || '' });
       var it = { key: ds + '|' + c.id, date: ds, cls: c.name, when: c.day + c.start, kind: kind, book: book, nonsul: isNonsul(c.name),
-                 runs: runs, alt: o.alt || '', extra: !!o.extra, reason: o.reason || '', mvDates: o.mvDates || [] };
+                 runs: runs, alt: o.alt || '', extra: !!o.extra, reason: o.reason || '', mvDates: o.mvDates || [], jbRun: false };
       syncHeld(it);
       s[it.key] = it;
     }
@@ -635,6 +644,24 @@ var CORE = (function(){
       });
       return items.filter(function(it){ return !used[it.key]; });
     }
+    /* 직보 주에는 그 주 수업을 직보로 몰아서 한다(사용자 2026-09-22 "월요일에 직보를 3시간 한 주간에는 그 주의 수업을 그것으로 대체해서 수업에 오지 않습니다").
+     * 직보를 [이 주만 시간 옮기기]로 만들면 원래 수업이 그 날 숨어 1:1로 맞지만, 새 반을 만들고 학생을 넣은 경우(10/12 고1 화정B·화정D)에는
+     * 원래 수업이 그대로 남아 직보가 덧붙어 세어졌다. 남은 직보 추가 세션은 같은 주 수업들의 '진행'으로 붙이고 따로 세지 않는다 — 회차는 원래 그 주 수업 수. */
+    function claimJikbo(items){
+      var used = {};
+      items.filter(function(it){ return it.extra && it.kind === '직보' && !it.nonsul && !it.held && !it.alt; })
+           .sort(function(a, b){ return a.date < b.date ? -1 : 1; })
+           .forEach(function(jb){
+        var wed = ymd(weekWed(parse(jb.date)));
+        var tgs = items.filter(function(t){
+          return t !== jb && !t.extra && !t.nonsul && !used[t.key] && !t.runs.length && !t.alt && ymd(weekWed(parse(t.date))) === wed;
+        });
+        if (!tgs.length) return;
+        tgs.forEach(function(t){ t.jbRun = true; addRun(t, jb.date, jb.when); });
+        used[jb.key] = 1;
+      });
+      return items.filter(function(it){ return !used[it.key]; });
+    }
     /* 한 수업을 여러 번에 나눠 한 조각(사용자 2026-09-20 "두 번에 나누어 진행한 것도 원래의 날짜로 — 실행 시간을 각각 기록"):
      * 명단 밖 추가 세션 가운데 사유(보강 기록·이 주만 추가 기록)나 반이름이 '앞당겨·당겨·이동·직보·대체'나 'k/m'(1/2·2/3…)이면 다른 수업의 조각으로 보고
      * ① 사유에 날짜가 있으면 그 날짜(없으면 그 주)의 수업 줄에, ② 없으면 앞뒤 6주 안 같은 반의 옮긴·대체 수업 줄(진행일이 조각 날짜와 가장 가까운 것)에
@@ -730,7 +757,7 @@ var CORE = (function(){
         var ss = st.map(function(x){ return x.school || ''; }).filter(function(g, i, a){ return a.indexOf(g) === i; });
         school = ss.length === 1 ? ss[0] : '동명이인';
       }
-      var items = absorbParts(claimExtras(Object.keys(sess[n] || {}).map(function(k){ return sess[n][k]; })), notes[n] || []);
+      var items = absorbParts(claimJikbo(claimExtras(Object.keys(sess[n] || {}).map(function(k){ return sess[n][k]; }))), notes[n] || []);
       if (!grade) items.concat(notes[n] || []).some(function(it){ grade = gradeFromClass(it.cls); return !!grade; });
       var w = (grade.charAt(0) === '중') ? win.mid : win.high;
       items = items.filter(function(it){ return it.date >= w.from && it.date <= w.to; })
@@ -788,7 +815,7 @@ var CORE = (function(){
     if (!rs.length) return it.alt ? '대체 — ' + it.alt : '';
     var same = rs.length === 1 && rs[0].date === it.date;
     var txt = rs.map(function(r){ return (r.date === it.date && rs.length === 1 ? '같은 날' : dayLabel(r.date)) + (r.when ? ' ' + r.when : ''); }).join(' · ')
-            + (rs.length > 1 ? '에 나눠 진행' : same ? '에 대체 진행' : (rs[0].date < it.date ? '에 앞당겨 진행' : '에 미뤄 진행'));
+            + (it.jbRun && rs.length === 1 ? '에 직보로 진행' : rs.length > 1 ? '에 나눠 진행' : same ? '에 대체 진행' : (rs[0].date < it.date ? '에 앞당겨 진행' : '에 미뤄 진행'));
     return txt + (it.alt ? ' — ' + it.alt : '');
   }
   return { RULE: RULE, RATES: RATES, ALL_REGULAR: ALL_REGULAR, GRADE_BOOK: GRADE_BOOK, bookOf: bookOf, threshold: threshold, windows: windows, build: build, isNonsul: isNonsul, dlabel: dlabel, runNote: runNote, heldFromReason: heldFromReason, datesInReason: datesInReason, partMark: partMark, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
@@ -939,7 +966,7 @@ var CORE = (function(){
   function noteHtml(){
     return '<p class="note">주마다 슈국 캘린더의 정규/내신 기간에 맞는 시간표로 셉니다(미지정 주는 정규 — 그 주 수업은 정규 회차에 들어가요). '
       + '이 주만 휴강·이동·보충·추가/빼기·1회 이동·직전보강을 반영했고, 확인 수업·직전보강도 한 회로 셉니다. <b>중3·고3은 내내 정규 수업</b>이라 전부 정규 회차로 적고, <b>논술 수업은 별도</b>로 세어 합계·강조에 넣지 않습니다. '
-      + '옮긴 수업(반 전체 이동·다른 주로 옮기기·1회 이동)은 <b>원래 수업 날짜의 달</b>로 셉니다(10/10 수업을 9/19에 당겨 했으면 10월 — 날짜 옆에 \'9/19 진행\'으로 표시). \'이 주만 빼기\'는 사유가 직보·대체·당겨서·이동이면 그 수업을 한 것으로 세고(\'(대체)\' 표시), 연휴·휴강이면 세지 않고 참고에 적습니다. 이름을 누르면 날짜별 내역이 펼쳐집니다.</p>'
+      + '옮긴 수업(반 전체 이동·다른 주로 옮기기·1회 이동)은 <b>원래 수업 날짜의 달</b>로 셉니다(10/10 수업을 9/19에 당겨 했으면 10월 — 날짜 옆에 \'9/19 진행\'으로 표시). \'이 주만 빼기\'는 사유가 직보·대체·당겨서·이동이면 그 수업을 한 것으로 세고(\'(대체)\' 표시), 연휴·휴강이면 세지 않고 참고에 적습니다. <b>직보를 한 주는 그 주 수업을 직보로 몰아서 한 것</b>으로 보고 직보를 따로 세지 않습니다. 이름을 누르면 날짜별 내역이 펼쳐집니다.</p>'
       + '<b>청구 금액</b>은 정규 회차 × 정규 단가 + 내신 회차 × 내신 단가입니다(단가는 위 줄). 논술과 단가가 없는 학년은 금액에서 뺐어요. '
       + '<b>2026년 10월 중2는 내신 주에도 전부 정규 수업</b>으로 셉니다 — 내신 반을 그 달 내내 휴강하고 정리정독 정규 수업으로 대체했기 때문이에요(사용자 확인). '
       + '이런 달이 또 있으면 알려 주세요. '
@@ -1003,6 +1030,12 @@ var CORE = (function(){
   /* ── 이름을 누르면 나오는 주차별 상세 (사용자 2026-09-21 "주차별 정규/내신 수업(반, 날짜, 요일, 시간)을 상세히") ── */
   function dparse(s){ return new Date(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)); }
   function dadd(d, n){ return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+  /* 그 주 수업을 직보로 몰아서 한 경우 — 비고 열은 휴대폰에서 가로로 밀려 안 보이므로 주차 줄에도 적는다 */
+  function jbLine(its){
+    const ds = [];
+    its.forEach(it => (it.jbRun ? it.runs : []).forEach(r => { if (ds.indexOf(r.date) < 0) ds.push(r.date); }));
+    return ds.length ? '<span class="dt-jbw">' + ds.map(mdLabel).join(' · ') + ' 직보로 진행</span>' : '';
+  }
   function detailHtml(r){
     /* 그 학생 기준 기간에 걸친 주차만 — 주차는 수요일 시작(월·화는 다음 수요일 주) */
     const wks = (RESULT.weeks || []).filter(w => {
@@ -1027,7 +1060,8 @@ var CORE = (function(){
       const wbook = r.forceBook || w.book;
       h += '<tr class="wkr"><td colspan="4">' + mdLabel(from) + '~' + mdLabel(to)
         + ' <span class="dt-b' + (wbook === '내신' ? ' n' : '') + '">' + wbook + (w.specified || r.forceBook ? '' : '(미지정)') + '</span>'
-        + '<span class="dt-n">' + (main ? main + '회' : '수업 없음') + '</span></td></tr>';
+        + '<span class="dt-n">' + (main ? main + '회' : '수업 없음') + '</span>'
+        + jbLine(its) + '</td></tr>';
       its.forEach(it => {
         h += '<tr><td class="d1">' + dayLabel(it.date) + '</td><td class="d2">' + esc(it.when) + '</td>'
           + '<td class="d3"><span class="dt-b' + (it.nonsul ? ' s' : it.book === '내신' ? ' n' : '') + '">' + (it.nonsul ? '논술(별도)' : esc(it.book)) + '</span> '
