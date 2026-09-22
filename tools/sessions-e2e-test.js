@@ -46,7 +46,8 @@ const DB = {
   ]
 };
 /* 강준서(고1 주2회, 10/7~11/6): n1 10/8·10/29·11/5(3) + n2 10/10·10/31(2) + r1 10/14·10/21 + r2 10/17·10/24 = 9
- * 10/12 직보(주간추가로 만든 새 반)는 그 주(10/14~10/20) 수업의 진행이라 따로 세지 않는다 — 2026-09-22 규칙 / 이소율 = 6 */
+ * 10/12 직보(주간추가로 만든 새 반)는 그 주(10/14~10/20) 수업의 진행이라 따로 세지 않고, 그 직보로 한 10/14는 정규 주라도 내신으로 센다
+ * → 정규 3(10/21·10/17·10/24 중 정규인 것) · 내신 6 — 2026-09-22 규칙 / 이소율 = 6 */
 
 (async () => {
   const server = http.createServer((req, res) => {
@@ -97,8 +98,8 @@ const DB = {
   ok(heads.length === 3 && heads[0].startsWith('중2') && heads[1].startsWith('고1') && heads[2].startsWith('고3'), '학년 순서 중2→고1→고3 — ' + heads.join(' / '));
   const rowOf = async name => pg.$eval(`tr.r[data-key$="|${name}"]`, tr => ({ cells: [...tr.cells].map(c => c.textContent.trim()), over: tr.classList.contains('over'), under: tr.classList.contains('under') }));
   const a = await rowOf('강준서');
-  ok(a.cells[3] === '4125,000' && a.cells[4] === '5156,250' && a.cells[6] === '281,250',
-     '강준서 정규 4회 125,000 · 내신 5회 156,250 · 청구 281,250(직보는 그 주 수업의 진행) — ' + a.cells.slice(3, 7).join(' / '));
+  ok(a.cells[3] === '393,750' && a.cells[4] === '6187,500' && a.cells[6] === '281,250',
+     '강준서 정규 3회 93,750 · 내신 6회 187,500 · 청구 281,250(직보는 그 주 수업의 진행 + 내신) — ' + a.cells.slice(3, 7).join(' / '));
   const heads8 = await pg.$$eval('table.t thead th', els => els.slice(0, 8).map(e => e.textContent.trim()));
   ok(heads8.join('|') === 'No|이름|학교|정규|내신|논술|청구 금액(원)|수업(반 · 회차)', '열은 회차·금액·청구 금액만 — ' + heads8.join('|'));
   ok((await pg.$eval('tr.r[data-key$="|강준서"] td.cls', el => el.textContent)).indexOf('고1 나') >= 0, '강준서 표 칩');
@@ -133,7 +134,7 @@ const DB = {
   const awk = await pg.$$eval('tr.d tr.wkr', els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
   ok(awk.some(t => t.startsWith('10/14~10/20 정규(미지정)2회') && t.includes('10/12 직보로 진행')), '직보 주차 줄: 2회 + 10/12 직보로 진행 — ' + awk.join(' / '));
   const adt = await pg.$$eval('tr.d table.dt-t tbody tr:not(.wkr):not(.offr)', els => els.map(e => [...e.cells].map(c => c.textContent.replace(/\s+/g, ' ').trim()).join(' | ')));
-  ok(!adt.some(t => t.startsWith('10/12')) && adt.some(t => t === '10/14 (수) | 수5:30 | 정규 고1 가 | 10/12 (월) 월1:30에 직보로 진행'), '직보 줄은 없고 그 주 수업 비고에 직보 진행 — ' + adt.slice(2, 4).join(' / '));
+  ok(!adt.some(t => t.startsWith('10/12')) && adt.some(t => t === '10/14 (수) | 수5:30 | 내신 고1 가 | 10/12 (월) 월1:30에 직보로 진행'), '직보 줄은 없고 그 주 수업 비고에 직보 진행(정규 주라도 내신 배지) — ' + adt.slice(2, 4).join(' / '));
   ok(adt.some(t => t === '10/17 (토) | 토3:30 | 정규 고1 나 | 10/25 (일) 일3:30에 미뤄 진행'), '이미 옮긴 수업은 직보가 덮어쓰지 않는다');
   await pg.click('tr.r[data-key$="|강준서"]');
   const p = await rowOf('박민선');
@@ -193,8 +194,8 @@ const DB = {
   await pg.fill('#q', '강준서');
   await pg.waitForSelector('.person');
   const person = await pg.textContent('.person');
-  ok(person.includes('정규 4회') && person.includes('내신 5회') && person.includes('합계 9회') && person.includes('청구 281,250원')
-     && person.includes('정규 4회 × 31,250 = 125,000'), '개인 카드 요약 — 정규·내신·합계·청구 금액');
+  ok(person.includes('정규 3회') && person.includes('내신 6회') && person.includes('합계 9회') && person.includes('청구 281,250원')
+     && person.includes('정규 3회 × 31,250 = 93,750'), '개인 카드 요약 — 정규·내신·합계·청구 금액');
   ok((await pg.$$eval('.person table.p tbody tr', els => els.length)) === 9, '개인 카드 날짜 줄 9개(직보 줄 없음)');
   ok((await pg.$$eval('.person table.p td.hd', els => els.map(e => e.textContent).filter(Boolean))).join() === '10/12 (월) 월1:30에 직보로 진행,10/25 (일) 일3:30에 미뤄 진행', '개인 카드 비고: 직보로 진행·옮겨 진행한 날짜');
   await pg.fill('#q', '박민선');
@@ -207,7 +208,7 @@ const DB = {
   ok((await pg.$$eval('.person table.p td.hd', els => els.map(e => e.textContent).filter(Boolean))).join() === '10/16 (금) 금7:00 · 10/23 (금) 금7:00에 나눠 진행' && (await pg.$$eval('.person table.p tbody tr', els => els.length)) === 4, '개인 카드 비고: 나눠 진행한 실행 시간 각각, 조각은 따로 세지 않음(4줄)');
   await pg.fill('#q', '강준서');
   await pg.waitForFunction(() => document.querySelector('.person') && document.querySelector('.person').textContent.includes('강준서'));
-  ok((await pg.$$eval('.person table.p td.n', els => els.length)) === 5, '내신 날짜 5줄은 구분 색');
+  ok((await pg.$$eval('.person table.p td.n', els => els.length)) === 6, '내신 날짜 6줄은 구분 색(직보로 한 10/14 포함)');
   ok(person.includes('10/8 (목)') && !person.includes('(직보)'), '날짜에 요일 표시, 흡수된 직보는 줄이 없다');
   await pg.fill('#q', '없는이름');
   await pg.waitForFunction(() => document.querySelector('#view').textContent.includes('시간표에 없어요'));
@@ -219,12 +220,12 @@ const DB = {
   const tsv = await pg.evaluate(() => tsvText());
   const lines = tsv.split('\n');
   ok(lines[0].split('\t').join('|') === '학년|이름|학교|10월 정규 회차|정규 금액|10월 내신 회차|내신 금액|합계 회차|청구 금액|논술(별도)|기준 기간|수업 상세(반 · 날짜)|논술 상세|휴강·옮긴 수업(참고)', 'TSV 머리글 — ' + lines[0]);
-  ok(lines.length === 6 && lines[3].startsWith('고1\t강준서\t화정고\t4\t125000\t5\t156250\t9\t281250\t\t10/7~11/6\t'), 'TSV 줄: 강준서 — ' + lines[3].slice(0, 80));
+  ok(lines.length === 6 && lines[3].startsWith('고1\t강준서\t화정고\t3\t93750\t6\t187500\t9\t281250\t\t10/7~11/6\t'), 'TSV 줄: 강준서 — ' + lines[3].slice(0, 80));
   ok(lines[1].startsWith('중2\t김건\t서정중\t4\t190000\t0\t0\t4\t190000\t\t10/1~10/31'), 'TSV 줄: 김건(10월 중2는 전부 정규) — ' + lines[1].slice(0, 70));
   ok(lines[2].startsWith('중2\t유채아\t고양중\t2\t95000\t0\t0\t2\t95000\t\t10/1~10/31'), 'TSV 줄: 유채아(내신 0회) — ' + lines[2].slice(0, 70));
   ok(lines[5].split('\t')[9] === '4' && lines[5].split('\t')[12].startsWith('논술B 국어 일6:00 4회('), 'TSV 줄: 박민선 논술 4·논술 상세');
   const csv = await pg.evaluate(() => csvText());
-  ok(csv.charCodeAt(0) === 0xFEFF && csv.split('\r\n').length === 6 && csv.includes('"강준서","화정고","4","125000","5","156250","9","281250"'), 'CSV(BOM·따옴표)');
+  ok(csv.charCodeAt(0) === 0xFEFF && csv.split('\r\n').length === 6 && csv.includes('"강준서","화정고","3","93750","6","187500","9","281250"'), 'CSV(BOM·따옴표)');
   await pg.click('#mNext');
   await pg.waitForFunction(() => document.getElementById('mLabel').textContent === '2026년 11월');
   ok((await pg.textContent('#winLabel')).includes('고등 11/7~12/6') && pg.url().includes('m=2026-11'), '다음 달 → 11/7~12/6, 주소 ?m=2026-11');
