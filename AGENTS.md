@@ -14,7 +14,7 @@ GitHub Pages로 배포됩니다(`coke4497-sys.github.io/shueguk-hub/`). 자세�
 ## Code Review Rules
 
 ### 인증·데이터
-- 교사 페이지들(`omr_teacher.html`·`omr_analysis.html`·`question.html`·`question_board.html`)은 **조용한 교사 인증 조각이 첫 스크립트 자리**에 있어야 수파베이스 표를 읽습니다. 이 조각을 학생용 페이지(`omr.html` 등)나 공개 안내(`question_guide.html`)에 넣는 변경은 지적하세요. `question_guide.html`은 링크 공유용이라 인증 조각이 없어야 합니다.
+- 교사 페이지들(`answer_key.html`·`omr_teacher.html`·`omr_analysis.html`·`voca.html`·`question.html`·`question_board.html` — 조각의 머리글은 '교사 페이지 조용한 인증')은 **조용한 교사 인증 조각이 첫 스크립트 자리**에 있어야 수파베이스 표를 읽고 씁니다(`answer_key.html`은 `omr_exams`에, `voca.html`은 `report_config` 미러에 씀). 이 조각을 옮기거나 지우는 변경은 지적하세요. 이 조각을 학생용 페이지(`omr.html` 등)나 공개 안내(`question_guide.html`)에 넣는 변경은 지적하세요. `question_guide.html`은 링크 공유용이라 인증 조각이 없어야 합니다.
 - 회차·응답의 원본은 수파베이스(`omr_exams`·`omr_responses`)입니다. 시트를 원본으로 되돌리는 변경은 지적하세요.
 - 회차 분석의 점수·등급은 저장값이 아니라 **지금 정답으로 다시 채점한 값**입니다. 집계 로직은 `ANALYSIS-CORE` 블록 한 곳이고 `tools/omr-analysis-test.js`가 그 블록을 검증합니다. 로직 변경에 테스트 갱신이 없으면 요청하세요.
 - 질문 대기열(`question_queue`)을 순회하는 코드는 **`일시정지` 상태 줄을 걸러내야** 합니다(교사 안내 문구·일시 정지용 줄). 상태 이름 `일시정지`·`예약`·`명단`·`대기`·`호출`·`질문중`·`완료`·`취소`·`건너뜀`은 바꾸지 않습니다(스키마 없이 문자열로 씀).
