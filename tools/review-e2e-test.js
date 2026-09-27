@@ -188,6 +188,16 @@ function applyFilter(rows, url){
   ok(await tp.locator('#clsSel optgroup').count() === 2, '반 드롭다운이 요일로 묶임');
   ok(calls.some(c => c.path.startsWith('/rest/v1/tt_classes') && c.auth === 'Bearer tok'), '교사 인증으로 시간표 조회');
   ok(/배정한 영상이 없어요/.test(await tp.textContent('#vids')), '빈 목록 안내');
+  ok(!(await tp.$eval('#guide', g => g.classList.contains('on'))), '사용 방법 창은 처음엔 닫힘');
+  await tp.click('#helpBtn'); await tp.waitForTimeout(300);
+  ok(await tp.$eval('#guide', g => g.classList.contains('on') && g.getBoundingClientRect().right <= innerWidth + 1 && g.getBoundingClientRect().left > 0), '사용 방법 옆 창 열림(오른쪽)');
+  const gtxt = await tp.textContent('#guide');
+  ok(['명단 다시 반영', '학생 화면에서 숨기기', '배정 취소', '학생 더하기', '퍼가기 허용', '90%', '영상 삭제'].every(k => gtxt.includes(k)), '사용 방법에 숨기기·취소·다시 반영 설명 포함');
+  await shot(tp, 'teacher-guide');
+  await tp.keyboard.press('Escape'); await tp.waitForTimeout(300);
+  ok(!(await tp.$eval('#guide', g => g.classList.contains('on'))), 'Esc로 닫힘');
+  await tp.click('#helpBtn'); await tp.waitForTimeout(250); await tp.mouse.click(20, 400); await tp.waitForTimeout(300);
+  ok(!(await tp.$eval('#guide', g => g.classList.contains('on'))), '바깥을 누르면 닫힘');
   await tp.fill('#ytUrl', 'https://youtu.be/dQw4w9WgXcQ?si=x');
   ok(/dQw4w9WgXcQ/.test(await tp.textContent('#ytPrev')), '주소에서 영상 ID 인식');
   ok(await tp.isDisabled('#goBtn') && /반을\(를\) 골라 주세요/.test(await tp.textContent('#goNote')), '반을 안 고르면 배정 버튼 잠김');
