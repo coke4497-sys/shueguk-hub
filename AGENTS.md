@@ -32,4 +32,5 @@ GitHub Pages로 배포됩니다(`coke4497-sys.github.io/shueguk-hub/`). 자세�
 - 통합형/고3형 출제 두 형식을 병행합니다(기본값 고3형). 한쪽을 깨는 변경은 지적하세요.
 
 ### 테스트
+- 복습 영상(`review.html`)은 반 명단을 배정 시점에 학생 한 명씩 풀어 넣습니다(이름 대조는 앞뒤 괄호·끝의 A 규칙, 동명이인은 넣지 않고 안내). `tools/review-e2e-test.js`가 교사·학생 화면을 함께 검사합니다.
 - `tools/qq-e2e-test.js`(질문 대기열 E2E)·`tools/omr-analysis-test.js`가 있습니다. 관련 변경에 테스트 갱신이 없으면 알려 주세요.
