@@ -1,7 +1,7 @@
 /* 복습 영상 브라우저 E2E (2026-09-27)
  * 가짜 수파베이스·가짜 유튜브 플레이어로 실제 페이지를 띄워
  *   ① 교사 페이지(review.html) — 교사 인증·반 고르기·명단 대조(동명이인·미등록 안내)·배정 POST·결과 표·숨기기·명단 다시 반영
- *   ② 학생 페이지(리포트 s.html) — 허브 카드·목록·재생 중에만 시간 세기·화면을 벗어나면 멈춤·저장 본문·별 안내
+ *   ② 학생 페이지(리포트 s.html) — 허브 카드·목록·재생 중에만 시간 세기·화면을 벗어나면 멈춤·저장 본문·완료 안내
  * 를 왕복 검사한다. 원격 수파베이스·유튜브에는 아무것도 보내지 않는다.
  *   실행: LC_ALL=C.UTF-8 NODE_PATH=$(npm root -g) node tools/review-e2e-test.js
  *   (LC_ALL 이 UTF-8 이 아니면 크로미엄이 한글 파일 이름을 'download'로 바꿔 내려받기 이름 검사 2건이 실패한다 — 실제 기기와 무관)
@@ -68,13 +68,13 @@ function rpc(fn, body){
   const p = body.p || {};
   if (fn === 'review_list'){
     if (p.key !== 'tok-kim') return { ok: false, error: 'no_student' };
-    return { ok: true, done_pct: 90, items: [
+    return { ok: true, done_pct: 75, items: [
       { id: 7, yt: 'dQw4w9WgXcQ', title: '9/27 문학 복습', memo: '', duration: 0, at: '2026-09-27T01:00:00Z', cls: '고1 가', pct: 0, sec: 0, pos: 0, done: false, nfiles: 1 },
       { id: 8, yt: 'aaaaaaaaaaa', title: '지난 복습', memo: '', duration: 600, at: '2026-09-20T01:00:00Z', cls: '고1 가', pct: 100, sec: 640, pos: 0, done: true } ] };
   }
   if (fn === 'review_open'){
     if (+p.video !== 7) return { ok: false, error: 'not_assigned' };
-    return { ok: true, done_pct: 90, id: 7, yt: 'dQw4w9WgXcQ', title: '9/27 문학 복습', memo: '', duration: 0, bits: '', pct: 0, sec: 0, pos: 0, done: false,
+    return { ok: true, done_pct: 75, id: 7, yt: 'dQw4w9WgXcQ', title: '9/27 문학 복습', memo: '', duration: 0, bits: '', pct: 0, sec: 0, pos: 0, done: false,
              files: [{ id: 31, name: '9월 복습지.pdf', size: 2400000 }] };
   }
   if (fn === 'review_file_url'){
@@ -84,7 +84,7 @@ function rpc(fn, body){
   }
   if (fn === 'review_save'){
     saves.push(p);
-    return { ok: true, pct: 42, done: saves.length >= 2, first: saves.length >= 2, sec: 10, done_pct: 90 };   // 둘째 저장부터 first — 백그라운드 저장(응답 무시)이 둘째가 돼도 다음 저장에서 안내가 뜬다
+    return { ok: true, pct: 42, done: saves.length >= 2, first: saves.length >= 2, sec: 10, done_pct: 75 };   // 둘째 저장부터 first — 백그라운드 저장(응답 무시)이 둘째가 돼도 다음 저장에서 안내가 뜬다
   }
   return null;
 }
@@ -192,7 +192,8 @@ function applyFilter(rows, url){
   await tp.click('#helpBtn'); await tp.waitForTimeout(300);
   ok(await tp.$eval('#guide', g => g.classList.contains('on') && g.getBoundingClientRect().right <= innerWidth + 1 && g.getBoundingClientRect().left > 0), '사용 방법 옆 창 열림(오른쪽)');
   const gtxt = await tp.textContent('#guide');
-  ok(['명단 다시 반영', '학생 화면에서 숨기기', '배정 취소', '학생 더하기', '퍼가기 허용', '90%', '영상 삭제'].every(k => gtxt.includes(k)), '사용 방법에 숨기기·취소·다시 반영 설명 포함');
+  ok(['명단 다시 반영', '학생 화면에서 숨기기', '배정 취소', '학생 더하기', '퍼가기 허용', '75%', '영상 삭제'].every(k => gtxt.includes(k)), '사용 방법에 숨기기·취소·다시 반영 설명 포함');
+  ok(!/슈퍼스타 별/.test(gtxt.replace('슈퍼스타 별은 주지 않아요', '')), '사용 방법에 별 적립 안내 없음');
   await shot(tp, 'teacher-guide');
   await tp.keyboard.press('Escape'); await tp.waitForTimeout(300);
   ok(!(await tp.$eval('#guide', g => g.classList.contains('on'))), 'Esc로 닫힘');
@@ -317,7 +318,7 @@ function applyFilter(rows, url){
   await rowPark.locator('.rowbtn').click();
   await tp.waitForFunction(() => /0 \/ 6명/.test(document.querySelector('.vid .stat').textContent) || /완료 0 \/ 6명/.test(document.querySelector('.vid .stat').textContent));
   ok(!TGTS.some(t => t.video_id === V2 && t.code === 'tok-park'), '한 명 배정 취소(배정 표에서 빠짐)');
-  ok(WATCH.some(w => w.video_id === V2 && w.code === 'tok-park' && w.completed_at), '취소해도 시청 기록·완료(별)는 남음');
+  ok(WATCH.some(w => w.video_id === V2 && w.code === 'tok-park' && w.completed_at), '취소해도 시청 기록·완료는 남음');
   ok(VIDS[0].classes.some(c => c.type === 'exclude' && c.code === 'tok-park'), '명세에 취소 표시(exclude)');
   ok(!/박민수/.test(await tp.textContent('.vid .meta')), '카드 대상 표시에 취소 표시는 안 나옴');
   await tp.click('text=명단 다시 반영');
@@ -357,7 +358,7 @@ function applyFilter(rows, url){
     await pg.goto(`http://localhost:${PORT}/report/s.html?key=tok-kim`);
     await pg.waitForFunction(() => /복습 영상/.test(document.getElementById('menu').textContent));
     const card = pg.locator('#menu .card', { hasText: '복습 영상' });
-    ok(/볼 영상 1개/.test(await card.textContent()) && await card.locator('.new-dot').count() === 1, '허브 카드: 볼 영상 1개 + 뱃지');
+    ok(/볼 영상 1개 · 75% 보면 완료/.test(await card.textContent()) && !/별/.test(await card.textContent()) && await card.locator('.new-dot').count() === 1, '허브 카드: 볼 영상 1개 + 뱃지(75%, 별 문구 없음)');
     await card.click();
     await pg.waitForSelector('#rvList .rv-item');
     const items = await pg.$$eval('#rvList .rv-item', a => a.map(x => x.textContent));
@@ -408,10 +409,10 @@ function applyFilter(rows, url){
     ok(parseInt(after.replace(/\D/g, '')) - parseInt(before.replace(/\D/g, '')) <= 1, '영상이 안 보이면 세지 않음: ' + before + ' → ' + after);
     await pg.evaluate(() => window.scrollTo(0, 0));
     await sleep(1200);
-    // 멈춤 → 저장 → 두 번째 저장 응답 first → 별 안내
+    // 멈춤 → 저장 → 두 번째 저장 응답 first → 완료 안내
     await pg.evaluate(() => window.__yt.pauseVideo());
     await pg.waitForFunction(() => document.getElementById('rvStar').classList.contains('on'));
-    ok(true, '90% 첫 도달 → 별 +1 안내');
+    ok(/시청 완료/.test(await pg.textContent('#rvStar')) && !/별/.test(await pg.textContent('#rvStar')), '75% 첫 도달 → 시청 완료 안내(별 문구 없음)');
     // 목록으로 돌아가면 플레이어 정리 + 목록 새로 받음
     const nList = calls.filter(c => c.path.includes('/rpc/review_list')).length;
     await pg.click('#rvBack');
