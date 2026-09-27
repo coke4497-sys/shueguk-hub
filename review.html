@@ -52,12 +52,6 @@
   .seg .btn.on{background:var(--lilac);color:var(--lilac-ink);font-weight:700;}
   .cls-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px;}
   .cls-bar select{width:auto;min-width:180px;}
-  .cls-list{margin-top:10px;max-height:340px;overflow:auto;border-radius:12px;background:#F7F9F8;padding:6px 10px;}
-  .cls-day{font-size:.78rem;color:var(--cap);margin:10px 2px 4px;font-weight:700;}
-  .cls-item{display:flex;align-items:center;gap:9px;padding:6px 4px;font-size:.9rem;cursor:pointer;border-radius:8px;}
-  .cls-item:hover{background:#EEF2EF;}
-  .cls-item input{width:17px;height:17px;accent-color:#8D83A8;}
-  .cls-item .n{color:var(--cap);font-size:.8rem;margin-left:auto;}
   .sum{margin-top:12px;font-size:.88rem;color:var(--ink-soft);}
   .sum b{color:var(--ink);}
   .warn{margin-top:8px;font-size:.84rem;background:#F9EFD0;color:#7A6330;border-radius:10px;padding:8px 12px;}
@@ -85,6 +79,15 @@
   .st-no{color:#B0736A;}
   .res-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;}
   .res-bar select{width:auto;}
+  .modes{flex-wrap:wrap;}
+  .mpane{display:none;margin-top:10px;}
+  .mpane.on{display:block;}
+  .gpills{display:flex;flex-wrap:wrap;gap:6px;}
+  .gpills .btn.on{background:var(--lilac);color:var(--lilac-ink);font-weight:700;}
+  #stuQ{max-width:320px;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .chips .fchip{background:var(--lilac);color:var(--lilac-ink);}
+  .chips .fchip button{color:var(--lilac-ink);}
   .files-pick{margin-top:6px;}
   .files-pick input[type=file]{font:inherit;font-size:.86rem;}
   .fsel{margin:6px 0 0;padding:0;list-style:none;font-size:.84rem;color:var(--ink-soft);}
@@ -168,7 +171,7 @@
   <a class="back" href="study.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> 학습 관리로 가기</a>
   <header>
     <h1>복습 영상</h1>
-    <p class="intro">유튜브 복습 영상을 반에 배정하고 학생별 시청 시간을 확인해요. 학생은 학생 페이지의 '복습 영상'에서 보고, <b>영상의 90% 이상</b>을 보면 완료 · 슈퍼스타 별 +1. 화면을 벗어나 있는 동안은 시간을 세지 않아요. 수업 자료 파일을 붙이면 그 영상을 배정받은 학생만 내려받을 수 있어요.</p>
+    <p class="intro">유튜브 복습 영상을 전체·학년·학교·반·개인으로 배정하고 학생별 시청 시간을 확인해요. 학생은 학생 페이지의 '복습 영상'에서 보고, <b>영상의 90% 이상</b>을 보면 완료 · 슈퍼스타 별 +1. 화면을 벗어나 있는 동안은 시간을 세지 않아요. 수업 자료 파일을 붙이면 그 영상을 배정받은 학생만 내려받을 수 있어요.</p>
   </header>
 
   <section class="card" id="addCard">
@@ -182,14 +185,25 @@
     </div>
     <label class="f" for="vFiles">수업 자료 파일 (선택 · 여러 개 · 파일당 20MB까지)</label>
     <div class="files-pick"><input type="file" id="vFiles" multiple><ul class="fsel" id="fSel"></ul></div>
-    <label class="f">반 고르기 (여러 반 가능)</label>
-    <div class="cls-bar">
-      <span class="seg"><button class="btn sm on" type="button" id="bk-정규" onclick="setBook('정규')">정규</button><button class="btn sm" type="button" id="bk-내신" onclick="setBook('내신')">내신</button></span>
-      <select id="tSel" onchange="drawClasses()"></select>
+    <label class="f">배정 대상</label>
+    <div class="seg modes" id="modeSeg">
+      <button class="btn sm" type="button" data-m="all">전체</button><button class="btn sm" type="button" data-m="grade">학년</button><button class="btn sm" type="button" data-m="school">학교</button><button class="btn sm on" type="button" data-m="cls">반</button><button class="btn sm" type="button" data-m="stu">개인</button>
     </div>
-    <div class="cls-list" id="clsList"><p class="muted">반 목록을 불러오는 중…</p></div>
+    <div class="mpane" id="pane-all"><p class="muted" id="allNote">재원생 전체에게 배정해요.</p></div>
+    <div class="mpane" id="pane-grade"><div class="gpills" id="gradePills"><span class="muted">재원 명단을 불러오는 중…</span></div></div>
+    <div class="mpane" id="pane-school"><div class="cls-bar"><select id="schSel" onchange="addSchool(this.value)"></select></div></div>
+    <div class="mpane" id="pane-cls"><div class="cls-bar">
+      <span class="seg"><button class="btn sm on" type="button" id="bk-정규" onclick="setBook('정규')">정규</button><button class="btn sm" type="button" id="bk-내신" onclick="setBook('내신')">내신</button></span>
+      <select id="tSel" onchange="fillClassSel()"></select>
+      <select id="clsSel" onchange="addClass(this.value)"><option value="">반 목록을 불러오는 중…</option></select>
+    </div></div>
+    <div class="mpane" id="pane-stu"><div class="cls-bar">
+      <input type="text" id="stuQ" list="stuList" placeholder="학생 이름을 입력하고 목록에서 고르세요" autocomplete="off"><datalist id="stuList"></datalist>
+      <button class="btn sm" type="button" onclick="addStu()">추가</button>
+    </div></div>
+    <div class="chips" id="chips"></div>
     <div class="sum" id="sum"></div>
-    <div class="go-row"><span class="muted" id="goNote"></span><button class="btn lav" id="goBtn" onclick="assign()" disabled>이 반에 배정하기</button></div>
+    <div class="go-row"><span class="muted" id="goNote"></span><button class="btn lav" id="goBtn" onclick="assign()" disabled>배정하기</button></div>
   </section>
 
   <section class="card">
@@ -204,7 +218,7 @@
   const SB_KEY  = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
   const DAYS = { '월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':7 };
   const DONE_PCT = 90;
-  let BOOK = '정규', CLASSES = {}, STUS = [], PICK = {}, VIDS = [], TGTS = [], WATCH = [], FILES = [], OPEN = {}, FILTER = {}, NEWVID = 0;
+  let BOOK = '정규', CLASSES = {}, STUS = [], MODE = 'cls', SEL = { grade: [], school: [], cls: [], stu: [] }, VIDS = [], TGTS = [], WATCH = [], FILES = [], OPEN = {}, FILTER = {}, NEWVID = 0;
 
   const $ = id => document.getElementById(id);
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
@@ -262,21 +276,109 @@
     if (hits.length > 1 && hint){ const nr = hits.filter(s => schoolLoose(hint, s.school)); if (nr.length) hits = nr; }
     return { plain, hit: hits.length === 1 ? hits[0] : null, dup: hits.length > 1 };
   }
-  /* 고른 반들 → 배정할 학생 목록 {code → {stu, cls}} + 못 찾은 이름 */
-  function expand(picks){
+  /* ── 배정 대상 (2026-09-27 사용자 "전체, 학년, 학교, 반, 개인으로 설정" + "반 리스트는 드롭다운") ──
+   * 대상은 '명세' 목록으로 다룬다 — {type:'all'} · {type:'grade',value:'고1'} · {type:'school',value:'화정고'}
+   * · {type:'class',book,class_id,name,day,start,teacher}(옛 기록은 type 없이 반) · {type:'student',code,name}.
+   * 영상의 classes 열에 이 명세를 그대로 저장하고, [명단 다시 반영]도 같은 명세로 다시 푼다. */
+  const GRADE_ORDER = ['중1', '중2', '중3', '고1', '고2', '고3'];
+  function specType(c){ return c.type || 'class'; }
+  function specLabel(c){
+    const t = specType(c);
+    return t === 'all' ? '전체' : t === 'grade' || t === 'school' ? c.value : t === 'student' ? (c.name || '개인') : c.name;
+  }
+  function specOf(mode){
+    if (mode === 'all') return [{ type: 'all' }];
+    if (mode === 'grade') return SEL.grade.map(v => ({ type: 'grade', value: v }));
+    if (mode === 'school') return SEL.school.map(v => ({ type: 'school', value: v }));
+    if (mode === 'stu') return SEL.stu.map(code => { const s = STUS.find(x => x.code === code); return { type: 'student', code, name: s ? s.name : '' }; });
+    return SEL.cls.map(c => ({ type: 'class', book: c.book, class_id: c.id, name: c.name, day: c.day, start: c.start, teacher: c.teacher }));
+  }
+  function classOfSpec(c){ return (CLASSES[c.book] || []).find(x => x.id === c.class_id) || null; }
+  /* 명세 → 배정할 학생 {code → {stu, cls}} + 못 넣는 이름들 */
+  function expand(spec){
     const out = {}, miss = [], dup = [], nocode = [];
-    picks.forEach(c => c.students.forEach(tok => {
-      const f = findStu(tok);
-      if (!f.plain) return;
-      if (f.dup){ if (dup.indexOf(f.plain) < 0) dup.push(f.plain); return; }
-      if (!f.hit){ if (miss.indexOf(f.plain) < 0) miss.push(f.plain); return; }
-      if (!f.hit.code){ if (nocode.indexOf(f.plain) < 0) nocode.push(f.plain); return; }
-      if (!out[f.hit.code]) out[f.hit.code] = { stu: f.hit, cls: c.name };
-    }));
+    const put = (s, label) => {
+      if (!s.code){ if (nocode.indexOf(s.name) < 0) nocode.push(s.name); return; }
+      if (!out[s.code]) out[s.code] = { stu: s, cls: label };
+    };
+    spec.forEach(c => {
+      const t = specType(c), label = t === 'student' ? '개인' : specLabel(c);
+      if (t === 'all') STUS.forEach(s => put(s, label));
+      else if (t === 'grade') STUS.filter(s => gradeShort(s.grade) === c.value).forEach(s => put(s, label));
+      else if (t === 'school') STUS.filter(s => s.school === c.value).forEach(s => put(s, label));
+      else if (t === 'student'){ const s = STUS.find(x => x.code === c.code); if (s) put(s, label); }
+      else {
+        const cl = classOfSpec(c); if (!cl) return;
+        cl.students.forEach(tok => {
+          const f = findStu(tok);
+          if (!f.plain) return;
+          if (f.dup){ if (dup.indexOf(f.plain) < 0) dup.push(f.plain); return; }
+          if (!f.hit){ if (miss.indexOf(f.plain) < 0) miss.push(f.plain); return; }
+          put(f.hit, cl.name);
+        });
+      }
+    });
     return { out, miss, dup, nocode };
   }
 
-  /* ── 시간표 반 ── */
+  /* ── 방식 고르기 ── */
+  function setMode(m){
+    MODE = m;
+    document.querySelectorAll('#modeSeg .btn').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+    ['all', 'grade', 'school', 'cls', 'stu'].forEach(x => $('pane-' + x).classList.toggle('on', x === m));
+    drawChips(); summary();
+  }
+  $('modeSeg').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (b) setMode(b.dataset.m); });
+  function fillPickers(){
+    // 학년 알약
+    const gs = {}; STUS.forEach(s => { const g = gradeShort(s.grade); if (g) gs[g] = (gs[g] || 0) + 1; });
+    const glist = Object.keys(gs).sort((a, b) => ((GRADE_ORDER.indexOf(a) + 1) || 99) - ((GRADE_ORDER.indexOf(b) + 1) || 99) || a.localeCompare(b, 'ko'));
+    $('gradePills').innerHTML = glist.map(g => '<button class="btn sm' + (SEL.grade.indexOf(g) >= 0 ? ' on' : '') + '" type="button" data-g="' + esc(g) + '">' + esc(g) + ' <span class="muted">' + gs[g] + '명</span></button>').join('') || '<span class="muted">학년 정보가 없어요</span>';
+    // 학교 드롭다운 (많은 순)
+    const sc = {}; STUS.forEach(s => { if (s.school) sc[s.school] = (sc[s.school] || 0) + 1; });
+    $('schSel').innerHTML = '<option value="">학교를 고르세요 (' + Object.keys(sc).length + '곳)</option>' +
+      Object.keys(sc).sort((a, b) => sc[b] - sc[a] || a.localeCompare(b, 'ko')).map(x => '<option value="' + esc(x) + '">' + esc(x) + ' (' + sc[x] + '명)</option>').join('');
+    // 개인 — 이름 · 학교 학년 (동명이인 구분)
+    $('stuList').innerHTML = STUS.filter(s => s.code).map(s => '<option value="' + esc(stuKey(s)) + '"></option>').join('');
+    $('allNote').textContent = '재원생 전체 ' + STUS.filter(s => s.code).length + '명에게 배정해요.';
+  }
+  function stuKey(s){ return s.name + ' · ' + [s.school, gradeShort(s.grade)].filter(Boolean).join(' '); }
+  $('gradePills').addEventListener('click', e => {
+    const b = e.target.closest('[data-g]'); if (!b) return;
+    const g = b.dataset.g, i = SEL.grade.indexOf(g);
+    if (i >= 0) SEL.grade.splice(i, 1); else SEL.grade.push(g);
+    b.classList.toggle('on', i < 0); drawChips(); summary();
+  });
+  function addSchool(v){ if (v && SEL.school.indexOf(v) < 0) SEL.school.push(v); $('schSel').value = ''; drawChips(); summary(); }
+  function addStu(){
+    const q = $('stuQ').value.trim(); if (!q) return;
+    let s = STUS.find(x => x.code && stuKey(x) === q);
+    if (!s){ const hits = STUS.filter(x => x.code && x.name === q); if (hits.length === 1) s = hits[0]; else if (hits.length > 1){ toast('같은 이름이 ' + hits.length + '명 있어요 — 목록에서 학교까지 골라 주세요'); return; } }
+    if (!s){ toast('재원 명단에서 찾지 못했어요'); return; }
+    if (SEL.stu.indexOf(s.code) < 0) SEL.stu.push(s.code);
+    $('stuQ').value = ''; drawChips(); summary();
+  }
+  $('stuQ').addEventListener('change', () => { if (STUS.some(x => x.code && stuKey(x) === $('stuQ').value.trim())) addStu(); });
+  $('stuQ').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addStu(); } });
+  function drawChips(){
+    let items = [];
+    if (MODE === 'grade') items = SEL.grade.map(v => ['grade', v, v]);
+    if (MODE === 'school') items = SEL.school.map(v => ['school', v, v]);
+    if (MODE === 'cls') items = SEL.cls.map(c => ['cls', pickKey(c), c.book + ' ' + c.day + ' ' + c.start + ' · ' + c.name + (c.teacher ? ' · ' + tLabel(c.teacher) : '')]);
+    if (MODE === 'stu') items = SEL.stu.map(code => { const s = STUS.find(x => x.code === code); return ['stu', code, s ? stuKey(s) : code]; });
+    $('chips').innerHTML = items.map(([k, v, l]) => '<span class="fchip">' + esc(l) + '<button type="button" data-k="' + k + '" data-v="' + esc(v) + '" aria-label="빼기" title="빼기">×</button></span>').join('');
+  }
+  $('chips').addEventListener('click', e => {
+    const b = e.target.closest('button[data-k]'); if (!b) return;
+    const k = b.dataset.k, v = b.dataset.v;
+    if (k === 'grade'){ SEL.grade = SEL.grade.filter(x => x !== v); fillPickers(); }
+    if (k === 'school') SEL.school = SEL.school.filter(x => x !== v);
+    if (k === 'cls') SEL.cls = SEL.cls.filter(c => pickKey(c) !== v);
+    if (k === 'stu') SEL.stu = SEL.stu.filter(x => x !== v);
+    drawChips(); summary();
+  });
+
+  /* ── 시간표 반 (드롭다운) ── */
   function loadClasses(book){
     if (CLASSES[book]) return Promise.resolve(CLASSES[book]);
     // '이 주만' 반(w…)은 그 날짜에만 있는 임시 반이라 뺀다
@@ -291,8 +393,8 @@
   function setBook(b){
     BOOK = b;
     ['정규', '내신'].forEach(x => $('bk-' + x).classList.toggle('on', x === b));
-    $('clsList').innerHTML = '<p class="muted">반 목록을 불러오는 중…</p>';
-    loadClasses(b).then(() => { fillTeachers(); drawClasses(); }).catch(() => { $('clsList').innerHTML = '<p class="muted">반 목록을 불러오지 못했어요 — 새로고침해 주세요.</p>'; });
+    $('clsSel').innerHTML = '<option value="">반 목록을 불러오는 중…</option>';
+    loadClasses(b).then(() => { fillTeachers(); fillClassSel(); }).catch(() => { $('clsSel').innerHTML = '<option value="">반 목록을 불러오지 못했어요 — 새로고침</option>'; });
   }
   function fillTeachers(){
     const sel = $('tSel'), cur = sel.value, seen = {};
@@ -302,35 +404,30 @@
     if (seen[cur]) sel.value = cur;
   }
   function pickKey(c){ return c.book + '|' + c.id; }
-  function drawClasses(){
-    const t = $('tSel').value;
+  function fillClassSel(){
+    const t = $('tSel').value, picked = {};
+    SEL.cls.forEach(c => { picked[pickKey(c)] = 1; });
     const list = (CLASSES[BOOK] || []).filter(c => !t || c.teacher === t);
-    if (!list.length){ $('clsList').innerHTML = '<p class="muted">반이 없어요.</p>'; summary(); return; }
-    let html = '', day = '';
-    list.forEach(c => {
-      if (c.day !== day){ day = c.day; html += '<div class="cls-day">' + esc(day) + '요일</div>'; }
-      const k = pickKey(c);
-      html += '<label class="cls-item"><input type="checkbox" data-k="' + esc(k) + '"' + (PICK[k] ? ' checked' : '') + '>' +
-        '<span>' + esc(c.day) + ' ' + esc(c.start) + ' · ' + esc(c.name) + (c.teacher ? ' · ' + esc(tLabel(c.teacher)) : '') + '</span>' +
-        '<span class="n">' + c.students.length + '명</span></label>';
-    });
-    $('clsList').innerHTML = html;
-    summary();
+    if (!list.length){ $('clsSel').innerHTML = '<option value="">반이 없어요</option>'; return; }
+    const byDay = {}; list.forEach(c => { (byDay[c.day] = byDay[c.day] || []).push(c); });
+    $('clsSel').innerHTML = '<option value="">반을 고르세요 (' + list.length + '개)</option>' +
+      Object.keys(byDay).sort((a, b) => DAYS[a] - DAYS[b]).map(d => '<optgroup label="' + esc(d) + '요일">' + byDay[d].map(c =>
+        '<option value="' + esc(pickKey(c)) + '"' + (picked[pickKey(c)] ? ' disabled' : '') + '>' + esc(c.day + ' ' + c.start + ' · ' + c.name) +
+        (c.teacher ? ' · ' + esc(tLabel(c.teacher)) : '') + ' (' + c.students.length + '명)' + (picked[pickKey(c)] ? ' — 담음' : '') + '</option>').join('') + '</optgroup>').join('');
   }
-  $('clsList').addEventListener('change', e => {
-    const k = e.target && e.target.getAttribute('data-k'); if (!k) return;
-    if (e.target.checked){ const [b, id] = k.split('|'); PICK[k] = (CLASSES[b] || []).find(c => c.id === id); }
-    else delete PICK[k];
-    summary();
-  });
+  function addClass(k){
+    if (!k) return;
+    const [b, id] = k.split('|'), c = (CLASSES[b] || []).find(x => x.id === id);
+    if (c && !SEL.cls.some(x => pickKey(x) === k)) SEL.cls.push(c);
+    fillClassSel(); $('clsSel').value = ''; drawChips(); summary();
+  }
+  const MODE_NAME = { all: '전체', grade: '학년', school: '학교', cls: '반', stu: '개인' };
   function summary(){
-    const picks = Object.values(PICK).filter(Boolean);
-    const id = ytId($('ytUrl').value);
-    if (!picks.length){ $('sum').innerHTML = ''; $('goBtn').disabled = true; $('goNote').textContent = id ? '반을 골라 주세요' : ''; return; }
+    const spec = specOf(MODE), id = ytId($('ytUrl').value);
+    if (!spec.length){ $('sum').innerHTML = ''; $('goBtn').disabled = true; $('goNote').textContent = MODE_NAME[MODE] + '을(를) 골라 주세요'; return; }
     if (!STUS.length){ $('sum').innerHTML = '<span class="muted">재원 명단을 불러오는 중…</span>'; $('goBtn').disabled = true; return; }
-    const e = expand(picks), n = Object.keys(e.out).length;
-    let h = '고른 반 <b>' + picks.length + '개</b> · 배정할 학생 <b>' + n + '명</b>' +
-      '<div class="muted" style="margin-top:3px">' + picks.map(c => esc(c.book + ' ' + c.day + ' ' + c.start + ' ' + c.name)).join(' · ') + '</div>';
+    const e = expand(spec), n = Object.keys(e.out).length;
+    let h = (MODE === 'all' ? '재원생 전체' : MODE_NAME[MODE] + ' <b>' + spec.length + '개</b>') + ' · 배정할 학생 <b>' + n + '명</b>';
     const w = [];
     if (e.miss.length) w.push('재원 명단에 없는 이름(미등록생 등) ' + e.miss.length + '명: ' + e.miss.map(esc).join(', '));
     if (e.dup.length) w.push('동명이인이라 못 가린 이름 ' + e.dup.length + '명: ' + e.dup.map(esc).join(', '));
@@ -350,7 +447,7 @@
   /* ── 수업 자료 파일 (032) — 저장소 버킷 review-files(비공개). 경로는 'v{영상}/{무작위}.{확장자}', 원래 이름은 review_files 표에 ── */
   const SB_STORE = 'https://bangdbhqpphqqdwcledg.supabase.co/storage/v1';
   const FILE_MAX = 20 * 1024 * 1024;
-  function fsize(n){ n = +n || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB'; }
+  function fsize(n){ n = +n || 0; return !n ? '0KB' : n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB'; }
   function okFiles(list){ return Array.from(list || []).filter(f => f.size > 0 && f.size <= FILE_MAX); }
   function rnd(){ const a = new Uint8Array(12); crypto.getRandomValues(a); return Array.from(a, b => ('0' + b.toString(16)).slice(-2)).join(''); }
   function storePath(vid, name){
@@ -415,13 +512,13 @@
       school: x.stu.school, grade: x.stu.grade, class_name: x.cls }));
   }
   function assign(){
-    const id = ytId($('ytUrl').value), picks = Object.values(PICK).filter(Boolean);
-    const e = expand(picks), n = Object.keys(e.out).length;
+    const id = ytId($('ytUrl').value), spec = specOf(MODE);
+    const e = expand(spec), n = Object.keys(e.out).length;
     if (!id || !n) return;
     const title = $('vTitle').value.trim() || '복습 영상';
-    if (!confirm('"' + title + '"을(를) ' + picks.length + '개 반 학생 ' + n + '명에게 배정할까요?')) return;
+    if (!confirm('"' + title + '"을(를) ' + (MODE === 'all' ? '재원생 전체' : spec.map(specLabel).join(', ')) + ' — 학생 ' + n + '명에게 배정할까요?')) return;
     $('goBtn').disabled = true; $('goNote').textContent = '배정하는 중…';
-    const classes = picks.map(c => ({ book: c.book, class_id: c.id, name: c.name, day: c.day, start: c.start, teacher: c.teacher }));
+    const classes = spec;
     sb('POST', '/review_videos', { yt_id: id, title, memo: $('vMemo').value.trim(), classes }, 'return=representation')
       .then(rows => {
         const vid = rows && rows[0] && rows[0].id;
@@ -438,7 +535,7 @@
       .then(res => {
         toast(n + '명에게 배정했어요' + (res.n ? ' · 자료 ' + res.n + '개' : '') + (res.fail.length ? ' · 못 올린 파일: ' + res.fail.join(', ') : ''));
         $('ytUrl').value = ''; $('vTitle').value = ''; $('vMemo').value = ''; $('ytPrev').innerHTML = ''; $('vFiles').value = ''; $('fSel').innerHTML = '';
-        PICK = {}; drawClasses(); $('goNote').textContent = '';
+        SEL = { grade: [], school: [], cls: [], stu: [] }; fillPickers(); fillClassSel(); drawChips(); summary(); $('goNote').textContent = '';
         return loadVideos();
       })
       .catch(err => { $('goNote').textContent = '배정하지 못했어요 — 다시 눌러 주세요'; $('goBtn').disabled = false; console.error(err); });
@@ -467,7 +564,7 @@
       const rows = rowsOf(v), n = rows.length, done = rows.filter(r => r.done).length, seen = rows.filter(r => r.pct > 0).length;
       const avg = n ? Math.round(rows.reduce((a, r) => a + r.pct, 0) / n) : 0;
       const tot = rows.reduce((a, r) => a + r.sec, 0);
-      const cls = (v.classes || []).map(c => c.name).join(' · ');
+      const cls = (v.classes || []).map(specLabel).join(' · ');
       return '<div class="vid' + (v.active ? '' : ' off') + '" id="v' + v.id + '">' +
         '<img src="' + thumb(v.yt_id) + '" alt="">' +
         '<div class="b"><h3>' + esc(v.title) + (v.active ? '' : '<span class="chip">학생 화면에서 숨김</span>') + '</h3>' +
@@ -479,7 +576,7 @@
           '<button onclick="delFile(' + f.id + ')" title="이 파일 지우기" aria-label="지우기">×</button></span>').join('') + '</div>' : ''; })() +
         '<div class="acts"><button class="btn sm lav" onclick="toggleRes(' + v.id + ')">' + (OPEN[v.id] ? '결과 접기' : '학생별 결과') + '</button>' +
         '<button class="btn sm" onclick="addFiles(' + v.id + ')">자료 파일 추가</button>' +
-        '<button class="btn sm" onclick="resync(' + v.id + ')">반 명단 다시 반영</button>' +
+        ((v.classes || []).some(c => specType(c) !== 'student') ? '<button class="btn sm" onclick="resync(' + v.id + ')">명단 다시 반영</button>' : '') +
         '<button class="btn sm" onclick="setActive(' + v.id + ',' + (!v.active) + ')">' + (v.active ? '학생 화면에서 숨기기' : '다시 보이기') + '</button>' +
         '<a class="btn sm" style="text-decoration:none" href="https://youtu.be/' + encodeURIComponent(v.yt_id) + '" target="_blank" rel="noopener">유튜브에서 보기</a>' +
         '<button class="btn sm" onclick="delVideo(' + v.id + ')">삭제</button></div>' +
@@ -525,28 +622,28 @@
     removeObjects(FILES.filter(f => f.video_id === id).map(f => f.path)).catch(() => null)   // 저장소의 자료 파일도 함께 지운다
       .then(() => sb('DELETE', '/review_videos?id=eq.' + id, null, 'return=minimal')).then(() => { toast('삭제했어요'); return loadVideos(); }).catch(() => toast('삭제하지 못했어요'));
   }
-  /* 배정한 반의 지금 명단으로 빠진 학생을 더한다(신입 등). 이미 배정된 학생·기록은 그대로 — 반에서 빠진 학생도 지우지 않는다. */
+  /* 배정한 대상(반·학년·학교·전체)의 지금 명단으로 빠진 학생을 더한다(신입 등). 이미 배정된 학생·기록은 그대로 — 빠진 학생도 지우지 않는다. */
   function resync(id){
-    const v = VIDS.find(x => x.id === id); if (!v || !(v.classes || []).length){ toast('배정한 반 정보가 없어요'); return; }
-    const books = [...new Set(v.classes.map(c => c.book))];
+    const v = VIDS.find(x => x.id === id); if (!v || !(v.classes || []).length){ toast('배정 대상 정보가 없어요'); return; }
+    const books = [...new Set(v.classes.filter(c => specType(c) === 'class').map(c => c.book))];
     Promise.all(books.map(b => { delete CLASSES[b]; return loadClasses(b); })).then(() => {
-      const picks = v.classes.map(c => (CLASSES[c.book] || []).find(x => x.id === c.class_id)).filter(Boolean);
-      const e = expand(picks), have = {};
+      const e = expand(v.classes), have = {};
       TGTS.forEach(t => { if (t.video_id === id) have[t.code] = 1; });
       const add = targetRows(id, e).filter(r => !have[r.code]);
       if (!add.length){ toast('새로 더할 학생이 없어요'); return; }
-      if (!confirm('반 명단에 새로 생긴 학생 ' + add.length + '명(' + add.map(r => r.name).join(', ') + ')을 더할까요?')) return;
+      if (!confirm('명단에 새로 생긴 학생 ' + add.length + '명(' + add.map(r => r.name).join(', ') + ')을 더할까요?')) return;
       return sb('POST', '/review_targets?on_conflict=video_id,code', add, 'resolution=ignore-duplicates,return=minimal')
         .then(() => { toast(add.length + '명을 더했어요'); return loadVideos(); });
-    }).then(() => { if (BOOK) drawClasses(); }).catch(() => toast('반영하지 못했어요'));
+    }).then(() => fillClassSel()).catch(() => toast('반영하지 못했어요'));
   }
 
   /* ── 시작 ── */
   sbAll('/students?select=name,school,grade,student_id,code,enrolled&order=seq,id').then(rows => {
     STUS = rows.filter(r => String(r.name || '').trim() && !/^(퇴원|n|no|off|x|중단|비재원)$/i.test(String(r.enrolled || '').trim()))
       .map(r => ({ name: String(r.name).trim(), school: String(r.school || '').trim(), grade: String(r.grade || ''), student_id: String(r.student_id || '').trim(), code: String(r.code || '').trim() }));
-    summary();
+    fillPickers(); summary();
   }).catch(() => { $('sum').innerHTML = '<div class="warn">재원 명단을 불러오지 못했어요 — 새로고침해 주세요.</div>'; });
+  setMode('cls');
   setBook('정규');
   loadVideos();
 </script>
