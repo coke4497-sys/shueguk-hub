@@ -20,6 +20,8 @@ const SB = 'https://bangdbhqpphqqdwcledg.supabase.co';
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png' };
 let n = 0, bad = 0;
 function ok(cond, label){ n++; if (!cond){ bad++; console.error('  ✗', label); } else console.log('  ✓', label); }
+const SHOTS = process.env.SHOTS || '';
+const shot = (pg, name) => SHOTS ? pg.screenshot({ path: path.join(SHOTS, name + '.png'), fullPage: true }) : Promise.resolve();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const STUDENTS = [
@@ -173,16 +175,20 @@ function applyFilter(rows, url){
   const tp = await ctx.newPage();
   tp.on('pageerror', e => { bad++; console.error('  ✗ pageerror', e.message); });
   await tp.goto(`http://localhost:${PORT}/review.html`);
-  await tp.waitForSelector('#clsList .cls-item');
-  ok(await tp.locator('#clsList .cls-item').count() === 2, '정규 반 2개(이 주만 반 제외)');
+  await tp.waitForFunction(() => document.querySelectorAll('#clsSel option[value*="|"]').length > 0);
+  ok(await tp.locator('#clsSel option[value*="|"]').count() === 2, '정규 반 2개 — 드롭다운(이 주만 반 제외)');
+  ok(await tp.isVisible('#pane-cls') && !(await tp.isVisible('#pane-grade')) && await tp.locator('#modeSeg .btn').count() === 5, '방식 다섯 가지 · 기본은 반');
+  ok(await tp.locator('#clsSel optgroup').count() === 2, '반 드롭다운이 요일로 묶임');
   ok(calls.some(c => c.path.startsWith('/rest/v1/tt_classes') && c.auth === 'Bearer tok'), '교사 인증으로 시간표 조회');
   ok(/배정한 영상이 없어요/.test(await tp.textContent('#vids')), '빈 목록 안내');
   await tp.fill('#ytUrl', 'https://youtu.be/dQw4w9WgXcQ?si=x');
   ok(/dQw4w9WgXcQ/.test(await tp.textContent('#ytPrev')), '주소에서 영상 ID 인식');
-  ok(await tp.isDisabled('#goBtn'), '반을 안 고르면 배정 버튼 잠김');
+  ok(await tp.isDisabled('#goBtn') && /반을\(를\) 골라 주세요/.test(await tp.textContent('#goNote')), '반을 안 고르면 배정 버튼 잠김');
   await tp.selectOption('#tSel', '슈');
-  ok(await tp.locator('#clsList .cls-item').count() === 1 && /이수경T/.test(await tp.textContent('#tSel')), '강사 거르기(슈 → 이수경T)');
-  await tp.check('#clsList input[data-k="정규|r001"]');
+  ok(await tp.locator('#clsSel option[value*="|"]').count() === 1 && /이수경T/.test(await tp.textContent('#tSel')), '강사 거르기(슈 → 이수경T)');
+  await tp.selectOption('#clsSel', '정규|r001');
+  ok(await tp.locator('#chips .fchip').count() === 1 && /고1 가/.test(await tp.textContent('#chips')) && (await tp.inputValue('#clsSel')) === '', '드롭다운에서 고르면 칩으로 담기고 드롭다운은 비워짐');
+  ok(await tp.locator('#clsSel option[value="정규|r001"]').evaluate(o => o.disabled), '이미 담은 반은 드롭다운에서 잠김');
   const sum = await tp.textContent('#sum');
   ok(/배정할 학생 3명/.test(sum), '배정할 학생 3명(김철수·박민수·양지우A→양지우): ' + sum.slice(0, 40));
   ok(/동명이인.*한동명/.test(sum) && /명단에 없는.*새친구/.test(sum) && /접근코드.*코드없음/.test(sum) && /퇴원생/.test(sum), '못 넣는 학생 안내(동명이인·미등록·코드 없음·퇴원)');
@@ -193,20 +199,21 @@ function applyFilter(rows, url){
     { name: '빈파일.txt', mimeType: 'text/plain', buffer: Buffer.alloc(0) } ]);
   ok(/9월 복습지\.pdf/.test(await tp.textContent('#fSel')) && /빈 파일이라 올리지 않아요/.test(await tp.textContent('#fSel')), '고른 파일 목록·빈 파일 안내');
   // 내신으로 바꿔 한 반 더
-  await tp.click('#bk-내신'); await tp.waitForSelector('#clsList input[data-k="내신|n001"]');
-  await tp.check('#clsList input[data-k="내신|n001"]');
-  ok(/고른 반 <b>2개|고른 반 2개/.test(await tp.textContent('#sum')) && /배정할 학생 3명/.test(await tp.textContent('#sum')), '정규+내신 두 반, 같은 학생은 한 번');
+  await tp.click('#bk-내신'); await tp.waitForSelector('#clsSel option[value="내신|n001"]', { state: 'attached' });
+  await tp.selectOption('#clsSel', '내신|n001');
+  await shot(tp, 'teacher-cls');
+  ok(/반 2개/.test(await tp.textContent('#sum')) && /배정할 학생 3명/.test(await tp.textContent('#sum')), '정규+내신 두 반, 같은 학생은 한 번');
   await tp.click('#goBtn');
   await tp.waitForSelector('.vid h3');
   const vpost = calls.find(c => c.method === 'POST' && c.path.startsWith('/rest/v1/review_videos'));
   const vb = JSON.parse(vpost.body);
-  ok(vb.yt_id === 'dQw4w9WgXcQ' && vb.title === '9/27 문학 복습' && vb.classes.length === 2 && vb.classes[0].class_id === 'r001', '영상 POST 본문');
+  ok(vb.yt_id === 'dQw4w9WgXcQ' && vb.title === '9/27 문학 복습' && vb.classes.length === 2 && vb.classes[0].class_id === 'r001' && vb.classes[0].type === 'class', '영상 POST 본문(대상 명세)');
   const tpost = calls.find(c => c.method === 'POST' && c.path.startsWith('/rest/v1/review_targets'));
   const tb = JSON.parse(tpost.body);
   ok(tb.length === 3 && tb.every(r => r.video_id === 1) && tb.map(r => r.code).sort().join() === 'tok-kim,tok-park,tok-yang', '배정 POST 3명(접근코드)');
   ok(/on_conflict=video_id,code/.test(tpost.path) && /ignore-duplicates/.test(tpost.prefer), '중복 무시 옵션');
   ok(tb.find(r => r.code === 'tok-kim').class_name === '고1 가', '반 이름 기록');
-  ok(await tp.locator('#clsList input:checked').count() === 0 && (await tp.inputValue('#ytUrl')) === '', '배정 뒤 입력 비움');
+  ok(await tp.locator('#chips .fchip').count() === 0 && (await tp.inputValue('#ytUrl')) === '', '배정 뒤 입력 비움');
   const up = stCalls.filter(c => c.method === 'POST');
   ok(up.length === 1 && /^\/storage\/v1\/object\/review-files\/v1\/[0-9a-f]{24}\.pdf$/.test(up[0].path) && up[0].auth === 'Bearer tok' && /pdf/.test(up[0].type), '자료 파일 저장소에 올림(교사 인증·무작위 경로): ' + (up[0] && up[0].path));
   ok(FILES.length === 1 && FILES[0].video_id === 1 && FILES[0].name === '9월 복습지.pdf' && FILES[0].size === 14 && FILES[0].path === decodeURIComponent(up[0].path.split('review-files/')[1]), '파일 목록 표 기록(원래 이름·크기)');
@@ -231,7 +238,7 @@ function applyFilter(rows, url){
   STUDENTS.push({ name: '신입생', school: '화정고', grade: '2026 고등 1학년', student_id: '66666666', code: 'tok-new', enrolled: '재원' });
   await tp.reload(); await tp.waitForSelector('.vid h3');
   CLASSES[0].roster += ' 신입생';
-  await tp.click('text=반 명단 다시 반영');
+  await tp.click('text=명단 다시 반영');
   await tp.waitForFunction(() => /완료 1 \/ 4명/.test(document.querySelector('.vid .stat').textContent));
   ok(TGTS.filter(t => t.video_id === 1).length === 4 && TGTS.some(t => t.code === 'tok-new'), '명단 다시 반영: 신입생 1명 추가');
   await tp.click('text=학생 화면에서 숨기기');
@@ -249,6 +256,39 @@ function applyFilter(rows, url){
   await tp.click('text=삭제');
   await tp.waitForFunction(() => /배정한 영상이 없어요/.test(document.getElementById('vids').textContent));
   ok(!STORE[p2] && VIDS.length === 0, '영상 삭제 때 저장소 파일도 지움');
+  // ── 학년·학교·개인·전체 ──
+  await tp.click('#modeSeg [data-m="grade"]');
+  ok(await tp.isVisible('#pane-grade') && !(await tp.isVisible('#pane-cls')), '학년 화면으로 전환');
+  await tp.click('#gradePills [data-g="고1"]');
+  ok(/학년 <b>1개<\/b> · 배정할 학생 <b>6명/.test(await tp.innerHTML('#sum')) && /코드없음/.test(await tp.textContent('#sum')), '학년 고1: 6명(접근코드 없는 학생은 안내): ' + (await tp.textContent('#sum')).slice(0, 40));
+  await tp.click('#modeSeg [data-m="school"]');
+  await tp.selectOption('#schSel', '서정고');
+  ok(/배정할 학생 <b>1명/.test(await tp.innerHTML('#sum')) && /서정고/.test(await tp.textContent('#chips')), '학교 서정고: 1명');
+  await shot(tp, 'teacher-school');
+  await tp.click('#modeSeg [data-m="stu"]');
+  await tp.fill('#stuQ', '한동명');
+  await tp.press('#stuQ', 'Enter');
+  ok(await tp.locator('#chips .fchip').count() === 0, '동명이인 이름만으로는 안 담김(학교까지 골라야)');
+  await tp.fill('#stuQ', '한동명 · 능곡고 고1'); await tp.press('#stuQ', 'Enter');
+  ok(/한동명 · 능곡고 고1/.test(await tp.textContent('#chips')) && /배정할 학생 <b>1명/.test(await tp.innerHTML('#sum')), '개인: 학교까지 골라 담기');
+  await tp.click('#modeSeg [data-m="all"]');
+  ok(/재원생 전체 · 배정할 학생 <b>6명/.test(await tp.innerHTML('#sum')) && /6명에게 배정/.test(await tp.textContent('#allNote')), '전체: 재원생 6명(퇴원 제외)');
+  // 학년으로 실제 배정
+  await tp.click('#modeSeg [data-m="grade"]');
+  await tp.fill('#ytUrl', 'https://youtu.be/aaaaaaaaaaa'); await tp.fill('#vTitle', '고1 전체 복습');
+  const nT = TGTS.length;
+  await tp.click('#goBtn');
+  await tp.waitForSelector('.vid h3');
+  const v2 = VIDS[0];
+  ok(v2.classes.length === 1 && v2.classes[0].type === 'grade' && v2.classes[0].value === '고1', '학년 배정 명세 저장');
+  const t2 = TGTS.slice(nT);
+  ok(t2.length === 6 && t2.every(t => t.class_name === '고1'), '학년 배정 6명 · 반 칸에 고1');
+  ok(/고1 배정|배정 · 고1/.test(await tp.textContent('.vid .meta')), '영상 카드에 배정 대상 표시');
+  STUDENTS.push({ name: '고1신입', school: '화정고', grade: '2026 고등 1학년', student_id: '77777777', code: 'tok-g1', enrolled: '재원' });
+  await tp.reload(); await tp.waitForSelector('.vid h3');
+  await tp.click('text=명단 다시 반영');
+  await tp.waitForFunction(() => /0 \/ 7명/.test(document.querySelector('.vid .stat').textContent));
+  ok(TGTS.some(t => t.code === 'tok-g1' && t.class_name === '고1'), '학년 배정도 명단 다시 반영(새 고1)');
   await tp.close();
 
   /* ══ ② 학생 페이지 ══ */
@@ -278,6 +318,10 @@ function applyFilter(rows, url){
     const g = stCalls.filter(c => c.method === 'GET' && c.path.includes('/object/authenticated/review-files/v7/abc.pdf'));
     ok(g.length === 1 && /sb_publishable_/.test(g[0].auth), '공개 키로 저장소에서 받음(창 연 뒤)');
     ok(calls.some(c => c.path.includes('/rpc/review_file_url') && JSON.parse(c.body).p.file === 31), 'review_file_url 호출');
+    ok(/아이폰에서 저장하는 법/.test(await pg.textContent('#rvFiles')) && /파일에 저장/.test(await pg.textContent('.rv-ios')) && !(await pg.$eval('.rv-ios', d => d.open)), '아이폰 저장 안내(아이폰 아니면 접힘)');
+    ok(await pg.evaluate(() => { Object.defineProperty(navigator, 'userAgent', { configurable: true, get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)' });
+      rvRenderFiles(RV.cur.files); const o = document.querySelector('.rv-ios').open; return o; }), '아이폰이면 안내가 펼쳐져 있음');
+    await pg.setViewportSize({ width: 390, height: 900 }); await shot(pg, 'student-files-390');
     // 재생 전에는 세지 않음
     await sleep(1500);
     ok(/시청 시간 0초/.test(await pg.textContent('#rvSec')), '재생 전엔 0초');
