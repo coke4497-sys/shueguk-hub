@@ -151,6 +151,13 @@ function applyFilter(rows, url){
       if (rec.method === 'PATCH' && tbl === 'review_videos'){
         const id = +new URL(url).searchParams.get('id').slice(3); Object.assign(VIDS.find(v => v.id === id), JSON.parse(rec.body)); return json(null, 204);
       }
+      if (rec.method === 'DELETE' && tbl === 'review_targets'){
+        const u = new URL(url), vid = +u.searchParams.get('video_id').slice(3);
+        const m = decodeURIComponent(u.searchParams.get('code') || '').match(/^in\.\((.*)\)$/);
+        const codes = m ? m[1].split(',').map(x => x.replace(/^"|"$/g, '')) : [];
+        for (let i = TGTS.length - 1; i >= 0; i--) if (TGTS[i].video_id === vid && codes.includes(TGTS[i].code)) TGTS.splice(i, 1);
+        return json(null, 204);
+      }
       if (rec.method === 'DELETE' && tbl === 'review_files'){
         const id = +new URL(url).searchParams.get('id').slice(3); const i = FILES.findIndex(f => f.id === id); if (i >= 0) FILES.splice(i, 1); return json(null, 204);
       }
@@ -289,6 +296,41 @@ function applyFilter(rows, url){
   await tp.click('text=명단 다시 반영');
   await tp.waitForFunction(() => /0 \/ 7명/.test(document.querySelector('.vid .stat').textContent));
   ok(TGTS.some(t => t.code === 'tok-g1' && t.class_name === '고1'), '학년 배정도 명단 다시 반영(새 고1)');
+  // ── 배정 취소 · 학생 더하기 ──
+  const V2 = VIDS[0].id;
+  WATCH.push({ video_id: V2, code: 'tok-park', pct: 95, total_sec: 600, updated_at: '2026-09-27T10:00:00Z', completed_at: '2026-09-27T10:00:00Z' });
+  await tp.reload(); await tp.waitForSelector('.vid h3');
+  await tp.click('text=학생별 결과');
+  ok(await tp.isDisabled('#cc' + V2), '선택 전에는 선택 취소 버튼 잠김');
+  const rowPark = tp.locator('.res tbody tr', { hasText: '박민수' });
+  await rowPark.locator('.rowbtn').click();
+  await tp.waitForFunction(() => /0 \/ 6명/.test(document.querySelector('.vid .stat').textContent) || /완료 0 \/ 6명/.test(document.querySelector('.vid .stat').textContent));
+  ok(!TGTS.some(t => t.video_id === V2 && t.code === 'tok-park'), '한 명 배정 취소(배정 표에서 빠짐)');
+  ok(WATCH.some(w => w.video_id === V2 && w.code === 'tok-park' && w.completed_at), '취소해도 시청 기록·완료(별)는 남음');
+  ok(VIDS[0].classes.some(c => c.type === 'exclude' && c.code === 'tok-park'), '명세에 취소 표시(exclude)');
+  ok(!/박민수/.test(await tp.textContent('.vid .meta')), '카드 대상 표시에 취소 표시는 안 나옴');
+  await tp.click('text=명단 다시 반영');
+  await tp.waitForTimeout(400);
+  ok(!TGTS.some(t => t.video_id === V2 && t.code === 'tok-park'), '명단 다시 반영이 취소한 학생을 다시 넣지 않음');
+  // 여러 명 선택 취소
+  await tp.locator('.res tbody tr', { hasText: '김철수' }).locator('td.ck input').check();
+  await tp.locator('.res tbody tr', { hasText: '양지우' }).locator('td.ck input').check();
+  ok(/선택한 2명 배정 취소/.test(await tp.textContent('#cc' + V2)) && !(await tp.isDisabled('#cc' + V2)), '선택 2명 표시');
+  await tp.click('#cc' + V2);
+  await tp.waitForFunction(() => /\/ 4명/.test(document.querySelector('.vid .stat').textContent));
+  ok(!TGTS.some(t => t.video_id === V2 && (t.code === 'tok-kim' || t.code === 'tok-yang')) && TGTS.filter(t => t.video_id === V2).length === 4, '선택한 2명 한꺼번에 취소');
+  // 학생 더하기 — 개인으로 박민수를 다시
+  await tp.click('.vid >> text=학생 더하기');
+  ok(await tp.isVisible('#addTo') && !(await tp.isVisible('#baseFields')) && (await tp.textContent('#goBtn')) === '이 영상에 더하기', '학생 더하기 상태(주소·제목 칸 숨김)');
+  await tp.click('#modeSeg [data-m="stu"]');
+  await tp.fill('#stuQ', '박민수 · 화정고 고1'); await tp.press('#stuQ', 'Enter');
+  await tp.fill('#stuQ', '한동명 · 능곡고 고1'); await tp.press('#stuQ', 'Enter');
+  ok(/새로 더할 학생 <b>1명/.test(await tp.innerHTML('#sum')) && /이미 배정된 1명은 건너뛰어요/.test(await tp.textContent('#sum')), '이미 배정된 학생은 건너뜀');
+  await tp.click('#goBtn');
+  await tp.waitForFunction(() => document.getElementById('addTo').style.display === 'none');
+  ok(TGTS.some(t => t.video_id === V2 && t.code === 'tok-park' && t.class_name === '개인'), '취소했던 학생을 다시 더함');
+  ok(!VIDS[0].classes.some(c => c.type === 'exclude' && c.code === 'tok-park') && VIDS[0].classes.some(c => c.type === 'student' && c.code === 'tok-park'), '다시 더하면 취소 표시 지움 + 개인 명세 추가');
+  ok((await tp.textContent('#addTitle')) === '영상 배정하기' && await tp.isVisible('#baseFields'), '더한 뒤 배정 카드 원래대로');
   await tp.close();
 
   /* ══ ② 학생 페이지 ══ */
