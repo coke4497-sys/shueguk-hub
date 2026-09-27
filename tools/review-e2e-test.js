@@ -84,7 +84,7 @@ function rpc(fn, body){
   }
   if (fn === 'review_save'){
     saves.push(p);
-    return { ok: true, pct: 42, done: saves.length >= 2, first: saves.length === 2, sec: 10, done_pct: 90 };
+    return { ok: true, pct: 42, done: saves.length >= 2, first: saves.length >= 2, sec: 10, done_pct: 90 };   // 둘째 저장부터 first — 백그라운드 저장(응답 무시)이 둘째가 돼도 다음 저장에서 안내가 뜬다
   }
   return null;
 }
@@ -224,9 +224,10 @@ function applyFilter(rows, url){
   const up = stCalls.filter(c => c.method === 'POST');
   ok(up.length === 1 && /^\/storage\/v1\/object\/review-files\/v1\/[0-9a-f]{24}\.pdf$/.test(up[0].path) && up[0].auth === 'Bearer tok' && /pdf/.test(up[0].type), '자료 파일 저장소에 올림(교사 인증·무작위 경로): ' + (up[0] && up[0].path));
   ok(FILES.length === 1 && FILES[0].video_id === 1 && FILES[0].name === '9월 복습지.pdf' && FILES[0].size === 14 && FILES[0].path === decodeURIComponent(up[0].path.split('review-files/')[1]), '파일 목록 표 기록(원래 이름·크기)');
-  await tp.waitForSelector('.vfiles .fchip');
-  ok(/9월 복습지\.pdf/.test(await tp.textContent('.vfiles')), '영상 카드에 자료 칩');
-  const [tdl] = await Promise.all([tp.waitForEvent('download'), tp.click('.vfiles .fchip a')]);
+  await tp.waitForSelector('.vfbox .vfrow');
+  ok(/9월 복습지\.pdf/.test(await tp.textContent('.vfbox')), '영상 카드에 자료 칩');
+  await shot(tp, 'teacher-card');
+  const [tdl] = await Promise.all([tp.waitForEvent('download'), tp.click('.vfbox .vfrow a')]);
   ok(tdl.suggestedFilename() === '9월 복습지.pdf', '선생님 자료 내려받기(원래 이름)');
   // 시청 기록 넣고 결과
   WATCH.push({ video_id: 1, code: 'tok-kim', pct: 95, total_sec: 610, updated_at: '2026-09-27T10:00:00Z', completed_at: '2026-09-27T10:00:00Z' });
@@ -252,15 +253,15 @@ function applyFilter(rows, url){
   await tp.waitForSelector('.vid.off');
   ok(VIDS[0].active === false && /숨김/.test(await tp.textContent('.vid h3')), '숨기기 PATCH');
   const fpath = FILES[0].path;
-  await tp.click('.vfiles .fchip button');
-  await tp.waitForFunction(() => !document.querySelector('.vfiles'));
+  await tp.click('.vfbox .vfrow .rm');
+  await tp.waitForFunction(() => !document.querySelector('.vfbox .vfrow'));
   ok(FILES.length === 0 && !STORE[fpath] && stCalls.some(c => c.method === 'DELETE'), '자료 파일 지우기(표·저장소)');
-  const [chooser] = await Promise.all([tp.waitForEvent('filechooser'), tp.click('text=자료 파일 추가')]);
+  const [chooser] = await Promise.all([tp.waitForEvent('filechooser'), tp.click('.vfbox .add')]);
   await chooser.setFiles([{ name: '추가 자료.hwp', mimeType: 'application/x-hwp', buffer: Buffer.from('hwp') }]);
-  await tp.waitForSelector('.vfiles .fchip');
+  await tp.waitForSelector('.vfbox .vfrow');
   ok(FILES.length === 1 && FILES[0].name === '추가 자료.hwp' && /\.hwp$/.test(FILES[0].path), '기존 영상에 자료 추가');
   const p2 = FILES[0].path;
-  await tp.click('text=삭제');
+  await tp.click('text=영상 삭제');
   await tp.waitForFunction(() => /배정한 영상이 없어요/.test(document.getElementById('vids').textContent));
   ok(!STORE[p2] && VIDS.length === 0, '영상 삭제 때 저장소 파일도 지움');
   // ── 학년·학교·개인·전체 ──

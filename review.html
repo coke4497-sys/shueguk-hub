@@ -64,7 +64,22 @@
   .vid h3{font-family:var(--serif);font-size:1rem;margin:0;}
   .vid .meta{font-size:.8rem;color:var(--cap);margin:2px 0 0;}
   .vid .stat{font-size:.86rem;margin:6px 0 0;}
-  .vid .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+  /* 영상 카드: 수업 자료(파일) 상자와 버튼 줄을 나눈다 (2026-09-27 사용자 "학생별 결과부터의 메뉴가 파일과 구분이 안돼요") */
+  .vid .acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--line-soft);}
+  .vid .acts .sep{flex:1;}
+  .vid .acts .btn.danger{background:none;color:#B0736A;}
+  .vid .acts .btn.danger:hover{background:#F7E2DE;}
+  .vfbox{margin-top:12px;background:#F4F6FA;border-radius:12px;padding:10px 14px;}
+  .vfbox .cap{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--cap);margin:0 0 4px;}
+  .vfbox .cap .add{margin-left:auto;font:inherit;font-size:.8rem;border:none;background:none;color:#64749E;cursor:pointer;padding:2px 0;}
+  .vfbox .cap .add:hover{text-decoration:underline;}
+  .vfrow{display:flex;align-items:center;gap:8px;font-size:.86rem;padding:4px 0;}
+  .vfrow svg{width:16px;height:16px;flex:none;color:#64749E;}
+  .vfrow a{color:var(--ink);cursor:pointer;text-decoration:none;overflow-wrap:anywhere;}
+  .vfrow a:hover{text-decoration:underline;}
+  .vfrow .sz{color:var(--cap);font-size:.78rem;white-space:nowrap;}
+  .vfrow .rm{margin-left:auto;font:inherit;font-size:.76rem;border:none;background:none;color:var(--cap);cursor:pointer;text-decoration:underline;white-space:nowrap;}
+  .vfbox .none{font-size:.82rem;color:var(--cap);}
   .vid.off{opacity:.62;}
   .chip{display:inline-block;font-size:.74rem;border-radius:20px;padding:1px 9px;margin-left:6px;vertical-align:2px;background:#F2F5F3;color:var(--cap);}
   .bar{height:6px;border-radius:6px;background:#EEF2EF;overflow:hidden;margin-top:6px;max-width:280px;}
@@ -99,7 +114,6 @@
   .files-pick input[type=file]{font:inherit;font-size:.86rem;}
   .fsel{margin:6px 0 0;padding:0;list-style:none;font-size:.84rem;color:var(--ink-soft);}
   .fsel li.bad{color:#B0736A;}
-  .vfiles{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
   .fchip{display:inline-flex;align-items:center;gap:6px;background:#F2F5F3;border-radius:9px;padding:4px 6px 4px 10px;font-size:.8rem;}
   .fchip a{color:var(--ink);text-decoration:none;cursor:pointer;}
   .fchip a:hover{text-decoration:underline;}
@@ -532,6 +546,7 @@
   /* ── 수업 자료 파일 (032) — 저장소 버킷 review-files(비공개). 경로는 'v{영상}/{무작위}.{확장자}', 원래 이름은 review_files 표에 ── */
   const SB_STORE = 'https://bangdbhqpphqqdwcledg.supabase.co/storage/v1';
   const FILE_MAX = 20 * 1024 * 1024;
+  const DOC_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
   function fsize(n){ n = +n || 0; return !n ? '0KB' : n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB'; }
   function okFiles(list){ return Array.from(list || []).filter(f => f.size > 0 && f.size <= FILE_MAX); }
   function rnd(){ const a = new Uint8Array(12); crypto.getRandomValues(a); return Array.from(a, b => ('0' + b.toString(16)).slice(-2)).join(''); }
@@ -657,16 +672,17 @@
         '<p class="meta">' + esc(kst(v.created_at)) + ' 배정' + (cls ? ' · ' + esc(cls) : '') + (v.duration ? ' · 영상 ' + fmt(v.duration) : '') + '</p>' +
         '<p class="stat">완료 <b>' + done + ' / ' + n + '명</b> · 시작 ' + seen + '명 · 평균 본 구간 ' + avg + '% · 시청 시간 합계 ' + fmt(tot) + '</p>' +
         '<div class="bar"><i style="width:' + (n ? Math.round(done * 100 / n) : 0) + '%"></i></div>' +
-        (() => { const fs = FILES.filter(f => f.video_id === v.id); return fs.length ? '<div class="vfiles">' + fs.map(f =>
-          '<span class="fchip"><a onclick="teacherDownload(' + f.id + ')" title="눌러서 내려받기">' + esc(f.name) + '</a> <span class="muted">' + fsize(f.size) + '</span>' +
-          '<button onclick="delFile(' + f.id + ')" title="이 파일 지우기" aria-label="지우기">×</button></span>').join('') + '</div>' : ''; })() +
+        (() => { const fs = FILES.filter(f => f.video_id === v.id);
+          return '<div class="vfbox"><p class="cap">수업 자료 ' + (fs.length ? fs.length + '개' : '') + '<button class="add" onclick="addFiles(' + v.id + ')">+ 자료 파일 추가</button></p>' +
+            (fs.length ? fs.map(f => '<div class="vfrow">' + DOC_ICON + '<a onclick="teacherDownload(' + f.id + ')" title="눌러서 내려받기">' + esc(f.name) + '</a>' +
+              '<span class="sz">' + fsize(f.size) + '</span><button class="rm" onclick="delFile(' + f.id + ')">지우기</button></div>').join('')
+              : '<p class="none">아직 없어요</p>') + '</div>'; })() +
         '<div class="acts"><button class="btn sm lav" onclick="toggleRes(' + v.id + ')">' + (OPEN[v.id] ? '결과 접기' : '학생별 결과') + '</button>' +
-        '<button class="btn sm" onclick="addFiles(' + v.id + ')">자료 파일 추가</button>' +
         '<button class="btn sm" onclick="startAddTo(' + v.id + ')">학생 더하기</button>' +
         ((v.classes || []).some(c => specType(c) !== 'student' && specType(c) !== 'exclude') ? '<button class="btn sm" onclick="resync(' + v.id + ')">명단 다시 반영</button>' : '') +
         '<button class="btn sm" onclick="setActive(' + v.id + ',' + (!v.active) + ')">' + (v.active ? '학생 화면에서 숨기기' : '다시 보이기') + '</button>' +
         '<a class="btn sm" style="text-decoration:none" href="https://youtu.be/' + encodeURIComponent(v.yt_id) + '" target="_blank" rel="noopener">유튜브에서 보기</a>' +
-        '<button class="btn sm" onclick="delVideo(' + v.id + ')">삭제</button></div>' +
+        '<button class="btn sm danger" onclick="delVideo(' + v.id + ')">영상 삭제</button></div>' +
         (OPEN[v.id] ? resHtml(v, rows) : '') + '</div></div>';
     }).join('');
   }
