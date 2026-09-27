@@ -85,6 +85,15 @@
   .st-no{color:#B0736A;}
   .res-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;}
   .res-bar select{width:auto;}
+  .files-pick{margin-top:6px;}
+  .files-pick input[type=file]{font:inherit;font-size:.86rem;}
+  .fsel{margin:6px 0 0;padding:0;list-style:none;font-size:.84rem;color:var(--ink-soft);}
+  .fsel li.bad{color:#B0736A;}
+  .vfiles{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .fchip{display:inline-flex;align-items:center;gap:6px;background:#F2F5F3;border-radius:9px;padding:4px 6px 4px 10px;font-size:.8rem;}
+  .fchip a{color:var(--ink);text-decoration:none;cursor:pointer;}
+  .fchip a:hover{text-decoration:underline;}
+  .fchip button{border:none;background:none;color:var(--cap);cursor:pointer;font-size:.9rem;padding:0 4px;line-height:1;}
   #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#2A332F;color:#fff;font-size:.86rem;padding:9px 16px;border-radius:20px;opacity:0;transition:.2s;pointer-events:none;z-index:9;}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 </style>
@@ -143,7 +152,7 @@
   }
   window.fetch = function(url, opts){
     var u = (typeof url === 'string') ? url : ((url && url.url) || '');
-    if (u.indexOf(SB_URL + '/rest/v1') !== 0) return raw(url, opts);
+    if (u.indexOf(SB_URL + '/rest/v1') !== 0 && u.indexOf(SB_URL + '/storage/v1') !== 0) return raw(url, opts);   // review.html: 자료 파일 올리기(저장소)에도 교사 신분
     return auth().then(function(t){
       return raw(url, withAuth(url, opts, t)).then(function(r){
         if (r.status !== 401) return r;
@@ -159,7 +168,7 @@
   <a class="back" href="study.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> 학습 관리로 가기</a>
   <header>
     <h1>복습 영상</h1>
-    <p class="intro">유튜브 복습 영상을 반에 배정하고 학생별 시청 시간을 확인해요. 학생은 학생 페이지의 '복습 영상'에서 보고, <b>영상의 90% 이상</b>을 보면 완료 · 슈퍼스타 별 +1. 화면을 벗어나 있는 동안은 시간을 세지 않아요.</p>
+    <p class="intro">유튜브 복습 영상을 반에 배정하고 학생별 시청 시간을 확인해요. 학생은 학생 페이지의 '복습 영상'에서 보고, <b>영상의 90% 이상</b>을 보면 완료 · 슈퍼스타 별 +1. 화면을 벗어나 있는 동안은 시간을 세지 않아요. 수업 자료 파일을 붙이면 그 영상을 배정받은 학생만 내려받을 수 있어요.</p>
   </header>
 
   <section class="card" id="addCard">
@@ -171,6 +180,8 @@
       <div><label class="f" for="vTitle">제목</label><input type="text" id="vTitle" maxlength="80" placeholder="예) 9/27 고1 문학 복습"></div>
       <div><label class="f" for="vMemo">메모 (선택 — 학생에게 보여요)</label><input type="text" id="vMemo" maxlength="120" placeholder="예) 교재 42~45쪽 보면서 보세요"></div>
     </div>
+    <label class="f" for="vFiles">수업 자료 파일 (선택 · 여러 개 · 파일당 20MB까지)</label>
+    <div class="files-pick"><input type="file" id="vFiles" multiple><ul class="fsel" id="fSel"></ul></div>
     <label class="f">반 고르기 (여러 반 가능)</label>
     <div class="cls-bar">
       <span class="seg"><button class="btn sm on" type="button" id="bk-정규" onclick="setBook('정규')">정규</button><button class="btn sm" type="button" id="bk-내신" onclick="setBook('내신')">내신</button></span>
@@ -193,7 +204,7 @@
   const SB_KEY  = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
   const DAYS = { '월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':7 };
   const DONE_PCT = 90;
-  let BOOK = '정규', CLASSES = {}, STUS = [], PICK = {}, VIDS = [], TGTS = [], WATCH = [], OPEN = {}, FILTER = {};
+  let BOOK = '정규', CLASSES = {}, STUS = [], PICK = {}, VIDS = [], TGTS = [], WATCH = [], FILES = [], OPEN = {}, FILTER = {}, NEWVID = 0;
 
   const $ = id => document.getElementById(id);
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
@@ -336,6 +347,68 @@
     summary();
   });
 
+  /* ── 수업 자료 파일 (032) — 저장소 버킷 review-files(비공개). 경로는 'v{영상}/{무작위}.{확장자}', 원래 이름은 review_files 표에 ── */
+  const SB_STORE = 'https://bangdbhqpphqqdwcledg.supabase.co/storage/v1';
+  const FILE_MAX = 20 * 1024 * 1024;
+  function fsize(n){ n = +n || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB'; }
+  function okFiles(list){ return Array.from(list || []).filter(f => f.size > 0 && f.size <= FILE_MAX); }
+  function rnd(){ const a = new Uint8Array(12); crypto.getRandomValues(a); return Array.from(a, b => ('0' + b.toString(16)).slice(-2)).join(''); }
+  function storePath(vid, name){
+    const m = String(name || '').toLowerCase().match(/\.([a-z0-9]{1,8})$/);
+    return 'v' + vid + '/' + rnd() + (m ? '.' + m[1] : '');
+  }
+  function objUrl(path){ return SB_STORE + '/object/review-files/' + path.split('/').map(encodeURIComponent).join('/'); }
+  /* 파일 하나 올리고 목록 표에 적는다 — 올리기가 실패하면 표에 안 적는다 */
+  function uploadFile(vid, f){
+    const path = storePath(vid, f.name);
+    return fetch(objUrl(path), { method: 'POST', headers: { 'Content-Type': f.type || 'application/octet-stream', 'x-upsert': 'false' }, body: f })
+      .then(r => { if (!r.ok) return r.text().then(t => { throw new Error('upload ' + r.status + ' ' + t.slice(0, 120)); }); })
+      .then(() => sb('POST', '/review_files', { video_id: vid, path, name: f.name, size: f.size, mime: f.type || '' }, 'return=minimal'));
+  }
+  function uploadAll(vid, files){
+    let n = 0, fail = [];
+    return files.reduce((p, f) => p.then(() => uploadFile(vid, f).then(() => { n++; }, e => { fail.push(f.name); console.error(e); })), Promise.resolve())
+      .then(() => ({ n, fail }));
+  }
+  function removeObjects(paths){
+    if (!paths.length) return Promise.resolve();
+    return fetch(SB_STORE + '/object/review-files', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefixes: paths }) })
+      .then(r => { if (!r.ok) throw new Error('rm ' + r.status); });
+  }
+  function drawPicked(){
+    const all = Array.from($('vFiles').files || []);
+    $('fSel').innerHTML = all.map(f => '<li' + (f.size > FILE_MAX || !f.size ? ' class="bad"' : '') + '>' + esc(f.name) + ' · ' + fsize(f.size) +
+      (f.size > FILE_MAX ? ' — 20MB가 넘어 올리지 않아요' : (!f.size ? ' — 빈 파일이라 올리지 않아요' : '')) + '</li>').join('');
+  }
+  $('vFiles').addEventListener('change', drawPicked);
+  /* 선생님이 파일 이름을 누르면 내려받아 확인 */
+  function teacherDownload(fid){
+    const f = FILES.find(x => x.id === fid); if (!f) return;
+    fetch(objUrl(f.path)).then(r => { if (!r.ok) throw new Error('dl ' + r.status); return r.blob(); }).then(b => {
+      const u = URL.createObjectURL(b), a = document.createElement('a');
+      a.href = u; a.download = f.name || 'file'; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(u), 30000);
+    }).catch(() => toast('파일을 받지 못했어요'));
+  }
+  function addFiles(vid){
+    const inp = document.createElement('input'); inp.type = 'file'; inp.multiple = true;
+    inp.onchange = () => {
+      const all = Array.from(inp.files || []), files = okFiles(all);
+      if (all.length > files.length) toast('20MB가 넘거나 빈 파일 ' + (all.length - files.length) + '개는 빼고 올려요');
+      if (!files.length) return;
+      toast('자료 ' + files.length + '개 올리는 중…');
+      uploadAll(vid, files).then(res => { toast(res.fail.length ? '못 올린 파일: ' + res.fail.join(', ') : '자료 ' + res.n + '개를 올렸어요'); return loadVideos(); });
+    };
+    inp.click();
+  }
+  function delFile(fid){
+    const f = FILES.find(x => x.id === fid); if (!f) return;
+    if (!confirm('"' + f.name + '" 파일을 지울까요? 학생 화면에서도 사라져요.')) return;
+    removeObjects([f.path]).catch(() => null)
+      .then(() => sb('DELETE', '/review_files?id=eq.' + fid, null, 'return=minimal'))
+      .then(() => { toast('파일을 지웠어요'); return loadVideos(); }).catch(() => toast('지우지 못했어요'));
+  }
+
   /* ── 배정 ── */
   function targetRows(vid, e){
     return Object.values(e.out).map(x => ({ video_id: vid, code: x.stu.code, student_id: x.stu.student_id, name: x.stu.name,
@@ -353,11 +426,18 @@
       .then(rows => {
         const vid = rows && rows[0] && rows[0].id;
         if (!vid) throw new Error('no id');
+        NEWVID = vid;
         return sb('POST', '/review_targets?on_conflict=video_id,code', targetRows(vid, e), 'resolution=ignore-duplicates,return=minimal');
       })
       .then(() => {
-        toast(n + '명에게 배정했어요');
-        $('ytUrl').value = ''; $('vTitle').value = ''; $('vMemo').value = ''; $('ytPrev').innerHTML = '';
+        const files = okFiles($('vFiles').files);
+        if (!files.length) return { n: 0, fail: [] };
+        $('goNote').textContent = '자료 파일 올리는 중…';
+        return uploadAll(NEWVID, files);
+      })
+      .then(res => {
+        toast(n + '명에게 배정했어요' + (res.n ? ' · 자료 ' + res.n + '개' : '') + (res.fail.length ? ' · 못 올린 파일: ' + res.fail.join(', ') : ''));
+        $('ytUrl').value = ''; $('vTitle').value = ''; $('vMemo').value = ''; $('ytPrev').innerHTML = ''; $('vFiles').value = ''; $('fSel').innerHTML = '';
         PICK = {}; drawClasses(); $('goNote').textContent = '';
         return loadVideos();
       })
@@ -369,8 +449,9 @@
     return Promise.all([
       sbAll('/review_videos?select=id,yt_id,title,memo,classes,duration,active,created_at&order=created_at.desc,id.desc'),
       sbAll('/review_targets?select=video_id,code,student_id,name,school,grade,class_name&order=id'),
-      sbAll('/review_watch?select=video_id,code,pct,total_sec,updated_at,completed_at&order=id')
-    ]).then(g => { VIDS = g[0]; TGTS = g[1]; WATCH = g[2]; drawVideos(); })
+      sbAll('/review_watch?select=video_id,code,pct,total_sec,updated_at,completed_at&order=id'),
+      sbAll('/review_files?select=id,video_id,path,name,size&order=id').catch(() => [])   // 032 적용 전이면 파일 없이
+    ]).then(g => { VIDS = g[0]; TGTS = g[1]; WATCH = g[2]; FILES = g[3]; drawVideos(); })
       .catch(err => { $('vids').innerHTML = '<p class="muted">불러오지 못했어요 — 새로고침해 주세요. (데이터베이스 031 적용 전이면 이 화면이 비어 있어요)</p>'; console.error(err); });
   }
   function rowsOf(v){
@@ -393,7 +474,11 @@
         '<p class="meta">' + esc(kst(v.created_at)) + ' 배정' + (cls ? ' · ' + esc(cls) : '') + (v.duration ? ' · 영상 ' + fmt(v.duration) : '') + '</p>' +
         '<p class="stat">완료 <b>' + done + ' / ' + n + '명</b> · 시작 ' + seen + '명 · 평균 본 구간 ' + avg + '% · 시청 시간 합계 ' + fmt(tot) + '</p>' +
         '<div class="bar"><i style="width:' + (n ? Math.round(done * 100 / n) : 0) + '%"></i></div>' +
+        (() => { const fs = FILES.filter(f => f.video_id === v.id); return fs.length ? '<div class="vfiles">' + fs.map(f =>
+          '<span class="fchip"><a onclick="teacherDownload(' + f.id + ')" title="눌러서 내려받기">' + esc(f.name) + '</a> <span class="muted">' + fsize(f.size) + '</span>' +
+          '<button onclick="delFile(' + f.id + ')" title="이 파일 지우기" aria-label="지우기">×</button></span>').join('') + '</div>' : ''; })() +
         '<div class="acts"><button class="btn sm lav" onclick="toggleRes(' + v.id + ')">' + (OPEN[v.id] ? '결과 접기' : '학생별 결과') + '</button>' +
+        '<button class="btn sm" onclick="addFiles(' + v.id + ')">자료 파일 추가</button>' +
         '<button class="btn sm" onclick="resync(' + v.id + ')">반 명단 다시 반영</button>' +
         '<button class="btn sm" onclick="setActive(' + v.id + ',' + (!v.active) + ')">' + (v.active ? '학생 화면에서 숨기기' : '다시 보이기') + '</button>' +
         '<a class="btn sm" style="text-decoration:none" href="https://youtu.be/' + encodeURIComponent(v.yt_id) + '" target="_blank" rel="noopener">유튜브에서 보기</a>' +
@@ -436,8 +521,9 @@
   function delVideo(id){
     const v = VIDS.find(x => x.id === id); if (!v) return;
     const done = rowsOf(v).filter(r => r.done).length;
-    if (!confirm('"' + v.title + '"을(를) 삭제할까요?\n배정과 시청 기록이 모두 지워지고' + (done ? ', 이 영상으로 받은 슈퍼스타 별 ' + done + '개도 사라져요.' : '요.') + '\n(기록을 남기려면 [학생 화면에서 숨기기]를 쓰세요)')) return;
-    sb('DELETE', '/review_videos?id=eq.' + id, null, 'return=minimal').then(() => { toast('삭제했어요'); return loadVideos(); }).catch(() => toast('삭제하지 못했어요'));
+    if (!confirm('"' + v.title + '"을(를) 삭제할까요?\n배정·시청 기록·자료 파일이 모두 지워지고' + (done ? ', 이 영상으로 받은 슈퍼스타 별 ' + done + '개도 사라져요.' : '요.') + '\n(기록을 남기려면 [학생 화면에서 숨기기]를 쓰세요)')) return;
+    removeObjects(FILES.filter(f => f.video_id === id).map(f => f.path)).catch(() => null)   // 저장소의 자료 파일도 함께 지운다
+      .then(() => sb('DELETE', '/review_videos?id=eq.' + id, null, 'return=minimal')).then(() => { toast('삭제했어요'); return loadVideos(); }).catch(() => toast('삭제하지 못했어요'));
   }
   /* 배정한 반의 지금 명단으로 빠진 학생을 더한다(신입 등). 이미 배정된 학생·기록은 그대로 — 반에서 빠진 학생도 지우지 않는다. */
   function resync(id){
