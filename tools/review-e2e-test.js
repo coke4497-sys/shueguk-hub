@@ -3,7 +3,8 @@
  *   ① 교사 페이지(review.html) — 교사 인증·반 고르기·명단 대조(동명이인·미등록 안내)·배정 POST·결과 표·숨기기·명단 다시 반영
  *   ② 학생 페이지(리포트 s.html) — 허브 카드·목록·재생 중에만 시간 세기·화면을 벗어나면 멈춤·저장 본문·별 안내
  * 를 왕복 검사한다. 원격 수파베이스·유튜브에는 아무것도 보내지 않는다.
- *   실행: NODE_PATH=$(npm root -g) node tools/review-e2e-test.js
+ *   실행: LC_ALL=C.UTF-8 NODE_PATH=$(npm root -g) node tools/review-e2e-test.js
+ *   (LC_ALL 이 UTF-8 이 아니면 크로미엄이 한글 파일 이름을 'download'로 바꿔 내려받기 이름 검사 2건이 실패한다 — 실제 기기와 무관)
  * DB 함수의 실제 SQL 검증은 리포트 저장소 tools/review-sql-test.sh, 시간 계산은 tools/review-core-test.js.
  */
 'use strict';
@@ -36,7 +37,9 @@ let CLASSES = [
   { book: '내신', class_id: 'n001', day: '수', start_time: '7:00', teacher: '슈', name: '고1 확인', roster: '김철수' },
   { book: '정규', class_id: 'w260912a', day: '토', start_time: '9:30', teacher: '슈', name: '이 주만', roster: '유령' },
 ];
-let VIDS = [], TGTS = [], WATCH = [], VNEXT = 1;
+let VIDS = [], TGTS = [], WATCH = [], FILES = [], VNEXT = 1, FNEXT = 1;
+const STORE = {};   // 가짜 저장소 path → {body, type}
+const stCalls = [];
 const calls = [];
 const saves = [];
 
@@ -64,12 +67,18 @@ function rpc(fn, body){
   if (fn === 'review_list'){
     if (p.key !== 'tok-kim') return { ok: false, error: 'no_student' };
     return { ok: true, done_pct: 90, items: [
-      { id: 7, yt: 'dQw4w9WgXcQ', title: '9/27 문학 복습', memo: '', duration: 0, at: '2026-09-27T01:00:00Z', cls: '고1 가', pct: 0, sec: 0, pos: 0, done: false },
+      { id: 7, yt: 'dQw4w9WgXcQ', title: '9/27 문학 복습', memo: '', duration: 0, at: '2026-09-27T01:00:00Z', cls: '고1 가', pct: 0, sec: 0, pos: 0, done: false, nfiles: 1 },
       { id: 8, yt: 'aaaaaaaaaaa', title: '지난 복습', memo: '', duration: 600, at: '2026-09-20T01:00:00Z', cls: '고1 가', pct: 100, sec: 640, pos: 0, done: true } ] };
   }
   if (fn === 'review_open'){
     if (+p.video !== 7) return { ok: false, error: 'not_assigned' };
-    return { ok: true, done_pct: 90, id: 7, yt: 'dQw4w9WgXcQ', title: '9/27 문학 복습', memo: '', duration: 0, bits: '', pct: 0, sec: 0, pos: 0, done: false };
+    return { ok: true, done_pct: 90, id: 7, yt: 'dQw4w9WgXcQ', title: '9/27 문학 복습', memo: '', duration: 0, bits: '', pct: 0, sec: 0, pos: 0, done: false,
+             files: [{ id: 31, name: '9월 복습지.pdf', size: 2400000 }] };
+  }
+  if (fn === 'review_file_url'){
+    if (p.key !== 'tok-kim' || +p.file !== 31) return { ok: false, error: 'not_assigned' };
+    STORE['v7/abc.pdf'] = STORE['v7/abc.pdf'] || { body: Buffer.from('%PDF-1.4 fake'), type: 'application/pdf' };
+    return { ok: true, bucket: 'review-files', path: 'v7/abc.pdf', name: '9월 복습지.pdf', size: 2400000, mime: 'application/pdf' };
   }
   if (fn === 'review_save'){
     saves.push(p);
@@ -109,6 +118,15 @@ function applyFilter(rows, url){
       const rec = { method: req.method(), path: url.slice(SB.length), auth: req.headers()['authorization'] || '', body: req.postData(), prefer: req.headers()['prefer'] || '' };
       calls.push(rec);
       if (rec.path.startsWith('/auth/v1/token')) return json({ access_token: 'tok', expires_in: 3600 });
+      if (rec.path.startsWith('/storage/v1/object')){
+        stCalls.push({ method: rec.method, path: rec.path, auth: rec.auth, type: req.headers()['content-type'] || '' });
+        const m = rec.path.match(/^\/storage\/v1\/object\/(?:authenticated\/)?review-files\/?(.*)$/);
+        const pth = m ? decodeURIComponent(m[1]) : '';
+        if (rec.method === 'POST'){ if (rec.auth !== 'Bearer tok') return json({ error: 'need teacher' }, 403); STORE[pth] = { body: req.postDataBuffer(), type: req.headers()['content-type'] }; return json({ Key: 'review-files/' + pth }); }
+        if (rec.method === 'DELETE'){ JSON.parse(rec.body).prefixes.forEach(x => delete STORE[x]); return json([]); }
+        if (rec.method === 'GET'){ const o = STORE[pth]; if (!o) return json({ error: 'not found' }, 400);
+          return route.fulfill({ status: 200, contentType: o.type || 'application/octet-stream', headers: { 'access-control-allow-origin': '*' }, body: o.body }); }
+      }
       if (rec.path.startsWith('/rest/v1/rpc/student_bundle')) return json({ error: 'nope' }, 500);
       if (rec.path.startsWith('/rest/v1/rpc/')){
         const out = rpc(rec.path.slice(13).split('?')[0], rec.body ? JSON.parse(rec.body) : {});
@@ -116,7 +134,7 @@ function applyFilter(rows, url){
       }
       if (rec.auth !== 'Bearer tok') return json({ error: 'need teacher' }, 401);
       const tbl = rec.path.slice(9).split('?')[0];
-      const M = { tt_classes: CLASSES, students: STUDENTS, review_videos: VIDS, review_targets: TGTS, review_watch: WATCH };
+      const M = { tt_classes: CLASSES, students: STUDENTS, review_videos: VIDS, review_targets: TGTS, review_watch: WATCH, review_files: FILES };
       if (!M[tbl]) return json({ error: 'unhandled ' + tbl }, 404);
       if (rec.method === 'GET'){
         const off = +(new URL(url).searchParams.get('offset') || 0);
@@ -125,10 +143,14 @@ function applyFilter(rows, url){
       if (rec.method === 'POST'){
         const arr = [].concat(JSON.parse(rec.body));
         if (tbl === 'review_videos'){ const r = Object.assign({ id: VNEXT++, active: true, duration: 0, created_at: new Date().toISOString() }, arr[0]); VIDS.unshift(r); return json([r], 201); }
+        if (tbl === 'review_files'){ arr.forEach(x => FILES.push(Object.assign({ id: FNEXT++ }, x))); return json(null, 201); }
         if (tbl === 'review_targets'){ arr.forEach(x => { if (!TGTS.some(t => t.video_id === x.video_id && t.code === x.code)) TGTS.push(x); }); return json(null, 201); }
       }
       if (rec.method === 'PATCH' && tbl === 'review_videos'){
         const id = +new URL(url).searchParams.get('id').slice(3); Object.assign(VIDS.find(v => v.id === id), JSON.parse(rec.body)); return json(null, 204);
+      }
+      if (rec.method === 'DELETE' && tbl === 'review_files'){
+        const id = +new URL(url).searchParams.get('id').slice(3); const i = FILES.findIndex(f => f.id === id); if (i >= 0) FILES.splice(i, 1); return json(null, 204);
       }
       if (rec.method === 'DELETE' && tbl === 'review_videos'){
         const id = +new URL(url).searchParams.get('id').slice(3);
@@ -166,6 +188,10 @@ function applyFilter(rows, url){
   ok(/동명이인.*한동명/.test(sum) && /명단에 없는.*새친구/.test(sum) && /접근코드.*코드없음/.test(sum) && /퇴원생/.test(sum), '못 넣는 학생 안내(동명이인·미등록·코드 없음·퇴원)');
   ok(!(await tp.isDisabled('#goBtn')), '배정 버튼 열림');
   await tp.fill('#vTitle', '9/27 문학 복습');
+  await tp.setInputFiles('#vFiles', [
+    { name: '9월 복습지.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 hello') },
+    { name: '빈파일.txt', mimeType: 'text/plain', buffer: Buffer.alloc(0) } ]);
+  ok(/9월 복습지\.pdf/.test(await tp.textContent('#fSel')) && /빈 파일이라 올리지 않아요/.test(await tp.textContent('#fSel')), '고른 파일 목록·빈 파일 안내');
   // 내신으로 바꿔 한 반 더
   await tp.click('#bk-내신'); await tp.waitForSelector('#clsList input[data-k="내신|n001"]');
   await tp.check('#clsList input[data-k="내신|n001"]');
@@ -181,6 +207,13 @@ function applyFilter(rows, url){
   ok(/on_conflict=video_id,code/.test(tpost.path) && /ignore-duplicates/.test(tpost.prefer), '중복 무시 옵션');
   ok(tb.find(r => r.code === 'tok-kim').class_name === '고1 가', '반 이름 기록');
   ok(await tp.locator('#clsList input:checked').count() === 0 && (await tp.inputValue('#ytUrl')) === '', '배정 뒤 입력 비움');
+  const up = stCalls.filter(c => c.method === 'POST');
+  ok(up.length === 1 && /^\/storage\/v1\/object\/review-files\/v1\/[0-9a-f]{24}\.pdf$/.test(up[0].path) && up[0].auth === 'Bearer tok' && /pdf/.test(up[0].type), '자료 파일 저장소에 올림(교사 인증·무작위 경로): ' + (up[0] && up[0].path));
+  ok(FILES.length === 1 && FILES[0].video_id === 1 && FILES[0].name === '9월 복습지.pdf' && FILES[0].size === 14 && FILES[0].path === decodeURIComponent(up[0].path.split('review-files/')[1]), '파일 목록 표 기록(원래 이름·크기)');
+  await tp.waitForSelector('.vfiles .fchip');
+  ok(/9월 복습지\.pdf/.test(await tp.textContent('.vfiles')), '영상 카드에 자료 칩');
+  const [tdl] = await Promise.all([tp.waitForEvent('download'), tp.click('.vfiles .fchip a')]);
+  ok(tdl.suggestedFilename() === '9월 복습지.pdf', '선생님 자료 내려받기(원래 이름)');
   // 시청 기록 넣고 결과
   WATCH.push({ video_id: 1, code: 'tok-kim', pct: 95, total_sec: 610, updated_at: '2026-09-27T10:00:00Z', completed_at: '2026-09-27T10:00:00Z' });
   WATCH.push({ video_id: 1, code: 'tok-park', pct: 30, total_sec: 200, updated_at: '2026-09-27T11:00:00Z', completed_at: null });
@@ -204,6 +237,18 @@ function applyFilter(rows, url){
   await tp.click('text=학생 화면에서 숨기기');
   await tp.waitForSelector('.vid.off');
   ok(VIDS[0].active === false && /숨김/.test(await tp.textContent('.vid h3')), '숨기기 PATCH');
+  const fpath = FILES[0].path;
+  await tp.click('.vfiles .fchip button');
+  await tp.waitForFunction(() => !document.querySelector('.vfiles'));
+  ok(FILES.length === 0 && !STORE[fpath] && stCalls.some(c => c.method === 'DELETE'), '자료 파일 지우기(표·저장소)');
+  const [chooser] = await Promise.all([tp.waitForEvent('filechooser'), tp.click('text=자료 파일 추가')]);
+  await chooser.setFiles([{ name: '추가 자료.hwp', mimeType: 'application/x-hwp', buffer: Buffer.from('hwp') }]);
+  await tp.waitForSelector('.vfiles .fchip');
+  ok(FILES.length === 1 && FILES[0].name === '추가 자료.hwp' && /\.hwp$/.test(FILES[0].path), '기존 영상에 자료 추가');
+  const p2 = FILES[0].path;
+  await tp.click('text=삭제');
+  await tp.waitForFunction(() => /배정한 영상이 없어요/.test(document.getElementById('vids').textContent));
+  ok(!STORE[p2] && VIDS.length === 0, '영상 삭제 때 저장소 파일도 지움');
   await tp.close();
 
   /* ══ ② 학생 페이지 ══ */
@@ -223,10 +268,16 @@ function applyFilter(rows, url){
     await card.click();
     await pg.waitForSelector('#rvList .rv-item');
     const items = await pg.$$eval('#rvList .rv-item', a => a.map(x => x.textContent));
-    ok(items.length === 2 && /아직 안 봄/.test(items[0]) && /시청 완료 ✓/.test(items[1]) && /10분 40초/.test(items[1]), '영상 목록');
+    ok(items.length === 2 && /자료 1개/.test(items[0]) && /아직 안 봄/.test(items[0]) && /시청 완료 ✓/.test(items[1]) && /10분 40초/.test(items[1]), '영상 목록');
     await pg.click('#rvList .rv-item >> nth=0');
     await pg.waitForFunction(() => window.__yt && document.getElementById('rvTtl').textContent === '9/27 문학 복습');
     ok(calls.some(c => c.path.includes('/rpc/review_open') && JSON.parse(c.body).p.key === 'tok-kim'), 'review_open 호출(접근코드)');
+    ok(/수업 자료/.test(await pg.textContent('#rvFiles')) && /9월 복습지\.pdf/.test(await pg.textContent('#rvFiles')) && /2\.3MB/.test(await pg.textContent('#rvFiles')), '학생 화면 자료 목록(이름·크기)');
+    const [sdl] = await Promise.all([pg.waitForEvent('download'), pg.click('#rvDl31')]);
+    ok(sdl.suggestedFilename() === '9월 복습지.pdf', '학생 자료 내려받기(원래 이름)');
+    const g = stCalls.filter(c => c.method === 'GET' && c.path.includes('/object/authenticated/review-files/v7/abc.pdf'));
+    ok(g.length === 1 && /sb_publishable_/.test(g[0].auth), '공개 키로 저장소에서 받음(창 연 뒤)');
+    ok(calls.some(c => c.path.includes('/rpc/review_file_url') && JSON.parse(c.body).p.file === 31), 'review_file_url 호출');
     // 재생 전에는 세지 않음
     await sleep(1500);
     ok(/시청 시간 0초/.test(await pg.textContent('#rvSec')), '재생 전엔 0초');
