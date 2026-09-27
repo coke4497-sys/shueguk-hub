@@ -80,6 +80,13 @@
   .res-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;}
   .res-bar select{width:auto;}
   .modes{flex-wrap:wrap;}
+  .addto{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--lilac);color:var(--lilac-ink);border-radius:12px;padding:10px 14px;font-size:.9rem;margin-bottom:4px;}
+  .addto span{flex:1;min-width:200px;}
+  .res-bar .cancel{background:#F7E2DE;color:#8A4E46;}
+  .res-bar .cancel:hover{background:#F2D6D0;}
+  td.ck,th.ck{width:28px;padding-right:0;}
+  td.ck input,th.ck input{width:16px;height:16px;accent-color:#8D83A8;}
+  .rowbtn{font:inherit;font-size:.76rem;border:none;background:none;color:var(--cap);cursor:pointer;padding:2px 4px;text-decoration:underline;}
   .mpane{display:none;margin-top:10px;}
   .mpane.on{display:block;}
   .gpills{display:flex;flex-wrap:wrap;gap:6px;}
@@ -175,7 +182,9 @@
   </header>
 
   <section class="card" id="addCard">
-    <h2>영상 배정하기</h2>
+    <h2 id="addTitle">영상 배정하기</h2>
+    <div class="addto" id="addTo" style="display:none"><span id="addToText"></span><button class="btn sm" type="button" onclick="endAddTo()">그만두기</button></div>
+    <div id="baseFields">
     <label class="f" for="ytUrl">유튜브 주소</label>
     <input type="text" id="ytUrl" placeholder="https://youtu.be/… 또는 https://www.youtube.com/watch?v=…" autocomplete="off">
     <div class="yt-prev" id="ytPrev"></div>
@@ -185,6 +194,7 @@
     </div>
     <label class="f" for="vFiles">수업 자료 파일 (선택 · 여러 개 · 파일당 20MB까지)</label>
     <div class="files-pick"><input type="file" id="vFiles" multiple><ul class="fsel" id="fSel"></ul></div>
+    </div>
     <label class="f">배정 대상</label>
     <div class="seg modes" id="modeSeg">
       <button class="btn sm" type="button" data-m="all">전체</button><button class="btn sm" type="button" data-m="grade">학년</button><button class="btn sm" type="button" data-m="school">학교</button><button class="btn sm on" type="button" data-m="cls">반</button><button class="btn sm" type="button" data-m="stu">개인</button>
@@ -218,7 +228,7 @@
   const SB_KEY  = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
   const DAYS = { '월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':7 };
   const DONE_PCT = 90;
-  let BOOK = '정규', CLASSES = {}, STUS = [], MODE = 'cls', SEL = { grade: [], school: [], cls: [], stu: [] }, VIDS = [], TGTS = [], WATCH = [], FILES = [], OPEN = {}, FILTER = {}, NEWVID = 0;
+  let BOOK = '정규', CLASSES = {}, STUS = [], MODE = 'cls', SEL = { grade: [], school: [], cls: [], stu: [] }, VIDS = [], TGTS = [], WATCH = [], FILES = [], OPEN = {}, FILTER = {}, NEWVID = 0, ADDTO = 0, CHK = {};
 
   const $ = id => document.getElementById(id);
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
@@ -282,6 +292,8 @@
    * 영상의 classes 열에 이 명세를 그대로 저장하고, [명단 다시 반영]도 같은 명세로 다시 푼다. */
   const GRADE_ORDER = ['중1', '중2', '중3', '고1', '고2', '고3'];
   function specType(c){ return c.type || 'class'; }
+  /* {type:'exclude',code,name} = 배정 취소한 학생 — 반·학년 명세가 그 학생을 다시 넣지 않게 한다(명단 다시 반영). 표시에서는 뺀다 */
+  function isShown(c){ return specType(c) !== 'exclude'; }
   function specLabel(c){
     const t = specType(c);
     return t === 'all' ? '전체' : t === 'grade' || t === 'school' ? c.value : t === 'student' ? (c.name || '개인') : c.name;
@@ -301,8 +313,10 @@
       if (!s.code){ if (nocode.indexOf(s.name) < 0) nocode.push(s.name); return; }
       if (!out[s.code]) out[s.code] = { stu: s, cls: label };
     };
+    const ex = {}; spec.forEach(c => { if (specType(c) === 'exclude') ex[c.code] = 1; });
     spec.forEach(c => {
       const t = specType(c), label = t === 'student' ? '개인' : specLabel(c);
+      if (t === 'exclude') return;
       if (t === 'all') STUS.forEach(s => put(s, label));
       else if (t === 'grade') STUS.filter(s => gradeShort(s.grade) === c.value).forEach(s => put(s, label));
       else if (t === 'school') STUS.filter(s => s.school === c.value).forEach(s => put(s, label));
@@ -318,6 +332,7 @@
         });
       }
     });
+    Object.keys(ex).forEach(k => { delete out[k]; });
     return { out, miss, dup, nocode };
   }
 
@@ -426,16 +441,86 @@
     const spec = specOf(MODE), id = ytId($('ytUrl').value);
     if (!spec.length){ $('sum').innerHTML = ''; $('goBtn').disabled = true; $('goNote').textContent = MODE_NAME[MODE] + '을(를) 골라 주세요'; return; }
     if (!STUS.length){ $('sum').innerHTML = '<span class="muted">재원 명단을 불러오는 중…</span>'; $('goBtn').disabled = true; return; }
-    const e = expand(spec), n = Object.keys(e.out).length;
-    let h = (MODE === 'all' ? '재원생 전체' : MODE_NAME[MODE] + ' <b>' + spec.length + '개</b>') + ' · 배정할 학생 <b>' + n + '명</b>';
+    const e = expand(spec), have = haveOf(ADDTO);
+    const skip = Object.keys(e.out).filter(k => have[k]).length;
+    Object.keys(have).forEach(k => { delete e.out[k]; });
+    const n = Object.keys(e.out).length;
+    let h = (MODE === 'all' ? '재원생 전체' : MODE_NAME[MODE] + ' <b>' + spec.length + '개</b>') + ' · ' + (ADDTO ? '새로 더할' : '배정할') + ' 학생 <b>' + n + '명</b>' +
+      (skip ? ' <span class="muted">(이미 배정된 ' + skip + '명은 건너뛰어요)</span>' : '');
     const w = [];
     if (e.miss.length) w.push('재원 명단에 없는 이름(미등록생 등) ' + e.miss.length + '명: ' + e.miss.map(esc).join(', '));
     if (e.dup.length) w.push('동명이인이라 못 가린 이름 ' + e.dup.length + '명: ' + e.dup.map(esc).join(', '));
     if (e.nocode.length) w.push('학생 페이지 링크(접근코드)가 없는 학생 ' + e.nocode.length + '명: ' + e.nocode.map(esc).join(', '));
     if (w.length) h += '<div class="warn">이 학생들은 배정되지 않아요 — ' + w.join('<br>') + '</div>';
     $('sum').innerHTML = h;
-    $('goBtn').disabled = !(id && n);
-    $('goNote').textContent = id ? '' : '유튜브 주소를 넣어 주세요';
+    $('goBtn').disabled = !((id || ADDTO) && n);
+    $('goNote').textContent = (id || ADDTO) ? '' : '유튜브 주소를 넣어 주세요';
+  }
+  function haveOf(vid){ const h = {}; if (vid) TGTS.forEach(t => { if (t.video_id === vid) h[t.code] = 1; }); return h; }
+
+  /* ── 배정한 영상에 학생 더하기 (2026-09-27 사용자 "배정한 영상의 학생 배정을 취소하거나 추가") ──
+   * 위 배정 카드를 '더하기' 상태로 바꿔 같은 다섯 가지 방식으로 고른다. 이미 배정된 학생은 건너뛰고,
+   * 고른 명세를 영상의 classes 에 이어 붙인다(명단 다시 반영도 따라감). 다시 더한 학생의 '배정 취소' 표시는 지운다. */
+  function startAddTo(vid){
+    const v = VIDS.find(x => x.id === vid); if (!v) return;
+    ADDTO = vid;
+    $('addTitle').textContent = '학생 더하기';
+    $('addToText').textContent = '"' + v.title + '"에 학생을 더해요 — 아래에서 대상을 고르세요. 이미 배정된 학생은 건너뛰어요.';
+    $('addTo').style.display = 'flex'; $('baseFields').style.display = 'none';
+    $('goBtn').textContent = '이 영상에 더하기';
+    SEL = { grade: [], school: [], cls: [], stu: [] }; fillPickers(); fillClassSel(); drawChips(); summary();
+    $('addCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function endAddTo(){
+    ADDTO = 0;
+    $('addTitle').textContent = '영상 배정하기';
+    $('addTo').style.display = 'none'; $('baseFields').style.display = '';
+    $('goBtn').textContent = '배정하기';
+    SEL = { grade: [], school: [], cls: [], stu: [] }; fillPickers(); fillClassSel(); drawChips(); summary();
+  }
+  function addToVideo(){
+    const v = VIDS.find(x => x.id === ADDTO); if (!v) { endAddTo(); return; }
+    const spec = specOf(MODE), e = expand(spec), have = haveOf(v.id);
+    Object.keys(have).forEach(k => { delete e.out[k]; });
+    const rows = targetRows(v.id, e), n = rows.length;
+    if (!n) return;
+    if (!confirm('"' + v.title + '"에 ' + (MODE === 'all' ? '재원생 전체' : spec.map(specLabel).join(', ')) + ' — 새 학생 ' + n + '명을 더할까요?')) return;
+    $('goBtn').disabled = true; $('goNote').textContent = '더하는 중…';
+    const added = {}; rows.forEach(r => { added[r.code] = 1; });
+    const old = (v.classes || []).filter(c => !(specType(c) === 'exclude' && added[c.code]));
+    const seen = {}; old.forEach(c => { seen[JSON.stringify(c)] = 1; });
+    const classes = old.concat(spec.filter(c => !seen[JSON.stringify(c)]));
+    sb('POST', '/review_targets?on_conflict=video_id,code', rows, 'resolution=ignore-duplicates,return=minimal')
+      .then(() => sb('PATCH', '/review_videos?id=eq.' + v.id, { classes }, 'return=minimal'))
+      .then(() => { toast(n + '명을 더했어요'); OPEN[v.id] = true; endAddTo(); $('goNote').textContent = ''; return loadVideos(); })
+      .catch(err => { $('goNote').textContent = '더하지 못했어요 — 다시 눌러 주세요'; $('goBtn').disabled = false; console.error(err); });
+  }
+
+  /* ── 배정 취소 — 배정만 지우고 시청 기록·받은 별은 남긴다(사용자 결정 '남기기'). 다시 배정하면 이어서 본다.
+   * 반·학년 명세가 [명단 다시 반영] 때 그 학생을 다시 넣지 않게 {type:'exclude'} 를 classes 에 적는다. ── */
+  function cancelTargets(vid, codes){
+    const v = VIDS.find(x => x.id === vid); if (!v || !codes.length) return;
+    const names = codes.map(c => (TGTS.find(t => t.video_id === vid && t.code === c) || {}).name || '').filter(Boolean);
+    if (!confirm('"' + v.title + '" 배정을 ' + codes.length + '명 취소할까요?\n' + names.slice(0, 12).join(', ') + (names.length > 12 ? ' 외 ' + (names.length - 12) + '명' : '') +
+      '\n\n학생 페이지에서 이 영상이 사라져요. 시청 기록과 이미 받은 별은 그대로 남고, 다시 배정하면 이어서 볼 수 있어요.')) return;
+    const inList = codes.map(c => '"' + String(c).replace(/"/g, '') + '"').join(',');
+    const cut = {}; codes.forEach(c => { cut[c] = 1; });
+    const kept = (v.classes || []).filter(c => !(specType(c) === 'student' && cut[c.code]) && !(specType(c) === 'exclude' && cut[c.code]));
+    const classes = kept.concat(codes.map(c => ({ type: 'exclude', code: c, name: (TGTS.find(t => t.video_id === vid && t.code === c) || {}).name || '' })));
+    sb('DELETE', '/review_targets?video_id=eq.' + vid + '&code=in.(' + encodeURIComponent(inList) + ')', null, 'return=minimal')
+      .then(() => sb('PATCH', '/review_videos?id=eq.' + vid, { classes }, 'return=minimal'))
+      .then(() => { CHK = {}; toast(codes.length + '명 배정을 취소했어요'); return loadVideos(); })
+      .catch(() => toast('취소하지 못했어요'));
+  }
+  function cancelChecked(vid){ cancelTargets(vid, Object.keys(CHK).filter(k => CHK[k] === vid)); }
+  function chkRow(vid, code, on){ if (on) CHK[code] = vid; else delete CHK[code]; syncChk(vid); }
+  function chkAll(vid, on){
+    document.querySelectorAll('#v' + vid + ' td.ck input').forEach(i => { i.checked = on; if (on) CHK[i.dataset.code] = vid; else delete CHK[i.dataset.code]; });
+    syncChk(vid);
+  }
+  function syncChk(vid){
+    const n = Object.keys(CHK).filter(k => CHK[k] === vid).length, b = document.getElementById('cc' + vid);
+    if (b){ b.disabled = !n; b.textContent = '선택한 ' + n + '명 배정 취소'; }
   }
   $('ytUrl').addEventListener('input', () => {
     const id = ytId($('ytUrl').value);
@@ -512,6 +597,7 @@
       school: x.stu.school, grade: x.stu.grade, class_name: x.cls }));
   }
   function assign(){
+    if (ADDTO) return addToVideo();
     const id = ytId($('ytUrl').value), spec = specOf(MODE);
     const e = expand(spec), n = Object.keys(e.out).length;
     if (!id || !n) return;
@@ -564,7 +650,7 @@
       const rows = rowsOf(v), n = rows.length, done = rows.filter(r => r.done).length, seen = rows.filter(r => r.pct > 0).length;
       const avg = n ? Math.round(rows.reduce((a, r) => a + r.pct, 0) / n) : 0;
       const tot = rows.reduce((a, r) => a + r.sec, 0);
-      const cls = (v.classes || []).map(specLabel).join(' · ');
+      const cls = (v.classes || []).filter(isShown).map(specLabel).join(' · ');
       return '<div class="vid' + (v.active ? '' : ' off') + '" id="v' + v.id + '">' +
         '<img src="' + thumb(v.yt_id) + '" alt="">' +
         '<div class="b"><h3>' + esc(v.title) + (v.active ? '' : '<span class="chip">학생 화면에서 숨김</span>') + '</h3>' +
@@ -576,7 +662,8 @@
           '<button onclick="delFile(' + f.id + ')" title="이 파일 지우기" aria-label="지우기">×</button></span>').join('') + '</div>' : ''; })() +
         '<div class="acts"><button class="btn sm lav" onclick="toggleRes(' + v.id + ')">' + (OPEN[v.id] ? '결과 접기' : '학생별 결과') + '</button>' +
         '<button class="btn sm" onclick="addFiles(' + v.id + ')">자료 파일 추가</button>' +
-        ((v.classes || []).some(c => specType(c) !== 'student') ? '<button class="btn sm" onclick="resync(' + v.id + ')">명단 다시 반영</button>' : '') +
+        '<button class="btn sm" onclick="startAddTo(' + v.id + ')">학생 더하기</button>' +
+        ((v.classes || []).some(c => specType(c) !== 'student' && specType(c) !== 'exclude') ? '<button class="btn sm" onclick="resync(' + v.id + ')">명단 다시 반영</button>' : '') +
         '<button class="btn sm" onclick="setActive(' + v.id + ',' + (!v.active) + ')">' + (v.active ? '학생 화면에서 숨기기' : '다시 보이기') + '</button>' +
         '<a class="btn sm" style="text-decoration:none" href="https://youtu.be/' + encodeURIComponent(v.yt_id) + '" target="_blank" rel="noopener">유튜브에서 보기</a>' +
         '<button class="btn sm" onclick="delVideo(' + v.id + ')">삭제</button></div>' +
@@ -593,13 +680,15 @@
     const opt = (k, l) => '<option value="' + k + '"' + (f === k ? ' selected' : '') + '>' + l + '</option>';
     return '<div class="res"><div class="res-bar"><select onchange="setFilter(' + v.id + ',this.value)">' +
       opt('all', '전체 ' + rows.length + '명') + opt('todo', '아직 완료 안 함') + opt('none', '아직 안 봄') + opt('done', '완료') + '</select>' +
-      '<button class="btn sm" onclick="copyRes(' + v.id + ')">표 복사</button></div>' +
-      '<table><thead><tr><th>이름</th><th>학교 · 학년</th><th>반</th><th style="text-align:right">본 구간</th><th style="text-align:right">시청 시간</th><th>상태</th><th>마지막 시청</th></tr></thead><tbody>' +
-      (list.length ? list.map(r => '<tr' + (r.done ? ' class="done"' : '') + '><td>' + esc(r.t.name) + '</td><td>' + esc([r.t.school, gradeShort(r.t.grade)].filter(Boolean).join(' ')) + '</td>' +
+      '<button class="btn sm" onclick="copyRes(' + v.id + ')">표 복사</button>' +
+      '<button class="btn sm cancel" id="cc' + v.id + '" onclick="cancelChecked(' + v.id + ')" disabled>선택한 0명 배정 취소</button></div>' +
+      '<table><thead><tr><th class="ck"><input type="checkbox" title="보이는 학생 모두 선택" onchange="chkAll(' + v.id + ',this.checked)"></th><th>이름</th><th>학교 · 학년</th><th>반</th><th style="text-align:right">본 구간</th><th style="text-align:right">시청 시간</th><th>상태</th><th>마지막 시청</th><th></th></tr></thead><tbody>' +
+      (list.length ? list.map(r => '<tr' + (r.done ? ' class="done"' : '') + '><td class="ck"><input type="checkbox" data-code="' + esc(r.t.code) + '"' + (CHK[r.t.code] === v.id ? ' checked' : '') +
+        ' onchange="chkRow(' + v.id + ',this.dataset.code,this.checked)"></td><td>' + esc(r.t.name) + '</td><td>' + esc([r.t.school, gradeShort(r.t.grade)].filter(Boolean).join(' ')) + '</td>' +
         '<td>' + esc(r.t.class_name) + '</td><td class="num">' + r.pct + '%</td><td class="num">' + (r.sec ? fmt(r.sec) : '—') + '</td>' +
         '<td>' + (r.done ? '<span class="st-ok">완료 ✓</span> ' + esc(kst(r.doneAt)) : (r.pct ? '보는 중' : '<span class="st-no">안 봄</span>')) + '</td>' +
-        '<td>' + esc(r.at ? kst(r.at) : '') + '</td></tr>').join('')
-        : '<tr><td colspan="7" class="muted">해당 학생이 없어요.</td></tr>') +
+        '<td>' + esc(r.at ? kst(r.at) : '') + '</td><td><button class="rowbtn" data-code="' + esc(r.t.code) + '" onclick="cancelTargets(' + v.id + ',[this.dataset.code])">배정 취소</button></td></tr>').join('')
+        : '<tr><td colspan="9" class="muted">해당 학생이 없어요.</td></tr>') +
       '</tbody></table></div>';
   }
   function toggleRes(id){ OPEN[id] = !OPEN[id]; drawVideos(); }
