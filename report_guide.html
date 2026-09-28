@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>주간 리포트 안내 · 슈국 티쳐스</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 슈퍼스타 주간 리포트·수업 기록 사용 안내 (2026-09-28 사용자 "선생님들께 보낼 사용 안내문") — 교사 인증 조각 없음, 링크로 공유해도 됨.
+     기능·버튼 이름이 바뀌면(shueguk-report timetable.html 수업 기록 창·s.html 주간 리포트) 이 페이지도 함께 고칠 것 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#E6EDEA; --surface:#FFFFFF; --soft:#F3F6F4; --ink:#2A332F; --ink-soft:#65726B; --ink-mute:#8C978F;
+    --accent:#4C6E66; --line:#D7E3DD;
+    --yel:#F9EFD0; --yel-ink:#9B8046; --pnk:#F7E2DE; --pnk-ink:#B0736A; --lav:#EDE4F4; --lav-ink:#8D83A8; --sky:#E9EDF8; --sky-ink:#64749E;
+    --cream:#FBF4EA;
+    --sans:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+    --serif:"Gowun Batang","Apple SD Gothic Neo",serif;
+    --disp:"Do Hyeon","Gowun Dodum",sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1E2624; --surface:#27312E; --soft:#2F3A36; --ink:#E8EEEB; --ink-soft:#B3BFB9; --ink-mute:#8C978F;
+      --accent:#9FC1B7; --line:#3A4744;
+      --yel:#4A4230; --yel-ink:#E4D2A0; --pnk:#4A3532; --pnk-ink:#EBB9B0; --lav:#3A3446; --lav-ink:#CFC2E4; --sky:#30364A; --sky-ink:#B7C2E6;
+      --cream:#3A3630;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1E2624; --surface:#27312E; --soft:#2F3A36; --ink:#E8EEEB; --ink-soft:#B3BFB9; --ink-mute:#8C978F;
+    --accent:#9FC1B7; --line:#3A4744;
+    --yel:#4A4230; --yel-ink:#E4D2A0; --pnk:#4A3532; --pnk-ink:#EBB9B0; --lav:#3A3446; --lav-ink:#CFC2E4; --sky:#30364A; --sky-ink:#B7C2E6;
+    --cream:#3A3630;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.75;padding:0 20px;padding-block:32px 72px;}
+  .page{max-width:760px;margin:0 auto;}
+  a{color:var(--accent);}
+  /* 머리 */
+  .head{margin-bottom:28px;}
+  .head .eyebrow{font-family:var(--serif);font-size:14px;letter-spacing:.08em;color:var(--ink-soft);margin:0 0 6px;}
+  .head h1{font-family:var(--disp);font-weight:400;font-size:44px;line-height:1.1;margin:0 0 10px;color:var(--ink);letter-spacing:.01em;text-wrap:balance;}
+  .head p{margin:0;color:var(--ink-soft);max-width:62ch;}
+  /* 3단계 요약 */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 36px;}
+  .steps > div{background:var(--surface);border-radius:16px;padding:16px 18px;box-shadow:0 2px 12px rgba(42,51,47,.05);}
+  .steps .n{font-family:var(--disp);font-size:26px;line-height:1;color:var(--lav-ink);margin-bottom:8px;}
+  .steps b{display:block;font-family:var(--serif);font-size:16px;margin-bottom:4px;}
+  .steps span{font-size:14px;color:var(--ink-soft);}
+  /* 절 */
+  section{background:var(--surface);border-radius:20px;padding:26px 28px;margin:0 0 18px;box-shadow:0 2px 12px rgba(42,51,47,.05);}
+  section h2{font-family:var(--serif);font-weight:700;font-size:21px;margin:0 0 6px;color:var(--accent);text-wrap:balance;}
+  section .lead{margin:0 0 16px;color:var(--ink-soft);font-size:15px;}
+  section p{margin:0 0 12px;max-width:66ch;}
+  section p:last-child{margin-bottom:0;}
+  ol,ul{margin:0 0 12px;padding-left:22px;max-width:66ch;}
+  li{margin:0 0 8px;}
+  li:last-child{margin-bottom:0;}
+  /* 버튼 이름 표기 */
+  kbd{font-family:var(--sans);font-size:.92em;background:var(--lav);color:var(--lav-ink);border-radius:8px;padding:1px 8px;white-space:nowrap;font-weight:700;}
+  kbd.y{background:var(--yel);color:var(--yel-ink);}
+  kbd.p{background:var(--pnk);color:var(--pnk-ink);}
+  kbd.s{background:var(--sky);color:var(--sky-ink);}
+  /* 링크 카드 */
+  .links{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 0;}
+  .links a{display:block;background:var(--soft);border-radius:12px;padding:12px 14px;text-decoration:none;color:var(--ink);}
+  .links a b{display:block;font-family:var(--serif);color:var(--accent);margin-bottom:2px;}
+  .links a span{font-size:13px;color:var(--ink-soft);display:block;}
+  /* 전자칠판 미니 그림 */
+  .board{background:var(--cream);border-radius:16px;padding:18px 20px;margin:14px 0 6px;display:grid;grid-template-columns:2fr 1fr;gap:12px;}
+  .board .call{text-align:center;padding:8px 0;}
+  .board .call small{display:block;font-size:12px;color:var(--ink-soft);}
+  .board .call .nm{font-family:var(--disp);font-size:52px;line-height:1.05;color:var(--ink);}
+  .board .next{display:flex;gap:6px;margin-top:10px;}
+  .board .next span{flex:1;background:var(--soft);border-radius:8px;padding:6px 8px;font-family:var(--disp);font-size:18px;text-align:center;color:var(--ink);}
+  .board .next span:first-child{background:var(--yel);}
+  .board .side{background:var(--surface);border-radius:12px;padding:10px 12px;font-size:13px;}
+  .board .side b{display:block;font-family:var(--serif);margin-bottom:6px;}
+  .board .side div{display:flex;justify-content:space-between;align-items:center;background:var(--soft);border-radius:8px;padding:5px 8px;margin-bottom:5px;font-family:var(--disp);font-size:15px;}
+  .board .side div kbd{font-size:11px;font-weight:400;}
+  .cap{font-size:13px;color:var(--ink-mute);margin:0 0 14px;}
+  /* 세 가지 길 */
+  .ways{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:6px 0 14px;}
+  .ways div{background:var(--soft);border-radius:14px;padding:14px 16px;font-size:14.5px;}
+  .ways b{display:block;font-family:var(--serif);font-size:15.5px;margin-bottom:6px;color:var(--ink);}
+  .ways .tag{display:inline-block;font-size:12px;border-radius:999px;padding:1px 9px;margin-bottom:8px;}
+  .ways .t1{background:var(--sky);color:var(--sky-ink);} .ways .t2{background:var(--pnk);color:var(--pnk-ink);} .ways .t3{background:var(--yel);color:var(--yel-ink);}
+  /* 버튼 표 */
+  table{width:100%;border-collapse:collapse;font-size:15px;margin:6px 0 4px;}
+  th,td{text-align:left;vertical-align:top;padding:9px 6px;border-bottom:1px solid var(--line);}
+  th{font-family:var(--serif);font-weight:700;color:var(--ink-soft);font-size:13.5px;letter-spacing:.04em;}
+  td:first-child{white-space:nowrap;width:38%;}
+  tr:last-child td{border-bottom:0;}
+  .tbl{overflow-x:auto;}
+  /* 주의 */
+  .note{background:var(--soft);border-radius:14px;padding:14px 18px;font-size:15px;}
+  .note b{font-family:var(--serif);}
+  .foot{margin-top:26px;font-size:13.5px;color:var(--ink-mute);text-align:center;font-family:var(--serif);}
+  @media (max-width:640px){
+    body{font-size:15.5px;}
+    .head h1{font-size:36px;}
+    .steps,.links,.ways,.board{grid-template-columns:1fr;}
+    section{padding:20px 18px;border-radius:16px;}
+    td:first-child{width:auto;white-space:normal;}
+  }
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important;animation:none !important;} }
+  body{word-break:keep-all;}
+  /* 수업 기록 창 미니 그림 */
+  .mock{background:var(--soft);border-radius:16px;padding:14px 16px;margin:12px 0 6px;display:grid;gap:8px;font-size:14px;}
+  .mock .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .mock .row b{font-family:var(--disp);font-weight:400;font-size:18px;}
+  .chip{font-size:12px;border-radius:6px;padding:1px 8px;background:var(--sky);color:var(--sky-ink);}
+  .chip.l{background:var(--yel);color:var(--yel-ink);} .chip.a{background:var(--pnk);color:var(--pnk-ink);}
+  .st{letter-spacing:1px;color:#D5DCD8;} .st i{font-style:normal;color:#E1B64A;}
+  .mock .lb{width:70px;font-size:13px;color:var(--ink-soft);}
+  .mock .in{flex:1;background:var(--surface);border-radius:8px;padding:4px 10px;color:var(--ink-mute);font-size:13px;min-width:140px;}
+  .sheet{background:var(--surface);border-radius:16px;padding:14px 16px;margin:12px 0 6px;display:grid;gap:8px;font-size:14px;border:1px solid var(--line);}
+  .sheet .t{font-family:var(--disp);font-size:18px;color:var(--lav-ink);}
+  .sheet .two{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .sheet .two div{background:var(--soft);border-radius:10px;padding:7px 10px;font-size:13px;}
+  .sheet h4{margin:4px 0 0;font-family:var(--serif);color:var(--accent);font-size:15px;}
+  .sheet p{margin:0;}
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="head">
+    <p class="eyebrow">이수경국어 · 티쳐스 페이지 안내</p>
+    <h1>슈퍼스타 주간 리포트, 이렇게 씁니다</h1>
+    <p>수업이 끝나면 오늘의 시간표에서 그 반의 진도·과제와 학생별 숙제 검사·코멘트를 적어 주세요. 한 주의 기록이 모이면 학생마다 <b>주간 리포트 한 장</b>으로 정리돼 학생 페이지에 올라가고, 학생과 학부모님이 같은 링크로 봅니다.</p>
+  </div>
+
+  <div class="steps">
+    <div><div class="n">1</div><b>수업 기록 열기</b><span>오늘의 시간표에서 반 카드의 <kbd>수업 기록</kbd>을 누르면 왼쪽에 창이 열려요.</span></div>
+    <div><div class="n">2</div><b>적고, 숙제 검사</b><span>진도·과제를 적고 학생마다 별점·코멘트를 남겨요. 별은 누르는 즉시 저장돼요.</span></div>
+    <div><div class="n">3</div><b>리포트 생성</b><span>출석 체크를 마친 뒤 <kbd>리포트 생성</kbd>. 몇 분 뒤 학생 페이지에 올라가요.</span></div>
+  </div>
+
+  <section>
+    <h2>어디서 여나요</h2>
+    <p class="lead">티쳐스 페이지 → 슈국 스케쥴 → <b>오늘</b> 탭 → 반 카드 안 <kbd>전체 출석</kbd> · <kbd>수업 기록</kbd> · <kbd>숙제 검사</kbd> 줄.</p>
+    <div class="links">
+      <a href="https://coke4497-sys.github.io/shueguk-report/timetable.html" target="_blank" rel="noopener"><b>슈국 스케쥴</b><span>오늘의 시간표에서 수업 기록</span></a>
+      <a href="https://coke4497-sys.github.io/shueguk-report/naeshin.html" target="_blank" rel="noopener"><b>내신대비 피드백</b><span>시험범위·단원 진도를 함께 봐요</span></a>
+      <a href="https://coke4497-sys.github.io/shueguk-report/hwcheck.html" target="_blank" rel="noopener"><b>숙제 검사</b><span>지난 주차·미제출 대책 목록</span></a>
+    </div>
+    <p style="margin-top:14px">카드 버튼 이름이 기록 상태를 알려 줘요 — <kbd>수업 기록</kbd>(아직 없음) → <kbd>기록함</kbd>(저장함) → <kbd>리포트 작성 중</kbd> → <kbd>리포트 공개</kbd>.</p>
+  </section>
+
+  <section>
+    <h2>수업마다 적는 것</h2>
+    <p class="lead">창 맨 위에 어떤 수업인지 표시돼요. 그 주의 기간(정규·내신)은 슈국 캘린더를 따라 자동으로 정해집니다.</p>
+    <div class="tbl"><table>
+      <tr><th>수업</th><th>적는 것</th></tr>
+      <tr><td><kbd>가 수업</kbd> · <kbd>나 수업</kbd><br><small>정규 주간</small></td><td>오늘 진도, 다음 시간까지 과제(한 줄에 하나), 학생별 숙제 검사·코멘트.</td></tr>
+      <tr><td><kbd class="y">진도 수업</kbd><br><small>내신 주간</small></td><td>시험범위에서 오늘 나간 단원 고르기, 메모, 과제. 숙제 검사 칸도 있지만 <b>기록할 것이 없으면 비워 두셔도 돼요.</b></td></tr>
+      <tr><td><kbd class="p">확인 수업</kbd><br><small>내신 주간</small></td><td>학생별 <b>과제 검사</b>(별점·미제출)와 코멘트가 중심이에요. 확인 수업 내용은 적고 싶을 때만.</td></tr>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>학생별 숙제 검사와 코멘트</h2>
+    <div class="mock" aria-hidden="true">
+      <div class="row"><b>박보검</b><span class="chip">출석</span><span style="margin-left:auto;font-size:13px">83%</span></div>
+      <div class="row"><span class="lb">숙제 수행</span><span class="st"><i>★★★★★★</i></span></div>
+      <div class="row"><span class="lb">오답 처리</span><span class="st"><i>★★★★</i>★★</span></div>
+      <div class="row"><kbd class="p">미제출</kbd><span class="in">코멘트 (선택) — 리포트에 쓰여요</span></div>
+    </div>
+    <ul>
+      <li><b>별을 누르면 바로 저장돼요.</b> 같은 별을 한 번 더 누르면 하나 줄어요. 카드 오른쪽에 '저장됨'이 뜨면 끝이에요.</li>
+      <li><kbd class="p">미제출</kbd>을 누르면 <b>대책 칸</b>이 열려요(예: 9/30 수 5:30 재검사 약속). 선생님만 볼 메모는 <b>[더 보기]</b>의 비공개 메모에 적어요.</li>
+      <li>숙제 검사는 <b>한 주에 학생당 하나</b>예요. 가 수업에서 매긴 별점이 같은 주 나 수업 창에도 그대로 보여요. 숙제 검사 페이지와 같은 기록이라 <b>100%면 슈퍼스타 별</b>도 그대로 쌓입니다.</li>
+      <li>월·화 수업(직전보강)에서 한 숙제 검사는 숙제 검사 페이지와 같은 규칙으로 <b>지난주 기록</b>에 들어가요.</li>
+      <li><b>코멘트는 학부모님이 읽는 리포트에 문장으로 다듬어져 들어가요.</b> 칭찬·보완할 점을 사실대로 짧게 적어 주세요. 선생님이 적지 않은 내용은 리포트에 만들어 넣지 않아요.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>내신 진도 수업 — 시험범위는 담당 선생님이</h2>
+    <ol>
+      <li>처음 여는 반이면 <b>시험범위</b> 칸이 펼쳐져 있어요. 교과서, 교과서 안 범위(한 줄에 한 단원), 교과서 밖 범위를 적고 <kbd>시험범위 저장</kbd>.</li>
+      <li><b>같은 학교·학년 반(화정A·B·C 등)은 한 번만</b> 입력하면 함께 보여요. 정리정독·고3파이널처럼 학교가 섞인 반은 반마다 적어요.</li>
+      <li>그 아래 <b>오늘 진도</b>에서 단원을 골라요. 고른 단원은 칩으로 들어가고, 하다 만 단원은 다음 주에 다시 고르면 기간이 이어져요.</li>
+      <li>시험 기간 알약(<kbd>26-2-중간</kbd> · <kbd>26-2-기말</kbd>)은 날짜로 자동 선택돼요. 다를 때만 바꿔 주세요.</li>
+    </ol>
+    <p>여기 적은 시험범위·진도·메모·과제는 <b>내신대비 피드백 페이지와 같은 기록</b>이라, 어느 쪽에서 고쳐도 서로 보여요.</p>
+  </section>
+
+  <section>
+    <h2>리포트 생성</h2>
+    <ol>
+      <li><b>출석 체크를 먼저 끝내 주세요.</b> 출석을 체크하지 않은 학생은 리포트에서 빠져요(누르면 한 번 알려 줘요).</li>
+      <li><kbd>리포트 생성</kbd>을 누르면 적은 내용이 저장되고 작성 요청이 가요. 버튼이 <kbd>리포트 작성 중</kbd>으로 바뀌고, 보통 몇 분 뒤 <kbd>리포트 공개</kbd>가 돼요.</li>
+      <li>주간 리포트는 <b>그 주의 수업을 모두 모아</b> 다시 써요. 첫 수업 뒤에 누르면 둘째 수업 칸은 '기록 전'으로 보이고, <b>둘째 수업 뒤에 다시 누르면 완성</b>돼요.</li>
+      <li>내용을 고친 뒤 다시 누르면 새로 씁니다. 그냥 기록만 남기고 싶을 때는 <kbd>저장</kbd>.</li>
+    </ol>
+    <div class="sheet" aria-hidden="true">
+      <div class="t">슈퍼스타 주간 리포트</div>
+      <div class="two"><div>가 수업 · 9/23 (수) <span class="chip">출석</span></div><div>나 수업 · 9/26 (토) <span class="chip l">지각</span></div></div>
+      <h4>가 수업</h4><p>고전 시가 「사미인곡」의 표현상 특징을 정리했습니다.</p>
+      <h4>숙제 검사</h4><p>지난 과제를 모두 제출했고 완성도가 높았습니다.</p>
+      <h4>선생님 코멘트</h4><p>화자의 정서 변화를 정확히 짚어 냈습니다.</p>
+    </div>
+    <p class="cap">학생 페이지 '주간 리포트' 카드에서 이렇게 보여요(예시). 정규 주간은 가·나 수업, 내신 주간은 진도·확인 수업으로 나뉘어요.</p>
+  </section>
+
+  <section>
+    <h2>알아 두세요</h2>
+    <div class="note">
+      <p><b>리포트는 수업 기록만으로 써요.</b> 진도·과제·코멘트를 적지 않으면 그 칸은 비어서 올라가요.</p>
+      <p><b>공개까지 시간이 걸릴 수 있어요.</b> 학원 운영 시간(수목금 오후 4시~밤 10시, 토일 오전 10시~밤 10시)에는 보통 몇 분, 그 밖에는 다음 확인 때 올라가요.</p>
+      <p><b>숙제 검사 페이지와 내신대비 피드백 페이지는 그대로 있어요.</b> 지난 주차를 넘겨 보거나 미제출 대책 목록을 볼 때 쓰세요.</p>
+      <p>리포트 문장이 어색하거나 고치고 싶은 점은 시간표 페이지의 <b>[수정 요청]</b>에 남겨 주세요.</p>
+    </div>
+  </section>
+
+  <p class="foot"><a href="index.html">티쳐스 페이지로 돌아가기</a> · 이수경국어 · 2026년 9월</p>
+</div>
+
+</body>
+</html>
