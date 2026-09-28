@@ -142,6 +142,39 @@
   details .in{padding:0 22px 20px;}
   .more-h{font-family:var(--serif);font-size:15px;color:var(--ink-soft);margin:26px 4px 10px;}
   @media (max-width:640px){ .three{grid-template-columns:1fr;} .todo{padding:4px 18px;} .todo .it{grid-template-columns:44px 1fr;gap:12px;} .todo .num{width:38px;height:38px;font-size:21px;} }
+
+  /* 결과 미리보기 — 학생 페이지 주간 리포트(s.html .crp-*)와 같은 모양 */
+  .result{display:grid;grid-template-columns:1fr 330px;gap:22px;align-items:start;}
+  .result > div:first-child{padding-top:8px;}
+  .result h2{margin-bottom:8px;}
+  .result .say{font-family:var(--disp);font-size:30px;line-height:1.3;color:var(--ink);margin:0 0 14px;text-wrap:balance;}
+  .result .say b{color:var(--accent);}
+  .phone{background:#DCE6E2;border-radius:28px;padding:14px;box-shadow:0 8px 28px rgba(42,51,47,.12);}
+  .rp{background:#fff;color:#2A332F;border-radius:18px;padding:16px 16px 14px;display:flex;flex-direction:column;gap:11px;font-size:14px;}
+  .rp-wk{text-align:center;font-family:var(--serif);font-weight:700;font-size:14px;color:#2A332F;margin:0 0 2px;}
+  .rp-wk small{display:block;font-family:var(--sans);font-weight:400;font-size:11.5px;color:#65726B;}
+  .rp-brand{font-family:var(--disp);font-size:17px;color:#5A4A6A;margin:0;}
+  .rp-who{font-family:var(--disp);font-size:22px;line-height:1.2;margin:0;}
+  .rp-who small{display:block;font-family:var(--sans);font-size:12px;color:#65726B;}
+  .rp-att{display:grid;grid-template-columns:1fr 1fr;gap:7px;}
+  .rp-att div{background:#F2F5F3;border-radius:10px;padding:6px 9px;font-size:12px;}
+  .rp-att .k{display:block;font-size:11px;color:#65726B;}
+  .rp-at{float:right;font-size:11px;border-radius:6px;padding:0 7px;background:#DCE8E5;color:#3F6159;}
+  .rp-at.late{background:#F9EFD0;color:#7A6230;}
+  .rp-part{border-top:1px solid #E5EDE8;padding-top:9px;display:flex;flex-direction:column;gap:6px;}
+  .rp-part h4{margin:0;font-family:var(--serif);font-size:14.5px;color:#4C6E66;}
+  .rp-part h4 span{font-family:var(--sans);font-weight:400;font-size:11.5px;color:#65726B;margin-left:6px;}
+  .rp-part p{margin:0;font-size:13px;line-height:1.7;}
+  .rp-k{font-size:11px;color:#65726B;display:block;}
+  .rp-part ul{margin:0;padding-left:17px;font-size:13px;line-height:1.6;}
+  .rp-hw{background:#F2F5F3;border-radius:10px;padding:8px 10px;display:grid;gap:5px;font-size:12px;color:#65726B;}
+  .rp-row{display:grid;grid-template-columns:58px 1fr auto;gap:7px;align-items:center;}
+  .rp-row b{color:#2A332F;font-weight:400;}
+  .rp-tr{height:6px;border-radius:6px;background:#fff;overflow:hidden;} .rp-tr i{display:block;height:100%;background:#B9A5CC;border-radius:6px;}
+  .rp-tot{display:flex;justify-content:space-between;font-size:12.5px;color:#2A332F;}
+  .rp-an{font-size:12px;color:#7A6230;background:#FBF6E6;border-radius:8px;padding:5px 9px;}
+  .rp-foot{font-size:11px;color:#65726B;margin:0;border-top:1px solid #E5EDE8;padding-top:8px;}
+  @media (max-width:760px){ .result{grid-template-columns:1fr;} .phone{max-width:360px;margin:0 auto;} }
 </style>
 </head>
 <body>
@@ -167,6 +200,45 @@
       <p>창 아래 버튼을 누르면 끝입니다. 몇 분 뒤 학생·학부모님이 보는 주간 리포트로 올라가요.</p>
     </div></div>
   </div>
+
+
+  <section class="result">
+    <div>
+      <h2>이것만 해 주시면</h2>
+      <p class="say">이렇게 <b>근사한 슈퍼스타 주간 리포트</b>를 만들어 학생 개별 페이지에 올려 드립니다.</p>
+      <p>선생님이 적은 진도·과제·코멘트와 출석, 숙제 검사 결과를 모아 학생마다 한 주에 한 장으로 정리해요. 학생과 학부모님이 같은 링크로 봅니다.</p>
+      <p class="cap">오른쪽은 학생 페이지 '주간 리포트'에 실제로 보이는 모양입니다(예시 학생).</p>
+    </div>
+    <div class="phone" aria-hidden="true"><div class="rp">
+      <p class="rp-wk">9/21 ~ 9/27 주<small>정규 주간</small></p>
+      <p class="rp-brand">슈퍼스타 주간 리포트</p>
+      <p class="rp-who">박보검<small>화정고 2학년</small></p>
+      <div class="rp-att">
+        <div><span class="k">가 수업 · 9/23 (수) 5:30</span>고2 가 <span class="rp-at">출석</span></div>
+        <div><span class="k">나 수업 · 9/26 (토) 2:00</span>고2 나 <span class="rp-at late">지각</span></div>
+      </div>
+      <div class="rp-part">
+        <h4>가 수업<span>9/23 (수) · 지원T</span></h4>
+        <div><span class="rp-k">수업 내용</span><p>고전 시가 「사미인곡」의 표현상 특징을 정리하고 갈래 복합 지문 두 개를 풀었습니다.</p></div>
+        <div><span class="rp-k">다음 수업까지 과제</span><ul><li>「속미인곡」 비교 학습지 1장</li></ul></div>
+        <div class="rp-hw">
+          <div class="rp-row"><span>숙제 수행</span><span class="rp-tr"><i style="width:100%"></i></span><b>6 / 6</b></div>
+          <div class="rp-row"><span>오답 처리</span><span class="rp-tr"><i style="width:100%"></i></span><b>6 / 6</b></div>
+          <div class="rp-tot"><span>이 수업 숙제 검사</span><b>100% 🏆</b></div>
+        </div>
+      </div>
+      <div class="rp-part">
+        <h4>나 수업<span>9/26 (토) · 현지T</span></h4>
+        <p class="rp-an">10분 늦게 도착했습니다.</p>
+        <div><span class="rp-k">수업 내용</span><p>현대시 「그 날이 오면」의 화자와 정서를 분석했습니다.</p></div>
+      </div>
+      <div class="rp-part">
+        <h4>선생님 코멘트</h4>
+        <p>화자의 정서 변화를 정확히 짚어 냈습니다. 다음 주에는 서술형 답안을 한 문장 더 구체적으로 써 보세요. <span style="color:#65726B;font-size:11.5px">— 지원T</span></p>
+      </div>
+      <p class="rp-foot">담당 선생님의 수업 기록과 출석·숙제 검사를 바탕으로 작성했습니다.</p>
+    </div></div>
+  </section>
 
   <section>
     <h2>수업에 따라 적는 칸이 조금 달라요</h2>
@@ -220,17 +292,9 @@
   </details>
 
   <details>
-    <summary>버튼 이름이 바뀌는 이유 · 리포트 예시</summary>
+    <summary>버튼 이름이 바뀌는 이유 · 공개 시간</summary>
     <div class="in">
       <p>반 카드 버튼이 상태를 알려 줍니다 — <kbd>수업 기록</kbd>(아직 없음) → <kbd>기록함</kbd> → <kbd>리포트 작성 중</kbd> → <kbd>리포트 공개</kbd>.</p>
-      <div class="sheet" aria-hidden="true">
-        <div class="t">슈퍼스타 주간 리포트</div>
-        <div class="two"><div>가 수업 · 9/23 (수) <span class="chip">출석</span></div><div>나 수업 · 9/26 (토) <span class="chip l">지각</span></div></div>
-        <h4>가 수업</h4><p>고전 시가 「사미인곡」의 표현상 특징을 정리했습니다.</p>
-        <p>숙제 검사 100% — 지난 과제를 모두 제출했고 완성도가 높았습니다.</p>
-        <h4>선생님 코멘트</h4><p>화자의 정서 변화를 정확히 짚어 냈습니다.</p>
-      </div>
-      <p class="cap">학생 페이지 '주간 리포트'에서 이렇게 보입니다(예시).</p>
       <p>학원 운영 시간에는 보통 몇 분 안에 공개되고, 그 밖에는 다음 확인 때 올라가요. 문장이 어색하면 시간표 페이지의 <b>[수정 요청]</b>에 남겨 주십시오.</p>
     </div>
   </details>
