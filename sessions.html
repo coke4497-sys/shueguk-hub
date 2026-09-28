@@ -18,6 +18,15 @@
      · 짝이 없는 '이 주만 빼기'도 **사유가 직보·대체·당겨서·이동이면 그 수업을 한 것으로 센다**(사용자 2026-09-20 "10/3, 4주차는 9/29 직전보강으로
        3시간 대체했잖아요" — 직전보강이 그 주 수업을 대신한 것). 사유의 'M/D'나 요일('화 1:00')로 진행일을 붙이고, 없으면 '(대체)'로만.
        연휴·휴강·빈 사유 등은 수업 없음으로 보고 참고 열에 적는다(REPL_RE / NOREPL_RE).
+     · **사유에 진행 날짜만 적은 '이 주만 빼기'도 그 수업을 한 것으로 센다**(사용자 2026-09-28 "10/8 목 수업은 집계가 안되었어요" — 고1 김동하 10/8 확인):
+       10월 확인 수업을 9월에 미리 한 기록이 7묶음인데 '당겨서 진행'·'이동'이라 적은 5묶음만 들어가고, **날짜·시간만 적은 2묶음**
+       ('9/12(토) 11:45~12:30, 9/19(토) 11:45~12:30' 9명 · '9/16(수) 4:45~5:30, 9/23(수) 4:45~5:30' 8명, 전부 고1)이 빠져 있었다.
+       `didElsewhere(reason)` = REPL_RE **또는 날짜(M/D)**가 있고 NOREPL_RE가 없으면 한 것으로 본다 — '반 이동 예약 — 9/9 주부터 새 반'처럼
+       날짜가 있어도 수업을 안 한 것은 '예약'·'부터'가 그대로 걸러 낸다(실데이터에서 새로 들어오는 사유는 위 2묶음뿐임을 확인).
+       `runsFromReason`이 **날짜마다 바로 뒤 시각을 짝지어** 진행일을 여럿 만들고(첫 날짜만 보는 heldFromReason과 별개), `claimExtras`가
+       **진행일마다 한 건씩** 그 달 조각 세션을 가져온다 — 한 건만 가져오면 나머지 조각이 그 달에 그대로 남아 두 번 세어진다.
+       45분 × 2 = 확인 수업 한 번이므로 **9월 조각 2회가 10월 1회로 합쳐진다**. 실데이터: 9월 내신 2,303 → 2,286(9명 −2회씩, 청구 −531,250),
+       10월 내신 1,330 → 1,339(9명 +1회씩, +281,250), 11월 변화 없음. 나머지 8명은 이미 다른 경로로 세어지고 있어 변화 없다.
      · **직보 주에는 그 주 수업을 직보로 몰아서 한다**(사용자 2026-09-22 "월요일에 직보를 3시간 한 주간에는 그 주의 수업을 그것으로 대체해서 수업에 오지 않습니다"):
        직보를 [이 주만 시간 옮기기]로 만들면 원래 수업이 그 날 숨어 1:1로 맞는다(10월 직보 22개 중 20개). 그런데 **[이 주만 반 추가]로 새 반을 만들고 학생을 넣은 경우**
        (10/12 고1 화정B·화정D 15명)에는 원래 수업(고1 가·고1 나)이 그대로 남아 직보가 **덧붙어** 세어졌다 — 3시간 직보가 그 주 90분 수업 두 개를 대신한 것인데 3회로.
@@ -363,6 +372,11 @@ var CORE = (function(){
   var STUDENT_KINDS = { '1회':1, '주간추가':1, '주간빼기':1 };
   /* 짝 없는 '이 주만 빼기' 사유 판정 — 직보·대체·당겨서·이동은 '그 수업을 다른 날 한 것', 연휴·휴강·예약은 '수업 없음' */
   var REPL_RE = /직보|직전|대체|당겨|앞당|이동/, NOREPL_RE = /연휴|휴강|휴무|예약|완전\s*이동|부터|결석|충돌/;
+  /* 사유에 날짜만 적어 둔 경우('9/12(토) 11:45~12:30, 9/19(토) 11:45~12:30')도 그 날 한 것으로 본다 — 사용자 2026-09-28 "10/8 목 수업은 집계가 안되었어요".
+   * 같은 시기 확인 수업을 미리 한 기록 7묶음 중 5묶음만 '당겨서 진행'이라 적혀 집계에 들어가고, 날짜만 적은 2묶음(17명)이 빠져 있었다.
+   * '반 이동 예약 — 9/9 주부터 새 반'처럼 날짜가 있어도 수업을 안 한 것은 NOREPL_RE('예약'·'부터')가 걸러 낸다. */
+  var DATE_RE = /\d{1,2}\/\d{1,2}(?![\d\/])/;
+  function didElsewhere(reason){ var r = String(reason || ''); return (REPL_RE.test(r) || DATE_RE.test(r)) && !NOREPL_RE.test(r); }
   var WDK = { '월':0, '화':1, '수':2, '목':3, '금':4, '토':5, '일':6 };
   /* 사유에서 진행일 찾기: 'M/D' 우선, 없으면 요일('화 1:00'·'목요일에')을 원래 날짜와 같은 주(월~일)에서 */
   function heldFromReason(reason, origYmd){
@@ -372,6 +386,17 @@ var CORE = (function(){
     var w = /(?:^|[^가-힣])([월화수목금토일])(?:요일|\s*\d{1,2}(?::\d{2}|시))/.exec(r);
     if (w){ var wed = weekWed(o); return ymd(addDays(wed, WDK[w[1]] - 2)); }
     return '';
+  }
+  /* 사유에 적힌 진행 날짜·시각 목록 — '9/12(토) 11:45~12:30, 9/19(토) 11:45~12:30' → 두 건, '9/10(목), 9/17(목)으로 이동' → 시각 없이 두 건.
+   * 한 수업을 여러 번에 나눠 미리 한 경우를 각각 기록하려고(사용자 2026-09-20 "실행 시간을 각각 기록") 첫 날짜만 보는 heldFromReason과 따로 둔다. */
+  function runsFromReason(reason, origYmd){
+    var r = String(reason || ''), out = [], re = /(\d{1,2})\/(\d{1,2})(?![\d\/])(?:[^\d\n]{0,4}(\d{1,2}:\d{2}))?/g, m;
+    while ((m = re.exec(r))){
+      var d = heldFromReason(m[1] + '/' + m[2], origYmd);
+      if (!d || out.some(function(x){ return x.date === d; })) continue;
+      out.push({ date: d, when: m[3] ? wdOf(parse(d)) + m[3] : '' });
+    }
+    return out;
   }
   /* 사유의 시각('목 7:00'·'4:15 수업 시작') → 'H:MM' (같은 날 다른 시간에 대체한 수업의 진행 시간 표기용) */
   function timeFromReason(reason){ var m = /(\d{1,2}:\d{2})/.exec(String(reason || '')); return m ? m[1] : ''; }
@@ -526,6 +551,7 @@ var CORE = (function(){
       o = o || {};
       var s = sess[n] = sess[n] || {}, runs = [];
       if (o.held && (o.held !== ds || o.heldWhen)) runs.push({ date: o.held, when: o.heldWhen || '' });
+      (o.runs || []).forEach(function(r){ if (r.date && !runs.some(function(x){ return x.date === r.date; })) runs.push({ date: r.date, when: r.when || '' }); });
       var it = { key: ds + '|' + c.id, date: ds, cls: c.name, when: c.day + c.start, kind: kind, book: book, nonsul: isNonsul(c.name),
                  runs: runs, alt: o.alt || '', extra: !!o.extra, reason: o.reason || '', mvDates: o.mvDates || [], jbRun: false };
       syncHeld(it);
@@ -607,9 +633,10 @@ var CORE = (function(){
         (wdel[hkey] || []).forEach(function(x){
           var n = canon(x.name), i = names.indexOf(n);
           if (i < 0) return;
-          if (REPL_RE.test(x.reason) && !NOREPL_RE.test(x.reason)){   // 직보·대체 등으로 다른 날 한 수업 — 이 날짜로 센다
+          if (didElsewhere(x.reason)){   // 직보·대체·당겨서 하거나 사유에 진행 날짜만 적은 수업 — 이 날짜로 센다
             var ah = heldFromReason(x.reason, ds), at = timeFromReason(x.reason);
-            altOf[n] = { reason: x.reason, held: ah, heldWhen: ah && at ? wdOf(parse(ah)) + at : '' };   // 같은 날 다른 시간('목 7:00')이면 시간만 기록
+            altOf[n] = { reason: x.reason, held: ah, heldWhen: ah && at ? wdOf(parse(ah)) + at : '',
+                         runs: runsFromReason(x.reason, ds) };   // 나눠 했으면 진행일마다 한 줄
             return;
           }
           names.splice(i, 1); note(n, '빠짐', { reason: x.reason });
@@ -620,7 +647,7 @@ var CORE = (function(){
         var wkExtra = !!(c.wk && !copyOf[c.id]);   // '이 주만' 반(직보·보충·새 반)은 명단 밖 추가 세션
         names.forEach(function(n){
           var m = mvOf[n], al = altOf[n];
-          if (al) addSess(n, c, ds, book, hc.kind, { held: al.held, heldWhen: al.heldWhen, alt: al.reason });
+          if (al) addSess(n, c, ds, book, hc.kind, { held: al.held, heldWhen: al.heldWhen, alt: al.reason, runs: al.runs });
           else if (m) addSess(n, c, ds, book, hc.kind, { held: m.held, heldWhen: m.heldWhen });
           else addSess(n, c, ds, book, hc.kind, { held: held !== ds ? held : '', heldWhen: held !== ds ? hc.day + hc.start : '', mvDates: mvDates,
                                                    extra: wkExtra || viaAdd[n] != null, reason: (c.wk && copyReason[c.id]) || (viaAdd[n] != null ? viaAdd[n] : '') });
@@ -632,6 +659,20 @@ var CORE = (function(){
     function claimExtras(items){
       var extras = items.filter(function(it){ return it.extra && !it.held && !it.alt; }), used = {};
       items.filter(function(it){ return it.alt; }).sort(function(a, b){ return a.date < b.date ? -1 : 1; }).forEach(function(al){
+        /* 사유가 진행일을 여럿 적었으면(나눠 한 수업) 그 날짜마다 한 건씩 가져온다 — 한 건만 가져오면 나머지 조각이 그 달에 그대로 남아 두 번 세어진다 */
+        var named = (al.runs || []).filter(function(r){ return r.date !== al.date; });
+        if (named.length > 1){
+          named.forEach(function(r){
+            var c = extras.filter(function(e){ return !used[e.key] && e.date === r.date; });
+            if (!c.length) return;
+            c.sort(function(a, b){
+              var wa = r.when && a.when === r.when ? 0 : 1, wb = r.when && b.when === r.when ? 0 : 1;
+              return wa !== wb ? wa - wb : (a.kind === '직보' ? 0 : 1) - (b.kind === '직보' ? 0 : 1);
+            });
+            used[c[0].key] = 1; addRun(al, c[0].date, c[0].when);
+          });
+          return;
+        }
         var cands = extras.filter(function(e){
           if (used[e.key]) return false;
           if (al.held) return e.date === al.held;
@@ -829,7 +870,7 @@ var CORE = (function(){
             + (it.jbRun && rs.length === 1 ? '에 직보로 진행' : rs.length > 1 ? '에 나눠 진행' : same ? '에 대체 진행' : (rs[0].date < it.date ? '에 앞당겨 진행' : '에 미뤄 진행'));
     return txt + (it.alt ? ' — ' + it.alt : '');
   }
-  return { RULE: RULE, RATES: RATES, ALL_REGULAR: ALL_REGULAR, GRADE_BOOK: GRADE_BOOK, bookOf: bookOf, threshold: threshold, windows: windows, build: build, isNonsul: isNonsul, dlabel: dlabel, runNote: runNote, heldFromReason: heldFromReason, datesInReason: datesInReason, partMark: partMark, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
+  return { RULE: RULE, RATES: RATES, ALL_REGULAR: ALL_REGULAR, GRADE_BOOK: GRADE_BOOK, bookOf: bookOf, threshold: threshold, windows: windows, build: build, isNonsul: isNonsul, dlabel: dlabel, runNote: runNote, heldFromReason: heldFromReason, datesInReason: datesInReason, didElsewhere: didElsewhere, runsFromReason: runsFromReason, partMark: partMark, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
 })();
 /* ==/SESSIONS-CORE== */
 </script>
@@ -977,7 +1018,7 @@ var CORE = (function(){
   function noteHtml(){
     return '<p class="note">주마다 슈국 캘린더의 정규/내신 기간에 맞는 시간표로 셉니다(미지정 주는 정규 — 그 주 수업은 정규 회차에 들어가요). '
       + '이 주만 휴강·이동·보충·추가/빼기·1회 이동·직전보강을 반영했고, 확인 수업·직전보강도 한 회로 셉니다. <b>중3·고3은 내내 정규 수업</b>이라 전부 정규 회차로 적고, <b>논술 수업은 별도</b>로 세어 합계·강조에 넣지 않습니다. '
-      + '옮긴 수업(반 전체 이동·다른 주로 옮기기·1회 이동)은 <b>원래 수업 날짜의 달</b>로 셉니다(10/10 수업을 9/19에 당겨 했으면 10월 — 날짜 옆에 \'9/19 진행\'으로 표시). \'이 주만 빼기\'는 사유가 직보·대체·당겨서·이동이면 그 수업을 한 것으로 세고(\'(대체)\' 표시), 연휴·휴강이면 세지 않고 참고에 적습니다. <b>직보를 한 주는 그 주 수업을 직보로 몰아서 한 것</b>으로 보고 직보를 따로 세지 않으며, 그 수업은 정규 주라도 <b>내신</b>으로 셉니다. 이름을 누르면 날짜별 내역이 펼쳐집니다.</p>'
+      + '옮긴 수업(반 전체 이동·다른 주로 옮기기·1회 이동)은 <b>원래 수업 날짜의 달</b>로 셉니다(10/10 수업을 9/19에 당겨 했으면 10월 — 날짜 옆에 \'9/19 진행\'으로 표시). \'이 주만 빼기\'는 사유가 직보·대체·당겨서·이동이거나 <b>진행 날짜가 적혀 있으면</b> 그 수업을 한 것으로 세고(\'(대체)\' 표시, 나눠 했으면 진행일을 각각 적습니다), 연휴·휴강이면 세지 않고 참고에 적습니다. <b>직보를 한 주는 그 주 수업을 직보로 몰아서 한 것</b>으로 보고 직보를 따로 세지 않으며, 그 수업은 정규 주라도 <b>내신</b>으로 셉니다. 이름을 누르면 날짜별 내역이 펼쳐집니다.</p>'
       + '<b>청구 금액</b>은 정규 회차 × 정규 단가 + 내신 회차 × 내신 단가입니다(단가는 위 줄). 논술과 단가가 없는 학년은 금액에서 뺐어요. '
       + '<b>2026년 10월 중2는 내신 주에도 전부 정규 수업</b>으로 셉니다 — 내신 반을 그 달 내내 휴강하고 정리정독 정규 수업으로 대체했기 때문이에요(사용자 확인). '
       + '이런 달이 또 있으면 알려 주세요. '
