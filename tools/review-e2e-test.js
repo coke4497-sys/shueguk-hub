@@ -343,6 +343,21 @@ function applyFilter(rows, url){
   ok(TGTS.some(t => t.video_id === V2 && t.code === 'tok-park' && t.class_name === '개인'), '취소했던 학생을 다시 더함');
   ok(!VIDS[0].classes.some(c => c.type === 'exclude' && c.code === 'tok-park') && VIDS[0].classes.some(c => c.type === 'student' && c.code === 'tok-park'), '다시 더하면 취소 표시 지움 + 개인 명세 추가');
   ok((await tp.textContent('#addTitle')) === '영상 배정하기' && await tp.isVisible('#baseFields'), '더한 뒤 배정 카드 원래대로');
+  // ── 휴대폰 화면: 카드 세로 쌓기 · 학생별 결과는 두 줄 목록 ──
+  await tp.setViewportSize({ width: 390, height: 900 });
+  await tp.waitForTimeout(200);
+  if (!(await tp.isVisible('.vid .res'))) await tp.click('.vid >> text=학생별 결과');
+  const imgBox = await tp.$eval('.vid img', e => e.getBoundingClientRect().width), bodyBox = await tp.$eval('.vid .b', e => e.getBoundingClientRect().width);
+  ok(imgBox > 300 && bodyBox > 300, '휴대폰: 썸네일 위·본문 전체 폭(' + Math.round(imgBox) + '/' + Math.round(bodyBox) + ')');
+  ok(!(await tp.isVisible('.vid .res table')) && await tp.isVisible('.vid .mlist'), '휴대폰: 표 대신 목록');
+  const mr = await tp.$$eval('.vid .mlist .mrow', a => a.map(x => x.textContent));
+  ok(mr.length === TGTS.filter(t => t.video_id === V2).length && mr.every(t => /본 구간 \d+%/.test(t) && /배정 취소/.test(t)), '휴대폰 목록: 학생마다 본 구간·배정 취소 (' + mr.length + '명)');
+  ok(await tp.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), '휴대폰: 가로로 넘치지 않음');
+  await tp.locator('.vid .mlist .mrow').first().locator('input.rck').check();
+  ok(/선택한 1명 배정 취소/.test(await tp.textContent('#cc' + V2)), '휴대폰 목록 체크 → 선택 취소 버튼 1명');
+  await shot(tp, 'teacher-mobile');
+  await tp.locator('.vid .mlist .mrow').first().locator('input.rck').uncheck();
+  await tp.setViewportSize({ width: 1100, height: 900 });
   await tp.close();
 
   /* ══ ② 학생 페이지 ══ */

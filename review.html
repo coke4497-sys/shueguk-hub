@@ -64,6 +64,22 @@
   input[type=text]:focus,select:focus{outline:none;border-color:#B9A5CC;}
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   @media (max-width:640px){ .row2{grid-template-columns:1fr;} }
+  /* 휴대폰: 영상 카드는 세로로 쌓고, 학생별 결과는 표 대신 두 줄 목록 (2026-09-28 사용자 "모바일에서 학생 확인이 어렵습니다") */
+  .mlist{display:none;}
+  .mrow{padding:10px 2px;border-bottom:1px solid var(--line-soft);}
+  .mrow .m1{display:flex;align-items:center;gap:8px;}
+  .mrow .m1 input{width:18px;height:18px;accent-color:#8D83A8;flex:none;}
+  .mrow .nm{font-weight:700;font-size:.95rem;}
+  .mrow .stt{margin-left:auto;font-size:.8rem;white-space:nowrap;}
+  .mrow .m2{font-size:.8rem;color:var(--cap);margin:3px 0 0 26px;line-height:1.55;}
+  .mrow .m2 b{color:var(--ink);font-weight:700;}
+  .mrow .m3{display:flex;align-items:center;gap:8px;margin:4px 0 0 26px;}
+  .mrow .mbar{flex:1;height:5px;border-radius:5px;background:#EEF2EF;overflow:hidden;}
+  .mrow .mbar i{display:block;height:100%;background:#B9A5CC;}
+  .mrow.done .mbar i{background:#4C6E66;}
+  .mrow .rowbtn{margin-left:auto;}
+  .mall{display:flex;align-items:center;gap:8px;font-size:.84rem;color:var(--ink-soft);padding:6px 2px;border-bottom:1px solid var(--line);}
+  .mall input{width:18px;height:18px;accent-color:#8D83A8;}
   .yt-prev{display:flex;gap:12px;align-items:center;margin-top:10px;font-size:.84rem;color:var(--cap);min-height:20px;}
   .yt-prev img{width:128px;aspect-ratio:16/9;object-fit:cover;border-radius:9px;background:#EEF2EF;}
   .btn{font:inherit;font-size:.9rem;border:none;border-radius:11px;padding:9px 15px;cursor:pointer;background:#F2F5F3;color:var(--ink);}
@@ -144,6 +160,17 @@
   .fchip button{border:none;background:none;color:var(--cap);cursor:pointer;font-size:.9rem;padding:0 4px;line-height:1;}
   #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#2A332F;color:#fff;font-size:.86rem;padding:9px 16px;border-radius:20px;opacity:0;transition:.2s;pointer-events:none;z-index:9;}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  /* 휴대폰 배치는 맨 끝에 둔다 — 위의 .vid img 폭 규칙보다 뒤에 와야 이긴다 */
+  @media (max-width:640px){
+    .vid{flex-direction:column;gap:10px;}
+    .vid img{width:100%;max-width:none;aspect-ratio:16/9;}
+    .vid .b{width:100%;}
+    .res table{display:none;}
+    .mlist{display:block;}
+    .res-bar{gap:6px;}
+    .res-bar select{flex:1;min-width:0;}
+    .vid .acts .btn{flex:1 1 auto;}
+  }
 </style>
 </head>
 <body>
@@ -613,9 +640,11 @@
       .catch(() => toast('취소하지 못했어요'));
   }
   function cancelChecked(vid){ cancelTargets(vid, Object.keys(CHK).filter(k => CHK[k] === vid)); }
-  function chkRow(vid, code, on){ if (on) CHK[code] = vid; else delete CHK[code]; syncChk(vid); }
+  function chkRow(vid, code, on){ if (on) CHK[code] = vid; else delete CHK[code];
+    document.querySelectorAll('#v' + vid + ' input[data-code]').forEach(i => { if (i.dataset.code === code) i.checked = on; });   // 표·휴대폰 목록 두 벌을 맞춘다
+    syncChk(vid); }
   function chkAll(vid, on){
-    document.querySelectorAll('#v' + vid + ' td.ck input').forEach(i => { i.checked = on; if (on) CHK[i.dataset.code] = vid; else delete CHK[i.dataset.code]; });
+    document.querySelectorAll('#v' + vid + ' td.ck input, #v' + vid + ' .rck').forEach(i => { i.checked = on; if (on) CHK[i.dataset.code] = vid; else delete CHK[i.dataset.code]; });
     syncChk(vid);
   }
   function syncChk(vid){
@@ -791,7 +820,18 @@
         '<td>' + (r.done ? '<span class="st-ok">완료 ✓</span> ' + esc(kst(r.doneAt)) : (r.pct ? '보는 중' : '<span class="st-no">안 봄</span>')) + '</td>' +
         '<td>' + esc(r.at ? kst(r.at) : '') + '</td><td><button class="rowbtn" data-code="' + esc(r.t.code) + '" onclick="cancelTargets(' + v.id + ',[this.dataset.code])">배정 취소</button></td></tr>').join('')
         : '<tr><td colspan="9" class="muted">해당 학생이 없어요.</td></tr>') +
-      '</tbody></table></div>';
+      '</tbody></table>' + mobileList(v, list) + '</div>';
+  }
+  /* 휴대폰용 학생 목록 — 줄마다 이름·상태 / 학교·반·본 구간·시청 시간 / 막대·[배정 취소] */
+  function mobileList(v, list){
+    const ck = r => '<input type="checkbox" class="rck" data-code="' + esc(r.t.code) + '"' + (CHK[r.t.code] === v.id ? ' checked' : '') + ' onchange="chkRow(' + v.id + ',this.dataset.code,this.checked)" aria-label="' + esc(r.t.name) + ' 선택">';
+    return '<div class="mlist">' + (list.length ? '<label class="mall"><input type="checkbox" onchange="chkAll(' + v.id + ',this.checked)">보이는 학생 모두 선택</label>' +
+      list.map(r => '<div class="mrow' + (r.done ? ' done' : '') + '"><div class="m1">' + ck(r) + '<span class="nm">' + esc(r.t.name) + '</span>' +
+        '<span class="stt">' + (r.done ? '<span class="st-ok">완료 ✓</span>' : (r.pct ? '보는 중' : '<span class="st-no">안 봄</span>')) + '</span></div>' +
+        '<div class="m2">' + esc([r.t.school, gradeShort(r.t.grade)].filter(Boolean).join(' ')) + ' · ' + esc(r.t.class_name) +
+        '<br>본 구간 <b>' + r.pct + '%</b> · 시청 ' + (r.sec ? fmt(r.sec) : '—') + (r.at ? ' · 마지막 ' + esc(kst(r.at)) : '') + '</div>' +
+        '<div class="m3"><span class="mbar"><i style="width:' + Math.min(100, r.pct) + '%"></i></span><button class="rowbtn" data-code="' + esc(r.t.code) + '" onclick="cancelTargets(' + v.id + ',[this.dataset.code])">배정 취소</button></div></div>').join('')
+      : '<p class="muted">해당 학생이 없어요.</p>') + '</div>';
   }
   function toggleRes(id){ OPEN[id] = !OPEN[id]; drawVideos(); }
   function setFilter(id, f){ FILTER[id] = f; drawVideos(); }
