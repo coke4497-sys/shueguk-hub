@@ -99,7 +99,8 @@
   .foot{margin-top:26px;font-size:13.5px;color:var(--ink-mute);text-align:center;font-family:var(--serif);}
   @media (max-width:640px){
     body{font-size:15.5px;}
-    .head h1{font-size:36px;}
+    .head h1{font-size:clamp(22px, 7vw, 36px);}
+    .head h1 .nw{white-space:nowrap;}
     .steps,.links,.ways,.board{grid-template-columns:1fr;}
     section{padding:20px 18px;border-radius:16px;}
     td:first-child{width:auto;white-space:normal;}
@@ -190,7 +191,7 @@
 <div class="page">
   <div class="head">
     <p class="eyebrow">이수경국어 · 선생님 안내</p>
-    <h1>슈국 슈퍼스타 주간 리포트, 초초간단!</h1>
+    <h1><span class="nw">초초초초간단!</span><br><span class="nw">슈국 슈퍼스타 주간 리포트</span></h1>
     <p class="lead2">수업이 끝난 후 이것만 해주세요.</p>
   </div>
 
