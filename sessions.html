@@ -18,6 +18,16 @@
      · 짝이 없는 '이 주만 빼기'도 **사유가 직보·대체·당겨서·이동이면 그 수업을 한 것으로 센다**(사용자 2026-09-20 "10/3, 4주차는 9/29 직전보강으로
        3시간 대체했잖아요" — 직전보강이 그 주 수업을 대신한 것). 사유의 'M/D'나 요일('화 1:00')로 진행일을 붙이고, 없으면 '(대체)'로만.
        연휴·휴강·빈 사유 등은 수업 없음으로 보고 참고 열에 적는다(REPL_RE / NOREPL_RE).
+     · **당겨서 했어도 원래 날짜로 세고 언제 했는지 남긴다**(사용자 2026-09-28 "당겨서 진행했더라도 원래 날짜로 집계하고 수업을 언제 했는지 기록하는 것이 지침입니다"):
+       ① `REPL_RE`에 **미리·먼저·선행·앞서**를 더했다 — 그전엔 '당겨·앞당·직보·대체·이동'만 봐서 '학교 시험으로 미리 수업' 같은 사유를 못 읽었다.
+       ② **다른 주로 옮긴 실제 기록(`mvOf`)이 있으면 진행일은 그쪽을 쓴다** — 그전엔 사유로 짐작한 날짜(`altOf`)가 먼저라, ①을 넣자마자
+          '학교 시험으로 미리 수업'(사유에 날짜가 없다) 24건의 **진행일이 지워질 뻔했다**. 사유 문구는 함께 남긴다.
+       ③ 짝 기록 없이 '미리진행'이라고만 적어 둔 보강('확인 보충(시험 후 10월 1주 차 확인수업 미리진행)', 고2 8명)은 그 날짜에 그대로 세어졌다.
+          `weekHint(reason, ref)`가 사유의 **'N월 M주 차'**(1주 = 1~7일)를 읽어 그 주의 같은 수업에 붙인다 — **가장 가까운 수업이 아니라 적어 둔 주**
+          (가까운 순으로만 고르면 9/19 보강이 하루 뒤 9/20 확인에 붙어 '9/20 수업을 9/19에 했다'는 거짓이 된다. 정답은 10/4). 주차 힌트가 없으면
+          진행 표시가 있는 뒤 수업 → 그것도 없으면 아직 진행 표시가 없는 뒤 같은 수업 순으로 찾는다(`EARLY_RE`가 적힌 조각만).
+       실데이터: 9월 내신 2,286 → 2,278(고2 8명이 9/19 중복분 −1회씩, 청구 −250,000), 10·11월 변화 없음.
+       점검: 남은 '명단 밖 추가 세션' 187건에 미리·당겨·직보 문구가 하나도 없고(전부 진짜 보충·10월 중2 정리정독 정규수업), 진행일 중복 0건.
      · **사유에 진행 날짜만 적은 '이 주만 빼기'도 그 수업을 한 것으로 센다**(사용자 2026-09-28 "10/8 목 수업은 집계가 안되었어요" — 고1 김동하 10/8 확인):
        10월 확인 수업을 9월에 미리 한 기록이 7묶음인데 '당겨서 진행'·'이동'이라 적은 5묶음만 들어가고, **날짜·시간만 적은 2묶음**
        ('9/12(토) 11:45~12:30, 9/19(토) 11:45~12:30' 9명 · '9/16(수) 4:45~5:30, 9/23(수) 4:45~5:30' 8명, 전부 고1)이 빠져 있었다.
@@ -371,7 +381,7 @@ var CORE = (function(){
   var GORD = { '중1':0, '중2':1, '중3':2, '고1':3, '고2':4, '고3':5 };
   var STUDENT_KINDS = { '1회':1, '주간추가':1, '주간빼기':1 };
   /* 짝 없는 '이 주만 빼기' 사유 판정 — 직보·대체·당겨서·이동은 '그 수업을 다른 날 한 것', 연휴·휴강·예약은 '수업 없음' */
-  var REPL_RE = /직보|직전|대체|당겨|앞당|이동/, NOREPL_RE = /연휴|휴강|휴무|예약|완전\s*이동|부터|결석|충돌/;
+  var REPL_RE = /직보|직전|대체|당겨|앞당|미리|먼저|선행|앞서|이동/, NOREPL_RE = /연휴|휴강|휴무|예약|완전\s*이동|부터|결석|충돌/;
   /* 사유에 날짜만 적어 둔 경우('9/12(토) 11:45~12:30, 9/19(토) 11:45~12:30')도 그 날 한 것으로 본다 — 사용자 2026-09-28 "10/8 목 수업은 집계가 안되었어요".
    * 같은 시기 확인 수업을 미리 한 기록 7묶음 중 5묶음만 '당겨서 진행'이라 적혀 집계에 들어가고, 날짜만 적은 2묶음(17명)이 빠져 있었다.
    * '반 이동 예약 — 9/9 주부터 새 반'처럼 날짜가 있어도 수업을 안 한 것은 NOREPL_RE('예약'·'부터')가 걸러 낸다. */
@@ -402,6 +412,16 @@ var CORE = (function(){
   function timeFromReason(reason){ var m = /(\d{1,2}:\d{2})/.exec(String(reason || '')); return m ? m[1] : ''; }
   /* 'k/m' 부분 표시(1/2·2/3…) — 한 수업을 여러 번에 나눠 한 조각. 날짜(9/6·10/11)와는 k≤m≤5 로 가른다 */
   function partMark(s){ var m = /(?:^|[^\d])([1-5])\/([1-5])(?![\d\/])/.exec(String(s || '')); return !!(m && +m[1] <= +m[2]); }
+  /* 사유에 적힌 'N월 M주 차' → 그 달 그 주의 날짜 범위(1주 = 1~7일). 날짜를 콕 집지 않고 주차로만 적어 둔 조각을 붙일 곳을 좁힌다.
+   * 예: '확인 보충(시험 후 10월 1주 차 확인수업 미리진행)' → 10/1~10/7. 달이 없으면 기준일의 달로 본다. */
+  function weekHint(reason, refYmd){
+    var m = /(?:(\d{1,2})\s*월\s*)?([1-5])\s*주\s*차?/.exec(String(reason || '')); if (!m) return null;
+    var o = parse(refYmd); if (!o) return null;
+    var mo = m[1] ? +m[1] - 1 : o.getMonth(), y = o.getFullYear();
+    if (m[1] && mo < o.getMonth() - 6) y++; else if (m[1] && mo > o.getMonth() + 6) y--;
+    var w = +m[2];
+    return { from: ymd(new Date(y, mo, (w - 1) * 7 + 1)), to: ymd(new Date(y, mo, w * 7)) };
+  }
   /* 사유에 적힌 날짜들 — '10/8(목)'·'9/4, 11, 18에'·'9/6,12,19' (뒤따르는 날 수는 같은 달로) → yyyy-mm-dd 목록(중복 제외) */
   function datesInReason(reason, refYmd){
     var r = String(reason || ''), o = parse(refYmd) || new Date(), out = [], re = /(\d{1,2})\/(\d{1,2})(?![\d\/])((?:\s*,\s*\d{1,2}(?![\d\/:시분%]))*)/g, m;
@@ -647,8 +667,13 @@ var CORE = (function(){
         var wkExtra = !!(c.wk && !copyOf[c.id]);   // '이 주만' 반(직보·보충·새 반)은 명단 밖 추가 세션
         names.forEach(function(n){
           var m = mvOf[n], al = altOf[n];
-          if (al) addSess(n, c, ds, book, hc.kind, { held: al.held, heldWhen: al.heldWhen, alt: al.reason, runs: al.runs });
-          else if (m) addSess(n, c, ds, book, hc.kind, { held: m.held, heldWhen: m.heldWhen });
+          /* 둘 다 있으면 진행일은 실제 기록(mvOf — 다른 주로 옮기기)을 쓴다. 사유만 보고 짐작한 날짜(al)로 덮으면
+           * '학교 시험으로 미리 수업'처럼 날짜가 안 적힌 사유에서 언제 했는지가 지워진다. */
+          if (m || al) addSess(n, c, ds, book, hc.kind, {
+            held: (m && m.held) || (al && al.held) || '',
+            heldWhen: (m && m.held) ? m.heldWhen : (al ? al.heldWhen : ''),
+            alt: al ? al.reason : '', runs: al ? al.runs : []
+          });
           else addSess(n, c, ds, book, hc.kind, { held: held !== ds ? held : '', heldWhen: held !== ds ? hc.day + hc.start : '', mvDates: mvDates,
                                                    extra: wkExtra || viaAdd[n] != null, reason: (c.wk && copyReason[c.id]) || (viaAdd[n] != null ? viaAdd[n] : '') });
         });
@@ -713,7 +738,7 @@ var CORE = (function(){
      * ① 사유에 날짜가 있으면 그 날짜(없으면 그 주)의 수업 줄에, ② 없으면 앞뒤 6주 안 같은 반의 옮긴·대체 수업 줄(진행일이 조각 날짜와 가장 가까운 것)에
      * 진행(날짜·시간)으로 붙이고 따로 세지 않는다. 그 날짜의 수업이 휴강·빠짐 참고로만 남아 있으면 그 참고를 수업 줄로 되살려 붙인다.
      * 옮긴 수업의 이동 사유에 적힌 다른 날짜(mvDates)의 같은 반 추가 세션도 그 줄의 진행으로 끌어온다. 어디에도 못 붙이면 그대로 추가 세션(자기 날짜)으로 센다. */
-    var PART_RE = /나누|나눠/;
+    var PART_RE = /나누|나눠/, EARLY_RE = /미리|먼저|선행|앞서|당겨|앞당/;
     function isPart(it){ return it.extra && (partMark(it.reason) || partMark(it.cls) || PART_RE.test(it.reason) || (REPL_RE.test(it.reason) && !NOREPL_RE.test(it.reason))); }
     function wantsCheck(it){ return /확인/.test(it.reason) || /확인/.test(it.cls); }
     function family(it, tg){ return wantsCheck(it) ? /확인/.test(tg.cls) : (baseCls(tg.cls) === baseCls(it.cls) || (partMark(it.cls) && !/확인/.test(tg.cls))); }
@@ -761,7 +786,14 @@ var CORE = (function(){
           }
         } else {
           var t0 = parse(p.date);
-          tg = pick(items.filter(function(t){ var dt = parse(t.date) - t0; return dt > 0 && dt <= 42 * 86400e3 && (t.runs.length || t.alt) && family(p, t); }));
+          function later(f){ return pick(items.filter(function(t){ var dt = parse(t.date) - t0; return dt > 0 && dt <= 42 * 86400e3 && family(p, t) && f(t); })); }
+          /* 짝 기록 없이 '미리 진행'이라고만 적어 둔 보강('확인 보충(시험 후 10월 1주 차 확인수업 미리진행)') —
+           * 아직 진행 표시가 없는 그 뒤 같은 수업에 붙인다. 사유에 'N월 M주 차'가 있으면 그 주로 좁힌다(가장 가까운 수업이 아니라 적어 둔 주).
+           * 날짜를 콕 집어 적은 조각은 위 ①에서 이미 처리된다. */
+          var wh = EARLY_RE.test(p.reason) ? weekHint(p.reason, p.date) : null;
+          tg = (wh && pick(items.filter(function(t){ return t.date >= wh.from && t.date <= wh.to && t !== p && family(p, t); })))
+            || later(function(t){ return t.runs.length || t.alt; })
+            || (EARLY_RE.test(p.reason) && !wh ? later(function(t){ return !t.extra; }) : null);
         }
         if (tg) attach(tg, p);
       });
@@ -870,7 +902,7 @@ var CORE = (function(){
             + (it.jbRun && rs.length === 1 ? '에 직보로 진행' : rs.length > 1 ? '에 나눠 진행' : same ? '에 대체 진행' : (rs[0].date < it.date ? '에 앞당겨 진행' : '에 미뤄 진행'));
     return txt + (it.alt ? ' — ' + it.alt : '');
   }
-  return { RULE: RULE, RATES: RATES, ALL_REGULAR: ALL_REGULAR, GRADE_BOOK: GRADE_BOOK, bookOf: bookOf, threshold: threshold, windows: windows, build: build, isNonsul: isNonsul, dlabel: dlabel, runNote: runNote, heldFromReason: heldFromReason, datesInReason: datesInReason, didElsewhere: didElsewhere, runsFromReason: runsFromReason, partMark: partMark, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
+  return { RULE: RULE, RATES: RATES, ALL_REGULAR: ALL_REGULAR, GRADE_BOOK: GRADE_BOOK, bookOf: bookOf, threshold: threshold, windows: windows, build: build, isNonsul: isNonsul, dlabel: dlabel, runNote: runNote, heldFromReason: heldFromReason, datesInReason: datesInReason, didElsewhere: didElsewhere, weekHint: weekHint, runsFromReason: runsFromReason, partMark: partMark, weekWed: weekWed, ymd: ymd, plainName: plainName, startFrom: startFrom, gradeShort: gradeShort, md: md };
 })();
 /* ==/SESSIONS-CORE== */
 </script>
@@ -1018,7 +1050,7 @@ var CORE = (function(){
   function noteHtml(){
     return '<p class="note">주마다 슈국 캘린더의 정규/내신 기간에 맞는 시간표로 셉니다(미지정 주는 정규 — 그 주 수업은 정규 회차에 들어가요). '
       + '이 주만 휴강·이동·보충·추가/빼기·1회 이동·직전보강을 반영했고, 확인 수업·직전보강도 한 회로 셉니다. <b>중3·고3은 내내 정규 수업</b>이라 전부 정규 회차로 적고, <b>논술 수업은 별도</b>로 세어 합계·강조에 넣지 않습니다. '
-      + '옮긴 수업(반 전체 이동·다른 주로 옮기기·1회 이동)은 <b>원래 수업 날짜의 달</b>로 셉니다(10/10 수업을 9/19에 당겨 했으면 10월 — 날짜 옆에 \'9/19 진행\'으로 표시). \'이 주만 빼기\'는 사유가 직보·대체·당겨서·이동이거나 <b>진행 날짜가 적혀 있으면</b> 그 수업을 한 것으로 세고(\'(대체)\' 표시, 나눠 했으면 진행일을 각각 적습니다), 연휴·휴강이면 세지 않고 참고에 적습니다. <b>직보를 한 주는 그 주 수업을 직보로 몰아서 한 것</b>으로 보고 직보를 따로 세지 않으며, 그 수업은 정규 주라도 <b>내신</b>으로 셉니다. 이름을 누르면 날짜별 내역이 펼쳐집니다.</p>'
+      + '옮긴 수업(반 전체 이동·다른 주로 옮기기·1회 이동)은 <b>원래 수업 날짜의 달</b>로 셉니다(10/10 수업을 9/19에 당겨 했으면 10월 — 날짜 옆에 \'9/19 진행\'으로 표시). \'이 주만 빼기\'는 사유가 직보·대체·당겨서·미리·이동이거나 <b>진행 날짜가 적혀 있으면</b> 그 수업을 한 것으로 세고(\'(대체)\' 표시, 나눠 했으면 진행일을 각각 적습니다), 연휴·휴강이면 세지 않고 참고에 적습니다. <b>직보를 한 주는 그 주 수업을 직보로 몰아서 한 것</b>으로 보고 직보를 따로 세지 않으며, 그 수업은 정규 주라도 <b>내신</b>으로 셉니다. 이름을 누르면 날짜별 내역이 펼쳐집니다.</p>'
       + '<b>청구 금액</b>은 정규 회차 × 정규 단가 + 내신 회차 × 내신 단가입니다(단가는 위 줄). 논술과 단가가 없는 학년은 금액에서 뺐어요. '
       + '<b>2026년 10월 중2는 내신 주에도 전부 정규 수업</b>으로 셉니다 — 내신 반을 그 달 내내 휴강하고 정리정독 정규 수업으로 대체했기 때문이에요(사용자 확인). '
       + '이런 달이 또 있으면 알려 주세요. '

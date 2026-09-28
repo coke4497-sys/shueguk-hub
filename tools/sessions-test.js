@@ -378,6 +378,50 @@ ok('didElsewhere: 날짜만 O · 예약/부터 X · 당겨서 O · 추석연휴 
 ok('runsFromReason: 날짜+시각 짝, 시각 없으면 날짜만', CORE.runsFromReason('9/12(토) 11:45~12:30, 9/19(토) 11:45~12:30', '2026-10-08').map(r => r.date + '|' + r.when).join() === '2026-09-12|토11:45,2026-09-19|토11:45'
    && CORE.runsFromReason('9/10(목), 9/17(목)으로 이동', '2026-10-10').map(r => r.date + '|' + r.when).join() === '2026-09-10|,2026-09-17|', CORE.runsFromReason('9/12(토) 11:45~12:30, 9/19(토) 11:45~12:30', '2026-10-08'));
 
+/* ── 당겨서 했어도 원래 날짜로 세고 언제 했는지 남긴다 (2026-09-28 사용자 "당겨서 진행했더라도 원래 날짜로 집계하고 수업을 언제 했는지 기록하는 것이 지침입니다") ──
+ * ① '미리·먼저·선행·앞서'도 그 수업을 한 것으로 본다(REPL_RE) — 그전엔 '당겨·앞당·직보·대체·이동'만 봤다.
+ * ② 다른 주로 옮긴 실제 기록(mvOf)이 있으면 진행일은 그쪽을 쓴다 — 사유로 짐작한 날짜로 덮으면 '학교 시험으로 미리 수업'처럼 날짜가 없는 사유에서 언제 했는지가 지워진다.
+ * ③ 짝 기록 없이 '미리진행'이라고만 적어 둔 보강은 사유의 'N월 M주 차'로 원래 수업을 찾아 붙인다(가장 가까운 수업이 아니라 적어 둔 주). */
+const DATA6 = {
+  periods: [{ week_wednesday: '2026-09-09', book: '내신' }, { week_wednesday: '2026-09-16', book: '내신' },
+            { week_wednesday: '2026-09-23', book: '내신' }, { week_wednesday: '2026-09-30', book: '내신' },
+            { week_wednesday: '2026-10-07', book: '내신' }],
+  students: [
+    { name: '허재범', school: '화수고', grade: '2026 고등 1학년', enrolled: '재원' },
+    { name: '김채민', school: '서정고', grade: '2026 고등 2학년', enrolled: '재원' }
+  ],
+  classes: [
+    cls('내신', 'n1', '수', '5:30', '고1 확인', '허재범'),
+    cls('내신', 'w260919i', '토', '2:00', '고1 화수C(창비 공통국어2)', ''),
+    cls('내신', 'n2', '일', '11:00', '고2 확인', '김채민'),
+    cls('내신', 'n3', '토', '6:00', '고2 서정A(천재 독작)', '김채민'),
+    cls('내신', 'w260919j', '토', '8:00', '고2 서정A(천재 독작)', '')
+  ],
+  logs: [
+    /* ①② 다른 주로 옮기기 짝(id 이웃·같은 분) — 사유에 날짜가 없다 */
+    { id: 10, at: '2026-09-13T07:44:00Z', kind: '주간추가', student: '허재범', from_class_id: '', to_class_id: 'w260919i', apply_date: '2026-09-19', reason: '학교 시험으로 미리 수업' },
+    { id: 11, at: '2026-09-13T07:44:10Z', kind: '주간빼기', student: '허재범', from_class_id: 'n1', to_class_id: '', apply_date: '2026-10-07', reason: '학교 시험으로 미리 수업' },
+    /* ③ 짝 없는 보강 — 어느 수업인지 사유의 주차로만 적어 뒀다 */
+    { id: 20, at: '2026-09-13T11:54:00Z', kind: '주간반보강', student: '', from_class_id: 'n3', to_class_id: 'w260919j', apply_date: '2026-09-19', reason: '확인 보충(시험 후 10월 1주 차 확인수업 미리진행)' }
+  ]
+};
+const E9 = CORE.build(JSON.parse(JSON.stringify(DATA6)), 2026, 9), E10 = CORE.build(JSON.parse(JSON.stringify(DATA6)), 2026, 10);
+const hj9 = E9.rows.find(r => r.name === '허재범') || {}, hj10 = E10.rows.find(r => r.name === '허재범') || {};
+const kc9 = E9.rows.find(r => r.name === '김채민') || {};
+const hj7 = hj10.items && hj10.items.find(it => it.date === '2026-10-07');
+ok('① 사유가 "미리 수업"이어도 그 수업을 한 것으로 — 10/7 확인이 회차에 들어간다', !!hj7 && !/10\/7 .*빠짐/.test(hj10.noteText || ''), hj10.detail);
+ok('② 진행일은 실제 기록(9/19)을 쓴다 — 날짜 없는 사유로 덮어 지우지 않는다', hj7 && hj7.held === '2026-09-19' && /9\/19 .*에 앞당겨 진행/.test(CORE.runNote(hj7, dl)), hj7 && [hj7.held, CORE.runNote(hj7, dl)]);
+ok('② 당겨서 한 9/19은 9월에 따로 세지 않는다', !hj9.items.some(it => it.date === '2026-09-19'), hj9.detail);
+const kc4 = kc9.items && kc9.items.find(it => it.date === '2026-10-04');
+ok('③ 짝 없는 "미리진행" 보강은 사유의 주차(10월 1주) 수업에 붙는다 — 10/4 확인', kc4 && kc4.runs.map(r => r.date + ' ' + r.when).join() === '2026-09-19 토8:00', kc4 && kc4.runs);
+ok('③ 가장 가까운 9/20 확인이 아니라 적어 둔 주에 붙는다', kc9.items.every(function(it){ return it.date === '2026-10-04' || !it.runs.length; }), kc9.detail);
+ok('③ 9/19 8:00 보강은 따로 세지 않는다', !kc9.items.some(it => it.when === '토8:00') && kc9.count === 8, [kc9.count, kc9.detail]);
+ok('weekHint: "10월 1주 차" → 10/1~10/7, "3주차" → 기준 달, 없으면 null',
+   JSON.stringify(CORE.weekHint('10월 1주 차 확인수업 미리진행', '2026-09-19')) === '{"from":"2026-10-01","to":"2026-10-07"}'
+   && JSON.stringify(CORE.weekHint('3주차 진도', '2026-10-20')) === '{"from":"2026-10-15","to":"2026-10-21"}'
+   && CORE.weekHint('시험 대비 직보', '2026-10-01') === null, CORE.weekHint('10월 1주 차 확인수업 미리진행', '2026-09-19'));
+ok('didElsewhere: 미리·먼저·선행·앞서도 한 것으로', CORE.didElsewhere('학교 시험으로 미리 수업') && CORE.didElsewhere('진도 먼저 나감') && !CORE.didElsewhere('추석연휴 휴강'));
+
 console.log(`\n${pass + fail}건 중 ${pass}건 통과` + (fail ? `, ${fail}건 실패` : ''));
 if (fail) process.exit(1);
 
