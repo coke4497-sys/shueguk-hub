@@ -334,6 +334,50 @@ ok('② 옮겨서 만든 직보도 내신 — 한도윤 정규 8 · 내신 1', h
 ok('② 옮겨서 만든 직보는 원래 날짜(10/15) 한 회, 진행 10/12', hd.items.filter(it => it.date === '2026-10-15').length === 1 && hd.items.find(it => it.date === '2026-10-15').held === '2026-10-12', hd.detail);
 ok('② 옮긴 직보는 그 주 다른 수업(10/17)을 먹지 않는다', hd.items.some(it => it.date === '2026-10-17' && !it.runs.length) && hd.count === 9, [hd.count, hd.detail]);
 
+/* ── 사유에 진행 날짜만 적은 '이 주만 빼기'도 그 수업을 한 것으로 센다 (2026-09-28 사용자 "10/8 목 수업은 집계가 안되었어요") ──
+ * 10월 확인 수업을 9월에 미리 한 기록이 7묶음인데 '당겨서 진행'이라 적은 5묶음만 집계에 들어가고,
+ * 날짜·시간만 적은 2묶음(9/12·9/19 11:45~12:30 / 9/16·9/23 4:45~5:30, 고1 17명)이 빠져 있었다.
+ * 45분씩 두 조각 = 확인 수업 한 번이므로, 원래 날짜에 1회 + 진행일 두 개를 비고에 적고 9월 조각은 따로 세지 않는다.
+ * '반 이동 예약 — 9/9 주부터 새 반'처럼 날짜가 있어도 수업을 안 한 것은 NOREPL_RE('예약'·'부터')가 그대로 걸러 낸다. */
+const DATA5 = {
+  periods: [{ week_wednesday: '2026-09-09', book: '내신' }, { week_wednesday: '2026-09-16', book: '내신' },
+            { week_wednesday: '2026-10-07', book: '내신' }],
+  students: [
+    { name: '김동하', school: '화정고', grade: '2026 고등 1학년', enrolled: '재원' },
+    { name: '나예준', school: '화정고', grade: '2026 고등 1학년', enrolled: '재원' }
+  ],
+  classes: [
+    cls('내신', 'n1', '토', '12:30', '고1 화정C(천재수 공통국어2)', '김동하 나예준'),
+    cls('내신', 'n2', '목', '8:30', '고1 확인', '김동하 나예준'),
+    /* 확인 수업을 45분씩 둘로 쪼개 미리 한 보강 복사본 */
+    cls('내신', 'w260912v', '토', '11:45', '고1 화정C(천재수 공통국어2)', ''),
+    cls('내신', 'w260919g', '토', '11:45', '고1 화정C(천재수 공통국어2)', '')
+  ],
+  logs: [
+    { id: 1, at: '2026-09-10T03:00:00Z', kind: '주간반보강', student: '', from_class_id: 'n1', to_class_id: 'w260912v', apply_date: '2026-09-12', reason: '' },
+    { id: 2, at: '2026-09-17T03:00:00Z', kind: '주간반보강', student: '', from_class_id: 'n1', to_class_id: 'w260919g', apply_date: '2026-09-19', reason: '' },
+    { id: 3, at: '2026-09-27T03:00:00Z', kind: '주간빼기', student: '김동하', from_class_id: 'n2', to_class_id: '', apply_date: '2026-10-08', reason: '9/12(토) 11:45~12:30, 9/19(토) 11:45~12:30' },
+    /* 나예준은 같은 날 빠지되 사유가 '예약' — 수업을 안 한 것이라 종전대로 세지 않는다 */
+    { id: 4, at: '2026-09-27T03:00:00Z', kind: '주간빼기', student: '나예준', from_class_id: 'n2', to_class_id: '', apply_date: '2026-10-08', reason: '반 이동 예약 — 10/14 주부터 새 반' }
+  ]
+};
+const K10 = CORE.build(JSON.parse(JSON.stringify(DATA5)), 2026, 10);
+const K9 = CORE.build(JSON.parse(JSON.stringify(DATA5)), 2026, 9);
+const kd = K10.rows.find(r => r.name === '김동하') || {}, ny = K10.rows.find(r => r.name === '나예준') || {};
+const kd9 = K9.rows.find(r => r.name === '김동하') || {};
+const row8 = kd.items && kd.items.find(it => it.date === '2026-10-08');
+ok('날짜만 적은 사유도 그 수업을 한 것으로 — 10/8 확인이 회차에 들어간다', !!row8 && !/10\/8 .*빠짐/.test(kd.noteText || ''), kd.detail);
+ok('진행일 둘을 각각 기록 — 9/12·9/19 토11:45', row8 && row8.runs.map(r => r.date + ' ' + r.when).join(' · ') === '2026-09-12 토11:45 · 2026-09-19 토11:45', row8 && row8.runs);
+ok('비고는 "9/12 · 9/19에 나눠 진행"', row8 && /토11:45 · .*토11:45에 나눠 진행/.test(CORE.runNote(row8, dl)), row8 && CORE.runNote(row8, dl));
+ok('9월 조각 둘은 따로 세지 않는다(45분 × 2 = 한 번)', !kd9.items.some(it => it.when === '토11:45'), kd9.detail);
+ok('원래 있던 토12:30 수업은 9월에 그대로', kd9.items.filter(it => it.when === '토12:30').length === 2, kd9.detail);
+ok('사유가 "예약 … 부터"면 종전대로 수업 없음', !ny.items.some(it => it.date === '2026-10-08') && /10\/8 .*빠짐/.test(ny.noteText || ''), ny.noteText);
+ok('didElsewhere: 날짜만 O · 예약/부터 X · 당겨서 O · 추석연휴 X',
+   CORE.didElsewhere('9/12(토) 11:45~12:30, 9/19(토) 11:45~12:30') && !CORE.didElsewhere('반 이동 예약 — 9/9 주부터 새 반')
+   && CORE.didElsewhere('9/11(금) 4:00 당겨서 진행') && !CORE.didElsewhere('추석연휴') && !CORE.didElsewhere(''));
+ok('runsFromReason: 날짜+시각 짝, 시각 없으면 날짜만', CORE.runsFromReason('9/12(토) 11:45~12:30, 9/19(토) 11:45~12:30', '2026-10-08').map(r => r.date + '|' + r.when).join() === '2026-09-12|토11:45,2026-09-19|토11:45'
+   && CORE.runsFromReason('9/10(목), 9/17(목)으로 이동', '2026-10-10').map(r => r.date + '|' + r.when).join() === '2026-09-10|,2026-09-17|', CORE.runsFromReason('9/12(토) 11:45~12:30, 9/19(토) 11:45~12:30', '2026-10-08'));
+
 console.log(`\n${pass + fail}건 중 ${pass}건 통과` + (fail ? `, ${fail}건 실패` : ''));
 if (fail) process.exit(1);
 
