@@ -175,6 +175,14 @@
   .rp-an{font-size:12px;color:#7A6230;background:#FBF6E6;border-radius:8px;padding:5px 9px;}
   .rp-foot{font-size:11px;color:#65726B;margin:0;border-top:1px solid #E5EDE8;padding-top:8px;}
   @media (max-width:760px){ .result{grid-template-columns:1fr;} .phone{max-width:360px;margin:0 auto;} }
+
+  /* 2026-09-29 원장님 문안 — 번호 항목 크게, 세부 설명 작게 */
+  .head .lead2{font-family:var(--serif);font-size:20px;color:var(--ink);margin:0;}
+  .todo h3{font-family:var(--disp);font-weight:400;font-size:26px;line-height:1.25;margin:6px 0 4px;}
+  .todo h3 kbd{font-size:.8em;vertical-align:3px;}
+  .todo p{font-size:13.5px;line-height:1.65;}
+  .todo .it{align-items:center;}
+  @media (max-width:640px){ .todo h3{font-size:23px;} .todo p{font-size:13px;} }
 </style>
 </head>
 <body>
@@ -182,31 +190,33 @@
 <div class="page">
   <div class="head">
     <p class="eyebrow">이수경국어 · 선생님 안내</p>
-    <h1>수업이 끝나면, 세 가지만 해 주세요</h1>
-    <p>나머지(리포트 문장 쓰기·학생 페이지에 올리기)는 자동으로 처리됩니다.</p>
+    <h1>슈국 슈퍼스타 주간 리포트, 초초간단!</h1>
+    <p class="lead2">수업이 끝난 후 이것만 해주세요.</p>
   </div>
 
   <div class="todo">
     <div class="it"><div class="num">1</div><div>
-      <h3>반 카드의 <kbd>수업 기록</kbd>을 눌러 적기</h3>
-      <p>왼쪽 창에 <b>오늘 진도</b>와 <b>과제</b>를 적고, 학생마다 <b>숙제 검사 별</b>을 눌러 주십시오. 별은 누르는 즉시 저장돼요. 코멘트는 적고 싶은 학생만 적으시면 됩니다.</p>
+      <h3>오늘 수업 내용 적기</h3>
+      <p>예시) 문학-관동별곡, 문법-단어 형성법, 독서-하이데거, 야스퍼스</p>
     </div></div>
     <div class="it"><div class="num">2</div><div>
-      <h3>출석 체크가 끝났는지 확인 <span class="when">체크는 조교 선생님이 합니다</span></h3>
-      <p>그 창 아래 '리포트 준비 확인'에 <b>출석 n명 모두 체크</b>가 보이면 됩니다. '출석 미체크'가 보이면 조교 선생님께 체크를 부탁해 주십시오. 출석이 빠진 학생은 리포트가 만들어지지 않아요.</p>
+      <h3>숙제검사</h3>
+      <p>확인 내용이 없다면 비워두셔도 돼요. 확인할 것이 없습니다라는 멘트로 들어갈 거예요.</p>
     </div></div>
     <div class="it"><div class="num">3</div><div>
-      <h3><kbd>리포트 생성</kbd> 누르기</h3>
-      <p>창 아래 버튼을 누르면 끝입니다. 몇 분 뒤 학생·학부모님이 보는 주간 리포트로 올라가요.</p>
+      <h3>출석체크</h3>
+      <p>출석체크가 모두 정상반영되었는지 확인해 주세요. 출석하지 않은 친구의 리포트는 작성되지 않습니다.</p>
+    </div></div>
+    <div class="it"><div class="num">4</div><div>
+      <h3><kbd>리포트 생성</kbd> 누르면 끝!</h3>
     </div></div>
   </div>
-
 
   <section class="result">
     <div>
       <h2>이것만 해 주시면</h2>
       <p class="say">이렇게 <b>근사한 슈퍼스타 주간 리포트</b>를 만들어 학생 개별 페이지에 올려 드립니다.</p>
-      <p>선생님이 적은 진도·과제·코멘트와 출석, 숙제 검사 결과를 모아 학생마다 한 주에 한 장으로 정리해요. 학생과 학부모님이 같은 링크로 봅니다.</p>
+      <p>선생님이 적은 수업 내용·과제·코멘트와 출석, 숙제 검사 결과를 모아 학생마다 한 주에 한 장으로 정리해요. 학생과 학부모님이 같은 링크로 봅니다.</p>
       <p class="cap">오른쪽은 학생 페이지 '주간 리포트'에 실제로 보이는 모양입니다(예시 학생).</p>
     </div>
     <div class="phone" aria-hidden="true"><div class="rp">
