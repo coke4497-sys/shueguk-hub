@@ -100,9 +100,10 @@
     <h2>보낼 내용</h2>
     <div class="state" id="cfgState">알림톡 설정을 확인하는 중입니다…</div>
     <div class="row2">
-      <div><label class="f" for="kindSel">알림톡 종류</label><select id="kindSel" onchange="refresh()"><option value="">불러오는 중…</option></select></div>
+      <div><label class="f" for="kindSel">알림톡 종류</label><select id="kindSel" onchange="kindChanged()"><option value="">불러오는 중…</option></select></div>
       <div><label class="f" for="title">제목 (알림톡의 ▶ 줄)</label><input type="text" id="title" maxlength="60" placeholder="예) 10월 수업 일정 변경 안내" oninput="refresh()" autocomplete="off"></div>
     </div>
+    <div id="xvars"></div>
     <label class="f">받는 분</label>
     <div class="whos" id="whos">
       <label><input type="checkbox" class="who" value="학생" checked onchange="refresh()">학생</label>
@@ -308,6 +309,17 @@
   /* ── 알림톡 설정·종류 ── */
   function kinds(){ const t = (CFG && CFG.templates) || {}; return Object.keys(t).filter(k => t[k].notice || /^notice/.test(k)); }
   function tplOf(k){ return CFG && CFG.templates && CFG.templates[k]; }
+  /* 종류별 추가 변수(모의고사 #{신청일} 등) — 기본 셋 밖의 변수는 입력 칸을 만들고 다 채워야 보낸다.
+   * 칸은 종류를 바꿀 때만 다시 그린다(입력 중에 다시 그리면 한글 조합이 끊긴다). */
+  const BASE_VARS = ['학생명', '제목', '접근코드'], X_HINT = { '신청일': '예) 3/14(토), 3/15(일)' };
+  function extraVars(tpl){ return ((tpl && tpl.vars) || []).filter(v => BASE_VARS.indexOf(v) < 0); }
+  function xVals(){ const o = {}; document.querySelectorAll('.xvar').forEach(el => { o[el.dataset.var] = el.value.trim(); }); return o; }
+  function kindChanged(){
+    const xs = extraVars(tplOf($('kindSel').value)), keep = xVals();
+    $('xvars').innerHTML = xs.map(v => '<label class="f">' + esc(v) + ' (알림톡 안내 문구에 들어갑니다)</label>' +
+      '<input type="text" class="xvar" data-var="' + esc(v) + '" maxlength="60" placeholder="' + esc(X_HINT[v] || '') + '" value="' + esc(keep[v] || '') + '" oninput="refresh()" autocomplete="off">').join('');
+    refresh();
+  }
   function loadCfg(){
     return api({ action: 'alimConfig' }).then(d => { CFG = (d && d.result === 'success') ? d : null; }).catch(() => { CFG = null; }).then(() => {
       const ks = kinds(), st = $('cfgState');
@@ -317,7 +329,7 @@
       else if (!CFG.ready){ st.className = 'state bad'; st.textContent = '알림톡 설정 전입니다. 슈국 스케쥴 상단 [알림톡] → 설정에서 솔라피 정보를 넣어 주세요.'; }
       else if (!first){ st.className = 'state bad'; st.textContent = '승인된 공지 알림 템플릿이 아직 없습니다. 솔라피 심사가 끝나면 슈국 스케쥴 [알림톡] → [솔라피에서 가져오기]를 눌러 주세요.'; }
       else { const n = ks.filter(k => tplOf(k).ready).length; st.className = 'state'; st.textContent = '보낼 수 있는 종류 ' + n + '개 / ' + ks.length + '개' + (n < ks.length ? ' — (준비 전) 표시는 솔라피 심사가 끝나면 열려요.' : '') + (CFG.smsFallback ? '' : ' 카카오톡을 못 받는 번호는 문자로 대체되지 않아요.'); }
-      refresh();
+      kindChanged();
     });
   }
 
@@ -349,16 +361,18 @@
       if (w.length) h += '<div class="warn">이 학생들에게는 가지 않습니다 — ' + w.join('<br>') + '</div>';
     }
     $('sum').innerHTML = h;
-    $('prev').innerHTML = tpl ? esc(fill(tpl.text, { '학생명': items[0] ? items[0].student : '○○○', '제목': title || '(제목)' })) +
+    const xv = xVals(), xs = extraVars(tpl), xmiss = xs.filter(v => !xv[v]);
+    $('prev').innerHTML = tpl ? esc(fill(tpl.text, Object.assign({}, ...xs.map(v => ({ [v]: xv[v] || '(' + v + ')' })), { '학생명': items[0] ? items[0].student : '○○○', '제목': title || '(제목)' }))) +
       (tpl.buttons || []).map(b => '<div class="pbtn">' + esc(b.name) + '</div>').join('') : '<span class="muted">종류를 고르면 문구가 보입니다.</span>';
     let note = '';
     if (!tpl || !tpl.ready) note = '보낼 수 있는 종류를 골라 주세요';
     else if (!title) note = '제목을 넣어 주세요';
+    else if (xmiss.length) note = xmiss.join('·') + '을(를) 넣어 주세요';
     else if (!ws.length) note = '받는 분을 한 명 이상 골라 주세요';
     else if (!items.length) note = picked() ? '보낼 학생이 없습니다' : '';
     $('goNote').textContent = note;
     $('goBtn').disabled = !!note || !items.length || SENDING;
-    if (!note && items.length) PLAN = { kind, label: tpl.label, title, items, people };
+    if (!note && items.length) PLAN = { kind, label: tpl.label, title, items, people, xv };
   }
 
   /* ── 보내기 — 확인 창 뒤 50건씩 ── */
@@ -372,7 +386,7 @@
     const run = chunks.reduce((prev, ch) => prev.then(() => {
       if (err) return;
       return post({ action: 'alimSend', kind: p.kind,
-        items: ch.map(it => ({ student: it.student, to: it.to, who: it.who, cls: '공지', date: ref, vars: { '학생명': it.student, '제목': p.title, '접근코드': it.code } })) })
+        items: ch.map(it => ({ student: it.student, to: it.to, who: it.who, cls: '공지', date: ref, vars: Object.assign({}, p.xv, { '학생명': it.student, '제목': p.title, '접근코드': it.code }) })) })
         .then(res => {
           if (!res || res.result !== 'success'){ err = (res && res.message) || '오류'; return; }
           ok += res.okCount || 0;
