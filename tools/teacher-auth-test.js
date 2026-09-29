@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const root = path.join(__dirname, '..');
 const protectedPages = [
-  'answer_key.html', 'clinic.html', 'colors.html', 'copy.html', 'go1.html',
+  'alimtalk.html', 'answer_key.html', 'clinic.html', 'colors.html', 'copy.html', 'go1.html',
   'gramma.html', 'hwork.html', 'index.html', 'omr_analysis.html',
   'omr_teacher.html', 'ops.html', 'question_board.html', 'question.html',
   'report_guide.html', 'report.html', 'review.html', 'sessions.html',
