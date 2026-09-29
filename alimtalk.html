@@ -93,7 +93,7 @@
   <a class="back" href="ops.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> 슈국 운영으로 가기</a>
   <header>
     <h1>알림톡 보내기</h1>
-    <p class="intro">종류와 제목을 정하고 받을 학생을 고르면 카카오 알림톡이 갑니다. 받는 분은 학생·학부모1·학부모2 가운데 고를 수 있어요. 같은 날 같은 제목으로 이미 받은 분에게는 다시 가지 않습니다.</p>
+    <p class="intro">종류와 제목을 정하고 받을 학생을 고르면 카카오 알림톡이 갑니다. 받는 분은 학생·학부모님1·학부모님2 가운데 고를 수 있어요. 같은 날 같은 제목으로 이미 받은 분에게는 다시 가지 않습니다.</p>
   </header>
 
   <section class="card">
@@ -106,8 +106,8 @@
     <label class="f">받는 분</label>
     <div class="whos" id="whos">
       <label><input type="checkbox" class="who" value="학생" checked onchange="refresh()">학생</label>
-      <label><input type="checkbox" class="who" value="학부모1" checked onchange="refresh()">학부모1</label>
-      <label><input type="checkbox" class="who" value="학부모2" checked onchange="refresh()">학부모2</label>
+      <label><input type="checkbox" class="who" value="학부모1" checked onchange="refresh()">학부모님1</label>
+      <label><input type="checkbox" class="who" value="학부모2" checked onchange="refresh()">학부모님2</label>
     </div>
 
     <label class="f">받을 학생</label>
@@ -148,6 +148,8 @@
   const REPORT_API = 'https://script.google.com/macros/s/AKfycbzhCncBwn-JlqXARC3wfrWUCuNHzlNK2df0bdhx-w78Xr8mzYUcIYZOJdRi9N4bHtsb/exec';
   const REPORT_KEY = 'sh';   // 리포트 백엔드 교사용 값(알림톡 설정·발송에 필요 — notice.html·timetable.html과 같은 공개 수준)
   const BATCH = 50;          // 백엔드 alimSend 한 번 상한
+  // 받는 분 표시 — 저장 값('학부모1')은 그대로, 화면만 '학부모님1'(2026-09-29 사용자 "학부모라는 표현을 모두 학부모님으로")
+  const whoLbl = w => String(w || '').replace(/학부모(?!님)/g, '학부모님');
   const PHONE = { '학생': 'phone_student', '학부모1': 'phone_parent1', '학부모2': 'phone_parent2' };
   const DAYS = { '월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':7 };
   const GRADE_ORDER = ['중1', '중2', '중3', '고1', '고2', '고3'];
@@ -337,7 +339,7 @@
     if (!picked()) h = '<span class="muted">' + MODE_NAME[MODE] + '을(를) 골라 주세요.</span>';
     else if (!STUS.length) h = '<span class="muted">재원 명단을 불러오는 중…</span>';
     else {
-      h = '학생 <b>' + people + '명</b>' + (ws.length ? '의 ' + esc(ws.join('·')) + '에게 <b>' + items.length + '건</b>' : '') + ' 보냅니다.' +
+      h = '학생 <b>' + people + '명</b>' + (ws.length ? '의 ' + esc(whoLbl(ws.join('·'))) + '에게 <b>' + items.length + '건</b>' : '') + ' 보냅니다.' +
         (items.length > BATCH ? ' <span class="muted">(' + BATCH + '건씩 나눠 보내요)</span>' : '');
       const w = [];
       if (nophone.length) w.push('고른 분의 연락처가 없는 학생 ' + nophone.length + '명: ' + nophone.map(esc).join(', '));
@@ -374,7 +376,7 @@
         .then(res => {
           if (!res || res.result !== 'success'){ err = (res && res.message) || '오류'; return; }
           ok += res.okCount || 0;
-          (res.sent || []).forEach(x => { const n = x.student + (x.who ? ' ' + x.who : ''); if (x.dup) dup.push(n); else if (!x.ok) bad.push(n + ' (' + x.message + ')'); });
+          (res.sent || []).forEach(x => { const n = x.student + (x.who ? ' ' + whoLbl(x.who) : ''); if (x.dup) dup.push(n); else if (!x.ok) bad.push(n + ' (' + x.message + ')'); });
         }).catch(() => { err = '인터넷 연결을 확인해 주세요.'; });
     }), Promise.resolve());
     run.then(() => {
@@ -398,7 +400,7 @@
         const k = r.kind + '§' + r.date;
         if (!g[k]){ g[k] = { kind: r.kind, date: r.date, ts: r.ts, ok: 0, bad: 0, names: [] }; order.push(k); }
         const x = g[k]; if (r.ok) x.ok++; else x.bad++;
-        if (x.names.length < 400) x.names.push(r.student + (r.who ? '(' + r.who + ')' : '') + (r.ok ? '' : ' 실패'));
+        if (x.names.length < 400) x.names.push(r.student + (r.who ? '(' + whoLbl(r.who) + ')' : '') + (r.ok ? '' : ' 실패'));
         if (r.ts > x.ts) x.ts = r.ts;
       });
       if (!order.length){ $('log').innerHTML = '<p class="muted">최근 7일 동안 보낸 알림톡이 없습니다.</p>'; return; }
