@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>이수경국어 · 성적 관리</title>
+<script src="assets/teacher-auth.js" data-mode="protected"></script>
 <!-- 이수경국어 성적 관리 — 정적 페이지 (2026-08-26 수파베이스 전환)
      옛 구조: 앱스스크립트 안의 teacher.html(iframe·google.script.run).
      지금: 목록·삭제는 원본(omr_responses)에서 바로, 성적표는 omr_report_by_id 함수
@@ -141,76 +142,13 @@
 <div class="toast" id="toast"></div>
 
 <script>
-/* ══ 교사 페이지 조용한 인증 (2026-08-25, 3단계) ═══════════════════════
- * 이 아래 연결부들이 수파베이스에 보내는 요청에 '교사 신분'을 붙인다.
- * 화면에 로그인 창은 없다 — 페이지가 열릴 때 알아서 받아 온다.
- *
- * 왜 필요한가:
- *   공개 키(sb_publishable_…)는 학생이 여는 페이지에도 들어 있어서, 그 키로 표를
- *   직접 읽을 수 있으면 전교생 명단(학생ID=비밀번호·접근코드)이 새어 나간다.
- *   그래서 공개 키에서는 표 접근을 없애고(anon), 표는 이 신분(authenticated)만
- *   읽고 쓰도록 나눴다. 학생 화면은 표 대신 함수(student_bundle 등)를 쓴다.
- *
- * 주의:
- *   · 이 조각은 **교사용 페이지에만** 넣는다. 학생이 여는 페이지(s·r·클리닉 신청·
- *     모의고사 신청·H WORK 제출)에는 절대 넣지 말 것 — 넣는 순간 위 보호가 무의미해진다.
- *   · 아래 연결부들이 시작할 때 window.fetch 를 붙잡아 두므로, 이 조각은 **그것들보다
- *     먼저** 실행돼야 한다. 페이지의 첫 스크립트 자리를 지킬 것.
- *   · 인증이 실패하면 예전처럼 공개 키로 보낸다(권한을 회수하기 전까지는 그래도 동작). */
-(function(){
-  var SB_URL = 'https://bangdbhqpphqqdwcledg.supabase.co';
-  var SB_KEY = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
-  var T_ID = 'teachers@shueguk.internal';
-  var T_PW = 'shg_FCePWvnawH44SV8kYB9BHRKi6aag';
-  var tok = null, until = 0, pending = null;
-  var raw = window.fetch.bind(window);
-
-  function auth(){
-    if (tok && Date.now() < until) return Promise.resolve(tok);
-    if (pending) return pending;
-    pending = raw(SB_URL + '/auth/v1/token?grant_type=password', {
-      method: 'POST',
-      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: T_ID, password: T_PW })
-    }).then(function(r){ return r.json(); }).then(function(d){
-      pending = null;
-      if (!d || !d.access_token) throw new Error('teacher auth');
-      tok = d.access_token;
-      until = Date.now() + Math.max(60, (d.expires_in || 3600) - 300) * 1000;   // 만료 5분 전에 다시 받는다
-      return tok;
-    }, function(e){ pending = null; throw e; });
-    return pending;
-  }
-  function withAuth(url, opts, t){
-    var src = (opts && opts.headers) || {}, h = {};
-    if (src.forEach && !src.hasOwnProperty) src.forEach(function(v, k){ h[k] = v; });
-    else for (var k in src) h[k] = src[k];
-    h['apikey'] = SB_KEY;
-    h['Authorization'] = 'Bearer ' + t;
-    var o = {}; for (var k2 in (opts || {})) o[k2] = opts[k2];
-    o.headers = h;
-    return o;
-  }
-  window.fetch = function(url, opts){
-    var u = (typeof url === 'string') ? url : ((url && url.url) || '');
-    if (u.indexOf(SB_URL + '/rest/v1') !== 0) return raw(url, opts);
-    return auth().then(function(t){
-      return raw(url, withAuth(url, opts, t)).then(function(r){
-        if (r.status !== 401) return r;
-        tok = null; until = 0;                       // 만료가 겹쳤으면 한 번만 다시 받아 재시도
-        return auth().then(function(t2){ return raw(url, withAuth(url, opts, t2)); });
-      });
-    }, function(){ return raw(url, opts); });
-  };
-})();
-</script>
-<script>
   let ALL=[];    // 전체 응답 목록
   let VIEW=[];   // 현재 필터로 표시 중인 목록 (삭제 버튼 인덱스용)
   const SERVER_PW='sh';
 
   function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show');
     clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
+  function esc(value){ return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
   // 진단 메시지 표시 안 함 (운영용)
   function diag(msg){ /* no-op */ }
@@ -301,7 +239,7 @@
     ALL=list||[];
     const exams=[...new Set(ALL.map(r=>r.examName))];
     const sel=document.getElementById('fExam');
-    sel.innerHTML='<option value="">전체 회차</option>'+exams.map(e=>`<option value="${e}">${e}</option>`).join('');
+    sel.innerHTML='<option value="">전체 회차</option>'+exams.map(e=>`<option value="${esc(e)}">${esc(e)}</option>`).join('');
     document.getElementById('loading').style.display='none';
     applyFilter();
   }
@@ -319,10 +257,10 @@
     body.innerHTML=rows.map((r,i)=>{
       const k=(r.name||'')+'|'+(r.school||'')+'|'+(r.examName||'');
       const dupTag = dup[k]>1 ? '<span class="dup">중복</span>' : '';
-      return `<tr class="r" onclick="openReport(${r.id})">
-      <td>${fmtDateTime(r.submittedAt)}</td><td>${r.examName||''}</td><td class="nm">${r.name||''}${dupTag}</td>
-      <td>${r.school||''}</td><td>${r.grade||''}</td><td>${r.subject||''}</td>
-      <td class="sc">${r.got}</td><td>${r.gradeLevel||''}</td>
+      return `<tr class="r" onclick="openReport(${Number(r.id)||0})">
+      <td>${esc(fmtDateTime(r.submittedAt))}</td><td>${esc(r.examName)}</td><td class="nm">${esc(r.name)}${dupTag}</td>
+      <td>${esc(r.school)}</td><td>${esc(r.grade)}</td><td>${esc(r.subject)}</td>
+      <td class="sc">${esc(r.got)}</td><td>${esc(r.gradeLevel)}</td>
       <td class="delc"><button type="button" class="del-btn" onclick="delRow(event,${i})">삭제</button></td></tr>`;
     }).join('');
   }
@@ -385,38 +323,38 @@
     const catCount={}; r.areas.forEach(a=>catCount[a.cat]=(catCount[a.cat]||0)+1);
     const catSeen={}; let areaRows='';
     r.areas.forEach(a=>{ const first=!catSeen[a.cat]; catSeen[a.cat]=true;
-      areaRows+=`<tr>${first?`<td class="cat" rowspan="${catCount[a.cat]}">${a.cat}</td>`:''}
-        <td class="areaname">${a.name}</td><td>${a.full}</td><td class="hit">${a.score}</td><td>${a.rate}</td></tr>`; });
+      areaRows+=`<tr>${first?`<td class="cat" rowspan="${Number(catCount[a.cat])||1}">${esc(a.cat)}</td>`:''}
+        <td class="areaname">${esc(a.name)}</td><td>${esc(a.full)}</td><td class="hit">${esc(a.score)}</td><td>${esc(a.rate)}</td></tr>`; });
     function block(s,e){
       let qn='<tr><td class="rowlabel">문항</td>',an='<tr><td class="rowlabel">정답</td>',
           my='<tr><td class="rowlabel">학생답안</td>',ox='<tr><td class="rowlabel">정오</td>';
       for(let q=s;q<=e;q++){ const d=r.detail[q];
-        qn+=`<td class="qn">${q}</td>`; an+=`<td>${d.ans}</td>`;
-        my+=`<td class="${d.ok?'':'x'}">${d.mine}</td>`; ox+=`<td class="${d.ok?'o':'x'}">${d.ok?d.pt:0}</td>`; }
+        qn+=`<td class="qn">${q}</td>`; an+=`<td>${esc(d.ans)}</td>`;
+        my+=`<td class="${d.ok?'':'x'}">${esc(d.mine)}</td>`; ox+=`<td class="${d.ok?'o':'x'}">${esc(d.ok?d.pt:0)}</td>`; }
       return `<table class="scoretbl">${qn}</tr>${an}</tr>${my}</tr>${ox}</tr></table>`;
     }
     const PLOT=160;
     const bars=r.areas.map(a=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">${a.rate}</div>
-      <div style="width:58%;height:${a.rate/100*PLOT}px;background:var(--bar);border-radius:3px 3px 0 0;"></div></div>`).join('');
-    const labels=r.areas.map(a=>`<div style="flex:1;text-align:center;font-size:10.5px;color:var(--ink);line-height:1.2;word-break:keep-all;padding:0 2px;">${a.name}</div>`).join('');
+      <div style="font-size:11px;color:var(--muted);margin-bottom:3px;">${esc(a.rate)}</div>
+      <div style="width:58%;height:${Math.max(0,Math.min(100,Number(a.rate)||0))/100*PLOT}px;background:var(--bar);border-radius:3px 3px 0 0;"></div></div>`).join('');
+    const labels=r.areas.map(a=>`<div style="flex:1;text-align:center;font-size:10.5px;color:var(--ink);line-height:1.2;word-break:keep-all;padding:0 2px;">${esc(a.name)}</div>`).join('');
     const chart=`<div style="display:flex;align-items:flex-end;gap:4px;height:${PLOT+20}px;border-bottom:1.5px solid var(--line);padding:0 6px;">${bars}</div>
       <div style="display:flex;gap:4px;padding:7px 6px 0;">${labels}</div>`;
 
     document.getElementById('report').innerHTML=`
       <div class="back"><button onclick="closeReport()">← 목록으로</button></div>
       <div class="rbrand"><div><div class="name">이수경국어</div><div class="sub">Shueguk</div></div><div class="logo">Shueguk</div></div>
-      <div class="tbar">2026 주간 모의고사 성적표 · ${exam.code}</div>
+      <div class="tbar">2026 주간 모의고사 성적표 · ${esc(exam.code)}</div>
       <section><h2>1. 학생정보</h2>
         <table class="rt info"><tr><th>성명</th><th>학교</th><th>학년</th><th>선택과목</th><th>응시일</th></tr>
-        <tr><td>${st.name}</td><td>${st.school}</td><td>${st.grade}</td><td>${exam.subject}</td><td>${fmtDate(st.examDate)}</td></tr></table></section>
+        <tr><td>${esc(st.name)}</td><td>${esc(st.school)}</td><td>${esc(st.grade)}</td><td>${esc(exam.subject)}</td><td>${esc(fmtDate(st.examDate))}</td></tr></table></section>
       <section><h2>2. 성적</h2>
         <table class="rt score"><tr><th>점수(100점 만점)</th><th>등급</th><th>등급컷</th></tr>
-        <tr><td class="big">${r.got}</td><td class="big">${r.grade}</td><td>${exam.cuts.join('-')}</td></tr></table></section>
+        <tr><td class="big">${esc(r.got)}</td><td class="big">${esc(r.grade)}</td><td>${esc(exam.cuts.join('-'))}</td></tr></table></section>
       <section><h2>3. 영역분류별 성취도 분석</h2>
         <table class="rt areatbl"><tr><th>분류</th><th>영역</th><th>배점</th><th>득점</th><th>성취도(%)</th></tr>
         ${areaRows}
-        <tr class="total"><td colspan="2">합계</td><td>${r.total}</td><td>${r.got}</td><td>${Math.round(r.got/r.total*100)}</td></tr></table>
+        <tr class="total"><td colspan="2">합계</td><td>${esc(r.total)}</td><td>${esc(r.got)}</td><td>${esc(Math.round(r.got/r.total*100))}</td></tr></table>
         <div class="chart">${chart}</div></section>
       <section><h2>4. 문항 채점표</h2>
         <div class="grid-wrap">${block(1,15)}${block(16,30)}${block(31,45)}</div>

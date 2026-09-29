@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>이수경국어 · 클리닉 호출 · 전자칠판 대기 화면</title>
+<script src="assets/teacher-auth.js" data-mode="protected"></script>
 <!-- 이수경국어 질문 대기열 — 강의실 디스플레이 (2026-09-06)
      TV·전자칠판에 띄워 두는 화면. 선생님이 question.html 에서 [호출]한 학생 이름을 크게 보여 주고,
      아래에 다음 순서를 적는다. 3초마다 새로 받는다. 주소에 ?t=선생님 (또는 t=all 전체).
@@ -178,51 +179,6 @@
 </style>
 </head>
 <body>
-<script>
-/* ══ 교사 페이지 조용한 인증 — question.html 과 동일. 학생이 여는 페이지에는 넣지 말 것. ══ */
-(function(){
-  var SB_URL = 'https://bangdbhqpphqqdwcledg.supabase.co';
-  var SB_KEY = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
-  var T_ID = 'teachers@shueguk.internal';
-  var T_PW = 'shg_FCePWvnawH44SV8kYB9BHRKi6aag';
-  var tok = null, until = 0, pending = null;
-  var raw = window.fetch.bind(window);
-  function auth(){
-    if (tok && Date.now() < until) return Promise.resolve(tok);
-    if (pending) return pending;
-    pending = raw(SB_URL + '/auth/v1/token?grant_type=password', {
-      method: 'POST', headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: T_ID, password: T_PW })
-    }).then(function(r){ return r.json(); }).then(function(d){
-      pending = null;
-      if (!d || !d.access_token) throw new Error('teacher auth');
-      tok = d.access_token; until = Date.now() + Math.max(60, (d.expires_in || 3600) - 300) * 1000;
-      return tok;
-    }, function(e){ pending = null; throw e; });
-    return pending;
-  }
-  function withAuth(url, opts, t){
-    var src = (opts && opts.headers) || {}, h = {};
-    if (src.forEach && !src.hasOwnProperty) src.forEach(function(v, k){ h[k] = v; });
-    else for (var k in src) h[k] = src[k];
-    h['apikey'] = SB_KEY; h['Authorization'] = 'Bearer ' + t;
-    var o = {}; for (var k2 in (opts || {})) o[k2] = opts[k2];
-    o.headers = h; return o;
-  }
-  window.fetch = function(url, opts){
-    var u = (typeof url === 'string') ? url : ((url && url.url) || '');
-    if (u.indexOf(SB_URL + '/rest/v1') !== 0) return raw(url, opts);
-    return auth().then(function(t){
-      return raw(url, withAuth(url, opts, t)).then(function(r){
-        if (r.status !== 401) return r;
-        tok = null; until = 0;
-        return auth().then(function(t2){ return raw(url, withAuth(url, opts, t2)); });
-      });
-    }, function(){ return raw(url, opts); });
-  };
-})();
-</script>
-
 <div id="pick"><div class="box">
   <h1>어느 선생님 화면인가요?</h1>
   <select id="psel"></select>

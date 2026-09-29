@@ -108,6 +108,10 @@ function applyFilter(rows, url){
   }).listen(PORT);
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1100, height: 900 } });
+  await ctx.addInitScript(() => localStorage.setItem('shueguk_teacher_session_v2', JSON.stringify({
+    access_token: 'tok', refresh_token: 'refresh-tok', expires_at: Math.floor(Date.now() / 1000) + 3600,
+    user: { id: '11111111-1111-1111-1111-111111111111' }
+  })));
   ctx.setDefaultTimeout(8000);
   ctx.on('dialog', d => d.accept());
   await ctx.route('**/*', async route => {
@@ -119,7 +123,8 @@ function applyFilter(rows, url){
     if (url.startsWith(SB)){
       const rec = { method: req.method(), path: url.slice(SB.length), auth: req.headers()['authorization'] || '', body: req.postData(), prefer: req.headers()['prefer'] || '' };
       calls.push(rec);
-      if (rec.path.startsWith('/auth/v1/token')) return json({ access_token: 'tok', expires_in: 3600 });
+      if (rec.path.startsWith('/auth/v1/token')) return json({ access_token: 'tok', refresh_token: 'refresh-tok', expires_in: 3600, user: { id: '11111111-1111-1111-1111-111111111111' } });
+      if (rec.path.startsWith('/rest/v1/teacher_accounts')) return json([{ user_id: '11111111-1111-1111-1111-111111111111', login_id: 'tester', display_name: '테스트', active: true }]);
       if (rec.path.startsWith('/storage/v1/object')){
         stCalls.push({ method: rec.method, path: rec.path, auth: rec.auth, type: req.headers()['content-type'] || '' });
         const m = rec.path.match(/^\/storage\/v1\/object\/(?:authenticated\/)?review-files\/?(.*)$/);

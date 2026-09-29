@@ -142,6 +142,10 @@ function restGet(url) {
 
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1100, height: 900 } });
+  await ctx.addInitScript(() => localStorage.setItem('shueguk_teacher_session_v2', JSON.stringify({
+    access_token: 'tok', refresh_token: 'refresh-tok', expires_at: Math.floor(Date.now() / 1000) + 3600,
+    user: { id: '11111111-1111-1111-1111-111111111111' }
+  })));
   ctx.setDefaultTimeout(8000);
   ctx.on('dialog', d => d.accept());
 
@@ -154,7 +158,8 @@ function restGet(url) {
       const hdr = req.headers();
       const rec = { method: req.method(), path: url.slice(SB.length), auth: hdr['authorization'] || '', body: req.postData() };
       calls.push(rec);
-      if (rec.path.startsWith('/auth/v1/token')) return json({ access_token: 'tok', expires_in: 3600 });
+      if (rec.path.startsWith('/auth/v1/token')) return json({ access_token: 'tok', refresh_token: 'refresh-tok', expires_in: 3600, user: { id: '11111111-1111-1111-1111-111111111111' } });
+      if (rec.path.startsWith('/rest/v1/teacher_accounts')) return json([{ user_id: '11111111-1111-1111-1111-111111111111', login_id: 'tester', display_name: '테스트', active: true }]);
       if (rec.path.startsWith('/rest/v1/rpc/student_bundle')) return json({ error: 'nope' }, 500);   // 학생 페이지 → 옛 백엔드 폴백
       if (rec.path.startsWith('/rest/v1/rpc/')) {
         const fn = rec.path.slice('/rest/v1/rpc/'.length).split('?')[0];

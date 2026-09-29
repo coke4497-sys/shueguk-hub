@@ -1,0 +1,2 @@
+[functions.create-teacher]
+verify_jwt = true

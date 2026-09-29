@@ -58,15 +58,20 @@ const DB = {
   await new Promise(r => server.listen(PORT, r));
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1100, height: 900 }, locale: 'ko-KR' });
+  await ctx.addInitScript(() => localStorage.setItem('shueguk_teacher_session_v2', JSON.stringify({
+    access_token: 'TEACHER_TOKEN', refresh_token: 'refresh-tok', expires_at: Math.floor(Date.now() / 1000) + 3600,
+    user: { id: '11111111-1111-1111-1111-111111111111' }
+  })));
   const reqs = [], authHdrs = [];
   let kindCol = true;
   await ctx.route('**/*', async route => {
     const req = route.request(), url = req.url();
     const json = (obj, status = 200) => route.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-expose-headers': '*' }, body: JSON.stringify(obj) });
-    if (url.startsWith(SB + '/auth/v1/token')) return json({ access_token: 'TEACHER_TOKEN', expires_in: 3600 });
+    if (url.startsWith(SB + '/auth/v1/token')) return json({ access_token: 'TEACHER_TOKEN', refresh_token: 'refresh-tok', expires_in: 3600, user: { id: '11111111-1111-1111-1111-111111111111' } });
     if (url.startsWith(SB + '/rest/v1/')){
       reqs.push(url); authHdrs.push(req.headers()['authorization']);
       const u = new URL(url), tbl = u.pathname.replace('/rest/v1/', ''), sel = u.searchParams.get('select') || '';
+      if (tbl === 'teacher_accounts') return json([{ user_id: '11111111-1111-1111-1111-111111111111', login_id: 'tester', display_name: '테스트', active: true }]);
       const off = +(u.searchParams.get('offset') || 0), lim = +(u.searchParams.get('limit') || 1000);
       if (tbl === 'tt_classes' && !kindCol && /,kind/.test(sel)) return json({ code: '42703', message: 'column tt_classes.kind does not exist' }, 400);
       let rows = DB[tbl] || [];
