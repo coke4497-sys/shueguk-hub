@@ -169,7 +169,7 @@
   .rp-k{font-size:11px;color:#65726B;display:block;}
   .rp-part ul{margin:0;padding-left:17px;font-size:13px;line-height:1.6;}
   .rp-hw{background:#F2F5F3;border-radius:10px;padding:8px 10px;display:grid;gap:5px;font-size:12px;color:#65726B;}
-  .rp-row{display:grid;grid-template-columns:58px 1fr auto;gap:7px;align-items:center;}
+  .rp-row{display:grid;grid-template-columns:minmax(58px,1.6fr) minmax(36px,1fr) auto;gap:7px;align-items:center;}
   .rp-row b{color:#2A332F;font-weight:400;}
   .rp-tr{height:6px;border-radius:6px;background:#fff;overflow:hidden;} .rp-tr i{display:block;height:100%;background:#B9A5CC;border-radius:6px;}
   .rp-tot{display:flex;justify-content:space-between;font-size:12.5px;color:#2A332F;}
@@ -208,7 +208,8 @@
     </div></div>
     <div class="it"><div class="num">3</div><div>
       <h3>오늘의 과제 검사</h3>
-      <p>확인 내용이 없다면 비워두셔도 돼요. 확인할 것이 없습니다라는 멘트로 들어갈 거예요.</p>
+      <p>지난 수업에 적은 <b>다음 수업까지 과제</b>가 학생마다 하나씩 나옵니다. 과제마다 <b>학습량·깊이</b>를 별 5개로 매겨 주십시오.</p>
+      <p>정규는 지난주 같은 수업의 과제를, 내신은 그 학생이 바로 앞 수업(진도·확인)에서 받은 과제를 검사해요. 검사할 과제가 없으면 '확인할 것이 없습니다'로 들어갑니다.</p>
     </div></div>
     <div class="it"><div class="num">4</div><div>
       <h3>출석체크</h3>
@@ -239,8 +240,8 @@
         <div><span class="rp-k">수업 내용</span><p>고전 시가 「사미인곡」의 표현상 특징을 정리하고 갈래 복합 지문 두 개를 풀었습니다.</p></div>
         <div><span class="rp-k">다음 수업까지 과제</span><ul><li>「속미인곡」 비교 학습지 1장</li></ul></div>
         <div class="rp-hw">
-          <div class="rp-row"><span>과제 수행</span><span class="rp-tr"><i style="width:100%"></i></span><b>6 / 6</b></div>
-          <div class="rp-row"><span>오답 처리</span><span class="rp-tr"><i style="width:100%"></i></span><b>6 / 6</b></div>
+          <div class="rp-row"><span>관동별곡 학습지 (학습량)</span><span class="rp-tr"><i style="width:100%"></i></span><b>5 / 5</b></div>
+          <div class="rp-row"><span>관동별곡 학습지 (깊이)</span><span class="rp-tr"><i style="width:100%"></i></span><b>5 / 5</b></div>
           <div class="rp-tot"><span>이 수업 과제 검사</span><b>100% 🏆</b></div>
         </div>
       </div>
@@ -269,7 +270,7 @@
   <section>
     <h2>이것만 기억해 주세요</h2>
     <ul class="keep">
-      <li><b>과제 검사는 수업마다 따로 기록됩니다.</b> 가 수업과 나 수업이 각자 별점을 가져요. 수업마다 100%면 슈퍼스타 별 1개입니다.</li>
+      <li><b>과제 검사는 수업마다 따로 기록됩니다.</b> 가 수업과 나 수업이 각자 별점을 가져요. <b>그 수업의 모든 과제가 학습량·깊이 모두 별 5개</b>면 슈퍼스타 별 1개입니다.</li>
       <li><b>둘째 수업 뒤에 <kbd>리포트 생성</kbd>을 한 번 더 눌러 주십시오.</b> 리포트는 그 주 수업을 모아 한 장으로 다시 쓰기 때문이에요.</li>
       <li><b>내신대비 피드백은 따로 운영하지 않습니다.</b> 내신 수업의 시험범위·진도·과제도 이 창(<kbd>수업 기록</kbd>)에만 적어 주십시오. 따로 입력하실 곳이 없어요.</li>
       <li><b>적은 내용만 리포트에 들어갑니다.</b> 코멘트는 사실대로 짧게 적어 주시면 문장으로 다듬어 올립니다.</li>
@@ -293,9 +294,10 @@
     <summary>과제 검사 — 미제출·메모</summary>
     <div class="in">
       <div class="mock" aria-hidden="true">
-        <div class="row"><b>박보검</b><span class="chip">출석</span><span style="margin-left:auto;font-size:13px">83%</span></div>
-        <div class="row"><span class="lb">과제 수행</span><span class="st"><i>★★★★★★</i></span></div>
-        <div class="row"><span class="lb">오답 처리</span><span class="st"><i>★★★★</i>★★</span></div>
+        <div class="row"><b>박보검</b><span class="chip">출석</span><span style="margin-left:auto;font-size:13px">90%</span></div>
+        <div class="row"><b style="font-size:13px">관동별곡 학습지</b></div>
+        <div class="row"><span class="lb">학습량</span><span class="st"><i>★★★★★</i></span></div>
+        <div class="row"><span class="lb">깊이</span><span class="st"><i>★★★★</i>★</span></div>
         <div class="row"><kbd class="p">미제출</kbd><span class="in">코멘트 (선택) — 리포트에 쓰여요</span></div>
       </div>
       <ul>
