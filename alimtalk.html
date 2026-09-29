@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>알림톡 보내기 · 슈국 티쳐스</title>
+<script src="assets/teacher-auth.js" data-mode="protected"></script>
+<!-- 슈국 운영 · 알림톡 보내기 (2026-09-29 사용자 요청 "알림톡 기능을 슈국 운영 메뉴에서 발송할 수 있도록")
+     · 공지를 등록하지 않고도 공지 알림톡(notice_* 종류)을 바로 보낸다. 종류·문구·준비 여부는 리포트 백엔드 alimConfig가 준다.
+     · 대상 고르기는 복습 영상(review.html)과 같은 다섯 가지 — 전체·학년·학교·반·개인. 반 명단 이름 대조 규칙(findStu)도 같다.
+     · 받는 분 = 학생·학부모1·학부모2 체크(기본 모두 — 2026-09-29 사용자 "학생, 학부모님 모두에게 발송"), 받는 분마다 한 건.
+     · 발송은 백엔드 alimSend(50건씩 나눠서). 중복 키는 공지 화면(notice.html)과 같은 'N:날짜|제목' — 같은 날 같은 제목은 두 번 가지 않는다.
+     · 자동 발송은 없다 — [알림톡 보내기]를 누르고 확인 창에서 한 번 더 확인해야 간다.
+     · 결석 안내(absent)는 수업일·반이름이 필요해 여기서 보내지 않는다 — 슈국 스케쥴 출석 창에서.
+     · 교사 인증 조각으로 students(연락처)·tt_classes를 직접 읽는다 — 학생이 여는 페이지에 이 조각을 넣지 말 것. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23DCE9E4'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#C6D5D2; --surface:#FFFFFF; --ink:#2A332F; --ink-soft:#4F5C56; --cap:#5C6A64;
+    --accent:#4C6E66; --line:#D7E3DD; --line-soft:#E5EDE8; --radius:18px;
+    --lilac:#EDE4F4; --lilac-hover:#E3D7EE; --lilac-ink:#5A4A6A;
+    --serif:"Gowun Batang",serif;
+    --sans:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",-apple-system,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased;padding:0 0 80px;}
+  .wrap{max-width:860px;margin:0 auto;padding:0 18px;}
+  .back{display:inline-flex;align-items:center;gap:6px;margin:24px 0 0;color:var(--ink-soft);text-decoration:none;font-size:.86rem;}
+  .back svg{width:16px;height:16px;}
+  header{padding:14px 2px 18px;}
+  h1{font-family:var(--serif);font-size:1.45rem;color:var(--accent);margin:0;}
+  .intro{color:var(--ink-soft);font-size:.9rem;margin:6px 0 0;}
+  .card{background:var(--surface);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(42,51,47,.05);}
+  .card h2{font-family:var(--serif);font-size:1.08rem;margin:0 0 12px;}
+  label.f{display:block;font-size:.84rem;color:var(--ink-soft);margin:14px 0 5px;}
+  input[type=text],select{width:100%;font:inherit;font-size:.95rem;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--ink);}
+  input[type=text]:focus,select:focus{outline:none;border-color:#B9A5CC;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media (max-width:640px){ .row2{grid-template-columns:1fr;} }
+  .btn{font:inherit;font-size:.9rem;border:none;border-radius:11px;padding:9px 15px;cursor:pointer;background:#F2F5F3;color:var(--ink);}
+  .btn:hover{background:#E8EEEA;}
+  .btn.lav{background:var(--lilac);color:var(--lilac-ink);font-family:var(--serif);font-weight:700;}
+  .btn.lav:hover{background:var(--lilac-hover);}
+  .btn:disabled{opacity:.5;cursor:default;}
+  .btn.sm{font-size:.8rem;padding:6px 11px;border-radius:9px;}
+  .seg{display:inline-flex;gap:6px;flex-wrap:wrap;}
+  .seg .btn.on{background:var(--lilac);color:var(--lilac-ink);font-weight:700;}
+  .state{font-size:.86rem;border-radius:12px;padding:9px 13px;margin-bottom:14px;background:#F4F6FA;color:var(--ink-soft);}
+  .state.bad{background:#F9EFD0;color:#7A6330;}
+  .whos{display:flex;gap:16px;flex-wrap:wrap;}
+  .whos label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:.92rem;}
+  .whos input{width:17px;height:17px;accent-color:#8D83A8;}
+  .mpane{display:none;margin-top:10px;}
+  .mpane.on{display:block;}
+  .cls-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px;}
+  .cls-bar select{width:auto;min-width:180px;}
+  .gpills{display:flex;flex-wrap:wrap;gap:6px;}
+  .gpills .btn.on{background:var(--lilac);color:var(--lilac-ink);font-weight:700;}
+  #stuQ{max-width:320px;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .fchip{display:inline-flex;align-items:center;gap:6px;background:var(--lilac);color:var(--lilac-ink);border-radius:9px;padding:4px 6px 4px 10px;font-size:.8rem;}
+  .fchip button{border:none;background:none;color:var(--lilac-ink);cursor:pointer;font-size:.9rem;padding:0 4px;line-height:1;}
+  .sum{margin-top:12px;font-size:.88rem;color:var(--ink-soft);}
+  .sum b{color:var(--ink);}
+  .warn{margin-top:8px;font-size:.84rem;background:#F9EFD0;color:#7A6330;border-radius:10px;padding:8px 12px;}
+  .muted{color:var(--cap);font-size:.86rem;}
+  .prev-wrap{margin-top:14px;}
+  .prev{background:#F7F5EC;border-radius:12px;padding:12px 14px;font-size:.88rem;white-space:pre-wrap;word-break:break-word;line-height:1.6;}
+  .prev .pbtn{margin-top:10px;background:#fff;border-radius:8px;text-align:center;padding:7px;font-size:.84rem;color:var(--ink-soft);white-space:normal;}
+  .go-row{display:flex;justify-content:flex-end;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap;}
+  .result{margin-top:12px;font-size:.88rem;border-radius:10px;padding:9px 12px;display:none;}
+  .result.ok{display:block;background:#E3EDE7;color:#2F5A4F;}
+  .result.err{display:block;background:#F7E2DE;color:#8A4E46;}
+  .log-row{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:9px 2px;border-top:1px solid var(--line-soft);font-size:.88rem;}
+  .log-row:first-child{border-top:none;}
+  .log-row .ts{color:var(--cap);font-size:.8rem;min-width:84px;}
+  .log-row .kd{background:#F2F5F3;border-radius:7px;padding:0 7px;font-size:.78rem;color:var(--ink-soft);}
+  .log-row .tt{flex:1;min-width:160px;}
+  .log-row .n{white-space:nowrap;}
+  .log-row .n .bad{color:#B0736A;}
+  .log-row details{flex-basis:100%;font-size:.8rem;color:var(--cap);}
+  .log-row summary{cursor:pointer;}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#2A332F;color:#fff;font-size:.86rem;padding:9px 16px;border-radius:20px;opacity:0;transition:.2s;pointer-events:none;z-index:9;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <a class="back" href="ops.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> 슈국 운영으로 가기</a>
+  <header>
+    <h1>알림톡 보내기</h1>
+    <p class="intro">종류와 제목을 정하고 받을 학생을 고르면 카카오 알림톡이 갑니다. 받는 분은 학생·학부모1·학부모2 가운데 고를 수 있어요. 같은 날 같은 제목으로 이미 받은 분에게는 다시 가지 않습니다.</p>
+  </header>
+
+  <section class="card">
+    <h2>보낼 내용</h2>
+    <div class="state" id="cfgState">알림톡 설정을 확인하는 중입니다…</div>
+    <div class="row2">
+      <div><label class="f" for="kindSel">알림톡 종류</label><select id="kindSel" onchange="refresh()"><option value="">불러오는 중…</option></select></div>
+      <div><label class="f" for="title">제목 (알림톡의 ▶ 줄)</label><input type="text" id="title" maxlength="60" placeholder="예) 10월 수업 일정 변경 안내" oninput="refresh()" autocomplete="off"></div>
+    </div>
+    <label class="f">받는 분</label>
+    <div class="whos" id="whos">
+      <label><input type="checkbox" class="who" value="학생" checked onchange="refresh()">학생</label>
+      <label><input type="checkbox" class="who" value="학부모1" checked onchange="refresh()">학부모1</label>
+      <label><input type="checkbox" class="who" value="학부모2" checked onchange="refresh()">학부모2</label>
+    </div>
+
+    <label class="f">받을 학생</label>
+    <div class="seg" id="modeSeg">
+      <button class="btn sm" type="button" data-m="all">전체</button><button class="btn sm" type="button" data-m="grade">학년</button><button class="btn sm" type="button" data-m="school">학교</button><button class="btn sm on" type="button" data-m="cls">반</button><button class="btn sm" type="button" data-m="stu">개인</button>
+    </div>
+    <div class="mpane" id="pane-all"><p class="muted" id="allNote">재원생 전체에게 보냅니다.</p></div>
+    <div class="mpane" id="pane-grade"><div class="gpills" id="gradePills"><span class="muted">재원 명단을 불러오는 중…</span></div></div>
+    <div class="mpane" id="pane-school"><div class="cls-bar"><select id="schSel" onchange="addSchool(this.value)"></select></div></div>
+    <div class="mpane" id="pane-cls"><div class="cls-bar">
+      <span class="seg"><button class="btn sm on" type="button" id="bk-정규" onclick="setBook('정규')">정규</button><button class="btn sm" type="button" id="bk-내신" onclick="setBook('내신')">내신</button></span>
+      <select id="tSel" onchange="fillClassSel()"></select>
+      <select id="clsSel" onchange="addClass(this.value)"><option value="">반 목록을 불러오는 중…</option></select>
+    </div></div>
+    <div class="mpane" id="pane-stu"><div class="cls-bar">
+      <input type="text" id="stuQ" list="stuList" placeholder="학생 이름을 입력하고 목록에서 고르세요" autocomplete="off"><datalist id="stuList"></datalist>
+      <button class="btn sm" type="button" onclick="addStu()">추가</button>
+    </div></div>
+    <div class="chips" id="chips"></div>
+    <div class="sum" id="sum"></div>
+
+    <div class="prev-wrap"><label class="f">미리보기 (첫 학생 기준)</label><div class="prev" id="prev"><span class="muted">종류를 고르면 문구가 보입니다.</span></div></div>
+    <div class="go-row"><span class="muted" id="goNote"></span><button class="btn lav" id="goBtn" onclick="sendAll()" disabled>알림톡 보내기</button></div>
+    <div class="result" id="result"></div>
+  </section>
+
+  <section class="card">
+    <h2>최근 7일 보낸 기록</h2>
+    <div id="log"><p class="muted">불러오는 중…</p></div>
+    <div class="go-row"><button class="btn sm" type="button" onclick="loadLog()">새로고침</button></div>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script>
+  const SB_REST = 'https://bangdbhqpphqqdwcledg.supabase.co/rest/v1';
+  const SB_KEY  = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  const REPORT_API = 'https://script.google.com/macros/s/AKfycbzhCncBwn-JlqXARC3wfrWUCuNHzlNK2df0bdhx-w78Xr8mzYUcIYZOJdRi9N4bHtsb/exec';
+  const REPORT_KEY = 'sh';   // 리포트 백엔드 교사용 값(알림톡 설정·발송에 필요 — notice.html·timetable.html과 같은 공개 수준)
+  const BATCH = 50;          // 백엔드 alimSend 한 번 상한
+  const PHONE = { '학생': 'phone_student', '학부모1': 'phone_parent1', '학부모2': 'phone_parent2' };
+  const DAYS = { '월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':7 };
+  const GRADE_ORDER = ['중1', '중2', '중3', '고1', '고2', '고3'];
+  const MODE_NAME = { all: '전체', grade: '학년', school: '학교', cls: '반', stu: '개인' };
+  let CFG = null, BOOK = '정규', CLASSES = {}, STUS = [], MODE = 'cls', SEL = { grade: [], school: [], cls: [], stu: [] }, PLAN = null, SENDING = false;
+
+  const $ = id => document.getElementById(id);
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
+  function toast(m){ const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2600); }
+  function sbAll(path){
+    const LIM = 1000, out = [];
+    const step = off => fetch(SB_REST + path + (path.indexOf('?') >= 0 ? '&' : '?') + 'limit=' + LIM + '&offset=' + off,
+        { headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }, cache: 'no-store' })
+      .then(r => { if (!r.ok) throw new Error('sb ' + r.status); return r.json(); })
+      .then(rows => { rows.forEach(r => out.push(r)); return rows.length < LIM ? out : step(off + LIM); });
+    return step(0);
+  }
+  function api(params){ return fetch(REPORT_API + '?' + new URLSearchParams(Object.assign({ pw: REPORT_KEY, t: Date.now() }, params))).then(r => r.json()); }
+  function post(body){
+    return fetch(REPORT_API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(Object.assign({ pw: REPORT_KEY }, body)) }).then(r => r.json());
+  }
+  function kstYmd(offsetDays){ const d = new Date(Date.now() + 9 * 3600e3 + (offsetDays || 0) * 86400e3), p = n => ('0' + n).slice(-2); return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()); }
+  function phone(v){ const d = String(v || '').replace(/\D/g, ''); return /^01\d{8,9}$/.test(d) ? d : ''; }
+  function tLabel(t){ t = String(t || '').trim(); return t ? (t === '슈' ? '이수경' : t) + 'T' : ''; }
+  function gradeShort(g){ const s = String(g || '').replace(/20\d{2}/, ''), m = s.match(/[1-3]/); return m ? ((s.indexOf('중') >= 0 ? '중' : '고') + m[0]) : String(g || ''); }
+  function fill(text, vars){ return String(text || '').replace(/#\{([^}]+)\}/g, (_, k) => vars[k] != null ? vars[k] : ''); }
+
+  /* ── 반 명단 이름 → 재원 학생 (review.html findStu 와 같은 규칙) ── */
+  function schoolLoose(hint, school){ const a = String(hint || '').replace(/\s/g, ''), b = String(school || '').replace(/\s/g, ''); return !!a && !!b && (b.indexOf(a) === 0 || a.indexOf(b) === 0); }
+  function findStu(tok){
+    const raw = String(tok || '');
+    const plain = raw.replace(/^\s*\([^)]*\)\s*/, '').replace(/\(.*\)$/, '').trim();
+    const hint = (raw.match(/^\s*\(([^)]*)\)/) || [])[1] || '';
+    let hits = STUS.filter(s => s.name === plain);
+    if (!hits.length && /A$/.test(plain)) hits = STUS.filter(s => s.name === plain.slice(0, -1));
+    if (hits.length > 1 && hint){ const nr = hits.filter(s => schoolLoose(hint, s.school)); if (nr.length) hits = nr; }
+    return { plain, hit: hits.length === 1 ? hits[0] : null, dup: hits.length > 1 };
+  }
+  /* 고른 대상 → 학생 목록 {id → stu} + 못 가린 이름들 */
+  function expand(){
+    const out = {}, miss = [], dup = [];
+    const put = s => { out[s.key] = s; };
+    if (MODE === 'all') STUS.forEach(put);
+    if (MODE === 'grade') STUS.filter(s => SEL.grade.indexOf(gradeShort(s.grade)) >= 0).forEach(put);
+    if (MODE === 'school') STUS.filter(s => SEL.school.indexOf(s.school) >= 0).forEach(put);
+    if (MODE === 'stu') SEL.stu.forEach(k => { const s = STUS.find(x => x.key === k); if (s) put(s); });
+    if (MODE === 'cls') SEL.cls.forEach(c => c.students.forEach(tok => {
+      const f = findStu(tok); if (!f.plain) return;
+      if (f.dup){ if (dup.indexOf(f.plain) < 0) dup.push(f.plain); return; }
+      if (!f.hit){ if (miss.indexOf(f.plain) < 0) miss.push(f.plain); return; }
+      put(f.hit);
+    }));
+    return { list: Object.keys(out).map(k => out[k]), miss, dup };
+  }
+  function picked(){
+    if (MODE === 'all') return 1;
+    return MODE === 'cls' ? SEL.cls.length : SEL[MODE === 'stu' ? 'stu' : MODE].length;
+  }
+
+  /* ── 대상 고르기 (review.html 과 같은 모양) ── */
+  function setMode(m){
+    MODE = m;
+    document.querySelectorAll('#modeSeg .btn').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+    ['all', 'grade', 'school', 'cls', 'stu'].forEach(x => $('pane-' + x).classList.toggle('on', x === m));
+    drawChips(); refresh();
+  }
+  $('modeSeg').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (b) setMode(b.dataset.m); });
+  function stuLabel(s){ return s.name + ' · ' + [s.school, gradeShort(s.grade)].filter(Boolean).join(' '); }
+  function fillPickers(){
+    const gs = {}; STUS.forEach(s => { const g = gradeShort(s.grade); if (g) gs[g] = (gs[g] || 0) + 1; });
+    const glist = Object.keys(gs).sort((a, b) => ((GRADE_ORDER.indexOf(a) + 1) || 99) - ((GRADE_ORDER.indexOf(b) + 1) || 99) || a.localeCompare(b, 'ko'));
+    $('gradePills').innerHTML = glist.map(g => '<button class="btn sm' + (SEL.grade.indexOf(g) >= 0 ? ' on' : '') + '" type="button" data-g="' + esc(g) + '">' + esc(g) + ' <span class="muted">' + gs[g] + '명</span></button>').join('') || '<span class="muted">학년 정보가 없어요</span>';
+    const sc = {}; STUS.forEach(s => { if (s.school) sc[s.school] = (sc[s.school] || 0) + 1; });
+    $('schSel').innerHTML = '<option value="">학교를 고르세요 (' + Object.keys(sc).length + '곳)</option>' +
+      Object.keys(sc).sort((a, b) => sc[b] - sc[a] || a.localeCompare(b, 'ko')).map(x => '<option value="' + esc(x) + '">' + esc(x) + ' (' + sc[x] + '명)</option>').join('');
+    $('stuList').innerHTML = STUS.map(s => '<option value="' + esc(stuLabel(s)) + '"></option>').join('');
+    $('allNote').textContent = '재원생 전체 ' + STUS.length + '명에게 보냅니다.';
+  }
+  $('gradePills').addEventListener('click', e => {
+    const b = e.target.closest('[data-g]'); if (!b) return;
+    const g = b.dataset.g, i = SEL.grade.indexOf(g);
+    if (i >= 0) SEL.grade.splice(i, 1); else SEL.grade.push(g);
+    b.classList.toggle('on', i < 0); drawChips(); refresh();
+  });
+  function addSchool(v){ if (v && SEL.school.indexOf(v) < 0) SEL.school.push(v); $('schSel').value = ''; drawChips(); refresh(); }
+  function addStu(){
+    const q = $('stuQ').value.trim(); if (!q) return;
+    let s = STUS.find(x => stuLabel(x) === q);
+    if (!s){ const hits = STUS.filter(x => x.name === q); if (hits.length === 1) s = hits[0]; else if (hits.length > 1){ toast('같은 이름이 ' + hits.length + '명 있어요 — 목록에서 학교까지 골라 주세요'); return; } }
+    if (!s){ toast('재원 명단에서 찾지 못했어요'); return; }
+    if (SEL.stu.indexOf(s.key) < 0) SEL.stu.push(s.key);
+    $('stuQ').value = ''; drawChips(); refresh();
+  }
+  $('stuQ').addEventListener('change', () => { if (STUS.some(x => stuLabel(x) === $('stuQ').value.trim())) addStu(); });
+  $('stuQ').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addStu(); } });
+  function pickKey(c){ return c.book + '|' + c.id; }
+  function drawChips(){
+    let items = [];
+    if (MODE === 'grade') items = SEL.grade.map(v => ['grade', v, v]);
+    if (MODE === 'school') items = SEL.school.map(v => ['school', v, v]);
+    if (MODE === 'cls') items = SEL.cls.map(c => ['cls', pickKey(c), c.book + ' ' + c.day + ' ' + c.start + ' · ' + c.name + (c.teacher ? ' · ' + tLabel(c.teacher) : '')]);
+    if (MODE === 'stu') items = SEL.stu.map(k => { const s = STUS.find(x => x.key === k); return ['stu', k, s ? stuLabel(s) : k]; });
+    $('chips').innerHTML = items.map(([k, v, l]) => '<span class="fchip">' + esc(l) + '<button type="button" data-k="' + k + '" data-v="' + esc(v) + '" aria-label="빼기" title="빼기">×</button></span>').join('');
+  }
+  $('chips').addEventListener('click', e => {
+    const b = e.target.closest('button[data-k]'); if (!b) return;
+    const k = b.dataset.k, v = b.dataset.v;
+    if (k === 'grade'){ SEL.grade = SEL.grade.filter(x => x !== v); fillPickers(); }
+    if (k === 'school') SEL.school = SEL.school.filter(x => x !== v);
+    if (k === 'cls'){ SEL.cls = SEL.cls.filter(c => pickKey(c) !== v); fillClassSel(); }
+    if (k === 'stu') SEL.stu = SEL.stu.filter(x => x !== v);
+    drawChips(); refresh();
+  });
+  function loadClasses(book){
+    if (CLASSES[book]) return Promise.resolve(CLASSES[book]);
+    // '이 주만' 반(w…)은 그 날짜에만 있는 임시 반이라 뺀다
+    return sbAll('/tt_classes?book=eq.' + encodeURIComponent(book) + '&class_id=not.like.w*&select=class_id,name,day,start_time,teacher,roster')
+      .then(rows => {
+        CLASSES[book] = rows.map(r => ({ book, id: r.class_id, name: r.name, day: r.day, start: r.start_time, teacher: String(r.teacher || ''),
+          students: String(r.roster || '').trim().split(/\s+/).filter(Boolean) }))
+          .sort((a, b) => (DAYS[a.day] - DAYS[b.day]) || String(a.start).localeCompare(String(b.start), 'ko', { numeric: true }) || a.name.localeCompare(b.name, 'ko'));
+        return CLASSES[book];
+      });
+  }
+  function setBook(b){
+    BOOK = b;
+    ['정규', '내신'].forEach(x => $('bk-' + x).classList.toggle('on', x === b));
+    $('clsSel').innerHTML = '<option value="">반 목록을 불러오는 중…</option>';
+    loadClasses(b).then(() => { fillTeachers(); fillClassSel(); }).catch(() => { $('clsSel').innerHTML = '<option value="">반 목록을 불러오지 못했어요 — 새로고침</option>'; });
+  }
+  function fillTeachers(){
+    const sel = $('tSel'), cur = sel.value, seen = {};
+    (CLASSES[BOOK] || []).forEach(c => { if (c.teacher) seen[c.teacher] = 1; });
+    const names = Object.keys(seen).sort((a, b) => tLabel(a).localeCompare(tLabel(b), 'ko'));
+    sel.innerHTML = '<option value="">담당 강사 전체</option>' + names.map(n => '<option value="' + esc(n) + '">' + esc(tLabel(n)) + ' 반</option>').join('');
+    if (seen[cur]) sel.value = cur;
+  }
+  function fillClassSel(){
+    const t = $('tSel').value, done = {};
+    SEL.cls.forEach(c => { done[pickKey(c)] = 1; });
+    const list = (CLASSES[BOOK] || []).filter(c => !t || c.teacher === t);
+    if (!list.length){ $('clsSel').innerHTML = '<option value="">반이 없어요</option>'; return; }
+    const byDay = {}; list.forEach(c => { (byDay[c.day] = byDay[c.day] || []).push(c); });
+    $('clsSel').innerHTML = '<option value="">반을 고르세요 (' + list.length + '개)</option>' +
+      Object.keys(byDay).sort((a, b) => DAYS[a] - DAYS[b]).map(d => '<optgroup label="' + esc(d) + '요일">' + byDay[d].map(c =>
+        '<option value="' + esc(pickKey(c)) + '"' + (done[pickKey(c)] ? ' disabled' : '') + '>' + esc(c.day + ' ' + c.start + ' · ' + c.name) +
+        (c.teacher ? ' · ' + esc(tLabel(c.teacher)) : '') + ' (' + c.students.length + '명)' + (done[pickKey(c)] ? ' — 담음' : '') + '</option>').join('') + '</optgroup>').join('');
+  }
+  function addClass(k){
+    if (!k) return;
+    const [b, id] = k.split('|'), c = (CLASSES[b] || []).find(x => x.id === id);
+    if (c && !SEL.cls.some(x => pickKey(x) === k)) SEL.cls.push(c);
+    fillClassSel(); $('clsSel').value = ''; drawChips(); refresh();
+  }
+
+  /* ── 알림톡 설정·종류 ── */
+  function kinds(){ const t = (CFG && CFG.templates) || {}; return Object.keys(t).filter(k => t[k].notice || /^notice/.test(k)); }
+  function tplOf(k){ return CFG && CFG.templates && CFG.templates[k]; }
+  function loadCfg(){
+    return api({ action: 'alimConfig' }).then(d => { CFG = (d && d.result === 'success') ? d : null; }).catch(() => { CFG = null; }).then(() => {
+      const ks = kinds(), st = $('cfgState');
+      $('kindSel').innerHTML = ks.length ? ks.map(k => { const t = tplOf(k); return '<option value="' + esc(k) + '"' + (t.ready ? '' : ' disabled') + '>' + esc(t.label) + (t.ready ? '' : ' (준비 전)') + '</option>'; }).join('') : '<option value="">종류 없음</option>';
+      const first = ks.find(k => tplOf(k).ready); if (first) $('kindSel').value = first;
+      if (!CFG){ st.className = 'state bad'; st.textContent = '알림톡 설정을 불러오지 못했습니다. 새로고침해 주세요.'; }
+      else if (!CFG.ready){ st.className = 'state bad'; st.textContent = '알림톡 설정 전입니다. 슈국 스케쥴 상단 [알림톡] → 설정에서 솔라피 정보를 넣어 주세요.'; }
+      else if (!first){ st.className = 'state bad'; st.textContent = '승인된 공지 알림 템플릿이 아직 없습니다. 솔라피 심사가 끝나면 슈국 스케쥴 [알림톡] → [솔라피에서 가져오기]를 눌러 주세요.'; }
+      else { const n = ks.filter(k => tplOf(k).ready).length; st.className = 'state'; st.textContent = '보낼 수 있는 종류 ' + n + '개 / ' + ks.length + '개' + (n < ks.length ? ' — (준비 전) 표시는 솔라피 심사가 끝나면 열려요.' : '') + (CFG.smsFallback ? '' : ' 카카오톡을 못 받는 번호는 문자로 대체되지 않아요.'); }
+      refresh();
+    });
+  }
+
+  /* ── 요약·미리보기 — 보낼 건을 PLAN 에 모아 둔다 ── */
+  function whos(){ return Array.from(document.querySelectorAll('.who:checked')).map(x => x.value); }
+  function refresh(){
+    PLAN = null;
+    const kind = $('kindSel').value, tpl = tplOf(kind), title = $('title').value.trim(), ws = whos();
+    const e = picked() && STUS.length ? expand() : { list: [], miss: [], dup: [] };
+    const items = [], nophone = [], nocode = [];
+    e.list.forEach(s => {
+      if (!s.code){ nocode.push(s.name); return; }
+      const tos = ws.map(w => ({ who: w, to: phone(s[PHONE[w]]) })).filter(t => t.to);
+      if (!tos.length){ nophone.push(s.name); return; }
+      tos.forEach(t => items.push({ student: s.name, to: t.to, who: t.who, code: s.code }));
+    });
+    const people = e.list.length - nophone.length - nocode.length;
+    let h = '';
+    if (!picked()) h = '<span class="muted">' + MODE_NAME[MODE] + '을(를) 골라 주세요.</span>';
+    else if (!STUS.length) h = '<span class="muted">재원 명단을 불러오는 중…</span>';
+    else {
+      h = '학생 <b>' + people + '명</b>' + (ws.length ? '의 ' + esc(ws.join('·')) + '에게 <b>' + items.length + '건</b>' : '') + ' 보냅니다.' +
+        (items.length > BATCH ? ' <span class="muted">(' + BATCH + '건씩 나눠 보내요)</span>' : '');
+      const w = [];
+      if (nophone.length) w.push('고른 분의 연락처가 없는 학생 ' + nophone.length + '명: ' + nophone.map(esc).join(', '));
+      if (nocode.length) w.push('학생 페이지 링크(접근코드)가 없는 학생 ' + nocode.length + '명: ' + nocode.map(esc).join(', '));
+      if (e.miss.length) w.push('재원 명단에 없는 이름 ' + e.miss.length + '명: ' + e.miss.map(esc).join(', '));
+      if (e.dup.length) w.push('동명이인이라 못 가린 이름 ' + e.dup.length + '명: ' + e.dup.map(esc).join(', '));
+      if (w.length) h += '<div class="warn">이 학생들에게는 가지 않습니다 — ' + w.join('<br>') + '</div>';
+    }
+    $('sum').innerHTML = h;
+    $('prev').innerHTML = tpl ? esc(fill(tpl.text, { '학생명': items[0] ? items[0].student : '○○○', '제목': title || '(제목)' })) +
+      (tpl.buttons || []).map(b => '<div class="pbtn">' + esc(b.name) + '</div>').join('') : '<span class="muted">종류를 고르면 문구가 보입니다.</span>';
+    let note = '';
+    if (!tpl || !tpl.ready) note = '보낼 수 있는 종류를 골라 주세요';
+    else if (!title) note = '제목을 넣어 주세요';
+    else if (!ws.length) note = '받는 분을 한 명 이상 골라 주세요';
+    else if (!items.length) note = picked() ? '보낼 학생이 없습니다' : '';
+    $('goNote').textContent = note;
+    $('goBtn').disabled = !!note || !items.length || SENDING;
+    if (!note && items.length) PLAN = { kind, label: tpl.label, title, items, people };
+  }
+
+  /* ── 보내기 — 확인 창 뒤 50건씩 ── */
+  function sendAll(){
+    const p = PLAN; if (!p || SENDING) return;
+    if (!confirm('“' + p.label + '” 알림톡을 학생 ' + p.people + '명에게 ' + p.items.length + '건 보낼까요?\n\n▶ ' + p.title)) return;
+    SENDING = true; $('goBtn').disabled = true; $('goBtn').textContent = '보내는 중…';
+    const ref = 'N:' + kstYmd() + '|' + p.title;   // 공지 화면과 같은 중복 키
+    const chunks = []; for (let i = 0; i < p.items.length; i += BATCH) chunks.push(p.items.slice(i, i + BATCH));
+    let ok = 0, err = ''; const dup = [], bad = [];
+    const run = chunks.reduce((prev, ch) => prev.then(() => {
+      if (err) return;
+      return post({ action: 'alimSend', kind: p.kind,
+        items: ch.map(it => ({ student: it.student, to: it.to, who: it.who, cls: '공지', date: ref, vars: { '학생명': it.student, '제목': p.title, '접근코드': it.code } })) })
+        .then(res => {
+          if (!res || res.result !== 'success'){ err = (res && res.message) || '오류'; return; }
+          ok += res.okCount || 0;
+          (res.sent || []).forEach(x => { const n = x.student + (x.who ? ' ' + x.who : ''); if (x.dup) dup.push(n); else if (!x.ok) bad.push(n + ' (' + x.message + ')'); });
+        }).catch(() => { err = '인터넷 연결을 확인해 주세요.'; });
+    }), Promise.resolve());
+    run.then(() => {
+      SENDING = false; $('goBtn').textContent = '알림톡 보내기';
+      const r = $('result');
+      if (err){ r.className = 'result err'; r.textContent = '알림톡을 보내지 못했습니다: ' + err + (ok ? ' (그전 ' + ok + '건은 보냈어요)' : ''); }
+      else {
+        r.className = 'result ' + (bad.length ? 'err' : 'ok');
+        r.textContent = '알림톡 ' + ok + '건을 보냈습니다.' + (dup.length ? ' 같은 제목으로 이미 받은 ' + dup.length + '건은 건너뛰었어요.' : '') + (bad.length ? ' 실패: ' + bad.join(', ') : '');
+      }
+      refresh(); loadLog();
+    });
+  }
+
+  /* ── 최근 기록 — 종류·제목(중복 키)별로 묶는다. 결석 안내는 날짜·반으로 ── */
+  function loadLog(){
+    // 공지 건의 date 는 'N:날짜|제목' 이라 to 를 넘기면 걸러진다 — from 만 준다
+    api({ action: 'alimLog', from: kstYmd(-7), limit: 1000 }).then(d => {
+      const rows = (d && d.rows) || [], g = {}, order = [];
+      rows.forEach(r => {
+        const k = r.kind + '§' + r.date;
+        if (!g[k]){ g[k] = { kind: r.kind, date: r.date, ts: r.ts, ok: 0, bad: 0, names: [] }; order.push(k); }
+        const x = g[k]; if (r.ok) x.ok++; else x.bad++;
+        if (x.names.length < 400) x.names.push(r.student + (r.who ? '(' + r.who + ')' : '') + (r.ok ? '' : ' 실패'));
+        if (r.ts > x.ts) x.ts = r.ts;
+      });
+      if (!order.length){ $('log').innerHTML = '<p class="muted">최근 7일 동안 보낸 알림톡이 없습니다.</p>'; return; }
+      $('log').innerHTML = order.map(k => {
+        const x = g[k], t = tplOf(x.kind), m = /^N:\d{4}-\d{2}-\d{2}\|(.*)$/.exec(x.date);
+        const title = m ? m[1] : (x.kind === 'absent' ? x.date + ' 결석' : x.date);
+        return '<div class="log-row"><span class="ts">' + esc(String(x.ts).slice(5, 16)) + '</span><span class="kd">' + esc(t ? t.label : x.kind) + '</span>' +
+          '<span class="tt">' + esc(title) + '</span><span class="n">' + x.ok + '건' + (x.bad ? ' · <span class="bad">실패 ' + x.bad + '</span>' : '') + '</span>' +
+          '<details><summary>받은 분 보기</summary>' + esc(x.names.join(', ')) + '</details></div>';
+      }).join('');
+    }).catch(() => { $('log').innerHTML = '<p class="muted">기록을 불러오지 못했습니다.</p>'; });
+  }
+
+  /* ── 시작 ── */
+  sbAll('/students?select=id,name,school,grade,code,enrolled,phone_student,phone_parent1,phone_parent2&order=seq,id').then(rows => {
+    STUS = rows.filter(r => String(r.name || '').trim() && !/^(퇴원|n|no|off|x|중단|비재원)$/i.test(String(r.enrolled || '').trim()))
+      .map(r => ({ key: String(r.id), name: String(r.name).trim(), school: String(r.school || '').trim(), grade: String(r.grade || ''), code: String(r.code || '').trim(),
+                   phone_student: r.phone_student, phone_parent1: r.phone_parent1, phone_parent2: r.phone_parent2 }));
+    fillPickers(); refresh();
+  }).catch(() => { $('sum').innerHTML = '<div class="warn">재원 명단을 불러오지 못했습니다. 새로고침해 주세요.</div>'; });
+  setMode('cls');
+  setBook('정규');
+  loadCfg().then(loadLog);   // 기록의 종류 이름은 설정에서 온다
+</script>
+</body>
+</html>
