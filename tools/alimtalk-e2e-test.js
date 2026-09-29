@@ -180,21 +180,22 @@ function applyFilter(rows, url){
   console.log('⑦ 모의고사 — 신청일 칸 (2026-09-29)');
   sends.length = 0;
   await pg.setViewportSize({ width: 1100, height: 900 });
-  CFG.templates.notice_mock = Object.assign(tpl('주말 실전 모의고사 신청 안내', true), { vars: ['학생명', '제목', '신청일', '접근코드'],
-    text: '[이수경국어학원] 주말 실전 모의고사 신청 안내\n#{학생명} 학생에게 주말 실전 모의고사 신청 안내가 도착했어요.\n\n▶ #{제목}\n\n3. #{신청일} 중 택1하여 신청합니다.' });
+  CFG.templates.notice_mock = Object.assign(tpl('주말 실전 모의고사 신청 안내', true), { vars: ['학생명', '제목', '장소', '신청일', '접근코드'],
+    text: '[이수경국어학원] 주말 실전 모의고사 신청 안내\n#{학생명} 학생에게 주말 실전 모의고사 신청 안내가 도착했어요.\n\n▶ #{제목}\n\n1. #{장소}에서 실시합니다.\n3. #{신청일} 중 택1하여 신청합니다.' });
   await pg.reload();
   await pg.waitForFunction(() => document.querySelectorAll('#clsSel option[value*="|"]').length > 0 && /보낼 수 있는/.test(document.getElementById('cfgState').textContent));
   ok((await pg.$$('.xvar')).length === 0, '추가 변수 없는 종류는 칸 없음');
   await pg.selectOption('#kindSel', 'notice_mock');
-  ok((await pg.$$eval('.xvar', els => els.map(e => e.dataset.var))).join() === '신청일', '모의고사를 고르면 신청일 칸');
+  ok((await pg.$$eval('.xvar', els => els.map(e => e.dataset.var + '=' + e.value))).join() === '장소=대감빌딩 5층 이수경 국어 본원,신청일=', '모의고사를 고르면 장소(기본값)·신청일 칸');
   await pg.selectOption('#clsSel', '정규|r001');
   await pg.fill('#title', '2027학년도 수능대비 실전 모의고사');
   ok(await pg.isDisabled('#goBtn') && /신청일을\(를\) 넣어/.test(await pg.textContent('#goNote')), '신청일이 비면 잠김');
-  await pg.fill('.xvar', '3/14(토), 3/15(일)');
-  ok(!(await pg.isDisabled('#goBtn')) && /3\/14\(토\), 3\/15\(일\) 중 택1/.test(await pg.textContent('#prev')), '채우면 미리보기에 들어가고 열림');
+  await pg.fill('.xvar[data-var="장소"]', '화정센터');
+  await pg.fill('.xvar[data-var="신청일"]', '3/14(토), 3/15(일)');
+  ok(!(await pg.isDisabled('#goBtn')) && /3\/14\(토\), 3\/15\(일\) 중 택1/.test(await pg.textContent('#prev')) && /1\. 화정센터에서 실시합니다/.test(await pg.textContent('#prev')), '채우면 미리보기에 들어가고 열림');
   await pg.click('#goBtn');
   await pg.waitForFunction(() => /보냈습니다/.test(document.getElementById('result').textContent));
-  ok(sends.length === 1 && sends[0].kind === 'notice_mock' && sends[0].items.every(x => x.vars['신청일'] === '3/14(토), 3/15(일)' && x.vars['제목'] === '2027학년도 수능대비 실전 모의고사'), '보낸 변수에 신청일');
+  ok(sends.length === 1 && sends[0].kind === 'notice_mock' && sends[0].items.every(x => x.vars['신청일'] === '3/14(토), 3/15(일)' && x.vars['장소'] === '화정센터' && x.vars['제목'] === '2027학년도 수능대비 실전 모의고사'), '보낸 변수에 신청일');
 
   console.log('⑥ 휴대폰 폭');
   await pg.setViewportSize({ width: 390, height: 800 });
