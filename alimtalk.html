@@ -311,8 +311,8 @@
   function tplOf(k){ return CFG && CFG.templates && CFG.templates[k]; }
   /* 종류별 추가 변수(모의고사 #{신청일} 등) — 기본 셋 밖의 변수는 입력 칸을 만들고 다 채워야 보낸다.
    * 칸은 종류를 바꿀 때만 다시 그린다(입력 중에 다시 그리면 한글 조합이 끊긴다). */
-  const BASE_VARS = ['학생명', '제목', '접근코드'], X_HINT = { '신청일': '예) 3/14(토), 3/15(일)', '장소': '예) 대감빌딩 5층 이수경 국어 본원' },
-    X_DEFAULT = { '장소': '대감빌딩 5층 이수경 국어 본원' };   // 늘 같은 값은 미리 채워 둔다(고칠 수 있음)
+  const BASE_VARS = ['학생명', '제목', '접근코드'], X_HINT = { '신청일': '예) 3/14(토), 3/15(일)', '장소': '예) 대감빌딩 5층 이수경 국어 본원', '정원': '예) 35 (숫자만)' },
+    X_DEFAULT = { '장소': '대감빌딩 5층 이수경 국어 본원', '정원': '35' };   // 늘 같은 값은 미리 채워 둔다(고칠 수 있음)
   function extraVars(tpl){ return ((tpl && tpl.vars) || []).filter(v => BASE_VARS.indexOf(v) < 0); }
   function xVals(){ const o = {}; document.querySelectorAll('.xvar').forEach(el => { o[el.dataset.var] = el.value.trim(); }); return o; }
   function kindChanged(){
