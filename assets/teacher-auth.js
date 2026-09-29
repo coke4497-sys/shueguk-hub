@@ -233,7 +233,8 @@
       bar.id = 'teacherAuthBar';
       bar.setAttribute('aria-label', '로그인 정보');
       var name = document.createElement('span');
-      name.textContent = (profile.display_name || profile.login_id) + ' 선생님';
+      var roleLabel = profile.role === 'assistant' ? '조교' : (profile.role === 'admin' ? '관리자' : '선생님');
+      name.textContent = (profile.display_name || profile.login_id) + ' ' + roleLabel;
       var button = document.createElement('button');
       button.type = 'button';
       button.textContent = '로그아웃';

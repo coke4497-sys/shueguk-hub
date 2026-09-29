@@ -8,14 +8,14 @@ do $$
 begin
   alter table public.teacher_accounts
     add constraint teacher_accounts_role_check
-    check (role in ('teacher', 'admin'));
+    check (role in ('teacher', 'assistant', 'admin'));
 exception
   when duplicate_object then null;
 end
 $$;
 
 comment on column public.teacher_accounts.role is
-  'admin은 교사 계정 발급 가능, teacher는 일반 교사 권한';
+  'admin은 계정 발급 관리자, teacher는 선생님, assistant는 조교';
 comment on column public.teacher_accounts.created_by is
   '이 교사 계정을 발급한 관리자 Auth 사용자';
 

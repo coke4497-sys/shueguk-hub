@@ -55,7 +55,7 @@ const createTeacher = withSupabase({ auth: 'user' }, async (request, context) =>
     return reply(403, { error: '계정을 발급할 관리자 권한이 없습니다.' })
   }
 
-  let input: { loginId?: unknown; displayName?: unknown }
+  let input: { loginId?: unknown; displayName?: unknown; accountType?: unknown }
   try {
     input = await request.json()
   } catch (_) {
@@ -64,11 +64,15 @@ const createTeacher = withSupabase({ auth: 'user' }, async (request, context) =>
 
   const loginId = String(input.loginId || '').trim().toLowerCase()
   const displayName = String(input.displayName || '').trim()
+  const accountType = String(input.accountType || 'teacher')
   if (!/^[a-z0-9][a-z0-9._-]{1,39}$/.test(loginId)) {
     return reply(400, { error: '아이디는 영문 소문자·숫자·점·밑줄·하이픈 2~40자로 입력하십시오.' })
   }
   if (displayName.length < 1 || displayName.length > 40) {
     return reply(400, { error: '표시 이름은 1~40자로 입력하십시오.' })
+  }
+  if (accountType !== 'teacher' && accountType !== 'assistant') {
+    return reply(400, { error: '계정 구분을 확인하십시오.' })
   }
 
   const password = createTemporaryPassword()
@@ -77,7 +81,7 @@ const createTeacher = withSupabase({ auth: 'user' }, async (request, context) =>
     email,
     password,
     email_confirm: true,
-    user_metadata: { display_name: displayName },
+    user_metadata: { display_name: displayName, account_type: accountType },
   })
   if (createError || !created.user) {
     const duplicate = createError?.message?.toLowerCase().includes('already')
@@ -90,7 +94,7 @@ const createTeacher = withSupabase({ auth: 'user' }, async (request, context) =>
     user_id: created.user.id,
     login_id: loginId,
     display_name: displayName,
-    role: 'teacher',
+    role: accountType,
     active: true,
     created_by: actorId,
   })
@@ -100,7 +104,7 @@ const createTeacher = withSupabase({ auth: 'user' }, async (request, context) =>
   }
 
   return reply(201, {
-    account: { loginId, displayName, temporaryPassword: password },
+    account: { loginId, displayName, accountType, temporaryPassword: password },
   })
 })
 

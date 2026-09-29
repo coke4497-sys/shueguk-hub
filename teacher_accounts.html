@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>교사 계정 관리 · 슈국 티쳐스</title>
+<title>교직원 계정 관리 · 슈국 티쳐스</title>
 <script src="assets/teacher-auth.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,8 +22,9 @@
   .intro{margin:0 0 25px;color:var(--soft);font-size:.9rem;line-height:1.7}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
   label{display:block;color:var(--soft);font-size:.85rem}
-  input{display:block;width:100%;margin-top:7px;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);font:16px/1.3 inherit;outline:none}
-  input:focus{border-color:#8D83A8;box-shadow:0 0 0 3px rgba(141,131,168,.14)}
+  input,select{display:block;width:100%;margin-top:7px;padding:13px 14px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);font:16px/1.3 inherit;outline:none}
+  input:focus,select:focus{border-color:#8D83A8;box-shadow:0 0 0 3px rgba(141,131,168,.14)}
+  .full{grid-column:1/-1}
   button{border:0;border-radius:12px;padding:13px 18px;background:var(--lav);color:var(--lav-ink);font:700 15px/1.3 "Gowun Batang",serif;cursor:pointer}
   button:hover{background:#E3D7EE}
   button:disabled{opacity:.65;cursor:wait}
@@ -43,15 +44,21 @@
 <main>
   <div class="top"><p class="brand">Shueguk</p><a class="home" href="index.html">메인으로</a></div>
   <section class="card" id="accountPanel" hidden>
-    <h1>교사 계정 발급</h1>
-    <p class="intro">교사 아이디와 표시 이름을 입력하면 안전한 임시 비밀번호를 자동으로 생성합니다.</p>
+    <h1>교직원 계정 발급</h1>
+    <p class="intro">선생님 또는 조교를 선택하고 계정 정보를 입력하면 안전한 임시 비밀번호를 자동으로 생성합니다.</p>
     <form id="accountForm" novalidate>
       <div class="grid">
-        <label>교사 아이디
+        <label>계정 아이디
           <input id="loginId" name="username" type="text" placeholder="예: teacher.kim" autocomplete="off" autocapitalize="none" spellcheck="false" required>
         </label>
         <label>표시 이름
           <input id="displayName" type="text" placeholder="예: 박보검" autocomplete="off" maxlength="40" required>
+        </label>
+        <label class="full">계정 구분
+          <select id="accountType" required>
+            <option value="teacher">선생님</option>
+            <option value="assistant">조교</option>
+          </select>
         </label>
       </div>
       <button class="submit" id="submitBtn" type="submit">아이디와 임시 비밀번호 발급</button>
@@ -59,7 +66,7 @@
     </form>
     <section class="result" id="result" aria-live="polite">
       <h2>계정이 발급되었습니다</h2>
-      <p>아래 내용을 해당 선생님에게 안전하게 전달하십시오.</p>
+      <p>아래 내용을 해당 교직원에게 안전하게 전달하십시오.</p>
       <div class="credentials" id="credentials"></div>
       <button class="copy" id="copyBtn" type="button">계정 정보 복사</button>
       <p class="notice">임시 비밀번호는 이 화면을 벗어나면 다시 확인할 수 없습니다. 메신저 단체방이나 공개 문서에는 공유하지 마십시오.</p>
@@ -72,6 +79,7 @@
     var form = document.getElementById('accountForm');
     var loginId = document.getElementById('loginId');
     var displayName = document.getElementById('displayName');
+    var accountType = document.getElementById('accountType');
     var button = document.getElementById('submitBtn');
     var message = document.getElementById('message');
     var result = document.getElementById('result');
@@ -96,14 +104,15 @@
       fetch(TeacherAuth.config.url + '/functions/v1/create-teacher', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ loginId: loginId.value, displayName: displayName.value })
+        body: JSON.stringify({ loginId: loginId.value, displayName: displayName.value, accountType: accountType.value })
       }).then(function(response){
         return response.json().catch(function(){ return {}; }).then(function(data){
           if (!response.ok) throw new Error(data.error || '계정을 발급하지 못했습니다.');
           return data.account;
         });
       }).then(function(account){
-        copyText = '교사 아이디: ' + account.loginId + '\n임시 비밀번호: ' + account.temporaryPassword;
+        var typeLabel = account.accountType === 'assistant' ? '조교' : '선생님';
+        copyText = '계정 구분: ' + typeLabel + '\n아이디: ' + account.loginId + '\n임시 비밀번호: ' + account.temporaryPassword;
         credentials.textContent = copyText;
         result.classList.add('show');
         form.reset();

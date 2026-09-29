@@ -13,7 +13,7 @@ create table if not exists public.teacher_accounts (
   created_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint teacher_accounts_role_check check (role in ('teacher', 'admin'))
+  constraint teacher_accounts_role_check check (role in ('teacher', 'assistant', 'admin'))
 );
 
 alter table public.teacher_accounts enable row level security;
