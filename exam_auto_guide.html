@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>지필 리포트 자동 생성 안내 · 슈국 티쳐스</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 지필고사 리포트 자동 생성 사용 안내 (2026-09-30 원장님 "이 내용을 선생님들께 전달하고 싶어요") — 교사 인증 조각 없음, 링크로 공유해도 됨.
+     기능·버튼 이름이 바뀌면 이 페이지도 함께 고칠 것(리포트 저장소 CLAUDE.md '지필 리포트 자동 생성' 절). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#E6EDEA; --surface:#FFFFFF; --soft:#F3F6F4; --ink:#2A332F; --ink-soft:#65726B; --ink-mute:#8C978F;
+    --accent:#4C6E66; --line:#D7E3DD;
+    --yel:#F9EFD0; --yel-ink:#9B8046; --pnk:#F7E2DE; --pnk-ink:#B0736A; --lav:#EDE4F4; --lav-ink:#8D83A8; --sky:#E9EDF8; --sky-ink:#64749E;
+    --cream:#FBF4EA;
+    --sans:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+    --serif:"Gowun Batang","Apple SD Gothic Neo",serif;
+    --disp:"Do Hyeon","Gowun Dodum",sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1E2624; --surface:#27312E; --soft:#2F3A36; --ink:#E8EEEB; --ink-soft:#B3BFB9; --ink-mute:#8C978F;
+      --accent:#9FC1B7; --line:#3A4744;
+      --yel:#4A4230; --yel-ink:#E4D2A0; --pnk:#4A3532; --pnk-ink:#EBB9B0; --lav:#3A3446; --lav-ink:#CFC2E4; --sky:#30364A; --sky-ink:#B7C2E6;
+      --cream:#3A3630;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1E2624; --surface:#27312E; --soft:#2F3A36; --ink:#E8EEEB; --ink-soft:#B3BFB9; --ink-mute:#8C978F;
+    --accent:#9FC1B7; --line:#3A4744;
+    --yel:#4A4230; --yel-ink:#E4D2A0; --pnk:#4A3532; --pnk-ink:#EBB9B0; --lav:#3A3446; --lav-ink:#CFC2E4; --sky:#30364A; --sky-ink:#B7C2E6;
+    --cream:#3A3630;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.75;padding:0 20px;padding-block:32px 72px;}
+  .page{max-width:760px;margin:0 auto;}
+  a{color:var(--accent);}
+  /* 머리 */
+  .head{margin-bottom:28px;}
+  .head .eyebrow{font-family:var(--serif);font-size:14px;letter-spacing:.08em;color:var(--ink-soft);margin:0 0 6px;}
+  .head h1{font-family:var(--disp);font-weight:400;font-size:44px;line-height:1.1;margin:0 0 10px;color:var(--ink);letter-spacing:.01em;text-wrap:balance;}
+  .head p{margin:0;color:var(--ink-soft);max-width:62ch;}
+  /* 3단계 요약 */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 36px;}
+  .steps > div{background:var(--surface);border-radius:16px;padding:16px 18px;box-shadow:0 2px 12px rgba(42,51,47,.05);}
+  .steps .n{font-family:var(--disp);font-size:26px;line-height:1;color:var(--lav-ink);margin-bottom:8px;}
+  .steps b{display:block;font-family:var(--serif);font-size:16px;margin-bottom:4px;}
+  .steps span{font-size:14px;color:var(--ink-soft);}
+  /* 절 */
+  section{background:var(--surface);border-radius:20px;padding:26px 28px;margin:0 0 18px;box-shadow:0 2px 12px rgba(42,51,47,.05);}
+  section h2{font-family:var(--serif);font-weight:700;font-size:21px;margin:0 0 6px;color:var(--accent);text-wrap:balance;}
+  section .lead{margin:0 0 16px;color:var(--ink-soft);font-size:15px;}
+  section p{margin:0 0 12px;max-width:66ch;}
+  section p:last-child{margin-bottom:0;}
+  ol,ul{margin:0 0 12px;padding-left:22px;max-width:66ch;}
+  li{margin:0 0 8px;}
+  li:last-child{margin-bottom:0;}
+  /* 버튼 이름 표기 */
+  kbd{font-family:var(--sans);font-size:.92em;background:var(--lav);color:var(--lav-ink);border-radius:8px;padding:1px 8px;white-space:nowrap;font-weight:700;}
+  kbd.y{background:var(--yel);color:var(--yel-ink);}
+  kbd.p{background:var(--pnk);color:var(--pnk-ink);}
+  kbd.s{background:var(--sky);color:var(--sky-ink);}
+  /* 링크 카드 */
+  .links{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 0;}
+  .links a{display:block;background:var(--soft);border-radius:12px;padding:12px 14px;text-decoration:none;color:var(--ink);}
+  .links a b{display:block;font-family:var(--serif);color:var(--accent);margin-bottom:2px;}
+  .links a span{font-size:13px;color:var(--ink-soft);display:block;}
+  .cap{font-size:13px;color:var(--ink-mute);margin:0 0 14px;}
+  /* 목록 상태 칩 */
+  .chip{display:inline-block;font-size:12.5px;border-radius:999px;padding:1px 10px;font-weight:700;white-space:nowrap;}
+  .c-req{background:var(--yel);color:var(--yel-ink);} .c-done{background:var(--soft);color:var(--accent);}
+  .c-hold{background:var(--pnk);color:var(--pnk-ink);} .c-reg{background:var(--lav);color:var(--lav-ink);}
+  /* 세 가지 길 */
+  .ways{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:6px 0 14px;}
+  .ways div{background:var(--soft);border-radius:14px;padding:14px 16px;font-size:14.5px;}
+  .ways b{display:block;font-family:var(--serif);font-size:15.5px;margin-bottom:6px;color:var(--ink);}
+  .ways .tag{display:inline-block;font-size:12px;border-radius:999px;padding:1px 9px;margin-bottom:8px;}
+  .ways .t1{background:var(--sky);color:var(--sky-ink);} .ways .t2{background:var(--pnk);color:var(--pnk-ink);} .ways .t3{background:var(--yel);color:var(--yel-ink);}
+  /* 버튼 표 */
+  table{width:100%;border-collapse:collapse;font-size:15px;margin:6px 0 4px;}
+  th,td{text-align:left;vertical-align:top;padding:9px 6px;border-bottom:1px solid var(--line);}
+  th{font-family:var(--serif);font-weight:700;color:var(--ink-soft);font-size:13.5px;letter-spacing:.04em;}
+  td:first-child{white-space:nowrap;width:38%;}
+  tr:last-child td{border-bottom:0;}
+  .tbl{overflow-x:auto;}
+  /* 주의 */
+  .note{background:var(--soft);border-radius:14px;padding:14px 18px;font-size:15px;}
+  .note b{font-family:var(--serif);}
+  .foot{margin-top:26px;font-size:13.5px;color:var(--ink-mute);text-align:center;font-family:var(--serif);}
+  @media (max-width:640px){
+    body{font-size:15.5px;}
+    .head h1{font-size:36px;}
+    .steps,.links,.ways,.board{grid-template-columns:1fr;}
+    section{padding:20px 18px;border-radius:16px;}
+    td:first-child{width:auto;white-space:normal;}
+  }
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important;animation:none !important;} }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="head">
+    <p class="eyebrow">이수경국어 · 티쳐스 페이지 안내</p>
+    <h1>지필 리포트, 시험지로 자동 생성</h1>
+    <p>시험지와 정답지를 올리면 클로슈가 문항 분석과 총평 초안을 만들어 드립니다. 선생님은 초안을 확인하고 학생을 배정해 등록만 하시면 돼요.</p>
+  </div>
+
+  <div class="steps">
+    <div><div class="n">1</div><b>시험지 올리기</b><span>시험지·정답지(사진·PDF)를 올리고 <kbd>초안 요청</kbd>.</span></div>
+    <div><div class="n">2</div><b>초안 기다리기</b><span>몇 분에서 10분쯤 뒤 목록에 <span class="chip c-done">완료</span>가 떠요.</span></div>
+    <div><div class="n">3</div><b>확인하고 등록</b><span><kbd>리포트 만들기</kbd> → 내용 확인 → 학생 배정 → 등록.</span></div>
+  </div>
+
+  <section>
+    <h2>어디서 여나요</h2>
+    <p class="lead">티쳐스 페이지 → 지필고사 리포트 → 지필고사 리포트 제작</p>
+    <p>제작 페이지를 열면 <kbd>자동 생성</kbd>과 <kbd class="s">수동 생성</kbd> 두 카드가 나옵니다. 지금까지처럼 직접 입력하시려면 수동 생성을 누르시면 돼요.</p>
+    <div class="links">
+      <a href="https://coke4497-sys.github.io/shueguk-report/m.html" target="_blank" rel="noopener"><b>지필고사 리포트 제작</b><span>자동 생성 · 수동 생성</span></a>
+      <a href="https://coke4497-sys.github.io/shueguk-report/analyses.html" target="_blank" rel="noopener"><b>리포트 수정 및 학생 배정</b><span>등록한 리포트 고치기</span></a>
+      <a href="report.html"><b>지필고사 리포트 메뉴</b><span>메뉴로 돌아가기</span></a>
+    </div>
+  </section>
+
+  <section>
+    <h2>1. 시험지 올리고 초안 요청하기</h2>
+    <ol>
+      <li><b>시험 기간 · 학교 · 학년 · 과목</b>을 고릅니다. 고른 값으로 리포트 제목이 만들어져요(예: 26-2-중간-화정고1-공통국어2).</li>
+      <li><b>시험지</b>를 올립니다. 사진이나 PDF 모두 되고, 여러 장을 한 번에 고를 수 있습니다. <b>페이지 순서대로</b> 골라 주세요.</li>
+      <li><b>정답지</b>를 올립니다. 정답지가 있으면 문항 분석과 난이도 판단이 훨씬 정확해져요.</li>
+      <li><b>시험 범위</b>는 내신대비 피드백에 적어 둔 범위가 자동으로 채워집니다. 없으면 알고 있는 만큼 직접 적어 주세요.</li>
+      <li><b>참고 메모</b>에 변별 문항, 학생들이 어려워한 부분, 총평에 꼭 넣을 말을 적으면 총평 초안에 반영됩니다.</li>
+      <li><kbd>초안 요청</kbd>을 누릅니다. 창을 닫아도 괜찮아요.</li>
+    </ol>
+    <p class="cap">파일 하나에 20MB까지 올릴 수 있습니다.</p>
+  </section>
+
+  <section>
+    <h2>2. 자동 생성 목록 보기</h2>
+    <p class="lead">제작 페이지 첫 화면 아래 '자동 생성 목록'에서 요청 상태를 확인합니다. 만드는 중인 요청이 있으면 20초마다 저절로 새로 고쳐져요.</p>
+    <div class="tbl"><table>
+      <tr><th>상태</th><th>뜻과 할 일</th></tr>
+      <tr><td><span class="chip c-req">만드는 중</span></td><td>클로슈가 초안을 만들고 있습니다. 한참 지나도 그대로면 <kbd>다시 알리기</kbd>를 눌러 주세요.</td></tr>
+      <tr><td><span class="chip c-done">완료</span></td><td>초안이 준비됐습니다. <kbd>리포트 만들기</kbd>를 누르세요.</td></tr>
+      <tr><td><span class="chip c-hold">보류</span></td><td>초안을 만들지 못했습니다. 아래에 이유가 적혀 있어요(예: 사진이 흐려 읽지 못함). 다시 찍어 새로 요청해 주세요.</td></tr>
+      <tr><td><span class="chip c-reg">리포트 등록됨</span></td><td>이 초안으로 리포트를 이미 등록했습니다.</td></tr>
+    </table></div>
+    <p style="margin-top:14px"><kbd class="s">옮긴 글 보기</kbd>로 시험지를 글로 옮긴 내용과 정답을, <kbd class="s">원본 보기</kbd>로 올린 사진·PDF를 언제든 다시 볼 수 있어요. 올린 파일은 지우지 않고 보관합니다.</p>
+  </section>
+
+  <section>
+    <h2>3. 확인하고 등록하기</h2>
+    <ol>
+      <li><kbd>리포트 만들기</kbd>를 누르면 입력 화면에 제목 · 시험 범위 · 문항 · 총평이 채워집니다.</li>
+      <li>화면 위 분홍 상자의 <b>'확인할 점'</b>부터 봐 주세요. 흐려서 읽지 못한 글자, 정답이 의심스러운 문항 등이 적혀 있어요.</li>
+      <li><b>문항</b>(지문 묶음 · 영역 · 세부유형 · 난이도 · 문항 내용)과 <b>총평</b>을 확인하고 고칩니다.</li>
+      <li><b>학생 배정 칸을 직접 골라 주세요.</b> 고르지 않으면 등록이 되지 않습니다. 다른 리포트에 배정한 학생이 잘못 넘어가지 않게 하려는 장치예요.</li>
+      <li><kbd>시트에 등록</kbd>을 누르면 배정한 학생의 개별 페이지에 리포트가 보입니다.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>사진 잘 찍는 요령</h2>
+    <ul>
+      <li>한 장에 한 페이지씩, 종이가 화면에 꽉 차게 찍어 주세요.</li>
+      <li>밝은 곳에서, 그림자와 반사광이 없게 찍으면 잘 읽혀요.</li>
+      <li>기울지 않게 위에서 똑바로 찍어 주세요.</li>
+      <li>스캔한 PDF가 있으면 PDF가 가장 좋습니다.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>알아 두세요</h2>
+    <div class="note">
+      <p><b>초안은 AI가 만든 것입니다.</b> 문항 분석과 총평을 등록 전에 반드시 확인하고 고쳐 주세요.</p>
+      <p><b>등록하기 전에는 학생에게 보이지 않습니다.</b> 초안을 열어만 봐도 괜찮아요.</p>
+      <p><b>총평에는 시험지로 알 수 있는 내용만 들어갑니다.</b> 학생 반응이나 점수 같은 내용은 참고 메모에 적어 주시거나 등록 전에 직접 더해 주세요.</p>
+      <p>불편한 점이나 고치고 싶은 것은 시간표 페이지의 <b>[수정 요청]</b>에 남겨 주세요.</p>
+    </div>
+  </section>
+
+  <p class="foot"><a href="report.html">지필고사 리포트 메뉴로 돌아가기</a> · 이수경국어 · 2026년 9월</p>
+</div>
+
+</body>
+</html>
