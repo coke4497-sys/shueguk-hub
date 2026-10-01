@@ -39,7 +39,7 @@ const tpl = (label, ready) => ({ label, notice: true, ready, vars: ['학생명',
 const CFG = { result: 'success', ready: true, smsFallback: true, templates: {
   absent: { label: '결석 안내', ready: true, text: '', vars: [] },
   notice_sched: tpl('수업 일정 안내', true), notice_mock: tpl('주말 실전 모의고사 신청 안내', false) } };
-const sends = [], getsCalled = [];
+const sends = [], getsCalled = [], posts = [];
 let LOG = [{ ts: '2026-09-28 18:00', kind: 'notice_sched', student: '김철수', who: '학부모1', to: '01022220001', cls: '공지', date: 'N:2026-09-28|지난 안내', ok: true, message: '' }];
 
 function applyFilter(rows, url){
@@ -90,6 +90,9 @@ function applyFilter(rows, url){
           sent.forEach((x, i) => { if (x.ok && !x.dup) LOG.unshift({ ts: '2026-09-29 10:0' + (i % 10), kind: b.kind, student: x.student, who: x.who, to: b.items[i].to, cls: '공지', date: b.items[i].date, ok: true, message: '' }); });
           return json({ result: 'success', sent, okCount: sent.filter(x => x.ok && !x.dup).length, failCount: sent.filter(x => !x.ok).length });
         }
+        if (b.action === 'alimConfigSet'){ posts.push(b); return json({ result: 'success', saved: Object.keys(b).filter(k => k !== 'action' && k !== 'pw') }); }
+        if (b.action === 'alimDiscover'){ posts.push(b); return json({ result: 'success', savedPfId: 'KA01PFtest', channels: [{ pfId: 'KA01PFtest', name: '이수경국어' }],
+          templates: { notice_mock: { label: '주말 실전 모의고사 신청 안내', saved: 'KA01TPmock' } }, notes: ['심사 중인 템플릿 1개'] }); }
         return json({ result: 'error' });
       }
       const u = new URL(url); getsCalled.push(u.searchParams.get('action') + '|' + (u.searchParams.get('to') || ''));
@@ -197,6 +200,30 @@ function applyFilter(rows, url){
   await pg.click('#goBtn');
   await pg.waitForFunction(() => /보냈습니다/.test(document.getElementById('result').textContent));
   ok(sends.length === 1 && sends[0].kind === 'notice_mock' && sends[0].items.every(x => x.vars['신청일'] === '3/14(토), 3/15(일)' && x.vars['장소'] === '화정센터' && x.vars['정원'] === '30' && x.vars['제목'] === '2027학년도 수능대비 실전 모의고사'), '보낸 변수에 신청일');
+
+  console.log('⑧ 알림톡 설정 카드 — 슈국 스케쥴 [알림톡] 창을 옮겨 옴 (2026-10-01)');
+  const bd = await pg.$$eval('#cfgBadges .bdg', els => els.map(e => e.textContent + (e.classList.contains('no') ? '!' : '')));
+  ok(bd[0] === '솔라피 API 키 없음!' && bd.includes('결석 안내 템플릿 준비됨') && bd.includes('수업 일정 안내 템플릿 준비됨') && bd.length === 6, '준비 상태 배지 — ' + bd.join('|'));
+  ok(!(await pg.isVisible('#tplTexts')), '템플릿 문구는 접혀 있음');
+  await pg.click('#tplFold summary');
+  ok(/학생 페이지 링크/.test(await pg.textContent('#tplTexts')) && (await pg.$$('#tplTexts .tpl-h')).length === 3, '펼치면 결석·공지 종류 문구와 버튼');
+  await pg.click('#cfgFold summary');
+  await pg.click('#cfgFold .go-row .btn.lav');
+  ok(/채운 칸이 없습니다/.test(await pg.textContent('#cfErr')) && !posts.length, '빈 칸이면 저장 안 함');
+  await pg.fill('#cfKey', 'NCSKEY'); await pg.fill('#cfFrom', '010-7151-4497');
+  await pg.click('#cfgFold .go-row .btn.lav');
+  await pg.waitForFunction(() => /저장했습니다/.test(document.getElementById('cfMsg').textContent));
+  ok(posts[0].action === 'alimConfigSet' && posts[0].apiKey === 'NCSKEY' && posts[0].from === '010-7151-4497' && posts[0].pw === 'sh' && !('apiSecret' in posts[0]), '채운 칸만 저장 — ' + JSON.stringify(posts[0]));
+  ok(await pg.inputValue('#cfKey') === '', '저장 뒤 칸 비움');
+  ok(await pg.inputValue('#kindSel') === 'notice_mock', '설정을 다시 읽어도 고른 종류 유지');
+  await pg.click('#discBtn');
+  await pg.waitForFunction(() => /템플릿 ID 저장/.test(document.getElementById('disc').textContent));
+  ok(posts[1].action === 'alimDiscover' && /KA01PFtest/.test(await pg.textContent('#disc')) && /심사 중/.test(await pg.textContent('#disc')), '솔라피에서 가져오기 결과');
+  await pg.click('#cfgFold details.fold summary');
+  await pg.fill('.tplId[data-kind="notice_mock"]', 'KA01TPx');
+  await pg.click('#cfgFold details.fold .btn.lav');
+  for (let i = 0; i < 30 && posts.length < 3; i++) await sleep(100);
+  ok(posts[2] && posts[2].tpl && posts[2].tpl.notice_mock === 'KA01TPx', '직접 입력 템플릿 ID — 종류 키로');
 
   console.log('⑥ 휴대폰 폭');
   await pg.setViewportSize({ width: 390, height: 800 });
