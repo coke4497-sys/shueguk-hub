@@ -12,6 +12,7 @@
      · 발송은 백엔드 alimSend(50건씩 나눠서). 중복 키는 공지 화면(notice.html)과 같은 'N:날짜|제목' — 같은 날 같은 제목은 두 번 가지 않는다.
      · 자동 발송은 없다 — [알림톡 보내기]를 누르고 확인 창에서 한 번 더 확인해야 간다.
      · 결석 안내(absent)는 수업일·반이름이 필요해 여기서 보내지 않는다 — 슈국 스케쥴 출석 창에서.
+     · 아래 '알림톡 설정' 카드 = 옛 슈국 스케쥴 [알림톡] 창(준비 상태·템플릿 문구·솔라피 설정·가져오기)을 옮겨 온 것(2026-10-01). 결석 확인 창은 슈국 스케쥴에 그대로.
      · 교사 인증 조각으로 students(연락처)·tt_classes를 직접 읽는다 — 학생이 여는 페이지에 이 조각을 넣지 말 것. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -84,6 +85,18 @@
   .log-row .n .bad{color:#B0736A;}
   .log-row details{flex-basis:100%;font-size:.8rem;color:var(--cap);}
   .log-row summary{cursor:pointer;}
+  /* 알림톡 설정 — 슈국 스케쥴 [알림톡] 창을 옮겨 옴(2026-10-01 사용자 "이 메뉴가 알림톡으로 와야합니다") */
+  .badges{display:flex;flex-wrap:wrap;gap:6px;}
+  .bdg{font-size:.8rem;border-radius:9px;padding:4px 10px;background:#E3EDE7;color:#2F5A4F;}
+  .bdg.no{background:#F7E2DE;color:#8A4E46;}
+  details.fold{margin-top:12px;}
+  details.fold > summary{cursor:pointer;font-size:.88rem;font-weight:700;color:var(--ink-soft);}
+  .tpl-h{font-size:.84rem;color:var(--ink-soft);margin:14px 0 6px;}
+  .cfg input[type=text],.cfg input[type=password]{margin-top:4px;}
+  .cfg input[type=password]{width:100%;font:inherit;font-size:.95rem;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:#fff;}
+  .msg-ok{font-size:.84rem;color:#2F5A4F;margin:6px 0 0;}
+  .msg-err{font-size:.84rem;color:#8A4E46;margin:6px 0 0;}
+  .ch-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 0;font-size:.88rem;}
   #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#2A332F;color:#fff;font-size:.86rem;padding:9px 16px;border-radius:20px;opacity:0;transition:.2s;pointer-events:none;z-index:9;}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
 </style>
@@ -139,6 +152,30 @@
     <h2>최근 7일 보낸 기록</h2>
     <div id="log"><p class="muted">불러오는 중…</p></div>
     <div class="go-row"><button class="btn sm" type="button" onclick="loadLog()">새로고침</button></div>
+  </section>
+
+  <section class="card" id="settings">
+    <h2>알림톡 설정</h2>
+    <p class="muted" style="margin:-4px 0 12px;">결석 안내는 슈국 스케쥴 출석 창에서, 공지 안내는 위에서 보냅니다. 준비 상태와 솔라피 설정은 여기서 확인합니다.</p>
+    <div class="badges" id="cfgBadges"><span class="muted">확인하는 중…</span></div>
+    <details class="fold" id="tplFold"><summary>템플릿 문구 보기 (솔라피에 이 문구 그대로 등록)</summary><div id="tplTexts"></div></details>
+    <details class="fold cfg" id="cfgFold"><summary>설정 (솔라피 API 키 · 카카오 채널 · 템플릿)</summary>
+      <p class="muted">값은 저장만 되고 다시 보이지 않습니다. 바꿀 칸만 채우고 저장하세요. 빈 칸은 그대로 둬요.</p>
+      <label class="f" for="cfKey">솔라피 API Key</label><input type="text" id="cfKey" autocomplete="off" placeholder="NCS…">
+      <label class="f" for="cfSecret">솔라피 API Secret</label><input type="password" id="cfSecret" autocomplete="off">
+      <label class="f" for="cfFrom">발신번호 (솔라피에 등록한 번호 — 넣으면 카카오톡을 못 받는 번호는 문자로 대체)</label><input type="text" id="cfFrom" autocomplete="off" placeholder="010-0000-0000">
+      <p class="msg-err" id="cfErr"></p><p class="msg-ok" id="cfMsg"></p>
+      <div class="go-row"><button class="btn lav" type="button" onclick="cfgSave()">설정 저장</button></div>
+      <label class="f">채널 · 템플릿 — 솔라피에서 자동으로 가져오기</label>
+      <p class="muted" style="margin:0;">API 키를 저장한 뒤 누르면 연동된 카카오 채널(pfId)과 승인된 템플릿 ID를 솔라피에서 읽어 와 저장합니다. 템플릿 심사가 끝나면 한 번 더 눌러 주세요.</p>
+      <div class="go-row" style="justify-content:flex-start;"><button class="btn" type="button" id="discBtn" onclick="discover()">솔라피에서 가져오기</button><span class="muted" id="discMsg"></span></div>
+      <div id="disc"></div>
+      <details class="fold"><summary>직접 입력 (자동 가져오기가 안 될 때)</summary>
+        <label class="f" for="cfPf">카카오 채널 pfId</label><input type="text" id="cfPf" autocomplete="off" placeholder="KA01PF…">
+        <div id="tplInputs"></div>
+        <div class="go-row"><button class="btn lav" type="button" onclick="cfgSave()">저장</button></div>
+      </details>
+    </details>
   </section>
 </main>
 <div id="toast"></div>
@@ -323,14 +360,67 @@
   }
   function loadCfg(){
     return api({ action: 'alimConfig' }).then(d => { CFG = (d && d.result === 'success') ? d : null; }).catch(() => { CFG = null; }).then(() => {
-      const ks = kinds(), st = $('cfgState');
+      const ks = kinds(), st = $('cfgState'), was = $('kindSel').value;   // 설정을 다시 읽어도 고른 종류는 유지
       $('kindSel').innerHTML = ks.length ? ks.map(k => { const t = tplOf(k); return '<option value="' + esc(k) + '"' + (t.ready ? '' : ' disabled') + '>' + esc(t.label) + (t.ready ? '' : ' (준비 전)') + '</option>'; }).join('') : '<option value="">종류 없음</option>';
-      const first = ks.find(k => tplOf(k).ready); if (first) $('kindSel').value = first;
+      const first = ks.find(k => tplOf(k).ready); if (first) $('kindSel').value = (was && tplOf(was) && tplOf(was).ready) ? was : first;
       if (!CFG){ st.className = 'state bad'; st.textContent = '알림톡 설정을 불러오지 못했습니다. 새로고침해 주세요.'; }
-      else if (!CFG.ready){ st.className = 'state bad'; st.textContent = '알림톡 설정 전입니다. 슈국 스케쥴 상단 [알림톡] → 설정에서 솔라피 정보를 넣어 주세요.'; }
-      else if (!first){ st.className = 'state bad'; st.textContent = '승인된 공지 알림 템플릿이 아직 없습니다. 솔라피 심사가 끝나면 슈국 스케쥴 [알림톡] → [솔라피에서 가져오기]를 눌러 주세요.'; }
+      else if (!CFG.ready){ st.className = 'state bad'; st.textContent = '알림톡 설정 전입니다. 아래 [알림톡 설정]에서 솔라피 정보를 넣어 주세요.'; }
+      else if (!first){ st.className = 'state bad'; st.textContent = '승인된 공지 알림 템플릿이 아직 없습니다. 솔라피 심사가 끝나면 아래 [알림톡 설정] → [솔라피에서 가져오기]를 눌러 주세요.'; }
       else { const n = ks.filter(k => tplOf(k).ready).length; st.className = 'state'; st.textContent = '보낼 수 있는 종류 ' + n + '개 / ' + ks.length + '개' + (n < ks.length ? ' — (준비 전) 표시는 솔라피 심사가 끝나면 열려요.' : '') + (CFG.smsFallback ? '' : ' 카카오톡을 못 받는 번호는 문자로 대체되지 않아요.'); }
-      kindChanged();
+      kindChanged(); renderSettings();
+    });
+  }
+
+  /* ── 알림톡 설정 — 준비 상태·템플릿 문구·솔라피 설정(쓰기 전용). 옛 슈국 스케쥴 [알림톡] 창과 같은 백엔드 액션 ── */
+  function renderSettings(){
+    const b = $('cfgBadges');
+    if (!CFG){ b.innerHTML = '<span class="muted">설정을 확인하지 못했습니다. 새로고침해 주세요.</span>'; $('tplTexts').innerHTML = ''; $('tplInputs').innerHTML = ''; return; }
+    const t = CFG.templates || {}, has = CFG.has || {}, nk = kinds();
+    const items = [['솔라피 API 키', has.key && has.secret], ['카카오 채널(pfId)', has.pfId], ['결석 안내 템플릿', t.absent && t.absent.ready]]
+      .concat(nk.map(k => [t[k].label + ' 템플릿', t[k].ready]), [['문자 대체 발신번호', has.from]]);
+    b.innerHTML = items.map(x => '<span class="bdg' + (x[1] ? '' : ' no') + '">' + esc(x[0]) + ' ' + (x[1] ? '준비됨' : '없음') + '</span>').join('');
+    const all = (t.absent ? ['absent'] : []).concat(nk);
+    $('tplTexts').innerHTML = all.map(k => '<p class="tpl-h">' + esc(t[k].label) + '</p><div class="prev">' + esc(t[k].text) +
+      (t[k].buttons || []).map(x => '<div class="pbtn">' + esc(x.name) + '</div>').join('') + '</div>' +
+      ((t[k].buttons || []).length ? '<p class="muted" style="margin:6px 0 0;">버튼도 함께 등록: ' + t[k].buttons.map(x => '<b>' + esc(x.name) + '</b> (웹링크, 모바일·PC 모두 ' + esc(x.linkMo) + ')').join(', ') + '</p>' : '')).join('');
+    $('tplInputs').innerHTML = all.map(k => '<label class="f">' + esc(t[k].label) + ' 템플릿 ID</label><input type="text" class="tplId" data-kind="' + esc(k) + '" autocomplete="off" placeholder="KA01TP…">').join('');
+  }
+  function cfgSave(){
+    const body = { action: 'alimConfigSet' }; let any = false;
+    [['cfKey', 'apiKey'], ['cfSecret', 'apiSecret'], ['cfFrom', 'from'], ['cfPf', 'pfId']].forEach(([id, k]) => { const v = $(id).value.trim(); if (v){ body[k] = v; any = true; } });
+    document.querySelectorAll('.tplId').forEach(x => { const v = x.value.trim(); if (!v) return; body.tpl = body.tpl || {}; body.tpl[x.dataset.kind] = v; any = true; });
+    $('cfErr').textContent = ''; $('cfMsg').textContent = '';
+    if (!any){ $('cfErr').textContent = '채운 칸이 없습니다.'; return; }
+    post(body).then(res => {
+      if (!res || res.result !== 'success'){ $('cfErr').textContent = '저장하지 못했습니다: ' + ((res && res.message) || '오류'); return; }
+      ['cfKey', 'cfSecret', 'cfFrom', 'cfPf'].forEach(id => { $(id).value = ''; });
+      document.querySelectorAll('.tplId').forEach(x => { x.value = ''; });
+      $('cfMsg').textContent = '저장했습니다: ' + (res.saved || []).join(', ');
+      loadCfg();
+    }).catch(() => { $('cfErr').textContent = '인터넷 연결을 확인해 주세요.'; });
+  }
+  function discover(){
+    const btn = $('discBtn'); btn.disabled = true; $('discMsg').textContent = '솔라피에 물어보는 중…'; $('disc').innerHTML = '';
+    post({ action: 'alimDiscover' }).then(res => {
+      btn.disabled = false; $('discMsg').textContent = '';
+      if (!res || res.result !== 'success'){ $('disc').innerHTML = '<p class="msg-err">' + esc((res && res.message) || '가져오지 못했습니다.') + '</p>'; return; }
+      const parts = [];
+      if (res.savedPfId) parts.push('<p class="msg-ok">채널 pfId 저장: ' + esc(res.savedPfId) + '</p>');
+      if (res.channels && res.channels.length > 1){
+        parts.push('<p class="muted">연동된 채널이 여러 개입니다. 알림톡을 보낼 채널을 골라 주세요.</p>');
+        parts.push(res.channels.map(c => '<div class="ch-row"><b>' + esc(c.name || c.searchId || c.pfId) + '</b><span class="muted">' + esc(c.searchId) + ' · ' + esc(c.pfId) + '</span>' +
+          (res.savedPfId === c.pfId ? '<span class="bdg">사용 중</span>' : '<button class="btn sm" type="button" onclick="pickPf(\'' + esc(c.pfId) + '\')">이 채널 쓰기</button>') + '</div>').join(''));
+      }
+      Object.keys(res.templates || {}).forEach(k => { const x = res.templates[k]; if (x.saved) parts.push('<p class="msg-ok">' + esc(x.label) + ' 템플릿 ID 저장: ' + esc(x.saved) + '</p>'); });
+      (res.notes || []).forEach(n => parts.push('<p class="muted">' + esc(n) + '</p>'));
+      $('disc').innerHTML = parts.join('') || '<p class="muted">가져올 것이 없었어요.</p>';
+      loadCfg();
+    }).catch(() => { btn.disabled = false; $('discMsg').textContent = ''; $('disc').innerHTML = '<p class="msg-err">인터넷 연결을 확인해 주세요.</p>'; });
+  }
+  function pickPf(pfId){
+    post({ action: 'alimConfigSet', pfId }).then(res => {
+      if (res && res.result === 'success'){ toast('알림톡 채널을 저장했습니다.'); discover(); }
+      else toast('저장하지 못했습니다: ' + ((res && res.message) || '오류'));
     });
   }
 
@@ -409,7 +499,7 @@
   /* ── 최근 기록 — 종류·제목(중복 키)별로 묶는다. 결석 안내는 날짜·반으로 ── */
   function loadLog(){
     // 공지 건의 date 는 'N:날짜|제목' 이라 to 를 넘기면 걸러진다 — from 만 준다
-    api({ action: 'alimLog', from: kstYmd(-7), limit: 1000 }).then(d => {
+    return api({ action: 'alimLog', from: kstYmd(-7), limit: 1000 }).then(d => {
       const rows = (d && d.rows) || [], g = {}, order = [];
       rows.forEach(r => {
         const k = r.kind + '§' + r.date;
@@ -438,7 +528,7 @@
   }).catch(() => { $('sum').innerHTML = '<div class="warn">재원 명단을 불러오지 못했습니다. 새로고침해 주세요.</div>'; });
   setMode('cls');
   setBook('정규');
-  loadCfg().then(loadLog);   // 기록의 종류 이름은 설정에서 온다
+  loadCfg().then(loadLog).then(() => { if (location.hash === '#settings') $('settings').scrollIntoView(); });   // 기록의 종류 이름은 설정에서 온다. 슈국 스케쥴 [알림톡]은 #settings로 온다
 </script>
 </body>
 </html>
