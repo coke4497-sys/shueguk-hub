@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>결석 알림톡 안내 · 슈국 티쳐스</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 결석 알림톡 보내는 법 안내 (2026-10-03 원장님 "결석 알림톡을 보내는 방법을 안내문으로") — 교사 인증 조각 없음, 선생님·조교에게 링크로 공유해도 됨.
+     모양은 question_guide.html과 같은 틀. 기능·버튼 이름이 바뀌면 이 페이지도 함께 고칠 것. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#E6EDEA; --surface:#FFFFFF; --soft:#F3F6F4; --ink:#2A332F; --ink-soft:#65726B; --ink-mute:#8C978F;
+    --accent:#4C6E66; --line:#D7E3DD;
+    --yel:#F9EFD0; --yel-ink:#9B8046; --pnk:#F7E2DE; --pnk-ink:#B0736A; --lav:#EDE4F4; --lav-ink:#8D83A8; --sky:#E9EDF8; --sky-ink:#64749E;
+    --cream:#FBF4EA; --ok:#DCE9E2; --ok-ink:#2F5D46;
+    --sans:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+    --serif:"Gowun Batang","Apple SD Gothic Neo",serif;
+    --disp:"Do Hyeon","Gowun Dodum",sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1E2624; --surface:#27312E; --soft:#2F3A36; --ink:#E8EEEB; --ink-soft:#B3BFB9; --ink-mute:#8C978F;
+      --accent:#9FC1B7; --line:#3A4744;
+      --yel:#4A4230; --yel-ink:#E4D2A0; --pnk:#4A3532; --pnk-ink:#EBB9B0; --lav:#3A3446; --lav-ink:#CFC2E4; --sky:#30364A; --sky-ink:#B7C2E6;
+      --cream:#3A3630; --ok:#2E4A3C; --ok-ink:#BFE0CC;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1E2624; --surface:#27312E; --soft:#2F3A36; --ink:#E8EEEB; --ink-soft:#B3BFB9; --ink-mute:#8C978F;
+    --accent:#9FC1B7; --line:#3A4744;
+    --yel:#4A4230; --yel-ink:#E4D2A0; --pnk:#4A3532; --pnk-ink:#EBB9B0; --lav:#3A3446; --lav-ink:#CFC2E4; --sky:#30364A; --sky-ink:#B7C2E6;
+    --cream:#3A3630; --ok:#2E4A3C; --ok-ink:#BFE0CC;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.75;padding:0 20px;padding-block:32px 72px;}
+  .page{max-width:760px;margin:0 auto;}
+  a{color:var(--accent);}
+  .head{margin-bottom:28px;}
+  .head .eyebrow{font-family:var(--serif);font-size:14px;letter-spacing:.08em;color:var(--ink-soft);margin:0 0 6px;}
+  .head h1{font-family:var(--disp);font-weight:400;font-size:44px;line-height:1.1;margin:0 0 10px;color:var(--ink);letter-spacing:.01em;text-wrap:balance;}
+  .head p{margin:0;color:var(--ink-soft);max-width:62ch;}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:0 0 36px;}
+  .steps div{background:var(--surface);border-radius:16px;padding:16px 18px;box-shadow:0 2px 12px rgba(42,51,47,.05);}
+  .steps .n{font-family:var(--disp);font-size:26px;line-height:1;color:var(--lav-ink);margin-bottom:8px;}
+  .steps b{display:block;font-family:var(--serif);font-size:16px;margin-bottom:4px;}
+  .steps span{font-size:14px;color:var(--ink-soft);}
+  section{background:var(--surface);border-radius:20px;padding:26px 28px;margin:0 0 18px;box-shadow:0 2px 12px rgba(42,51,47,.05);}
+  section h2{font-family:var(--serif);font-weight:700;font-size:21px;margin:0 0 6px;color:var(--accent);text-wrap:balance;}
+  section .lead{margin:0 0 16px;color:var(--ink-soft);font-size:15px;}
+  section p{margin:0 0 12px;max-width:66ch;}
+  section p:last-child{margin-bottom:0;}
+  ol,ul{margin:0 0 12px;padding-left:22px;max-width:66ch;}
+  li{margin:0 0 8px;}
+  li:last-child{margin-bottom:0;}
+  kbd{font-family:var(--sans);font-size:.92em;background:var(--lav);color:var(--lav-ink);border-radius:8px;padding:1px 8px;white-space:nowrap;font-weight:700;}
+  kbd.y{background:var(--yel);color:var(--yel-ink);}
+  kbd.p{background:var(--pnk);color:var(--pnk-ink);}
+  kbd.s{background:var(--sky);color:var(--sky-ink);}
+  .links{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 0;}
+  .links a{display:block;background:var(--soft);border-radius:12px;padding:12px 14px;text-decoration:none;color:var(--ink);}
+  .links a b{display:block;font-family:var(--serif);color:var(--accent);margin-bottom:2px;}
+  .links a span{font-size:13px;color:var(--ink-soft);display:block;}
+  /* 확인 창 미니 그림 */
+  .modal{background:var(--cream);border-radius:16px;padding:18px 20px;margin:14px 0 6px;font-size:14.5px;}
+  .modal .mt{font-family:var(--serif);font-weight:700;font-size:17px;margin-bottom:4px;}
+  .modal .md{color:var(--ink-soft);font-size:13.5px;margin-bottom:12px;}
+  .modal .row{background:var(--surface);border-radius:10px;padding:9px 12px;margin-bottom:8px;}
+  .modal .row b{font-family:var(--serif);}
+  .modal .row small{color:var(--ink-soft);margin-left:6px;}
+  .modal .whos{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px;font-size:13.5px;}
+  .modal .whos span::before{content:"☑ ";color:var(--accent);}
+  .modal .whos span.off::before{content:"☐ ";color:var(--ink-mute);}
+  .modal .memo{font-size:13px;color:var(--pnk-ink);margin-top:4px;}
+  .modal .prev{background:var(--surface);border-radius:10px;padding:10px 12px;white-space:pre-wrap;font-size:13.5px;line-height:1.55;margin-top:4px;}
+  .modal .btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px;}
+  .modal .btns span{border-radius:10px;padding:6px 14px;font-size:13.5px;background:var(--surface);color:var(--ink-soft);}
+  .modal .btns span.go{background:var(--accent);color:#fff;}
+  .cap{font-size:13px;color:var(--ink-mute);margin:0 0 14px;}
+  table{width:100%;border-collapse:collapse;font-size:15px;margin:6px 0 4px;}
+  th,td{text-align:left;vertical-align:top;padding:9px 6px;border-bottom:1px solid var(--line);}
+  th{font-family:var(--serif);font-weight:700;color:var(--ink-soft);font-size:13.5px;letter-spacing:.04em;}
+  td:first-child{white-space:nowrap;width:34%;}
+  tr:last-child td{border-bottom:0;}
+  .tbl{overflow-x:auto;}
+  .pill{display:inline-block;font-size:12.5px;border-radius:999px;padding:1px 9px;font-weight:700;white-space:nowrap;}
+  .pill.ok{background:var(--ok);color:var(--ok-ink);} .pill.no{background:var(--yel);color:var(--yel-ink);} .pill.bad{background:var(--pnk);color:var(--pnk-ink);}
+  .note{background:var(--soft);border-radius:14px;padding:14px 18px;font-size:15px;}
+  .note b{font-family:var(--serif);}
+  .foot{margin-top:26px;font-size:13.5px;color:var(--ink-mute);text-align:center;font-family:var(--serif);}
+  @media (max-width:640px){
+    body{font-size:15.5px;}
+    .head h1{font-size:36px;}
+    .steps,.links{grid-template-columns:1fr;}
+    section{padding:20px 18px;border-radius:16px;}
+    /* 결과 표는 줄 단위로 쌓는다 — 두 열이면 오른쪽 설명이 한 글자씩 꺾였다 */
+    th{display:none;}
+    table,tbody,tr,td{display:block;width:100%;}
+    td{border-bottom:0;padding:3px 0;}
+    td:first-child{width:auto;white-space:normal;padding-top:10px;}
+    tr{border-bottom:1px solid var(--line);padding-bottom:8px;}
+    tr:last-child{border-bottom:0;}
+    .pill{white-space:normal;}
+  }
+  @media (prefers-reduced-motion: reduce){ *{transition:none !important;animation:none !important;} }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="head">
+    <p class="eyebrow">이수경국어 · 티쳐스 페이지 안내</p>
+    <h1>결석 알림톡, 이렇게 보냅니다</h1>
+    <p>결석을 기록하면 그 자리에서 학생과 학부모님께 카카오 알림톡을 보낼 수 있습니다. 저절로 나가는 일은 없고, 선생님이 확인 창에서 [알림톡 보내기]를 눌러야만 가요.</p>
+  </div>
+
+  <div class="steps">
+    <div><div class="n">1</div><b>결석 기록</b><span>슈국 스케쥴에서 학생 이름을 누르고 <kbd class="p">결석</kbd>을 누릅니다.</span></div>
+    <div><div class="n">2</div><b>받는 분 확인</b><span>바로 뜨는 창에서 학생·학부모님 체크와 문구를 확인해요.</span></div>
+    <div><div class="n">3</div><b>알림톡 보내기</b><span><kbd>알림톡 보내기</kbd>를 누르면 끝. 아래에 몇 건 갔는지 나옵니다.</span></div>
+  </div>
+
+  <section>
+    <h2>어디서 보내나요</h2>
+    <p class="lead">티쳐스 페이지 → 슈국 스케쥴. 결석을 기록하는 그 화면에서 바로 보냅니다.</p>
+    <div class="links">
+      <a href="https://coke4497-sys.github.io/shueguk-report/timetable.html" target="_blank" rel="noopener"><b>오늘의 시간표</b><span>오늘 결석 · 그 자리에서 알림톡</span></a>
+      <a href="https://coke4497-sys.github.io/shueguk-report/timetable.html" target="_blank" rel="noopener"><b>주차별 시간표</b><span>지난 날짜 결석도 같은 방법으로</span></a>
+      <a href="https://coke4497-sys.github.io/shueguk-hub/alimtalk.html" target="_blank" rel="noopener"><b>슈국 운영 → 알림톡</b><span>보낸 기록 · 받은 분 확인</span></a>
+    </div>
+  </section>
+
+  <section>
+    <h2>한 명 보내기</h2>
+    <ol>
+      <li><b>오늘의 시간표</b>에서 그 반 카드의 학생 이름을 누릅니다. 지난 날짜라면 <b>주차별</b>에서 그 날짜 칸의 이름을 누르세요.</li>
+      <li>출석 창에서 결석 사유가 있으면 메모 칸에 적고 <kbd class="p">결석</kbd>을 누릅니다. 사유는 알림톡 창에도 함께 보여 한 번 더 확인할 수 있어요.</li>
+      <li>저장되면 <b>결석 알림톡 창</b>이 바로 뜹니다. 번호가 등록된 분(학생·학부모님1·학부모님2)이 모두 체크돼 있습니다. 받지 않을 분은 체크를 풀어 주세요.</li>
+      <li><kbd>알림톡 보내기</kbd>를 누릅니다. 보내지 않으려면 <kbd class="s">보내지 않기</kbd>를 누르면 돼요. 결석 기록은 그대로 남습니다.</li>
+    </ol>
+    <div class="modal" aria-hidden="true">
+      <div class="mt">결석 알림톡</div>
+      <div class="md">학생과 학부모님께 결석 알림톡을 보낼까요? 받지 않을 분은 체크를 풀어 주세요.</div>
+      <div class="row"><b>김○○</b><small>고1 가 · 금5:30</small>
+        <div class="memo">사유 · 몸살</div>
+        <div class="whos"><span>학부모님1 010-1234-****</span><span>학부모님2 010-5678-****</span><span class="off">학생 010-9012-****</span></div>
+      </div>
+      <div class="prev">[이수경국어학원] 결석 안내
+김○○ 학생이 10/3(금) 5:30 고1 가 수업에 결석했습니다.</div>
+      <div class="btns"><span>보내지 않기</span><span class="go">알림톡 보내기</span></div>
+    </div>
+    <p class="cap">확인 창의 모양이에요. 문구는 카카오 심사를 받은 그대로 나가고, 이름·수업일·반이름만 학생마다 바뀝니다.</p>
+  </section>
+
+  <section>
+    <h2>여러 명 한 번에 보내기</h2>
+    <ol>
+      <li>오늘의 시간표 위쪽 출석 도구줄에서 <kbd>복수 선택</kbd>을 켭니다.</li>
+      <li>결석한 학생들을 차례로 누릅니다. 반 이름을 누르면 그 반 전체가 한 번에 선택돼요.</li>
+      <li><kbd class="p">선택 결석</kbd>을 누르면 결석이 한꺼번에 저장되고, 같은 알림톡 창이 여러 명 묶음으로 뜹니다.</li>
+      <li>학생마다 받는 분을 확인한 뒤 <kbd>알림톡 보내기</kbd>를 누릅니다. 인원이 많으면 50건씩 나눠 차례로 나가니 창이 닫힐 때까지 기다려 주세요.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>보낸 뒤 확인하기</h2>
+    <p class="lead">화면 아래 상태 줄에 '결석 알림톡 n건 보냈어요'가 나오면 끝입니다.</p>
+    <div class="tbl"><table>
+      <tr><th>이런 결과가 나오면</th><th>이런 뜻이에요</th></tr>
+      <tr><td><span class="pill ok">n건 보냈어요</span></td><td>모두 잘 갔습니다. 따로 할 일이 없어요.</td></tr>
+      <tr><td><span class="pill no">이미 보낸 기록이 있어 건너뛰었어요</span></td><td>같은 날 같은 학생·같은 분께 이미 간 알림이라 서버가 걸렀습니다. 두 번 가지 않으니 안심하셔도 돼요.</td></tr>
+      <tr><td><span class="pill bad">실패 n건</span></td><td>결과 창에 누구에게 왜 못 갔는지 나옵니다. <kbd>실패한 n건 다시 보내기</kbd>로 그분께만 다시 보낼 수 있어요.</td></tr>
+      <tr><td><span class="pill bad">전송 결과를 받지 못했습니다</span></td><td>인터넷이 끊긴 경우입니다. 출석 창을 다시 열어 '보냄' 표시가 있는지 확인해 주세요. 이미 간 분께는 다시 눌러도 두 번 가지 않습니다.</td></tr>
+    </table></div>
+    <p>학생 이름을 다시 누르면 출석 창 아래에 <b>'○○께 알림톡 보냄 시각'</b> 또는 <b>'아직 안 보냄'</b>이 보입니다. 못 받은 분이 있으면 <kbd>다시 보내기</kbd>로 그분께만 보낼 수 있어요. 모두 받았는데 한 번 더 보내려면 확인 창을 한 번 더 거칩니다.</p>
+  </section>
+
+  <section>
+    <h2>보낸 기록 전체 보기</h2>
+    <p>슈국 운영 → <b>알림톡</b> 메뉴 아래 <b>'최근 7일 보낸 기록'</b>에 발송 건마다 날짜·종류·건수·보낸 선생님이 남습니다. <kbd>받은 분 보기</kbd>를 펼치고 이름에 마우스를 올리면 그 학생의 학교·학년과 학생·학부모님 연락처가 보여요.</p>
+    <p>어떤 분께 알림이 안 갔다면 거기서 번호를 먼저 확인해 주세요. 번호 칸이 <b>'없음'</b>이면 번호가 등록돼 있지 않아서 보낼 수 없었던 것입니다. 번호가 있는데 기록에 없다면 그때 체크를 풀었거나 발송에 실패한 경우예요.</p>
+  </section>
+
+  <section>
+    <h2>알아 두세요</h2>
+    <div class="note">
+      <p><b>번호가 없는 분께는 가지 않습니다.</b> 학생·학부모님 번호는 슈퍼스타 관리 → 슈스 링크 → [수정]에서 넣거나 고칠 수 있어요. 번호를 넣은 뒤 다시 보내면 됩니다.</p>
+      <p><b>학생 번호와 학부모님 번호가 같으면 한 건만 갑니다.</b> 창에는 '학부모님1·학생'처럼 함께 표시돼요.</p>
+      <p><b>잘못 찍은 결석은 보내기 전에 멈출 수 있습니다.</b> 확인 창에서 [보내지 않기]를 누르면 알림은 가지 않고 결석 기록만 남습니다. 결석 기록도 지우려면 출석 창에서 [기록 지우기]를 누르세요.</p>
+      <p><b>문구는 바꿀 수 없습니다.</b> 카카오 심사를 받은 문구라 글자 하나만 달라도 발송이 되지 않아요. 보충 안내 같은 말은 전화나 문자로 따로 전해 주세요.</p>
+      <p><b>허브에 로그인해 두면 보낸 기록에 선생님 이름이 남습니다.</b> 누가 보냈는지 나중에 확인할 수 있어요.</p>
+      <p>불편한 점이나 고치고 싶은 것은 슈국 스케쥴의 <b>[수정 요청]</b>에 남겨 주세요.</p>
+    </div>
+  </section>
+
+  <p class="foot"><a href="alimtalk.html">알림톡 메뉴로 돌아가기</a> · <a href="ops.html">슈국 운영</a> · 이수경국어 · 2026년 10월</p>
+</div>
+
+</body>
+</html>
