@@ -14,7 +14,7 @@ GitHub Pages로 배포됩니다(`coke4497-sys.github.io/shueguk-hub/`). 자세�
 ## Code Review Rules
 
 ### 인증·데이터
-- 교사용 HTML은 **첫 스크립트로** `<script src="assets/teacher-auth.js" data-mode="protected"></script>`를 불러야 합니다. 이 모듈은 교사별 Supabase Auth 세션과 `teacher_accounts.active`를 확인하고, REST 요청에 해당 교사의 JWT를 붙입니다. 공용 계정 이메일·비밀번호나 `T_PW`를 HTML에 다시 넣는 변경은 반드시 지적하세요. 학생용 `omr.html`과 공개 안내 `question_guide.html`에는 교사 인증 모듈을 넣지 않습니다.
+- 교사용 HTML은 **첫 스크립트로** `<script src="assets/teacher-auth.js" data-mode="protected"></script>`를 불러야 합니다. 이 모듈은 교사별 Supabase Auth 세션과 `teacher_accounts.active`를 확인하고, REST 요청에 해당 교사의 JWT를 붙입니다. 공용 계정 이메일·비밀번호나 `T_PW`를 HTML에 다시 넣는 변경은 반드시 지적하세요. 학생용 `omr.html`과 공개 안내 `question_guide.html`·`alim_absent_guide.html`(선생님·조교에게 링크로 나눠 주는 안내문 — 데이터·키 없음)에는 교사 인증 모듈을 넣지 않습니다.
 - 로그인 화면은 `login.html`, 계정·RLS 기준은 `supabase/migrations/202609290001_teacher_accounts.sql`과 `202609290002_teacher_access_gate.sql`, 운영 순서는 `교사계정-설정안내.md`가 원본입니다. 교사 권한은 수정 가능한 `user_metadata`가 아니라 `teacher_accounts`와 `private.is_active_teacher()`로 확인합니다.
 - 회차·응답의 원본은 수파베이스(`omr_exams`·`omr_responses`)입니다. 시트를 원본으로 되돌리는 변경은 지적하세요.
 - 회차 분석의 점수·등급은 저장값이 아니라 **지금 정답으로 다시 채점한 값**입니다. 집계 로직은 `ANALYSIS-CORE` 블록 한 곳이고 `tools/omr-analysis-test.js`가 그 블록을 검증합니다. 로직 변경에 테스트 갱신이 없으면 요청하세요.

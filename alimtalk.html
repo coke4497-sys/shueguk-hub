@@ -5,14 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>알림톡 · 슈국 티쳐스</title>
 <script src="assets/teacher-auth.js" data-mode="protected"></script>
-<!-- 슈국 운영 · 알림톡 보내기 (2026-09-29 사용자 요청 "알림톡 기능을 슈국 운영 메뉴에서 발송할 수 있도록")
+<!-- 슈국 운영 · 알림톡 (2026-09-29 사용자 요청 "알림톡 기능을 슈국 운영 메뉴에서 발송할 수 있도록")
      · 공지를 등록하지 않고도 공지 알림톡(notice_* 종류)을 바로 보낸다. 종류·문구·준비 여부는 리포트 백엔드 alimConfig가 준다.
      · 대상 고르기는 복습 영상(review.html)과 같은 다섯 가지 — 전체·학년·학교·반·개인. 반 명단 이름 대조 규칙(findStu)도 같다.
      · 받는 분 = 학생·학부모1·학부모2 체크(기본 모두 — 2026-09-29 사용자 "학생, 학부모님 모두에게 발송"), 받는 분마다 한 건.
      · 발송은 백엔드 alimSend(50건씩 나눠서). 중복 키는 공지 화면(notice.html)과 같은 'N:날짜|제목' — 같은 날 같은 제목은 두 번 가지 않는다.
      · 자동 발송은 없다 — [알림톡 보내기]를 누르고 확인 창에서 한 번 더 확인해야 간다.
      · 결석 안내(absent)는 수업일·반이름이 필요해 여기서 보내지 않는다 — 슈국 스케쥴 출석 창에서.
-     · 아래 '알림톡 설정' 카드 = 옛 슈국 스케쥴 [알림톡] 창(준비 상태·템플릿 문구·솔라피 설정·가져오기)을 옮겨 온 것(2026-10-01). 결석 확인 창은 슈국 스케쥴에 그대로.
+     · 화면은 탭 세 개(2026-10-03 원장님 디자인 시안 "디자인 개선"): [알림톡 보내기](2열 — 왼쪽 입력, 오른쪽 크림색 미리보기) / [발송 내역](표 — 날짜·종류·제목·받을 학생·인원·상태 알약) /
+       [알림톡 설정](카드 두 장 — 솔라피 연결 · 카카오 채널·템플릿 = 옛 슈국 스케쥴 [알림톡] 창을 옮겨 온 것, 2026-10-01). 휴대폰(≤760px)은 한 열, 미리보기는 접었다 편다.
+       슈국 스케쥴 [알림톡] 버튼은 #settings 로 와서 설정 탭이 열린다. 요소 id·함수 이름은 그대로라 E2E(tools/alimtalk-e2e-test.js)가 탭을 눌러 가며 검사한다.
      · 교사 인증 조각으로 students(연락처)·tt_classes를 직접 읽는다 — 학생이 여는 페이지에 이 조각을 넣지 말 것. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -22,163 +24,287 @@
   :root{
     --bg:#C6D5D2; --surface:#FFFFFF; --ink:#2A332F; --ink-soft:#4F5C56; --cap:#5C6A64;
     --accent:#4C6E66; --line:#D7E3DD; --line-soft:#E5EDE8; --radius:18px;
-    --lilac:#EDE4F4; --lilac-hover:#E3D7EE; --lilac-ink:#5A4A6A;
+    --lilac:#EDE4F4; --lilac-hover:#E3D7EE; --lilac-ink:#5A4A6A; --lilac-deep:#8D83A8;
+    --soft:#F2F5F3; --soft-2:#F6F8F7; --cream:#F7F0DC; --cream-ink:#6A5A2E;
+    --ok-bg:#E3EDE7; --ok-ink:#2F5A4F; --warn-bg:#F9EFD0; --warn-ink:#7A6330; --bad-bg:#F7E2DE; --bad-ink:#8A4E46;
     --serif:"Gowun Batang",serif;
     --sans:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",-apple-system,system-ui,sans-serif;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
-  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased;padding:0 0 80px;}
-  .wrap{max-width:860px;margin:0 auto;padding:0 18px;}
-  .back{display:inline-flex;align-items:center;gap:6px;margin:24px 0 0;color:var(--ink-soft);text-decoration:none;font-size:.86rem;}
-  .back svg{width:16px;height:16px;}
-  header{padding:14px 2px 18px;}
-  h1{font-family:var(--serif);font-size:1.45rem;color:var(--accent);margin:0;}
-  .intro{color:var(--ink-soft);font-size:.9rem;margin:6px 0 0;}
-  .card{background:var(--surface);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(42,51,47,.05);}
-  .card h2{font-family:var(--serif);font-size:1.08rem;margin:0 0 12px;}
-  label.f{display:block;font-size:.84rem;color:var(--ink-soft);margin:14px 0 5px;}
-  input[type=text],select{width:100%;font:inherit;font-size:.95rem;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--ink);}
-  input[type=text]:focus,select:focus{outline:none;border-color:#B9A5CC;}
-  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-  @media (max-width:640px){ .row2{grid-template-columns:1fr;} }
-  .btn{font:inherit;font-size:.9rem;border:none;border-radius:11px;padding:9px 15px;cursor:pointer;background:#F2F5F3;color:var(--ink);}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;padding:0 0 80px;}
+  .wrap{max-width:980px;margin:0 auto;padding:0 18px;}
+  /* 머리 — 제목 + 한 줄 안내 · 오른쪽 '← 슈국 운영' */
+  header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;padding:30px 4px 14px;}
+  h1{font-family:var(--serif);font-size:2rem;color:var(--ink);margin:0;line-height:1.1;}
+  .sub{color:var(--ink-soft);font-size:.9rem;margin:8px 0 0;}
+  .sub a{color:var(--accent);}
+  .back{display:inline-flex;align-items:center;gap:6px;color:var(--ink-soft);text-decoration:none;font-size:.88rem;white-space:nowrap;padding-bottom:4px;}
+  .back:hover{color:var(--ink);}
+  /* 탭 — 알약 세 개(선택 = 흰 알약) */
+  .tabs{display:flex;gap:4px;background:rgba(255,255,255,.42);border-radius:999px;padding:5px;margin:0 0 16px;}
+  .tab{flex:1;font:inherit;font-size:.93rem;border:none;background:transparent;border-radius:999px;padding:9px 12px;cursor:pointer;color:var(--ink-soft);white-space:nowrap;}
+  .tab:hover{color:var(--ink);}
+  .tab.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(42,51,47,.08);}   /* 고운돋움은 굵기 하나 — 선택은 흰 알약·글자색으로만 */
+  .pane{display:none;}
+  .pane.on{display:block;}
+  .card{background:var(--surface);border-radius:var(--radius);padding:20px 22px;margin-bottom:16px;box-shadow:0 1px 3px rgba(42,51,47,.05);}
+  .card h2{font-family:var(--serif);font-size:1.12rem;margin:0;}
+  .chead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+  .chead .muted{font-size:.84rem;}
+  label.f{display:block;font-size:.84rem;color:var(--ink-soft);margin:16px 0 6px;}
+  label.f:first-child{margin-top:0;}
+  input[type=text],input[type=password],select{width:100%;font:inherit;font-size:.95rem;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);}
+  input[type=text]:focus,input[type=password]:focus,select:focus{outline:none;border-color:#B9A5CC;}
+  .btn{font:inherit;font-size:.9rem;border:none;border-radius:11px;padding:9px 15px;cursor:pointer;background:var(--soft);color:var(--ink);}
   .btn:hover{background:#E8EEEA;}
   .btn.lav{background:var(--lilac);color:var(--lilac-ink);font-family:var(--serif);font-weight:700;}
   .btn.lav:hover{background:var(--lilac-hover);}
   .btn:disabled{opacity:.5;cursor:default;}
   .btn.sm{font-size:.8rem;padding:6px 11px;border-radius:9px;}
-  .seg{display:inline-flex;gap:6px;flex-wrap:wrap;}
-  .seg .btn.on{background:var(--lilac);color:var(--lilac-ink);font-weight:700;}
-  .state{font-size:.86rem;border-radius:12px;padding:9px 13px;margin-bottom:14px;background:#F4F6FA;color:var(--ink-soft);}
-  .state.bad{background:#F9EFD0;color:#7A6330;}
-  .whos{display:flex;gap:16px;flex-wrap:wrap;}
-  .whos label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:.92rem;}
-  .whos input{width:17px;height:17px;accent-color:#8D83A8;}
-  .mpane{display:none;margin-top:10px;}
+  .state{font-size:.84rem;border-radius:12px;padding:8px 13px;margin-bottom:14px;background:var(--soft-2);color:var(--ink-soft);}
+  .state.bad{background:var(--warn-bg);color:var(--warn-ink);}
+  /* 보내기 — 왼쪽 입력 · 오른쪽 미리보기(아래 보내기 버튼은 왼쪽 열) */
+  .cols{display:grid;grid-template-columns:minmax(0,1fr) 320px;grid-template-areas:"form pv" "go pv";column-gap:26px;align-items:start;}
+  .form{grid-area:form;min-width:0;}
+  .pv{grid-area:pv;position:sticky;top:16px;}
+  .go{grid-area:go;margin-top:18px;}
+  /* 알약(받는 분·받을 학생·정규/내신) — 테두리 없이 바탕색만, 선택은 연보라 */
+  .pills{display:flex;flex-wrap:wrap;gap:6px;}
+  .pill,.pills .btn{font:inherit;font-size:.88rem;border:none;border-radius:999px;padding:7px 14px;background:var(--soft);color:var(--ink-soft);cursor:pointer;line-height:1.3;}
+  .pill:hover,.pills .btn:hover{background:#E8EEEA;}
+  .pill.on,.pills .btn.on{background:var(--lilac);color:var(--lilac-ink);}
+  .whos{display:flex;flex-wrap:wrap;gap:6px;}
+  .whos label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:.88rem;border-radius:999px;padding:7px 14px;background:var(--soft);color:var(--ink-soft);user-select:none;}
+  .whos label.on{background:var(--lilac);color:var(--lilac-ink);}
+  .whos label i{font-style:normal;font-size:.8rem;opacity:.35;}
+  .whos label.on i{opacity:1;}
+  .whos input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;}
+  .pickbox{position:relative;background:var(--soft-2);border-radius:14px;padding:12px 14px 10px;margin-top:10px;}
+  .mpane{display:none;}
   .mpane.on{display:block;}
-  .cls-bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px;}
-  .cls-bar select{width:auto;min-width:180px;}
+  .cls-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .cls-bar select{width:auto;min-width:200px;flex:1;}
+  .cls-bar .pills{flex-basis:100%;}
   .gpills{display:flex;flex-wrap:wrap;gap:6px;}
-  .gpills .btn.on{background:var(--lilac);color:var(--lilac-ink);font-weight:700;}
-  #stuQ{max-width:320px;}
+  .gpills .btn{border-radius:999px;}
+  .gpills .btn.on{background:var(--lilac);color:var(--lilac-ink);}
+  #stuQ{flex:1;min-width:200px;}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
-  .fchip{display:inline-flex;align-items:center;gap:6px;background:var(--lilac);color:var(--lilac-ink);border-radius:9px;padding:4px 6px 4px 10px;font-size:.8rem;}
-  .fchip button{border:none;background:none;color:var(--lilac-ink);cursor:pointer;font-size:.9rem;padding:0 4px;line-height:1;}
-  .sum{margin-top:12px;font-size:.88rem;color:var(--ink-soft);}
-  .sum b{color:var(--ink);}
-  .warn{margin-top:8px;font-size:.84rem;background:#F9EFD0;color:#7A6330;border-radius:10px;padding:8px 12px;}
+  .chips:empty{display:none;}
+  .fchip{display:inline-flex;align-items:center;gap:6px;background:#fff;color:var(--ink);border-radius:999px;padding:5px 7px 5px 12px;font-size:.82rem;box-shadow:0 1px 2px rgba(42,51,47,.06);}
+  .fchip button{border:none;background:var(--soft);border-radius:999px;width:20px;height:20px;color:var(--ink-soft);cursor:pointer;font-size:.9rem;padding:0;line-height:1;}
+  .fchip button:hover{background:#E8EEEA;}
+  .pick-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;font-size:.82rem;color:var(--cap);}
+  .pick-foot b{color:var(--ink);font-size:.9rem;font-family:var(--serif);}
+  .sum{margin-top:12px;font-size:.86rem;color:var(--ink-soft);}
+  .sum b{color:var(--ink);font-family:var(--serif);}
+  .warn{margin-top:8px;font-size:.84rem;background:var(--warn-bg);color:var(--warn-ink);border-radius:12px;padding:9px 13px;}
   .muted{color:var(--cap);font-size:.86rem;}
-  .prev-wrap{margin-top:14px;}
-  .prev{background:#F7F5EC;border-radius:12px;padding:12px 14px;font-size:.88rem;white-space:pre-wrap;word-break:break-word;line-height:1.6;}
-  .prev .pbtn{margin-top:10px;background:#fff;border-radius:8px;text-align:center;padding:7px;font-size:.84rem;color:var(--ink-soft);white-space:normal;}
-  .go-row{display:flex;justify-content:flex-end;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap;}
-  .result{margin-top:12px;font-size:.88rem;border-radius:10px;padding:9px 12px;display:none;}
-  .result.ok{display:block;background:#E3EDE7;color:#2F5A4F;}
-  .result.err{display:block;background:#F7E2DE;color:#8A4E46;}
-  .log-row{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;padding:9px 2px;border-top:1px solid var(--line-soft);font-size:.88rem;}
-  .log-row:first-child{border-top:none;}
-  .log-row .ts{color:var(--cap);font-size:.8rem;min-width:84px;}
-  .log-row .kd{background:#F2F5F3;border-radius:7px;padding:0 7px;font-size:.78rem;color:var(--ink-soft);}
-  .log-row .tt{flex:1;min-width:160px;}
-  .log-row .n{white-space:nowrap;}
-  .log-row .n .bad{color:#B0736A;}
-  .log-row details{flex-basis:100%;font-size:.8rem;color:var(--cap);}
-  .log-row summary{cursor:pointer;}
-  .log-row .by{color:var(--cap);font-size:.8rem;white-space:nowrap;}
-  .log-row .nm{border-bottom:1px dotted #B9C4BE;cursor:help;}
-  .log-row .nm.miss{border-bottom-style:dashed;color:#B0736A;}
-  /* 알림톡 설정 — 슈국 스케쥴 [알림톡] 창을 옮겨 옴(2026-10-01 사용자 "이 메뉴가 알림톡으로 와야합니다") */
-  .badges{display:flex;flex-wrap:wrap;gap:6px;}
-  .bdg{font-size:.8rem;border-radius:9px;padding:4px 10px;background:#E3EDE7;color:#2F5A4F;}
-  .bdg.no{background:#F7E2DE;color:#8A4E46;}
+  /* 미리보기 — 크림색 카드. 넓은 화면은 늘 펼침(요약 줄 숨김), 휴대폰은 요약 줄을 눌러 접었다 편다 */
+  .prevfold{background:var(--cream);border-radius:14px;overflow:hidden;}
+  .prevfold summary{display:none;list-style:none;cursor:pointer;padding:12px 14px;font-size:.9rem;color:var(--cream-ink);align-items:center;gap:8px;}
+  .prevfold summary::-webkit-details-marker{display:none;}
+  .prevfold summary .pv-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .prevfold summary::after{content:"⌄";font-size:1rem;line-height:1;transition:.15s;}
+  .prevfold[open] summary::after{transform:rotate(180deg);}
+  .pv-head{padding:14px 16px 0;font-size:.84rem;color:var(--cream-ink);display:flex;justify-content:space-between;gap:8px;}
+  .pv-head b{font-family:var(--serif);}
+  .prev{padding:12px 16px 14px;font-size:.88rem;white-space:pre-wrap;word-break:break-word;line-height:1.6;color:var(--ink);}
+  .prev .pbtn{margin-top:10px;background:#fff;border-radius:9px;text-align:center;padding:8px;font-size:.84rem;color:var(--ink-soft);white-space:normal;}
+  .pv-note{padding:0 16px 14px;font-size:.78rem;color:var(--cream-ink);opacity:.8;}
+  /* 보내기 버튼 — 크게 한 줄, 아래 '받는 분 3명 × 학생 23명 → 69건' */
+  .gobtn{display:block;width:100%;font-size:1.05rem;padding:15px 18px;border-radius:14px;}
+  .gonote{text-align:center;font-size:.84rem;color:var(--cap);margin:10px 0 0;min-height:1.2em;}
+  .result{margin-top:12px;font-size:.88rem;border-radius:12px;padding:10px 13px;display:none;}
+  .result.ok{display:block;background:var(--ok-bg);color:var(--ok-ink);}
+  .result.err{display:block;background:var(--bad-bg);color:var(--bad-ink);}
+  /* 발송 내역 — 표 */
+  .logtbl{width:100%;border-collapse:collapse;font-size:.88rem;}
+  .logtbl th{text-align:left;font-weight:400;font-size:.78rem;color:var(--cap);padding:6px 10px 10px;border-bottom:1px solid var(--line-soft);white-space:nowrap;}
+  .logtbl td{padding:12px 10px;border-bottom:1px solid var(--line-soft);vertical-align:top;}
+  .logtbl tr:last-child td{border-bottom:none;}
+  .logtbl .ts span{display:block;font-family:var(--serif);font-weight:700;white-space:nowrap;}
+  .logtbl .ts small{color:var(--cap);font-size:.78rem;}
+  .logtbl .kt{min-width:200px;}
+  .logtbl .kd{display:inline-block;background:var(--soft);border-radius:7px;padding:1px 8px;font-size:.76rem;color:var(--ink-soft);margin-bottom:3px;}
+  .logtbl .tt{display:block;}
+  .logtbl .by{display:block;color:var(--cap);font-size:.78rem;margin-top:2px;}
+  .logtbl .rc{font-size:.8rem;color:var(--cap);min-width:140px;max-width:320px;}
+  .logtbl .rc summary{cursor:pointer;color:var(--ink-soft);white-space:nowrap;}
+  .logtbl .rc summary small{background:var(--soft);border-radius:7px;padding:0 6px;}
+  .logtbl .rc .names{margin-top:6px;line-height:1.7;}
+  .logtbl .nm{border-bottom:1px dotted #B9C4BE;cursor:help;}
+  .logtbl .nm.miss{border-bottom-style:dashed;color:var(--bad-ink);}
+  .logtbl .n{white-space:nowrap;}
+  .logtbl .n .bad{color:var(--bad-ink);font-size:.8rem;}
+  .logtbl .st{white-space:nowrap;}
+  .spill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:.78rem;margin:0 4px 4px 0;}
+  .spill.ok{background:var(--ok-bg);color:var(--ok-ink);}
+  .spill.sms{background:var(--warn-bg);color:var(--warn-ink);}
+  .spill.bad{background:var(--bad-bg);color:var(--bad-ink);}
+  /* 알림톡 설정 — 카드 두 장 */
+  .srow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-top:1px solid var(--line-soft);font-size:.92rem;}
+  .srow:first-child{border-top:none;}
+  .srow .sl{display:flex;flex-direction:column;}
+  .srow .sl small{color:var(--cap);font-size:.78rem;}
+  .bdg{font-size:.8rem;border-radius:999px;padding:3px 11px;background:var(--ok-bg);color:var(--ok-ink);white-space:nowrap;}
+  .bdg.no{background:var(--bad-bg);color:var(--bad-ink);}
+  .bdg.wait{background:var(--warn-bg);color:var(--warn-ink);}
+  .tpills{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 2px;}
+  .tpills .bdg{white-space:normal;}
   details.fold{margin-top:12px;}
-  details.fold > summary{cursor:pointer;font-size:.88rem;font-weight:700;color:var(--ink-soft);}
+  details.fold > summary{cursor:pointer;font-size:.88rem;font-family:var(--serif);font-weight:700;color:var(--lilac-ink);list-style:none;display:inline-flex;align-items:center;gap:6px;}
+  details.fold > summary::-webkit-details-marker{display:none;}
+  details.fold > summary::after{content:"→";font-weight:400;}
+  details.fold[open] > summary::after{content:"↑";}
   .tpl-h{font-size:.84rem;color:var(--ink-soft);margin:14px 0 6px;}
+  details.fold .prev{background:var(--cream);border-radius:12px;}
   .cfg input[type=text],.cfg input[type=password]{margin-top:4px;}
-  .cfg input[type=password]{width:100%;font:inherit;font-size:.95rem;padding:10px 12px;border:1px solid var(--line);border-radius:11px;background:#fff;}
-  .msg-ok{font-size:.84rem;color:#2F5A4F;margin:6px 0 0;}
-  .msg-err{font-size:.84rem;color:#8A4E46;margin:6px 0 0;}
+  .msg-ok{font-size:.84rem;color:var(--ok-ink);margin:6px 0 0;}
+  .msg-err{font-size:.84rem;color:var(--bad-ink);margin:6px 0 0;}
+  .go-row{display:flex;justify-content:flex-end;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap;}
   .ch-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:6px 0;font-size:.88rem;}
   #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#2A332F;color:#fff;font-size:.86rem;padding:9px 16px;border-radius:20px;opacity:0;transition:.2s;pointer-events:none;z-index:9;}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  /* 휴대폰 — 한 열, 탭 글자 줄임, 미리보기 접힘, 표는 줄마다 카드 */
+  @media (max-width:760px){
+    .wrap{padding:0 14px;}
+    header.top{padding:22px 2px 12px;align-items:flex-start;}
+    h1{font-size:1.7rem;}
+    .sub{display:none;}
+    .tab .full{display:none;}
+    .card{padding:18px 16px;}
+    .cols{grid-template-columns:minmax(0,1fr);grid-template-areas:"form" "pv" "go";}
+    .pv{position:static;margin-top:16px;}
+    .prevfold summary{display:flex;}
+    .pv-head{display:none;}
+    .cls-bar select{min-width:0;width:100%;flex-basis:100%;}
+    .logtbl thead{display:none;}
+    .logtbl,.logtbl tbody,.logtbl tr,.logtbl td{display:block;width:100%;}
+    .logtbl tr{padding:10px 0;border-bottom:1px solid var(--line-soft);}
+    .logtbl tr:last-child{border-bottom:none;}
+    .logtbl td{padding:4px 0;border:none;}
+    .logtbl td::before{content:attr(data-l);display:block;font-size:.74rem;color:var(--cap);margin-bottom:1px;}
+    .logtbl .ts span{display:inline;margin-right:6px;}
+    .logtbl .rc{max-width:none;}
+    .srow{align-items:flex-start;}
+  }
 </style>
 </head>
 <body>
 <main class="wrap">
-  <a class="back" href="ops.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> 슈국 운영으로 가기</a>
-  <header>
-    <h1>알림톡</h1>
-    <p class="intro">종류와 제목을 정하고 받을 학생을 고르면 카카오 알림톡이 갑니다. 받는 분은 학생·학부모님1·학부모님2 가운데 고를 수 있어요. 같은 날 같은 제목으로 이미 받은 분에게는 다시 가지 않습니다.</p>
+  <header class="top">
+    <div>
+      <h1>알림톡</h1>
+      <p class="sub">같은 날 같은 제목은 한 번만 갑니다. 결석 알림은 슈국 스케쥴 출석 창에서 바로 보내요 — <a href="alim_absent_guide.html">결석 알림톡 보내는 법 안내</a></p>
+    </div>
+    <a class="back" href="ops.html">← 슈국 운영</a>
   </header>
+  <nav class="tabs" id="tabs" role="tablist" aria-label="알림톡 화면">
+    <button class="tab on" type="button" role="tab" data-tab="send" aria-selected="true"><span class="full">알림톡 </span>보내기</button>
+    <button class="tab" type="button" role="tab" data-tab="log" aria-selected="false">발송 내역</button>
+    <button class="tab" type="button" role="tab" data-tab="settings" aria-selected="false"><span class="full">알림톡 </span>설정</button>
+  </nav>
 
-  <section class="card">
-    <h2>보낼 내용</h2>
-    <div class="state" id="cfgState">알림톡 설정을 확인하는 중입니다…</div>
-    <div class="row2">
-      <div><label class="f" for="kindSel">알림톡 종류</label><select id="kindSel" onchange="kindChanged()"><option value="">불러오는 중…</option></select></div>
-      <div><label class="f" for="title">제목 (알림톡의 ▶ 줄)</label><input type="text" id="title" maxlength="60" placeholder="예) 10월 수업 일정 변경 안내" oninput="refresh()" autocomplete="off"></div>
-    </div>
-    <div id="xvars"></div>
-    <label class="f">받는 분</label>
-    <div class="whos" id="whos">
-      <label><input type="checkbox" class="who" value="학생" checked onchange="refresh()">학생</label>
-      <label><input type="checkbox" class="who" value="학부모1" checked onchange="refresh()">학부모님1</label>
-      <label><input type="checkbox" class="who" value="학부모2" checked onchange="refresh()">학부모님2</label>
-    </div>
+  <!-- ① 알림톡 보내기 -->
+  <section class="pane on" id="tab-send" role="tabpanel">
+    <div class="card">
+      <div class="state" id="cfgState">알림톡 설정을 확인하는 중입니다…</div>
+      <div class="cols">
+        <div class="form">
+          <label class="f" for="kindSel">알림톡 종류</label>
+          <select id="kindSel" onchange="kindChanged()"><option value="">불러오는 중…</option></select>
+          <label class="f" for="title">제목 (▶ 줄)</label>
+          <input type="text" id="title" maxlength="60" placeholder="예) 10월 수업 일정 변경 안내" oninput="refresh()" autocomplete="off">
+          <div id="xvars"></div>
 
-    <label class="f">받을 학생</label>
-    <div class="seg" id="modeSeg">
-      <button class="btn sm" type="button" data-m="all">전체</button><button class="btn sm" type="button" data-m="grade">학년</button><button class="btn sm" type="button" data-m="school">학교</button><button class="btn sm on" type="button" data-m="cls">반</button><button class="btn sm" type="button" data-m="stu">개인</button>
-    </div>
-    <div class="mpane" id="pane-all"><p class="muted" id="allNote">재원생 전체에게 보냅니다.</p></div>
-    <div class="mpane" id="pane-grade"><div class="gpills" id="gradePills"><span class="muted">재원 명단을 불러오는 중…</span></div></div>
-    <div class="mpane" id="pane-school"><div class="cls-bar"><select id="schSel" onchange="addSchool(this.value)"></select></div></div>
-    <div class="mpane" id="pane-cls"><div class="cls-bar">
-      <span class="seg"><button class="btn sm on" type="button" id="bk-정규" onclick="setBook('정규')">정규</button><button class="btn sm" type="button" id="bk-내신" onclick="setBook('내신')">내신</button></span>
-      <select id="tSel" onchange="fillClassSel()"></select>
-      <select id="clsSel" onchange="addClass(this.value)"><option value="">반 목록을 불러오는 중…</option></select>
-    </div></div>
-    <div class="mpane" id="pane-stu"><div class="cls-bar">
-      <input type="text" id="stuQ" list="stuList" placeholder="학생 이름을 입력하고 목록에서 고르세요" autocomplete="off"><datalist id="stuList"></datalist>
-      <button class="btn sm" type="button" onclick="addStu()">추가</button>
-    </div></div>
-    <div class="chips" id="chips"></div>
-    <div class="sum" id="sum"></div>
+          <label class="f">받는 분</label>
+          <div class="whos" id="whos">
+            <label class="on"><input type="checkbox" class="who" value="학생" checked onchange="refresh()">학생 <i>✓</i></label>
+            <label class="on"><input type="checkbox" class="who" value="학부모1" checked onchange="refresh()">학부모님1 <i>✓</i></label>
+            <label class="on"><input type="checkbox" class="who" value="학부모2" checked onchange="refresh()">학부모님2 <i>✓</i></label>
+          </div>
 
-    <div class="prev-wrap"><label class="f">미리보기 (첫 학생 기준)</label><div class="prev" id="prev"><span class="muted">종류를 고르면 문구가 보입니다.</span></div></div>
-    <div class="go-row"><span class="muted" id="goNote"></span><button class="btn lav" id="goBtn" onclick="sendAll()" disabled>알림톡 보내기</button></div>
-    <div class="result" id="result"></div>
+          <label class="f">받을 학생</label>
+          <div class="pills" id="modeSeg">
+            <button class="btn" type="button" data-m="all">전체</button><button class="btn" type="button" data-m="grade">학년</button><button class="btn" type="button" data-m="school">학교</button><button class="btn on" type="button" data-m="cls">반</button><button class="btn" type="button" data-m="stu">개인</button>
+          </div>
+          <div class="pickbox">
+            <div class="mpane" id="pane-all"><p class="muted" id="allNote" style="margin:0;">재원생 전체에게 보냅니다.</p></div>
+            <div class="mpane" id="pane-grade"><div class="gpills" id="gradePills"><span class="muted">재원 명단을 불러오는 중…</span></div></div>
+            <div class="mpane" id="pane-school"><div class="cls-bar"><select id="schSel" onchange="addSchool(this.value)"></select></div></div>
+            <div class="mpane" id="pane-cls"><div class="cls-bar">
+              <span class="pills"><button class="btn on" type="button" id="bk-정규" onclick="setBook('정규')">정규</button><button class="btn" type="button" id="bk-내신" onclick="setBook('내신')">내신</button></span>
+              <select id="tSel" onchange="fillClassSel()"></select>
+              <select id="clsSel" onchange="addClass(this.value)"><option value="">반 목록을 불러오는 중…</option></select>
+            </div></div>
+            <div class="mpane" id="pane-stu"><div class="cls-bar">
+              <input type="text" id="stuQ" list="stuList" placeholder="학생 이름을 입력하고 목록에서 고르세요" autocomplete="off"><datalist id="stuList"></datalist>
+              <button class="btn sm" type="button" onclick="addStu()">추가</button>
+            </div></div>
+            <div class="chips" id="chips"></div>
+            <div class="pick-foot"><span id="pickHint"></span><b id="pickCount"></b></div>
+          </div>
+          <div class="sum" id="sum"></div>
+        </div>
+
+        <div class="pv">
+          <details class="prevfold" id="prevFold" open>
+            <summary><span>미리보기 ·</span><span class="pv-t" id="prevTitle">종류를 고르면 보여요</span></summary>
+            <div class="pv-head"><b>미리보기</b><span>첫 학생 기준</span></div>
+            <div class="prev" id="prev"><span class="muted">종류를 고르면 문구가 보입니다.</span></div>
+            <p class="pv-note">학생마다 이름·접근코드가 달리 들어갑니다. 문구는 솔라피 심사본 그대로예요.</p>
+          </details>
+        </div>
+
+        <div class="go">
+          <button class="btn lav gobtn" id="goBtn" onclick="sendAll()" disabled>알림톡 보내기</button>
+          <p class="gonote" id="goNote"></p>
+          <div class="result" id="result"></div>
+        </div>
+      </div>
+    </div>
   </section>
 
-  <section class="card">
-    <h2>최근 7일 보낸 기록</h2>
-    <div id="log"><p class="muted">불러오는 중…</p></div>
-    <div class="go-row"><button class="btn sm" type="button" onclick="loadLog()">새로고침</button></div>
+  <!-- ② 발송 내역 -->
+  <section class="pane" id="tab-log" role="tabpanel">
+    <div class="card">
+      <div class="chead"><h2>발송 내역 <span class="muted" id="logSum">최근 7일</span></h2><button class="btn sm" type="button" onclick="loadLog()">새로고침</button></div>
+      <div id="log"><p class="muted">불러오는 중…</p></div>
+      <p class="muted" style="margin:14px 0 0;">받은 분 이름에 마우스를 올리면 학교·학년과 연락처가 보입니다. 결석 안내는 슈국 스케쥴 출석 창에서 보낸 것도 함께 나와요.</p>
+    </div>
   </section>
 
-  <section class="card" id="settings">
-    <h2>알림톡 설정</h2>
-    <p class="muted" style="margin:-4px 0 12px;">결석 안내는 슈국 스케쥴 출석 창에서, 공지 안내는 위에서 보냅니다. 준비 상태와 솔라피 설정은 여기서 확인합니다.</p>
-    <div class="badges" id="cfgBadges"><span class="muted">확인하는 중…</span></div>
-    <details class="fold" id="tplFold"><summary>템플릿 문구 보기 (솔라피에 이 문구 그대로 등록)</summary><div id="tplTexts"></div></details>
-    <details class="fold cfg" id="cfgFold"><summary>설정 (솔라피 API 키 · 카카오 채널 · 템플릿)</summary>
-      <p class="muted">값은 저장만 되고 다시 보이지 않습니다. 바꿀 칸만 채우고 저장하세요. 빈 칸은 그대로 둬요.</p>
-      <label class="f" for="cfKey">솔라피 API Key</label><input type="text" id="cfKey" autocomplete="off" placeholder="NCS…">
-      <label class="f" for="cfSecret">솔라피 API Secret</label><input type="password" id="cfSecret" autocomplete="off">
-      <label class="f" for="cfFrom">발신번호 (솔라피에 등록한 번호 — 넣으면 카카오톡을 못 받는 번호는 문자로 대체)</label><input type="text" id="cfFrom" autocomplete="off" placeholder="010-0000-0000">
-      <p class="msg-err" id="cfErr"></p><p class="msg-ok" id="cfMsg"></p>
-      <div class="go-row"><button class="btn lav" type="button" onclick="cfgSave()">설정 저장</button></div>
-      <label class="f">채널 · 템플릿 — 솔라피에서 자동으로 가져오기</label>
-      <p class="muted" style="margin:0;">API 키를 저장한 뒤 누르면 연동된 카카오 채널(pfId)과 승인된 템플릿 ID를 솔라피에서 읽어 와 저장합니다. 템플릿 심사가 끝나면 한 번 더 눌러 주세요.</p>
-      <div class="go-row" style="justify-content:flex-start;"><button class="btn" type="button" id="discBtn" onclick="discover()">솔라피에서 가져오기</button><span class="muted" id="discMsg"></span></div>
+  <!-- ③ 알림톡 설정 — 옛 슈국 스케쥴 [알림톡] 창(2026-10-01 사용자 "이 메뉴가 알림톡으로 와야합니다") -->
+  <section class="pane" id="tab-settings" role="tabpanel">
+    <div id="settings"></div>
+    <div class="card">
+      <div class="chead"><h2>솔라피 연결</h2><span class="muted">값은 저장만 되고 다시 보이지 않습니다</span></div>
+      <div id="cfgBadges"><span class="muted">확인하는 중…</span></div>
+      <details class="fold cfg" id="cfgFold"><summary>값 넣기 · 바꾸기</summary>
+        <p class="muted">바꿀 칸만 채우고 저장하세요. 빈 칸은 그대로 둬요.</p>
+        <label class="f" for="cfKey">솔라피 API Key</label><input type="text" id="cfKey" autocomplete="off" placeholder="NCS…">
+        <label class="f" for="cfSecret">솔라피 API Secret</label><input type="password" id="cfSecret" autocomplete="off">
+        <label class="f" for="cfFrom">발신번호 (솔라피에 등록한 번호 — 넣으면 카카오톡을 못 받는 번호는 문자로 대체)</label><input type="text" id="cfFrom" autocomplete="off" placeholder="010-0000-0000">
+        <p class="msg-err" id="cfErr"></p><p class="msg-ok" id="cfMsg"></p>
+        <div class="go-row"><button class="btn lav" type="button" onclick="cfgSave()">설정 저장</button></div>
+      </details>
+    </div>
+    <div class="card">
+      <div class="chead"><h2>카카오 채널 · 템플릿</h2><button class="btn lav sm" type="button" id="discBtn" onclick="discover()">솔라피에서 가져오기</button></div>
+      <p class="muted" style="margin:-6px 0 8px;">API 키를 저장한 뒤 누르면 연동된 카카오 채널(pfId)과 승인된 템플릿 ID를 솔라피에서 읽어 와 저장합니다. 템플릿 심사가 끝나면 한 번 더 눌러 주세요. <span id="discMsg"></span></p>
       <div id="disc"></div>
-      <details class="fold"><summary>직접 입력 (자동 가져오기가 안 될 때)</summary>
+      <div class="srow"><span class="sl">카카오 채널 pfId<small>알림톡을 보내는 학원 채널</small></span><span class="bdg" id="pfBadge"></span></div>
+      <div class="srow"><span class="sl">템플릿<small>승인된 종류만 보낼 수 있습니다</small></span><span class="muted" id="tplCount"></span></div>
+      <div class="tpills" id="tplPills"></div>
+      <details class="fold" id="tplFold"><summary>템플릿 문구 보기</summary><p class="muted" style="margin:8px 0 0;">솔라피에 이 문구 그대로 등록합니다.</p><div id="tplTexts"></div></details>
+      <details class="fold" id="manFold"><summary>직접 입력 (자동 가져오기가 안 될 때)</summary>
         <label class="f" for="cfPf">카카오 채널 pfId</label><input type="text" id="cfPf" autocomplete="off" placeholder="KA01PF…">
         <div id="tplInputs"></div>
         <div class="go-row"><button class="btn lav" type="button" onclick="cfgSave()">저장</button></div>
       </details>
-    </details>
+    </div>
   </section>
 </main>
 <div id="toast"></div>
@@ -199,6 +325,7 @@
   const DAYS = { '월':1,'화':2,'수':3,'목':4,'금':5,'토':6,'일':7 };
   const GRADE_ORDER = ['중1', '중2', '중3', '고1', '고2', '고3'];
   const MODE_NAME = { all: '전체', grade: '학년', school: '학교', cls: '반', stu: '개인' };
+  const PICK_HINT = { all: '재원 명단 전체가 담깁니다', grade: '학년을 누르면 담깁니다 (여러 개)', school: '학교를 고르면 담깁니다', cls: '+ 반 추가 — 고르면 아래에 담깁니다', stu: '+ 학생 추가 — 이름을 쓰고 목록에서 고르세요' };
   let CFG = null, BOOK = '정규', CLASSES = {}, STUS = [], MODE = 'cls', SEL = { grade: [], school: [], cls: [], stu: [] }, PLAN = null, SENDING = false;
 
   const $ = id => document.getElementById(id);
@@ -259,6 +386,7 @@
     MODE = m;
     document.querySelectorAll('#modeSeg .btn').forEach(b => b.classList.toggle('on', b.dataset.m === m));
     ['all', 'grade', 'school', 'cls', 'stu'].forEach(x => $('pane-' + x).classList.toggle('on', x === m));
+    $('pickHint').textContent = PICK_HINT[m] || '';
     drawChips(); refresh();
   }
   $('modeSeg').addEventListener('click', e => { const b = e.target.closest('[data-m]'); if (b) setMode(b.dataset.m); });
@@ -338,7 +466,8 @@
     const list = (CLASSES[BOOK] || []).filter(c => !t || c.teacher === t);
     if (!list.length){ $('clsSel').innerHTML = '<option value="">반이 없어요</option>'; return; }
     const byDay = {}; list.forEach(c => { (byDay[c.day] = byDay[c.day] || []).push(c); });
-    $('clsSel').innerHTML = '<option value="">반을 고르세요 (' + list.length + '개)</option>' +
+    const ph = SEL.cls.length ? SEL.cls[0].name + (SEL.cls.length > 1 ? ' 외 ' + (SEL.cls.length - 1) + '개 반' : '') + ' 담김 — 더 고르기' : '반을 고르세요 (' + list.length + '개)';
+    $('clsSel').innerHTML = '<option value="">' + esc(ph) + '</option>' +
       Object.keys(byDay).sort((a, b) => DAYS[a] - DAYS[b]).map(d => '<optgroup label="' + esc(d) + '요일">' + byDay[d].map(c =>
         '<option value="' + esc(pickKey(c)) + '"' + (done[pickKey(c)] ? ' disabled' : '') + '>' + esc(c.day + ' ' + c.start + ' · ' + c.name) +
         (c.teacher ? ' · ' + esc(tLabel(c.teacher)) : '') + ' (' + c.students.length + '명)' + (done[pickKey(c)] ? ' — 담음' : '') + '</option>').join('') + '</optgroup>').join('');
@@ -371,22 +500,25 @@
       $('kindSel').innerHTML = ks.length ? ks.map(k => { const t = tplOf(k); return '<option value="' + esc(k) + '"' + (t.ready ? '' : ' disabled') + '>' + esc(t.label) + (t.ready ? '' : ' (준비 전)') + '</option>'; }).join('') : '<option value="">종류 없음</option>';
       const first = ks.find(k => tplOf(k).ready); if (first) $('kindSel').value = (was && tplOf(was) && tplOf(was).ready) ? was : first;
       if (!CFG){ st.className = 'state bad'; st.textContent = '알림톡 설정을 불러오지 못했습니다. 새로고침해 주세요.'; }
-      else if (!CFG.ready){ st.className = 'state bad'; st.textContent = '알림톡 설정 전입니다. 아래 [알림톡 설정]에서 솔라피 정보를 넣어 주세요.'; }
-      else if (!first){ st.className = 'state bad'; st.textContent = '승인된 공지 알림 템플릿이 아직 없습니다. 솔라피 심사가 끝나면 아래 [알림톡 설정] → [솔라피에서 가져오기]를 눌러 주세요.'; }
-      else { const n = ks.filter(k => tplOf(k).ready).length; st.className = 'state'; st.textContent = '보낼 수 있는 종류 ' + n + '개 / ' + ks.length + '개' + (n < ks.length ? ' — (준비 전) 표시는 솔라피 심사가 끝나면 열려요.' : '') + (CFG.smsFallback ? '' : ' 카카오톡을 못 받는 번호는 문자로 대체되지 않아요.'); }
+      else if (!CFG.ready){ st.className = 'state bad'; st.textContent = '알림톡 설정 전입니다. [알림톡 설정] 탭에서 솔라피 정보를 넣어 주세요.'; }
+      else if (!first){ st.className = 'state bad'; st.textContent = '승인된 공지 알림 템플릿이 아직 없습니다. 솔라피 심사가 끝나면 [알림톡 설정] 탭 → [솔라피에서 가져오기]를 눌러 주세요.'; }
+      else { const n = ks.filter(k => tplOf(k).ready).length; st.className = 'state'; st.textContent = '보낼 수 있는 종류 ' + n + '개 / ' + ks.length + '개' + (n < ks.length ? ' — (준비 전) 표시는 솔라피 심사가 끝나면 열려요.' : '') + (CFG.smsFallback ? '' : ' 카카오톡을 못 받는 번호는 문자로 대체되지 않아요(발신번호 없음).'); }
       kindChanged(); renderSettings();
     });
   }
 
   /* ── 알림톡 설정 — 준비 상태·템플릿 문구·솔라피 설정(쓰기 전용). 옛 슈국 스케쥴 [알림톡] 창과 같은 백엔드 액션 ── */
   function renderSettings(){
-    const b = $('cfgBadges');
-    if (!CFG){ b.innerHTML = '<span class="muted">설정을 확인하지 못했습니다. 새로고침해 주세요.</span>'; $('tplTexts').innerHTML = ''; $('tplInputs').innerHTML = ''; return; }
+    const b = $('cfgBadges'), tp = $('tplPills');
+    if (!CFG){ b.innerHTML = '<span class="muted">설정을 확인하지 못했습니다. 새로고침해 주세요.</span>'; tp.innerHTML = ''; $('pfBadge').textContent = ''; $('tplCount').textContent = ''; $('tplTexts').innerHTML = ''; $('tplInputs').innerHTML = ''; return; }
     const t = CFG.templates || {}, has = CFG.has || {}, nk = kinds();
-    const items = [['솔라피 API 키', has.key && has.secret], ['카카오 채널(pfId)', has.pfId], ['결석 안내 템플릿', t.absent && t.absent.ready]]
-      .concat(nk.map(k => [t[k].label + ' 템플릿', t[k].ready]), [['문자 대체 발신번호', has.from]]);
-    b.innerHTML = items.map(x => '<span class="bdg' + (x[1] ? '' : ' no') + '">' + esc(x[0]) + ' ' + (x[1] ? '준비됨' : '없음') + '</span>').join('');
-    const all = (t.absent ? ['absent'] : []).concat(nk);
+    const row = (label, on, yes, no, sub) => '<div class="srow"><span class="sl">' + esc(label) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span><span class="bdg' + (on ? '' : ' no') + '">' + (on ? yes : no) + '</span></div>';
+    b.innerHTML = row('솔라피 API 키 · Secret', has.key && has.secret, '저장됨', '없음', '발송에 꼭 필요합니다') +
+      row('문자 대체 발신번호', has.from, '저장됨', '없음', '카카오톡을 못 받는 번호는 문자로 갑니다');
+    $('pfBadge').className = 'bdg' + (has.pfId ? '' : ' no'); $('pfBadge').textContent = has.pfId ? '연결됨' : '없음';
+    const all = (t.absent ? ['absent'] : []).concat(nk), okN = all.filter(k => t[k].ready).length;
+    $('tplCount').textContent = '승인 ' + okN + ' / ' + all.length;
+    tp.innerHTML = all.map(k => '<span class="bdg tp' + (t[k].ready ? '' : ' wait') + '">' + esc(t[k].label) + ' ' + (t[k].ready ? '승인됨' : '준비 전') + '</span>').join('');
     $('tplTexts').innerHTML = all.map(k => '<p class="tpl-h">' + esc(t[k].label) + '</p><div class="prev">' + esc(t[k].text) +
       (t[k].buttons || []).map(x => '<div class="pbtn">' + esc(x.name) + '</div>').join('') + '</div>' +
       ((t[k].buttons || []).length ? '<p class="muted" style="margin:6px 0 0;">버튼도 함께 등록: ' + t[k].buttons.map(x => '<b>' + esc(x.name) + '</b> (웹링크, 모바일·PC 모두 ' + esc(x.linkMo) + ')').join(', ') + '</p>' : '')).join('');
@@ -459,7 +591,10 @@
       if (w.length) h += '<div class="warn">이 학생들에게는 가지 않습니다 — ' + w.join('<br>') + '</div>';
     }
     $('sum').innerHTML = h;
+    $('pickCount').textContent = (picked() && STUS.length) ? '학생 ' + people + '명' : '';
+    document.querySelectorAll('#whos label').forEach(l => { const c = l.querySelector('input'); l.classList.toggle('on', !!(c && c.checked)); });
     const xv = xVals(), xs = extraVars(tpl), xmiss = xs.filter(v => !xv[v]);
+    $('prevTitle').textContent = tpl ? String(tpl.text || '').split('\n')[0] : '종류를 고르면 보여요';
     $('prev').innerHTML = tpl ? esc(fill(tpl.text, Object.assign({}, ...xs.map(v => ({ [v]: xv[v] || '(' + v + ')' })), { '학생명': items[0] ? items[0].student : '○○○', '제목': title || '(제목)' }))) +
       (tpl.buttons || []).map(b => '<div class="pbtn">' + esc(b.name) + '</div>').join('') : '<span class="muted">종류를 고르면 문구가 보입니다.</span>';
     let note = '';
@@ -468,7 +603,7 @@
     else if (xmiss.length) note = xmiss.join('·') + '을(를) 넣어 주세요';
     else if (!ws.length) note = '받는 분을 한 명 이상 골라 주세요';
     else if (!items.length) note = picked() ? '보낼 학생이 없습니다' : '';
-    $('goNote').textContent = note;
+    $('goNote').textContent = note || (items.length ? '받는 분 ' + ws.length + '명 × 학생 ' + people + '명 → ' + items.length + '건' : '');
     $('goBtn').disabled = !!note || !items.length || SENDING;
     if (!note && items.length) PLAN = { kind, label: tpl.label, title, items, people, xv };
   }
@@ -526,32 +661,37 @@
       const rows = (d && d.rows) || [], g = {}, order = [];
       rows.forEach(r => {
         const k = r.kind + '§' + r.date;
-        if (!g[k]){ g[k] = { kind: r.kind, date: r.date, ts: r.ts, ok: 0, bad: 0, names: [], by: [] }; order.push(k); }
+        if (!g[k]){ g[k] = { kind: r.kind, date: r.date, ts: r.ts, ok: 0, bad: 0, sms: 0, names: [], by: [] }; order.push(k); }
         const x = g[k]; if (r.ok) x.ok++; else x.bad++;
+        if (r.ok && /문자|SMS|LMS/i.test(String(r.message || ''))) x.sms++;   // 카카오톡을 못 받아 문자로 대체된 건(솔라피 메시지 기준)
         if (r.by && x.by.indexOf(r.by) < 0) x.by.push(r.by);
         if (x.names.length < 400) x.names.push({ nm: r.student, who: r.who, ok: r.ok });
         if (r.ts > x.ts) x.ts = r.ts;
       });
-      LOG_G = { g: g, order: order };
+      LOG_G = { g: g, order: order, n: rows.filter(r => r.ok).length, people: Object.keys(rows.reduce((o, r) => { o[r.student] = 1; return o; }, {})).length };
       renderLog();
-    }).catch(() => { LOG_G = null; $('log').innerHTML = '<p class="muted">기록을 불러오지 못했습니다.</p>'; });
+    }).catch(() => { LOG_G = null; $('logSum').textContent = ''; $('log').innerHTML = '<p class="muted">기록을 불러오지 못했습니다.</p>'; });
   }
   function renderLog(){
     if (!LOG_G) return;
     const g = LOG_G.g, order = LOG_G.order;
+    $('logSum').textContent = order.length ? '최근 7일 · ' + LOG_G.n + '건 · ' + LOG_G.people + '명' : '최근 7일';
     if (!order.length){ $('log').innerHTML = '<p class="muted">최근 7일 동안 보낸 알림톡이 없습니다.</p>'; return; }
     const open = {};
     document.querySelectorAll('#log .log-row details[open]').forEach(d => { open[d.getAttribute('data-k')] = true; });   // 펼쳐 둔 줄은 그대로
-    $('log').innerHTML = order.map(k => {
+    $('log').innerHTML = '<table class="logtbl"><thead><tr><th>날짜</th><th>종류 · 제목</th><th>받을 학생</th><th>인원</th><th>상태</th></tr></thead><tbody>' + order.map(k => {
       const x = g[k], t = tplOf(x.kind), m = /^N:\d{4}-\d{2}-\d{2}\|(.*)$/.exec(x.date);
       const title = m ? m[1] : (x.kind === 'absent' ? x.date + ' 결석' : x.date);
-      return '<div class="log-row"><span class="ts">' + esc(String(x.ts).slice(5, 16)) + '</span><span class="kd">' + esc(t ? t.label : x.kind) + '</span>' +
-        '<span class="tt">' + esc(title) + '</span><span class="n">' + x.ok + '건' + (x.bad ? ' · <span class="bad">실패 ' + x.bad + '</span>' : '') + '</span>' +
-        '<span class="by">' + (x.by.length ? esc(x.by.join('·') + ' 선생님') : '보낸 사람 기록 없음') + '</span>' +
-        '<details data-k="' + esc(k) + '"' + (open[k] ? ' open' : '') + '><summary>받은 분 보기</summary>' + x.names.map(logName).join(', ') + '</details></div>';
-    }).join('');
+      const ts = String(x.ts), d = ts.slice(5, 10).replace('-', '/').replace(/^0/, ''), hm = ts.slice(11, 16);
+      const st = (x.ok ? '<span class="spill ok">전송 완료</span>' : '') + (x.sms ? '<span class="spill sms">문자 대체 ' + x.sms + '</span>' : '') + (x.bad ? '<span class="spill bad">실패 ' + x.bad + '</span>' : '');
+      return '<tr class="log-row"><td class="ts" data-l="날짜"><span>' + esc(d) + '</span><small>' + esc(hm) + '</small></td>' +
+        '<td class="kt" data-l="종류 · 제목"><span class="kd">' + esc(t ? t.label : x.kind) + '</span><span class="tt">' + esc(title) + '</span>' +
+        '<span class="by">' + (x.by.length ? esc(x.by.join('·') + ' 선생님') : '보낸 사람 기록 없음') + '</span></td>' +
+        '<td class="rc" data-l="받을 학생"><details data-k="' + esc(k) + '"' + (open[k] ? ' open' : '') + '><summary>받은 분 보기 <small>' + x.names.length + '</small></summary><div class="names">' + x.names.map(logName).join(', ') + '</div></details></td>' +
+        '<td class="n" data-l="인원">' + x.ok + '건' + (x.bad ? ' <span class="bad">+' + x.bad + '</span>' : '') + '</td>' +
+        '<td class="st" data-l="상태">' + st + '</td></tr>';
+    }).join('') + '</tbody></table>';
   }
-
   /* ── 시작 ── */
   sbAll('/students?select=id,name,school,grade,code,enrolled,phone_student,phone_parent1,phone_parent2&order=seq,id').then(rows => {
     STUS = rows.filter(r => String(r.name || '').trim() && !/^(퇴원|n|no|off|x|중단|비재원)$/i.test(String(r.enrolled || '').trim()))
@@ -561,7 +701,25 @@
   }).catch(() => { $('sum').innerHTML = '<div class="warn">재원 명단을 불러오지 못했습니다. 새로고침해 주세요.</div>'; });
   setMode('cls');
   setBook('정규');
-  loadCfg().then(loadLog).then(() => { if (location.hash === '#settings') $('settings').scrollIntoView(); });   // 기록의 종류 이름은 설정에서 온다. 슈국 스케쥴 [알림톡]은 #settings로 온다
+  loadCfg().then(loadLog);   // 기록의 종류 이름은 설정에서 온다
+
+  /* ── 탭 — 알림톡 보내기 / 발송 내역 / 알림톡 설정 (2026-10-03 원장님 디자인 시안). 슈국 스케쥴 [알림톡]은 #settings 로 온다 ── */
+  const TABS = ['send', 'log', 'settings'];
+  function showTab(t){
+    if (TABS.indexOf(t) < 0) t = 'send';
+    TABS.forEach(x => { $('tab-' + x).classList.toggle('on', x === t); });
+    document.querySelectorAll('#tabs .tab').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    if (history.replaceState) history.replaceState(null, '', location.pathname + location.search + (t === 'send' ? '' : '#' + t));
+    window.scrollTo(0, 0);
+  }
+  $('tabs').addEventListener('click', e => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); });
+  window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
+  showTab(location.hash.slice(1));
+  // 미리보기 — 넓은 화면은 오른쪽에 늘 펼쳐 두고, 휴대폰은 접었다 편다(시안 1b)
+  const NARROW = matchMedia('(max-width: 760px)');
+  function prevFit(){ $('prevFold').open = !NARROW.matches; }   // 넓으면 펼치고 좁으면 접는다 — 가로·세로로 돌려도 그때마다 맞춤
+  prevFit();
+  (NARROW.addEventListener ? NARROW.addEventListener('change', prevFit) : NARROW.addListener(prevFit));
 </script>
 </body>
 </html>
