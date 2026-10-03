@@ -276,6 +276,15 @@ function applyFilter(rows, url){
   ok(await pg.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), '가로 스크롤 없음 (발송 내역)');
   await pg.click('#tabs [data-tab="settings"]');
   ok(await pg.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), '가로 스크롤 없음 (설정)');
+  await pg.click('#tabs [data-tab="send"]');
+  await pg.setViewportSize({ width: 1100, height: 900 });
+  await pg.waitForFunction(() => document.getElementById('prevFold').open === true);
+  await pg.setViewportSize({ width: 390, height: 800 });
+  await pg.waitForFunction(() => document.getElementById('prevFold').open === false);
+  ok(true, '넓게 → 다시 좁게 돌리면 미리보기가 다시 접힘 (Codex P2)');
+  const heavy = await pg.evaluate(() => Array.from(document.querySelectorAll('.tab.on,.pill.on,.pills .btn.on,#whos label.on,details.fold > summary,#pickCount,.sum b'))
+    .filter(el => { const cs = getComputedStyle(el); return +cs.fontWeight >= 600 && !/Gowun Batang/.test(cs.fontFamily); }).map(el => el.className || el.tagName));
+  ok(heavy.length === 0, '고운돋움에 700 굵기 없음 (굵은 곳은 고운 바탕) — ' + (heavy.join(',') || '없음'));
 
   await browser.close(); server.close();
   console.log(bad ? `\n${bad}건 실패 / ${n}건` : `\n✓ ${n}건 모두 통과`);

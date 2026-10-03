@@ -45,7 +45,7 @@
   .tabs{display:flex;gap:4px;background:rgba(255,255,255,.42);border-radius:999px;padding:5px;margin:0 0 16px;}
   .tab{flex:1;font:inherit;font-size:.93rem;border:none;background:transparent;border-radius:999px;padding:9px 12px;cursor:pointer;color:var(--ink-soft);white-space:nowrap;}
   .tab:hover{color:var(--ink);}
-  .tab.on{background:#fff;color:var(--ink);font-weight:700;box-shadow:0 1px 3px rgba(42,51,47,.08);}
+  .tab.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(42,51,47,.08);}   /* 고운돋움은 굵기 하나 — 선택은 흰 알약·글자색으로만 */
   .pane{display:none;}
   .pane.on{display:block;}
   .card{background:var(--surface);border-radius:var(--radius);padding:20px 22px;margin-bottom:16px;box-shadow:0 1px 3px rgba(42,51,47,.05);}
@@ -73,10 +73,10 @@
   .pills{display:flex;flex-wrap:wrap;gap:6px;}
   .pill,.pills .btn{font:inherit;font-size:.88rem;border:none;border-radius:999px;padding:7px 14px;background:var(--soft);color:var(--ink-soft);cursor:pointer;line-height:1.3;}
   .pill:hover,.pills .btn:hover{background:#E8EEEA;}
-  .pill.on,.pills .btn.on{background:var(--lilac);color:var(--lilac-ink);font-weight:700;}
+  .pill.on,.pills .btn.on{background:var(--lilac);color:var(--lilac-ink);}
   .whos{display:flex;flex-wrap:wrap;gap:6px;}
   .whos label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:.88rem;border-radius:999px;padding:7px 14px;background:var(--soft);color:var(--ink-soft);user-select:none;}
-  .whos label.on{background:var(--lilac);color:var(--lilac-ink);font-weight:700;}
+  .whos label.on{background:var(--lilac);color:var(--lilac-ink);}
   .whos label i{font-style:normal;font-size:.8rem;opacity:.35;}
   .whos label.on i{opacity:1;}
   .whos input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;}
@@ -88,7 +88,7 @@
   .cls-bar .pills{flex-basis:100%;}
   .gpills{display:flex;flex-wrap:wrap;gap:6px;}
   .gpills .btn{border-radius:999px;}
-  .gpills .btn.on{background:var(--lilac);color:var(--lilac-ink);font-weight:700;}
+  .gpills .btn.on{background:var(--lilac);color:var(--lilac-ink);}
   #stuQ{flex:1;min-width:200px;}
   .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
   .chips:empty{display:none;}
@@ -96,9 +96,9 @@
   .fchip button{border:none;background:var(--soft);border-radius:999px;width:20px;height:20px;color:var(--ink-soft);cursor:pointer;font-size:.9rem;padding:0;line-height:1;}
   .fchip button:hover{background:#E8EEEA;}
   .pick-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;font-size:.82rem;color:var(--cap);}
-  .pick-foot b{color:var(--ink);font-size:.9rem;}
+  .pick-foot b{color:var(--ink);font-size:.9rem;font-family:var(--serif);}
   .sum{margin-top:12px;font-size:.86rem;color:var(--ink-soft);}
-  .sum b{color:var(--ink);}
+  .sum b{color:var(--ink);font-family:var(--serif);}
   .warn{margin-top:8px;font-size:.84rem;background:var(--warn-bg);color:var(--warn-ink);border-radius:12px;padding:9px 13px;}
   .muted{color:var(--cap);font-size:.86rem;}
   /* 미리보기 — 크림색 카드. 넓은 화면은 늘 펼침(요약 줄 숨김), 휴대폰은 요약 줄을 눌러 접었다 편다 */
@@ -154,7 +154,7 @@
   .tpills{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 2px;}
   .tpills .bdg{white-space:normal;}
   details.fold{margin-top:12px;}
-  details.fold > summary{cursor:pointer;font-size:.88rem;font-weight:700;color:var(--lilac-ink);list-style:none;display:inline-flex;align-items:center;gap:6px;}
+  details.fold > summary{cursor:pointer;font-size:.88rem;font-family:var(--serif);font-weight:700;color:var(--lilac-ink);list-style:none;display:inline-flex;align-items:center;gap:6px;}
   details.fold > summary::-webkit-details-marker{display:none;}
   details.fold > summary::after{content:"→";font-weight:400;}
   details.fold[open] > summary::after{content:"↑";}
@@ -717,8 +717,8 @@
   showTab(location.hash.slice(1));
   // 미리보기 — 넓은 화면은 오른쪽에 늘 펼쳐 두고, 휴대폰은 접었다 편다(시안 1b)
   const NARROW = matchMedia('(max-width: 760px)');
-  function prevFit(){ if (!NARROW.matches) $('prevFold').open = true; }
-  if (NARROW.matches) $('prevFold').open = false;
+  function prevFit(){ $('prevFold').open = !NARROW.matches; }   // 넓으면 펼치고 좁으면 접는다 — 가로·세로로 돌려도 그때마다 맞춤
+  prevFit();
   (NARROW.addEventListener ? NARROW.addEventListener('change', prevFit) : NARROW.addListener(prevFit));
 </script>
 </body>
