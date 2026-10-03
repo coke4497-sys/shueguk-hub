@@ -85,6 +85,8 @@
   .log-row .n .bad{color:#B0736A;}
   .log-row details{flex-basis:100%;font-size:.8rem;color:var(--cap);}
   .log-row summary{cursor:pointer;}
+  .log-row .nm{border-bottom:1px dotted #B9C4BE;cursor:help;}
+  .log-row .nm.miss{border-bottom-style:dashed;color:#B0736A;}
   /* 알림톡 설정 — 슈국 스케쥴 [알림톡] 창을 옮겨 옴(2026-10-01 사용자 "이 메뉴가 알림톡으로 와야합니다") */
   .badges{display:flex;flex-wrap:wrap;gap:6px;}
   .bdg{font-size:.8rem;border-radius:9px;padding:4px 10px;background:#E3EDE7;color:#2F5A4F;}
@@ -496,7 +498,23 @@
     });
   }
 
+  /* 보낸 기록의 이름 한 칸 — 마우스를 올리면 학교·학년과 연락처를 보여 준다(2026-10-03 원장님 요청).
+   * 이름 대조는 findStu 와 같은 규칙이라 동명이인·명단 밖 이름은 그렇다고 알린다. */
+  function phoneFmt(v){ const d = phone(v); return d ? (d.length === 11 ? d.slice(0,3)+'-'+d.slice(3,7)+'-'+d.slice(7) : d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6)) : ''; }
+  function logName(n){
+    const f = findStu(n.nm), s = f.hit, L = [];
+    if (s){
+      L.push(s.name + ' · ' + (s.school || '학교 미상') + ' ' + (gradeShort(s.grade) || ''));
+      [['학생','phone_student'],['학부모1','phone_parent1'],['학부모2','phone_parent2']].forEach(w => {
+        const t = phoneFmt(s[w[1]]);
+        L.push(whoLbl(w[0]) + ' ' + (t || '없음') + (n.who === w[0] ? '  ← 이 알림톡을 받은 분' : ''));
+      });
+    } else L.push(f.plain + (f.dup ? ' · 같은 이름이 둘 이상이라 가리지 못했어요' : ' · 재원 명단에서 찾지 못했어요'));
+    return '<span class="nm' + (s ? '' : ' miss') + '" title="' + esc(L.join('\n')) + '">' +
+      esc(n.nm + (n.who ? '(' + whoLbl(n.who) + ')' : '') + (n.ok ? '' : ' 실패')) + '</span>';
+  }
   /* ── 최근 기록 — 종류·제목(중복 키)별로 묶는다. 결석 안내는 날짜·반으로 ── */
+  let LOG_G = null;   // 받아 둔 기록 묶음 — 재원 명단이 늦게 오면 이름 설명만 다시 그린다
   function loadLog(){
     // 공지 건의 date 는 'N:날짜|제목' 이라 to 를 넘기면 걸러진다 — from 만 준다
     return api({ action: 'alimLog', from: kstYmd(-7), limit: 1000 }).then(d => {
@@ -505,18 +523,26 @@
         const k = r.kind + '§' + r.date;
         if (!g[k]){ g[k] = { kind: r.kind, date: r.date, ts: r.ts, ok: 0, bad: 0, names: [] }; order.push(k); }
         const x = g[k]; if (r.ok) x.ok++; else x.bad++;
-        if (x.names.length < 400) x.names.push(r.student + (r.who ? '(' + whoLbl(r.who) + ')' : '') + (r.ok ? '' : ' 실패'));
+        if (x.names.length < 400) x.names.push({ nm: r.student, who: r.who, ok: r.ok });
         if (r.ts > x.ts) x.ts = r.ts;
       });
-      if (!order.length){ $('log').innerHTML = '<p class="muted">최근 7일 동안 보낸 알림톡이 없습니다.</p>'; return; }
-      $('log').innerHTML = order.map(k => {
-        const x = g[k], t = tplOf(x.kind), m = /^N:\d{4}-\d{2}-\d{2}\|(.*)$/.exec(x.date);
-        const title = m ? m[1] : (x.kind === 'absent' ? x.date + ' 결석' : x.date);
-        return '<div class="log-row"><span class="ts">' + esc(String(x.ts).slice(5, 16)) + '</span><span class="kd">' + esc(t ? t.label : x.kind) + '</span>' +
-          '<span class="tt">' + esc(title) + '</span><span class="n">' + x.ok + '건' + (x.bad ? ' · <span class="bad">실패 ' + x.bad + '</span>' : '') + '</span>' +
-          '<details><summary>받은 분 보기</summary>' + esc(x.names.join(', ')) + '</details></div>';
-      }).join('');
-    }).catch(() => { $('log').innerHTML = '<p class="muted">기록을 불러오지 못했습니다.</p>'; });
+      LOG_G = { g: g, order: order };
+      renderLog();
+    }).catch(() => { LOG_G = null; $('log').innerHTML = '<p class="muted">기록을 불러오지 못했습니다.</p>'; });
+  }
+  function renderLog(){
+    if (!LOG_G) return;
+    const g = LOG_G.g, order = LOG_G.order;
+    if (!order.length){ $('log').innerHTML = '<p class="muted">최근 7일 동안 보낸 알림톡이 없습니다.</p>'; return; }
+    const open = {};
+    document.querySelectorAll('#log .log-row details[open]').forEach(d => { open[d.getAttribute('data-k')] = true; });   // 펼쳐 둔 줄은 그대로
+    $('log').innerHTML = order.map(k => {
+      const x = g[k], t = tplOf(x.kind), m = /^N:\d{4}-\d{2}-\d{2}\|(.*)$/.exec(x.date);
+      const title = m ? m[1] : (x.kind === 'absent' ? x.date + ' 결석' : x.date);
+      return '<div class="log-row"><span class="ts">' + esc(String(x.ts).slice(5, 16)) + '</span><span class="kd">' + esc(t ? t.label : x.kind) + '</span>' +
+        '<span class="tt">' + esc(title) + '</span><span class="n">' + x.ok + '건' + (x.bad ? ' · <span class="bad">실패 ' + x.bad + '</span>' : '') + '</span>' +
+        '<details data-k="' + esc(k) + '"' + (open[k] ? ' open' : '') + '><summary>받은 분 보기</summary>' + x.names.map(logName).join(', ') + '</details></div>';
+    }).join('');
   }
 
   /* ── 시작 ── */
@@ -524,7 +550,7 @@
     STUS = rows.filter(r => String(r.name || '').trim() && !/^(퇴원|n|no|off|x|중단|비재원)$/i.test(String(r.enrolled || '').trim()))
       .map(r => ({ key: String(r.id), name: String(r.name).trim(), school: String(r.school || '').trim(), grade: String(r.grade || ''), code: String(r.code || '').trim(),
                    phone_student: r.phone_student, phone_parent1: r.phone_parent1, phone_parent2: r.phone_parent2 }));
-    fillPickers(); refresh();
+    fillPickers(); refresh(); renderLog();   // 명단이 온 뒤 기록의 이름 설명(학교·연락처)을 채운다
   }).catch(() => { $('sum').innerHTML = '<div class="warn">재원 명단을 불러오지 못했습니다. 새로고침해 주세요.</div>'; });
   setMode('cls');
   setBook('정규');

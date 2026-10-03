@@ -40,7 +40,9 @@ const CFG = { result: 'success', ready: true, smsFallback: true, templates: {
   absent: { label: '결석 안내', ready: true, text: '', vars: [] },
   notice_sched: tpl('수업 일정 안내', true), notice_mock: tpl('주말 실전 모의고사 신청 안내', false) } };
 const sends = [], getsCalled = [], posts = [];
-let LOG = [{ ts: '2026-09-28 18:00', kind: 'notice_sched', student: '김철수', who: '학부모1', to: '01022220001', cls: '공지', date: 'N:2026-09-28|지난 안내', ok: true, message: '' }];
+let LOG = [{ ts: '2026-09-28 18:00', kind: 'notice_sched', student: '김철수', who: '학부모1', to: '01022220001', cls: '공지', date: 'N:2026-09-28|지난 안내', ok: true, message: '' },
+  { ts: '2026-09-28 18:00', kind: 'notice_sched', student: '새친구', who: '학생', to: '01099990001', cls: '공지', date: 'N:2026-09-28|지난 안내', ok: true, message: '' },
+  { ts: '2026-09-28 18:00', kind: 'notice_sched', student: '한동명', who: '학생', to: '01011110003', cls: '공지', date: 'N:2026-09-28|지난 안내', ok: true, message: '' }];
 
 function applyFilter(rows, url){
   const u = new URL(url);
@@ -118,6 +120,13 @@ function applyFilter(rows, url){
   await pg.waitForSelector('.log-row');
   ok(/지난 안내/.test(await pg.textContent('#log')) && /수업 일정 안내/.test(await pg.textContent('#log')), '최근 기록 — 종류 이름·제목으로 묶음');
   ok(getsCalled.some(x => x === 'alimLog|'), '기록 조회에 to를 넘기지 않음(공지 키가 걸러지지 않게)');
+  const tips = await pg.$$eval('.log-row .nm', els => els.map(e => e.textContent + '§' + e.title + '§' + e.className));
+  const tip = tips.find(x => x.indexOf('김철수') === 0) || '';
+  ok(/김철수 · 화정고 고1/.test(tip), '받은 분 이름에 마우스 설명 — 학교·학년 (' + tip.split('§')[1].split('\n')[0] + ')');
+  ok(/학생 010-1111-0001/.test(tip) && /학부모님1 010-2222-0001/.test(tip) && /학부모님2 없음/.test(tip), '설명에 학생·학부모님 연락처 전부');
+  ok(/학부모님1 010-2222-0001  ← 이 알림톡을 받은 분/.test(tip), '그 알림톡을 받은 분 표시');
+  ok(/재원 명단에서 찾지 못했어요/.test(tips.find(x => x.indexOf('새친구') === 0) || '') && /miss/.test(tips.find(x => x.indexOf('새친구') === 0) || ''), '명단 밖 이름은 그렇다고 알림');
+  ok(/같은 이름이 둘 이상이라 가리지 못했어요/.test(tips.find(x => x.indexOf('한동명') === 0) || ''), '동명이인은 가리지 못했다고 알림');
 
   console.log('② 반으로 고르기');
   ok(await pg.isDisabled('#goBtn'), '아무것도 안 고르면 보내기 잠김');
