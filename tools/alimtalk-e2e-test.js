@@ -89,7 +89,7 @@ function applyFilter(rows, url){
         if (b.action === 'alimSend'){
           sends.push(b);
           const sent = b.items.map(it => ({ student: it.student, who: it.who, ok: it.to !== '01011110004', dup: it.student === '고이0', message: it.to === '01011110004' ? '수신 불가' : '보냈어요' }));
-          sent.forEach((x, i) => { if (x.ok && !x.dup) LOG.unshift({ ts: '2026-09-29 10:0' + (i % 10), kind: b.kind, student: x.student, who: x.who, to: b.items[i].to, cls: '공지', date: b.items[i].date, ok: true, message: '' }); });
+          sent.forEach((x, i) => { if (x.ok && !x.dup) LOG.unshift({ ts: '2026-09-29 10:0' + (i % 10), kind: b.kind, student: x.student, who: x.who, to: b.items[i].to, cls: '공지', date: b.items[i].date, ok: true, message: '', by: b.by || '' }); });
           return json({ result: 'success', sent, okCount: sent.filter(x => x.ok && !x.dup).length, failCount: sent.filter(x => !x.ok).length });
         }
         if (b.action === 'alimConfigSet'){ posts.push(b); return json({ result: 'success', saved: Object.keys(b).filter(k => k !== 'action' && k !== 'pw') }); }
@@ -127,6 +127,7 @@ function applyFilter(rows, url){
   ok(/학부모님1 010-2222-0001  ← 이 알림톡을 받은 분/.test(tip), '그 알림톡을 받은 분 표시');
   ok(/재원 명단에서 찾지 못했어요/.test(tips.find(x => x.indexOf('새친구') === 0) || '') && /miss/.test(tips.find(x => x.indexOf('새친구') === 0) || ''), '명단 밖 이름은 그렇다고 알림');
   ok(/같은 이름이 둘 이상이라 가리지 못했어요/.test(tips.find(x => x.indexOf('한동명') === 0) || ''), '동명이인은 가리지 못했다고 알림');
+  ok(/보낸 사람 기록 없음/.test(await pg.textContent('#log')), '보낸 사람이 없는 옛 기록은 그렇다고 표시');
 
   console.log('② 반으로 고르기');
   ok(await pg.isDisabled('#goBtn'), '아무것도 안 고르면 보내기 잠김');
@@ -158,6 +159,9 @@ function applyFilter(rows, url){
   ok(/^N:\d{4}-\d{2}-\d{2}\|10월 일정 안내$/.test(its[0].date) && its[0].cls === '공지', '중복 키 = N:오늘|제목 (공지 화면과 같음)');
   ok(its[0].vars['학생명'] === '김철수' && its[0].vars['제목'] === '10월 일정 안내' && its[0].vars['접근코드'] === 'tok-kim', '변수 학생명·제목·접근코드');
   ok(sends[0].pw === 'sh', '백엔드 교사용 값 동봉');
+  ok(sends[0].by === '테스트', '보낸 사람(로그인한 선생님) 동봉 — ' + sends[0].by);
+  await pg.waitForFunction(() => /테스트 선생님/.test(document.getElementById('log').textContent)).catch(() => {});
+  ok(/테스트 선생님/.test(await pg.textContent('#log')), '보낸 기록 줄에 보낸 사람 이름');
   await pg.waitForFunction(() => /10월 일정 안내/.test(document.getElementById('log').textContent));
   ok(true, '보낸 뒤 최근 기록 새로고침');
 
