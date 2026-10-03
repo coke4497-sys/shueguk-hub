@@ -1,6 +1,6 @@
 /* 알림톡 보내기(alimtalk.html) 브라우저 E2E (2026-09-29)
  * 가짜 수파베이스·가짜 리포트 백엔드로 실제 페이지를 띄워
- *   설정 상태·종류 드롭다운(준비 전 잠금) · 반/학년/개인 고르기 · 받는 분 체크 · 연락처/접근코드 없는 학생 안내 ·
+ *   탭 세 개(보내기·발송 내역·설정, #settings 해시) · 설정 상태·종류 드롭다운(준비 전 잠금) · 반/학년/개인 고르기 · 받는 분 체크 · 연락처/접근코드 없는 학생 안내 ·
  *   동명이인·미등록 안내 · 미리보기 · 확인 창 뒤 alimSend 본문(받는 분마다 한 건, 중복 키 N:날짜|제목, 50건씩) · 결과 · 최근 기록
  * 을 검사한다. 원격에는 아무것도 보내지 않는다.
  *   실행: NODE_PATH=$(npm root -g) node tools/alimtalk-e2e-test.js
@@ -17,6 +17,7 @@ const SB = 'https://bangdbhqpphqqdwcledg.supabase.co';
 let n = 0, bad = 0;
 function ok(cond, label){ n++; if (!cond){ bad++; console.error('  ✗', label); } else console.log('  ✓', label); }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+const location_ = u => { const i = u.indexOf('#'); return i < 0 ? '' : u.slice(i); };
 
 const STUDENTS = [
   { id: 1, name: '김철수', school: '화정고', grade: '2026 고등 1학년', code: 'tok-kim', enrolled: '재원', phone_student: '010-1111-0001', phone_parent1: '01022220001', phone_parent2: '' },
@@ -117,7 +118,7 @@ function applyFilter(rows, url){
   ok(/1개 \/ 2개/.test(await pg.textContent('#cfgState')), '상태 줄에 보낼 수 있는 종류 수');
   ok(!(await pg.$$eval('#clsSel option', els => els.map(o => o.value))).some(v => v.includes('w260912a')), "'이 주만' 반은 목록에 없음");
   ok((await pg.$$eval('.who', els => els.map(e => e.checked))).every(Boolean), '받는 분 학생·학부모1·학부모2 기본 체크');
-  await pg.waitForSelector('.log-row');
+  await pg.waitForSelector('.log-row', { state: 'attached' });   // 발송 내역 탭은 접혀 있어도 표는 만들어 둔다
   ok(/지난 안내/.test(await pg.textContent('#log')) && /수업 일정 안내/.test(await pg.textContent('#log')), '최근 기록 — 종류 이름·제목으로 묶음');
   ok(getsCalled.some(x => x === 'alimLog|'), '기록 조회에 to를 넘기지 않음(공지 키가 걸러지지 않게)');
   const tips = await pg.$$eval('.log-row .nm', els => els.map(e => e.textContent + '§' + e.title + '§' + e.className));
@@ -128,6 +129,17 @@ function applyFilter(rows, url){
   ok(/재원 명단에서 찾지 못했어요/.test(tips.find(x => x.indexOf('새친구') === 0) || '') && /miss/.test(tips.find(x => x.indexOf('새친구') === 0) || ''), '명단 밖 이름은 그렇다고 알림');
   ok(/같은 이름이 둘 이상이라 가리지 못했어요/.test(tips.find(x => x.indexOf('한동명') === 0) || ''), '동명이인은 가리지 못했다고 알림');
   ok(/보낸 사람 기록 없음/.test(await pg.textContent('#log')), '보낸 사람이 없는 옛 기록은 그렇다고 표시');
+
+  console.log('①-2 탭 (2026-10-03 디자인 시안)');
+  ok(await pg.isVisible('#tab-send') && !(await pg.isVisible('#tab-log')) && !(await pg.isVisible('#tab-settings')), '처음엔 [알림톡 보내기] 탭만 보임');
+  await pg.click('#tabs [data-tab="log"]');
+  ok(await pg.isVisible('#tab-log') && !(await pg.isVisible('#tab-send')) && location_(await pg.url()) === '#log', '[발송 내역] 탭 — 주소 해시 #log');
+  ok((await pg.$$eval('.logtbl thead th', els => els.map(e => e.textContent))).join('|') === '날짜|종류 · 제목|받을 학생|인원|상태', '표 머리 — 날짜·종류·제목·받을 학생·인원·상태');
+  ok(/최근 7일 · 3건 · 3명/.test(await pg.textContent('#logSum')), '요약 n건 · m명 — ' + (await pg.textContent('#logSum')));
+  ok((await pg.$$eval('.log-row .spill.ok', els => els.length)) === 1 && /전송 완료/.test(await pg.textContent('.log-row .st')), '상태 알약 전송 완료');
+  await pg.click('#tabs [data-tab="send"]');
+  ok(await pg.isVisible('#tab-send') && location_(await pg.url()) === '', '[알림톡 보내기]로 돌아오면 해시 없음');
+  ok(await pg.isVisible('#prevFold .prev') && !(await pg.isVisible('#prevFold summary')), '넓은 화면 — 미리보기는 오른쪽에 늘 펼침(요약 줄 없음)');
 
   console.log('② 반으로 고르기');
   ok(await pg.isDisabled('#goBtn'), '아무것도 안 고르면 보내기 잠김');
@@ -140,9 +152,11 @@ function applyFilter(rows, url){
   ok(/재원 명단에 없는 이름 1명: 새친구/.test(sum) && /동명이인이라 못 가린 이름 1명: 한동명/.test(sum), '미등록·동명이인 안내');
   const prev = await pg.textContent('#prev');
   ok(/김철수 학생에게 수업 일정 안내가 도착했어요/.test(prev) && /▶ 10월 일정 안내/.test(prev) && /학생 페이지 링크/.test(prev), '미리보기 = 학생명·제목·버튼');
-  await pg.uncheck('.who[value="학부모2"]');
-  ok(/3건/.test(await pg.textContent('#sum')), '학부모2를 빼면 3건');
-  await pg.check('.who[value="학부모2"]');
+  ok(/받는 분 3명 × 학생 2명 → 4건/.test(await pg.textContent('#goNote')), '버튼 아래 받는 분 × 학생 → 건수 (' + (await pg.textContent('#goNote')) + ')');
+  ok(/학생 2명/.test(await pg.textContent('#pickCount')) && /고1 가 담김/.test(await pg.$eval('#clsSel option', o => o.textContent)), '고르기 상자 아래 학생 수 · 드롭다운 자리글에 담은 반');
+  await pg.click('#whos label:has(.who[value="학부모2"])');
+  ok(/3건/.test(await pg.textContent('#sum')) && !(await pg.isChecked('.who[value="학부모2"]')) && !(await pg.$eval('#whos label:has(.who[value="학부모2"])', l => l.classList.contains('on'))), '학부모2 알약을 누르면 빠져 3건');
+  await pg.click('#whos label:has(.who[value="학부모2"])');
   await pg.fill('#title', '');
   ok(await pg.isDisabled('#goBtn') && /제목을 넣어/.test(await pg.textContent('#goNote')), '제목이 없으면 잠김');
   await pg.fill('#title', '10월 일정 안내');
@@ -214,9 +228,13 @@ function applyFilter(rows, url){
   await pg.waitForFunction(() => /보냈습니다/.test(document.getElementById('result').textContent));
   ok(sends.length === 1 && sends[0].kind === 'notice_mock' && sends[0].items.every(x => x.vars['신청일'] === '3/14(토), 3/15(일)' && x.vars['장소'] === '화정센터' && x.vars['정원'] === '30' && x.vars['제목'] === '2027학년도 수능대비 실전 모의고사'), '보낸 변수에 신청일');
 
-  console.log('⑧ 알림톡 설정 카드 — 슈국 스케쥴 [알림톡] 창을 옮겨 옴 (2026-10-01)');
+  console.log('⑧ 알림톡 설정 탭 — 슈국 스케쥴 [알림톡] 창을 옮겨 옴 (2026-10-01) · 카드 두 장 (2026-10-03)');
+  await pg.click('#tabs [data-tab="settings"]');
+  ok(await pg.isVisible('#tab-settings') && !(await pg.isVisible('#tab-send')), '[알림톡 설정] 탭');
   const bd = await pg.$$eval('#cfgBadges .bdg', els => els.map(e => e.textContent + (e.classList.contains('no') ? '!' : '')));
-  ok(bd[0] === '솔라피 API 키 없음!' && bd.includes('결석 안내 템플릿 준비됨') && bd.includes('수업 일정 안내 템플릿 준비됨') && bd.length === 6, '준비 상태 배지 — ' + bd.join('|'));
+  ok(bd.join('|') === '없음!|없음!' && /솔라피 API 키 · Secret/.test(await pg.textContent('#cfgBadges')) && /문자 대체 발신번호/.test(await pg.textContent('#cfgBadges')), '솔라피 연결 카드 — API 키·발신번호 저장 상태 (' + bd.join('|') + ')');
+  const tp = await pg.$$eval('#tplPills .bdg', els => els.map(e => e.textContent + (e.classList.contains('wait') ? '!' : '')));
+  ok(tp.join('|') === '결석 안내 승인됨|수업 일정 안내 승인됨|주말 실전 모의고사 신청 안내 승인됨' && /승인 3 \/ 3/.test(await pg.textContent('#tplCount')) && (await pg.textContent('#pfBadge')) === '없음', '카카오 채널·템플릿 카드 — 채널 없음 · 템플릿 승인 3/3 (' + tp.join('|') + ')');
   ok(!(await pg.isVisible('#tplTexts')), '템플릿 문구는 접혀 있음');
   await pg.click('#tplFold summary');
   ok(/학생 페이지 링크/.test(await pg.textContent('#tplTexts')) && (await pg.$$('#tplTexts .tpl-h')).length === 3, '펼치면 결석·공지 종류 문구와 버튼');
@@ -232,15 +250,32 @@ function applyFilter(rows, url){
   await pg.click('#discBtn');
   await pg.waitForFunction(() => /템플릿 ID 저장/.test(document.getElementById('disc').textContent));
   ok(posts[1].action === 'alimDiscover' && /KA01PFtest/.test(await pg.textContent('#disc')) && /심사 중/.test(await pg.textContent('#disc')), '솔라피에서 가져오기 결과');
-  await pg.click('#cfgFold details.fold summary');
+  await pg.click('#manFold summary');
   await pg.fill('.tplId[data-kind="notice_mock"]', 'KA01TPx');
-  await pg.click('#cfgFold details.fold .btn.lav');
+  await pg.click('#manFold .btn.lav');
   for (let i = 0; i < 30 && posts.length < 3; i++) await sleep(100);
   ok(posts[2] && posts[2].tpl && posts[2].tpl.notice_mock === 'KA01TPx', '직접 입력 템플릿 ID — 종류 키로');
 
+  console.log('⑨ #settings 해시로 열면 설정 탭 (슈국 스케쥴 [알림톡] 버튼)');
+  await pg.goto(`http://localhost:${PORT}/alimtalk.html#settings`);
+  await pg.waitForFunction(() => /보낼 수 있는/.test(document.getElementById('cfgState').textContent));
+  ok(await pg.isVisible('#tab-settings') && !(await pg.isVisible('#tab-send')) && await pg.$eval('#tabs [data-tab="settings"]', b => b.classList.contains('on')), '#settings → 설정 탭이 열림');
+
   console.log('⑥ 휴대폰 폭');
   await pg.setViewportSize({ width: 390, height: 800 });
-  ok(await pg.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), '가로 스크롤 없음');
+  await pg.goto(`http://localhost:${PORT}/alimtalk.html`);
+  await pg.waitForFunction(() => document.querySelectorAll('#clsSel option[value*="|"]').length > 0 && /보낼 수 있는/.test(document.getElementById('cfgState').textContent));
+  ok(await pg.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), '가로 스크롤 없음 (보내기)');
+  ok((await pg.$$eval('#tabs .tab', els => els.map(e => e.innerText.trim()))).join('|') === '보내기|발송 내역|설정', '휴대폰 탭 글자 줄임 — ' + (await pg.$$eval('#tabs .tab', els => els.map(e => e.innerText.trim()))).join('|'));
+  ok(await pg.isVisible('#prevFold summary') && !(await pg.isVisible('#prevFold .prev')), '휴대폰 — 미리보기는 접혀 있고 요약 줄만');
+  await pg.click('#prevFold summary');
+  ok(await pg.isVisible('#prevFold .prev') && /수업 일정 안내/.test(await pg.textContent('#prevFold summary')), '요약 줄을 누르면 펼쳐짐 · 요약에 첫 줄');
+  await pg.click('#tabs [data-tab="log"]');
+  await pg.waitForSelector('.log-row');
+  ok(!(await pg.isVisible('.logtbl thead')) && await pg.evaluate(() => getComputedStyle(document.querySelector('.log-row td')).display === 'block'), '휴대폰 — 표가 줄마다 카드로 쌓임');
+  ok(await pg.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), '가로 스크롤 없음 (발송 내역)');
+  await pg.click('#tabs [data-tab="settings"]');
+  ok(await pg.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), '가로 스크롤 없음 (설정)');
 
   await browser.close(); server.close();
   console.log(bad ? `\n${bad}건 실패 / ${n}건` : `\n✓ ${n}건 모두 통과`);
