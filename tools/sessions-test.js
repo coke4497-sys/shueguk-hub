@@ -175,6 +175,16 @@ const a11 = R11.rows.find(r => r.name === '강준서') || {};
 ok('11월(11/7~12/6): 11/7 내신 확인 1 + 미지정 정규 4주 × 가·나 = 9', a11.count === 9 && a11.naeshin === 1 && a11.regular === 8, a11.detail);
 const p11 = R11.rows.find(r => r.name === '박민선') || {};
 ok('11월 박민선: 10/31에 당겨 한 11/12 수업이 11/12 줄로 들어감(10/31 진행)', p11.items && p11.items.some(it => it.date === '2026-11-12' && it.held === '2026-10-31' && it.heldWhen === '토5:30') && /11\/12\(10\/31 진행\)/.test(p11.detail), p11.detail);
+/* 슈국 캘린더 학년별 예외(tt_period.overrides, 2026-10-11): 11/4 주는 내신인데 고1만 정규 → 11/7(토) 내신 확인 대신 정규 '고1 나'로 센다 */
+const DX = JSON.parse(JSON.stringify(DATA));
+DX.periods.find(p => p.week_wednesday === '2026-11-04').overrides = { '고1': '정규' };
+const RX = CORE.build(DX, 2026, 11);
+const ax = RX.rows.find(r => r.name === '강준서') || { items: [] };
+ok('학년 예외(11/4 주 고1 정규): 강준서 11월 9회 전부 정규(내신 0) — 11/7은 고1 나', ax.count === 9 && ax.regular === 9 && ax.naeshin === 0 &&
+   ax.items.some(it => it.date === '2026-11-07' && it.cls === '고1 나' && it.book === '정규') && !ax.items.some(it => it.date === '2026-11-07' && /확인/.test(it.cls)), ax.detail);
+const kx = RX.rows.find(r => r.name === '김건') || { items: [] };
+ok('학년 예외는 그 학년만 — 중2 김건은 11/4 주 그대로 내신', !kx.items.some(it => it.date >= '2026-11-04' && it.date <= '2026-11-10' && it.book === '정규'), kx.detail);
+ok('주 목록의 기간 표기는 주 기준(내신) 그대로', RX.weeks.find(w => w.wed === '2026-11-04').book === '내신');
 const R9 = CORE.build(JSON.parse(JSON.stringify(DATA)), 2026, 10, { midStart: 1, highStart: 1, perWeek: 3 });
 ok('규칙 바꾸면(고등도 1일 시작·3배) 강준서 10/1 포함·기준 6', (R9.rows.find(r => r.name === '강준서') || {}).items.some(it => it.date === '2026-10-01') && R9.rows.find(r => r.name === '강준서').threshold === 6);
 

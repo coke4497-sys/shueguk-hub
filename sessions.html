@@ -80,6 +80,8 @@
        `GRADE_BOOK['2026-10']['중2'] = '정규'` — 중2 내신 반 15개를 10월 내내 휴강하고 정리정독 정규 수업으로 대체한 달이라, 내신 주 수업도 정규 회차·정규 단가로 센다.
        `bookOf(ym, grade)`가 이 예외와 ALL_REGULAR(중3·고3)를 함께 본다. 적용 결과는 row의 `forceBook`이고 주차별 상세의 기간 배지도 이 값을 따른다.
        **이런 달이 또 생기면 `GRADE_BOOK`에 '연-월': { 학년: '정규' } 한 줄을 더하면 된다.** 실데이터 2026-10 중2 48명: 정규 220회·내신 0회, 청구 10,450,000원.
+       → **2026-10-11부터는 슈국 캘린더의 학년별 예외(`tt_period.overrides`, 리포트 047)가 정식 경로**: `classBook(wed, c)`가 반 학년의 예외 시간표로 반을 고르고
+       `gradeBook(wed, grade)`가 주당 횟수(weeklyIn)의 기간을 정한다. `GRADE_BOOK`은 예외 기능 전(10월 상반기)의 기록용으로만 남겨 둔다 — 새 예외는 캘린더에서.
      · **화면은 청구서 형태로 줄였다**(사용자 2026-09-21 "예정, 돌려줄 금액, 차이, 이런거 불필요. 정규 몇회 얼마, 내신 몇회 얼마, 청구 금액만 딱"):
        표 열 = No · 이름 · 학교 · **정규(회차+금액)** · **내신(회차+금액)** · 논술 · **청구 금액** · 수업. 기준·예정·기준 차이·정산 열과
        초과·미달 줄 강조, 거르기 드롭다운(`#flagSel`), 범례의 분홍/파랑은 **전부 뺐다**. 범례 자리에는 단가표를 적는다.
@@ -390,6 +392,8 @@ var CORE = (function(){
    * 이런 달이 또 생기면 여기에 '연-월': { 학년: '정규'|'내신' } 한 줄을 더하면 된다. */
   var GRADE_BOOK = { '2026-10': { '중2': '정규' } };
   function bookOf(ym, grade){ return (GRADE_BOOK[ym] || {})[grade] || (ALL_REGULAR[grade] ? '정규' : ''); }
+  /* 반이름의 학년('정리정독 중2' → 중2) — 슈국 캘린더의 학년별 예외(tt_period.overrides, 2026-10-11)를 반에 적용할 때 쓴다 */
+  function gradeOfName(name){ var m = /([중고])\s*([1-3])/.exec(String(name || '')); return m ? m[1] + m[2] : ''; }
 
   function pad(n){ return (n < 10 ? '0' : '') + n; }
   function ymd(d){ return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
@@ -431,8 +435,15 @@ var CORE = (function(){
   function build(data, year, month, rule){
     var ymKey = year + '-' + pad(month);
     var win = windows(year, month, rule);
-    var period = {};
-    (data.periods || []).forEach(function(p){ period[String(p.week_wednesday).slice(0, 10)] = p.book; });
+    var period = {}, perOv = {};
+    (data.periods || []).forEach(function(p){
+      var w = String(p.week_wednesday).slice(0, 10);
+      period[w] = p.book;
+      perOv[w] = (p.overrides && typeof p.overrides === 'object') ? p.overrides : {};   // 학년별 예외 {학년: 시간표} (2026-10-11)
+    });
+    /* 그 주에 이 반이 쓰는 시간표 — 반 학년에 예외가 있으면 그 시간표, 없으면 주 기준 */
+    function classBook(wed, c){ var g = gradeOfName(c.name), o = perOv[wed]; return (g && o && o[g]) ? o[g] : (period[wed] || '정규'); }
+    function gradeBook(wed, grade){ var o = perOv[wed]; return (grade && o && o[grade]) ? o[grade] : (period[wed] || '정규'); }
     var classes = (data.classes || []).map(function(c){
       return { book: c.book, id: c.class_id, day: c.day, start: c.start_time, name: c.name, kind: String(c.kind || '').trim(),
                roster: String(c.roster || ''), wk: wkIdYmd(c.class_id) };
@@ -540,6 +551,7 @@ var CORE = (function(){
       if (inMid) wkMid[wed] = book;
       if (inHigh) wkHigh[wed] = book;
       classes.forEach(function(c){
+        var book = classBook(wed, c);   // 학년별 예외 주면 그 학년 반은 다른 시간표 — 바깥 book을 가린다(아래 note·addSess가 이 값을 쓴다)
         if (c.book !== book) return;
         if (c.wk ? c.wk !== ds : c.day !== wd) return;
         if (c.wk && copyOf[c.id]) return;   // 옮겨 온 복사본은 원래 수업 날짜에 센다(아래)
@@ -754,9 +766,9 @@ var CORE = (function(){
     });
     /* 그 달 주차 구성으로 주당 횟수를 정한다 — 주차마다 그 기간의 반 수를 더해 평균(반올림).
      * 평균이 0이면(그 기간 수업이 없는 학생) 다른 기간의 반 수를 써서 '기준은 있는데 이 달 예정이 0회'가 드러나게 한다. */
-    function weeklyIn(wks, n){
+    function weeklyIn(wks, n, grade){
       var reg = rosterW['정규'][n] || 0, nae = rosterW['내신'][n] || 0, ks = Object.keys(wks), sum = 0, rc = 0;
-      ks.forEach(function(k){ if (wks[k] === '정규') rc++; sum += (wks[k] === '정규' ? reg : nae); });
+      ks.forEach(function(k){ var b = grade ? gradeBook(k, grade) : wks[k]; if (b === '정규') rc++; sum += (b === '정규' ? reg : nae); });
       var w = ks.length ? Math.round(sum / ks.length) : 0;
       var bk = rc > ks.length - rc ? '정규' : '내신';                      // 주차가 더 많은 기간(같으면 내신)이 기준 단가
       if (!w){ w = Math.max(reg, nae); bk = reg >= nae ? '정규' : '내신'; }   // 그 기간 수업이 없는 학생은 다른 기간 기준
@@ -799,7 +811,7 @@ var CORE = (function(){
       var main = items.filter(function(it){ return !it.nonsul; }), nonsul = items.length - main.length;
       var regular = main.filter(function(it){ return it.book === '정규'; }).length, naeshin = main.length - regular;
       var mid = grade.charAt(0) === '중';
-      var wk = weeklyIn(mid ? wkMid : wkHigh, n), weekly = wk.weekly, thr = threshold(weekly, rule);
+      var wk = weeklyIn(mid ? wkMid : wkHigh, n, grade), weekly = wk.weekly, thr = threshold(weekly, rule);
       var plan = (mid ? planMid[n] : planHigh[n]) || 0;
       /* 수강료 — 기준 금액(받은 돈) · 실제 금액(등원한 회차) · 정산액(실제 − 기준). 논술은 단가가 없어 뺀다. */
       var rate = RATES[grade] || null;
@@ -905,7 +917,8 @@ var CORE = (function(){
       .catch(e => { if (!/sb 400/.test(String(e && e.message))) throw e; return sbAll('/tt_classes?select=' + CLS + '&order=id'); });   // kind 열 없는 DB
     Promise.all([
       clsJob,
-      sbAll('/tt_period?select=week_wednesday,book'),
+      sbAll('/tt_period?select=week_wednesday,book,overrides')
+        .catch(e => { if (!/sb 400/.test(String(e && e.message))) throw e; return sbAll('/tt_period?select=week_wednesday,book'); }),   // overrides 열 없는 DB(047 전)
       sbAll('/tt_log?select=id,at,kind,student,from_class_id,to_class_id,reason,apply_date&kind=in.(' + kinds + ')&at=gte.' + encodeURIComponent(since) + '&order=id'),
       sbAll('/students?select=name,school,grade,enrolled&order=seq,id')
     ]).then(([classes, periods, logs, students]) => {
