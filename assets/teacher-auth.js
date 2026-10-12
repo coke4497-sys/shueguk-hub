@@ -197,6 +197,14 @@
 
   function safeNext(value) {
     var next = String(value || '');
+    // 허브 밖 교사 페이지(리포트·클리닉·주말·어휘·문법·H WORK — assets/teacher-gate.js)에서 온 절대 주소:
+    // 같은 출처(coke4497-sys.github.io)의 /shueguk-…/ 아래 .html 만 그대로 돌려보낸다 (2026-10-12)
+    var origin = (typeof location !== 'undefined' && location.origin) || '';
+    if (origin && next.indexOf(origin + '/') === 0) {
+      var abs = next.slice(origin.length).split(/[?#]/, 1)[0];
+      if (/^\/shueguk-[a-z0-9-]+\/[A-Za-z0-9._-]+\.html$/.test(abs) && !/[\r\n]/.test(next)) return next;
+      return 'index.html';
+    }
     var path = next.split(/[?#]/, 1)[0];
     var unsafePath = !/^[A-Za-z0-9][A-Za-z0-9._\/-]*\.html$/.test(path)
       || path.indexOf('//') >= 0

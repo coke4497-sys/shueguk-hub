@@ -53,6 +53,10 @@
     var message = document.getElementById('message');
     var params = new URLSearchParams(location.search);
     var next = TeacherAuth.safeNext(params.get('next'));
+    // 게이트(teacher-gate.js)·보호 페이지에서 보내온 이유 — 왜 로그인 화면이 떴는지 한 줄로 알린다 (2026-10-12)
+    var reason = params.get('reason') || '';
+    if (reason === 'not_teacher') message.textContent = '사용할 수 없는 교사 계정입니다. 관리자에게 문의하십시오.';
+    else if (reason === 'login_required' && params.get('next')) message.textContent = '로그인이 필요한 페이지입니다. 로그인하면 원래 화면으로 돌아갑니다.';
 
     form.addEventListener('submit', function(event){
       event.preventDefault();
