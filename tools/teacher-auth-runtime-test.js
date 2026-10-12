@@ -38,7 +38,7 @@ function makeContext(mode, calls) {
     setTimeout,
     clearTimeout,
     location: {
-      pathname: '/shueguk-hub/index.html', search: '', hash: '',
+      origin: 'https://coke4497-sys.github.io', pathname: '/shueguk-hub/index.html', search: '', hash: '',
       replace(value) { this.replaced = value; }
     },
     localStorage: {
@@ -98,6 +98,10 @@ function makeContext(mode, calls) {
   check(login.TeacherAuth.safeNext('report.html?student=1#top') === 'report.html?student=1#top', '같은 앱의 이동 주소는 유지함');
   check(login.TeacherAuth.safeNext('javascript:alert(1)') === 'index.html', '스크립트 이동 주소를 차단함');
   check(login.TeacherAuth.safeNext('../index.html') === 'index.html', '상위 경로 이동을 차단함');
+  check(login.TeacherAuth.safeNext('https://coke4497-sys.github.io/shueguk-report/timetable.html?x=1#week') === 'https://coke4497-sys.github.io/shueguk-report/timetable.html?x=1#week', '같은 출처의 다른 저장소 교사 페이지(게이트)로 돌아감');
+  check(login.TeacherAuth.safeNext('https://coke4497-sys.github.io/shueguk-report/s.html/../../x') === 'index.html', '같은 출처라도 .html 로 끝나지 않는 경로는 차단함');
+  check(login.TeacherAuth.safeNext('https://evil.example/shueguk-report/timetable.html') === 'index.html', '다른 출처의 절대 주소를 차단함');
+  check(login.TeacherAuth.safeNext('https://coke4497-sys.github.io/other/timetable.html') === 'index.html', '/shueguk-… 밖의 경로를 차단함');
 
   const protectedCalls = [];
   const protectedPage = makeContext('protected', protectedCalls);
