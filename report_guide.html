@@ -212,6 +212,10 @@
   .where div{background:var(--soft);border-radius:14px;padding:14px 16px;font-size:14.5px;}
   .where b{display:block;font-family:var(--serif);font-size:15.5px;margin-bottom:4px;color:var(--ink);}
   @media (max-width:640px){ .where{grid-template-columns:1fr;} }
+  .shot{margin:0 0 22px;}
+  .shot figcaption{font-size:15px;margin:0 0 8px;color:var(--ink-soft);}
+  .shot figcaption b{font-family:var(--serif);color:var(--ink);margin-right:6px;}
+  .shot img{display:block;width:100%;height:auto;border-radius:12px;background:#fff;box-shadow:0 2px 12px rgba(42,51,47,.10);}
 </style>
 </head>
 <body>
@@ -279,12 +283,24 @@
 
   <section>
     <h2>어디서 여나요?</h2>
-    <p class="lead">세 곳 모두 같은 창이 열립니다. 아직 오지 않은 날짜의 수업은 기록할 수 없습니다.</p>
-    <div class="where">
-      <div><b>오늘의 시간표</b>오늘 수업 카드의 <kbd>수업 기록</kbd></div>
-      <div><b>주차별 시간표</b>요일을 눌러 크게 연 뒤, 오늘·지난 날짜 카드의 <kbd>수업 기록</kbd></div>
-      <div><b>수업 기록 보기</b>학습 관리 메뉴에서 그 수업 카드의 <kbd>이 수업 기록하기</kbd></div>
-    </div>
+    <p class="lead">세 곳 모두 같은 창이 열립니다. 아직 오지 않은 날짜의 수업은 기록할 수 없습니다. 분홍 테두리가 누를 곳이에요.</p>
+    <figure class="shot">
+      <figcaption><b>1. 오늘의 시간표</b> 오늘 수업 카드의 <kbd>수업 기록</kbd></figcaption>
+      <img src="assets/guide/cr-today.png" alt="오늘의 시간표 반 카드 — 전체 출석 옆 수업 기록 버튼" loading="lazy" style="max-width:440px">
+    </figure>
+    <figure class="shot">
+      <figcaption><b>2. 주차별 시간표</b> 요일을 눌러 크게 연 뒤, 오늘·지난 날짜 카드의 <kbd>수업 기록</kbd></figcaption>
+      <img src="assets/guide/cr-week.png" alt="주차별 시간표 요일 확대 화면 — 반 카드마다 수업 기록 버튼" loading="lazy">
+    </figure>
+    <figure class="shot">
+      <figcaption><b>3. 수업 기록 보기</b> 학습 관리 메뉴에서 그 수업 카드의 <kbd>이 수업 기록하기</kbd></figcaption>
+      <img src="assets/guide/cr-classlog.png" alt="수업 기록 보기 카드 — 이 수업 기록하기 버튼" loading="lazy">
+    </figure>
+    <figure class="shot">
+      <figcaption><b>누르면 이렇게 열립니다</b> 화면 왼쪽에 수업 기록 창이 열려요.</figcaption>
+      <img src="assets/guide/cr-panel.png" alt="왼쪽에 열린 수업 기록 창 — 오늘 진도, 다음 수업까지 과제, 학생별 카드, 저장·미리보기·리포트 생성 버튼" loading="lazy" style="max-width:360px">
+    </figure>
+    <p class="cap">그림의 학생 이름은 예시입니다.</p>
   </section>
 
   <section>
