@@ -2,11 +2,11 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<title>주간 리포트 안내 · 슈국 티쳐스</title>
+<title>수업 기록 안내 · 슈국 티쳐스</title>
 <script src="assets/teacher-auth.js" data-mode="protected"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- 슈퍼스타 주간 리포트·수업 기록 사용 안내 (2026-09-28 사용자 "선생님들께 보낼 사용 안내문") — 교사 인증 조각 없음, 링크로 공유해도 됨.
-     기능·버튼 이름이 바뀌면(shueguk-report timetable.html 수업 기록 창·s.html 주간 리포트) 이 페이지도 함께 고칠 것 -->
+<!-- 수업 기록·수업 리포트 사용 안내 (2026-09-28 처음, 2026-10-14 지금 기능으로 다시 씀 — 원장님 "수업 기록을 선생님들에게 안내").
+     허브 로그인 필요(teacher-auth protected). 기능·버튼 이름이 바뀌면(shueguk-report timetable.html 수업 기록 창·s.html 수업 리포트) 이 페이지도 함께 고칠 것 -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
@@ -63,6 +63,7 @@
   kbd.y{background:var(--yel);color:var(--yel-ink);}
   kbd.p{background:var(--pnk);color:var(--pnk-ink);}
   kbd.s{background:var(--sky);color:var(--sky-ink);}
+  kbd.n{background:var(--soft);color:var(--ink-soft);}
   /* 링크 카드 */
   .links{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0 0;}
   .links a{display:block;background:var(--soft);border-radius:12px;padding:12px 14px;text-decoration:none;color:var(--ink);}
@@ -186,6 +187,31 @@
   .todo .it{align-items:center;}
   @media (max-width:640px){ .todo h3{font-size:23px;} .todo p{font-size:13px;} }
   .three .bk{font-family:var(--disp);font-weight:400;font-size:17px;margin-right:4px;vertical-align:middle;}
+  /* 2026-10-14 — 수업 리포트 카드 미리보기(s.html rcCardHtml 모양을 줄인 것) */
+  .rc{background:#fff;color:#2A332F;border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px;font-size:13px;}
+  .rc-hd{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;}
+  .rc-dt{font-family:var(--disp);font-size:30px;line-height:1;}
+  .rc-sub{font-size:11.5px;color:#65726B;line-height:1.4;}
+  .rc-pills{margin-left:auto;display:flex;gap:4px;}
+  .rc-pill{white-space:nowrap;font-size:11px;border-radius:999px;padding:1px 8px;background:#F2F5F3;color:#4F5C56;}
+  .rc-pill.ok{background:#DCE8E5;color:#3F6159;}
+  .rc-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+  .rc-tiles div{background:#F2F5F3;border-radius:10px;padding:6px 8px;font-size:12px;}
+  .rc-tiles div.hw{background:#E3EDE7;}
+  .rc-tiles small{display:block;font-size:10.5px;color:#65726B;}
+  .rc-k{font-size:11px;color:#65726B;display:block;margin-bottom:2px;}
+  .rc p{margin:0;line-height:1.65;}
+  .rc-tb{display:grid;gap:4px;}
+  .rc-tr{display:grid;grid-template-columns:1.6fr repeat(4,1fr);gap:4px;align-items:center;background:#F6F8F7;border-radius:8px;padding:5px 7px;font-size:11px;}
+  .rc-tr.h{background:none;color:#65726B;font-size:10px;padding:0 7px;}
+  .rc-lv{border-radius:999px;padding:0 5px;text-align:center;}
+  .rc-lv.f{background:#EDE4F4;color:#5A4A6A;} .rc-lv.p{background:#FBE9D9;color:#8A5A33;} .rc-lv.n{background:#F7E2DE;color:#9A5A52;}
+  .rc-cm{background:#F4EFF8;border-radius:10px;padding:8px 10px;}
+  .rc-star{font-size:11.5px;color:#9A7A20;}
+  .where{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:4px 0 0;}
+  .where div{background:var(--soft);border-radius:14px;padding:14px 16px;font-size:14.5px;}
+  .where b{display:block;font-family:var(--serif);font-size:15.5px;margin-bottom:4px;color:var(--ink);}
+  @media (max-width:640px){ .where{grid-template-columns:1fr;} }
 </style>
 </head>
 <body>
@@ -193,119 +219,114 @@
 <div class="page">
   <div class="head">
     <p class="eyebrow">이수경국어 · 선생님 안내</p>
-    <h1><span class="nw">초초초초간단!</span><br><span class="nw">슈국 슈퍼스타 주간 리포트</span></h1>
-    <p class="lead2">수업이 끝난 후 이것만 해주세요.</p>
+    <h1><span class="nw">초초초초간단!</span><br><span class="nw">슈국 수업 기록</span></h1>
+    <p class="lead2">수업이 끝나면 반 카드의 <kbd>수업 기록</kbd>을 누르고 이것만 해 주세요.</p>
   </div>
 
   <div class="todo">
     <div class="it"><div class="num">1</div><div>
       <h3>오늘 수업 내용 적기</h3>
       <p>예시) 문학-관동별곡, 문법-단어 형성법, 독서-하이데거, 야스퍼스</p>
-      <p>이름이 같은 반은 공유할 수 있습니다. 창 위의 <b>[가져오기]</b>를 누르면 같은 이름 반이 이번 주에 적은 수업 내용·과제가 채워져요.</p>
+      <p>같은 수업을 하는 반이 먼저 적었으면 그 내용이 칸에 미리 채워져 있습니다. 고칠 곳만 고치시면 돼요. 미리 채운 내용은 <b>[저장]</b>을 눌러야 이 반에 저장됩니다.</p>
     </div></div>
     <div class="it"><div class="num">2</div><div>
-      <h3>다음 수업까지 과제 입력</h3>
-      <p>없다면 비워두세요.</p>
+      <h3>다음 수업까지 과제</h3>
+      <p>한 줄에 과제 하나씩 적어 주십시오. 없으면 비워 두세요.</p>
+      <p>한 학생에게만 따로 낸 과제는 그 학생 카드의 <b>'이 학생만 과제'</b> 칸에 적습니다.</p>
     </div></div>
     <div class="it"><div class="num">3</div><div>
-      <h3>오늘의 과제 검사</h3>
-      <p>지난 수업에 적은 <b>다음 수업까지 과제</b>가 학생마다 하나씩 나옵니다. 과제마다 <b>학습량·깊이</b>를 별 5개로 매겨 주십시오.</p>
-      <p>정규는 지난주 같은 수업의 과제를, 내신은 그 학생이 바로 앞 수업(진도·확인)에서 받은 과제를 검사해요. 검사할 과제가 없으면 '확인할 것이 없습니다'로 들어갑니다.</p>
-      <p>교재 데일리 과제처럼 지난 기록에 없는 과제는 <b>[반 전체 검사 과제 추가]</b>에 적어 주십시오. 반 학생 모두에게 별 칸이 생기고, 다음 수업에서는 <b>[지난번 과제 다시 넣기]</b>로 한 번에 넣을 수 있어요.</p>
+      <h3>출석과 수업 태도</h3>
+      <p>출석 체크가 모두 되었는지 확인해 주십시오. <b>출석 체크가 안 된 학생은 리포트가 만들어지지 않습니다.</b> 결석한 친구는 아래 '오늘 안 온 친구'로 접혀 있어요.</p>
+      <p>학생마다 수업 태도를 <kbd>매우 좋음</kbd> <kbd>좋음</kbd> <kbd>노력 필요</kbd> 중에서 누릅니다. 누르는 즉시 저장돼요.</p>
     </div></div>
     <div class="it"><div class="num">4</div><div>
-      <h3>출석체크</h3>
-      <p>출석체크가 모두 정상반영되었는지 확인해 주세요. 출석하지 않은 친구의 리포트는 작성되지 않습니다.</p>
+      <h3>과제 검사</h3>
+      <p>지난 수업에서 낸 과제가 학생마다 하나씩 나옵니다. 과제마다 <b>학습량</b>은 별 5개로, <b>채점·학습 분석·오답 분석</b>은 <kbd class="n">안함</kbd> <kbd class="y">일부함</kbd> <kbd>완벽</kbd> 중에서 고릅니다.</p>
+      <p>안 해 온 과제는 그 과제 옆 <kbd class="p">미제출</kbd>을, 하나도 안 해 왔으면 <kbd class="p">전체 미제출</kbd>을 누르세요. 모든 과제가 별 5개·완벽이면 <b>슈퍼스타 별 +1</b>입니다.</p>
     </div></div>
     <div class="it"><div class="num">5</div><div>
+      <h3>코멘트 한 줄</h3>
+      <p>학생과 학부모님이 리포트에서 읽습니다. 사실대로 짧게 적어 주시면 문장으로 다듬어 올려요.</p>
+    </div></div>
+    <div class="it"><div class="num">6</div><div>
       <h3><kbd>리포트 생성</kbd> 누르면 끝!</h3>
+      <p>누르기 전에 <b>[미리보기]</b>로 학생마다 어떻게 보일지 확인할 수 있어요.</p>
     </div></div>
   </div>
 
   <section class="result">
     <div>
       <h2>이것만 해 주시면</h2>
-      <p class="say">이렇게 <b>근사한 슈퍼스타 주간 리포트</b>를 만들어 학생 개별 페이지에 올려 드립니다.</p>
-      <p>선생님이 적은 수업 내용·과제·코멘트와 출석, 과제 검사 결과를 모아 학생마다 한 주에 한 장으로 정리해요. 학생과 학부모님이 같은 링크로 봅니다.</p>
-      <p class="cap">예시는 학생 페이지 '주간 리포트'에 실제로 보이는 모양입니다(가상 학생).</p>
+      <p class="say">학생마다 <b>수업 한 번에 리포트 한 장</b>이 학생 개별 페이지에 올라갑니다.</p>
+      <p>선생님이 적은 수업 내용·과제·태도·코멘트와 출석, 과제 검사 결과를 모아 정리합니다. 학생과 학부모님이 학생 페이지의 <b>[수업 리포트]</b>에서 봐요.</p>
+      <p class="cap">예시는 학생 페이지에 실제로 보이는 모양을 줄인 것입니다(가상 학생).</p>
     </div>
-    <div class="phone" aria-hidden="true"><div class="rp">
-      <p class="rp-wk">9/21 ~ 9/27 주<small>정규 주간</small></p>
-      <p class="rp-brand">슈퍼스타 주간 리포트</p>
-      <p class="rp-who">박보검<small>화정고 2학년</small></p>
-      <div class="rp-att">
-        <div><span class="k">가 수업 · 9/23 (수) 5:30</span>고2 가 <span class="rp-at">출석</span></div>
-        <div><span class="k">나 수업 · 9/26 (토) 2:00</span>고2 나 <span class="rp-at late">지각</span></div>
-      </div>
-      <div class="rp-part">
-        <h4>가 수업<span>9/23 (수) · 지원T</span></h4>
-        <div><span class="rp-k">수업 내용</span><p>고전 시가 「사미인곡」의 표현상 특징을 정리하고 갈래 복합 지문 두 개를 풀었습니다.</p></div>
-        <div><span class="rp-k">다음 수업까지 과제</span><ul><li>「속미인곡」 비교 학습지 1장</li></ul></div>
-        <div class="rp-hw">
-          <div class="rp-row"><span>관동별곡 학습지 (학습량)</span><span class="rp-tr"><i style="width:100%"></i></span><b>5 / 5</b></div>
-          <div class="rp-row"><span>관동별곡 학습지 (깊이)</span><span class="rp-tr"><i style="width:100%"></i></span><b>5 / 5</b></div>
-          <div class="rp-tot"><span>이 수업 과제 검사</span><b>100% 🏆</b></div>
+    <div class="phone" aria-hidden="true"><div class="rc">
+      <div class="rc-hd"><span class="rc-dt">10/14</span><span class="rc-sub">수요일<br>고2 가 · 지원T</span>
+        <span class="rc-pills"><span class="rc-pill">가 수업</span><span class="rc-pill ok">출석</span></span></div>
+      <div class="rc-tiles"><div><small>수업 태도</small>매우 좋음</div><div><small>수업 진도</small>사미인곡</div><div class="hw"><small>과제 검사</small>100%</div></div>
+      <div><span class="rc-k">수업 내용</span><p>고전 시가 「사미인곡」의 표현상 특징을 정리하고 갈래 복합 지문 두 개를 풀었습니다.</p></div>
+      <div><span class="rc-k">이번주 과제 검사</span>
+        <div class="rc-tb">
+          <div class="rc-tr h"><span>과제</span><span>학습량</span><span>채점</span><span>학습 분석</span><span>오답 분석</span></div>
+          <div class="rc-tr"><span>관동별곡 학습지</span><span>5/5</span><span class="rc-lv f">완벽</span><span class="rc-lv f">완벽</span><span class="rc-lv f">완벽</span></div>
         </div>
-      </div>
-      <div class="rp-part">
-        <h4>나 수업<span>9/26 (토) · 현지T</span></h4>
-        <p class="rp-an">10분 늦게 도착했습니다.</p>
-        <div><span class="rp-k">수업 내용</span><p>현대시 「그 날이 오면」의 화자와 정서를 분석했습니다.</p></div>
-      </div>
-      <div class="rp-part">
-        <h4>선생님 코멘트</h4>
-        <p>화자의 정서 변화를 정확히 짚어 냈습니다. 다음 주에는 서술형 답안을 한 문장 더 구체적으로 써 보세요. <span style="color:#65726B;font-size:11.5px">— 지원T</span></p>
-      </div>
+        <p class="rc-star">★ 슈퍼스타 별 +1 · 모든 과제를 완벽하게 했어요</p></div>
+      <div><span class="rc-k">다음 수업까지 과제</span><p>· 「속미인곡」 비교 학습지 1장</p></div>
+      <div class="rc-cm"><span class="rc-k">선생님 코멘트</span><p>화자의 정서 변화를 정확히 짚어 냈습니다. 다음 수업에서는 서술형 답안을 한 문장 더 구체적으로 써 보세요.</p></div>
     </div></div>
   </section>
 
   <section>
-    <h2>수업에 따라 적는 칸이 조금 달라요</h2>
-    <p class="lead">정규 주간에는 가·나 수업, 내신 주간에는 진도·확인 수업으로 나뉩니다. 창 맨 위에 어떤 수업인지 표시됩니다. 표시된 대로 적으시면 됩니다.</p>
-    <div class="three">
-      <div><b class="bk">정규</b> <kbd>가 수업 · 나 수업</kbd><br>수업 내용, 다음 수업까지 과제, 과제 검사</div>
-      <div><b class="bk">내신</b> <kbd class="y">진도 수업</kbd><br>시험범위에서 오늘 나간 단원 고르기, 다음 수업까지 과제<br><small>과제 검사는 없으면 비워 두셔도 돼요.</small></div>
-      <div><b class="bk">내신</b> <kbd class="p">확인 수업</kbd><br>과제 검사, 다음 수업까지 과제<br><small>진도는 적지 않아도 됩니다.</small></div>
+    <h2>어디서 여나요?</h2>
+    <p class="lead">세 곳 모두 같은 창이 열립니다. 아직 오지 않은 날짜의 수업은 기록할 수 없습니다.</p>
+    <div class="where">
+      <div><b>오늘의 시간표</b>오늘 수업 카드의 <kbd>수업 기록</kbd></div>
+      <div><b>주차별 시간표</b>요일을 눌러 크게 연 뒤, 오늘·지난 날짜 카드의 <kbd>수업 기록</kbd></div>
+      <div><b>수업 기록 보기</b>학습 관리 메뉴에서 그 수업 카드의 <kbd>이 수업 기록하기</kbd></div>
     </div>
+  </section>
+
+  <section>
+    <h2>과제 검사는 이렇게 이어집니다</h2>
+    <div class="three">
+      <div><b class="bk">정규</b> <kbd>가 수업 · 나 수업</kbd><br>가와 나는 따로입니다. <b>지난주 같은 수업</b>에서 낸 과제를 검사해요.<br><small>1회 이동해 온 학생은 원래 반 과제로 검사합니다.</small></div>
+      <div><b class="bk">내신</b> <kbd class="y">진도 수업</kbd><br>진도·확인 수업이 이어집니다. 학생이 <b>바로 앞 수업</b>에서 받은 과제를 검사해요.</div>
+      <div><b class="bk">내신</b> <kbd class="p">확인 수업</kbd><br>과제 검사가 중심입니다. 수업 내용은 비워 두셔도 됩니다.</div>
+    </div>
+    <p style="margin-top:14px">중3·고3은 내신 기간에도 정규 수업으로 기록됩니다.</p>
   </section>
 
   <section>
     <h2>이것만 기억해 주세요</h2>
     <ul class="keep">
-      <li><b>과제 검사는 수업마다 따로 기록됩니다.</b> 가 수업과 나 수업이 각자 별점을 가져요. <b>그 수업의 모든 과제가 학습량·깊이 모두 별 5개</b>면 슈퍼스타 별 1개입니다.</li>
-      <li><b>둘째 수업 뒤에 <kbd>리포트 생성</kbd>을 한 번 더 눌러 주십시오.</b> 리포트는 그 주 수업을 모아 한 장으로 다시 쓰기 때문이에요.</li>
-      <li><b>내신대비 피드백은 따로 운영하지 않습니다.</b> 내신 수업의 시험범위·진도·과제도 이 창(<kbd>수업 기록</kbd>)에만 적어 주십시오. 따로 입력하실 곳이 없어요.</li>
-      <li><b>적은 내용만 리포트에 들어갑니다.</b> 코멘트는 사실대로 짧게 적어 주시면 문장으로 다듬어 올립니다.</li>
+      <li><b>리포트는 수업마다 한 장입니다.</b> 가 수업과 나 수업에서 각각 <kbd>리포트 생성</kbd>을 눌러 주십시오.</li>
+      <li><b>학생 목록 위에 '기록 완료 n명 · 아직 부족 m명'이 나옵니다.</b> <b>[부족한 친구만 보기]</b>를 누르면 출석·태도·과제 검사가 빠진 학생만 남아요.</li>
+      <li><b>적은 내용만 리포트에 들어갑니다.</b> 없는 내용을 지어 넣지 않으니, 코멘트가 비면 코멘트 없이 올라갑니다.</li>
+      <li><b>이미 공개한 리포트는 기록을 고친 경우에만</b> <kbd>리포트 다시 생성</kbd>을 눌러 주십시오.</li>
     </ul>
   </section>
 
   <p class="more-h">필요할 때만 펼쳐 보세요</p>
 
   <details>
-    <summary>내신 진도 수업 — 시험범위 처음 입력하기</summary>
+    <summary>반 전체 과제 · 교재 데일리 과제</summary>
     <div class="in">
-      <ol>
-        <li>처음 여는 반이면 <b>시험범위</b> 칸이 펼쳐져 있습니다. 교과서, 교과서 안 범위(한 줄에 한 단원), 교과서 밖 범위를 적고 <kbd>시험범위 저장</kbd>을 누르십시오.</li>
-        <li>같은 학교·학년 반(화정A·B·C 등)은 <b>한 번만</b> 입력하면 함께 보여요.</li>
-        <li>그 뒤로는 <b>오늘 진도</b>에서 단원만 고르시면 됩니다.</li>
-      </ol>
+      <ul>
+        <li>지난 기록에 없는 과제(교재 데일리 과제 등)는 학생 목록 위 <b>[반 전체 검사 과제 추가]</b>에 적으십시오. 반 학생 모두의 검사 목록에 붙습니다.</li>
+        <li>다음 수업에서는 <b>[지난번 과제 다시 넣기]</b>로 같은 과제를 한 번에 넣을 수 있어요.</li>
+      </ul>
     </div>
   </details>
 
   <details>
-    <summary>과제 검사 — 미제출·메모</summary>
+    <summary>미제출 · 베낌 의심 · 비공개 메모</summary>
     <div class="in">
-      <div class="mock" aria-hidden="true">
-        <div class="row"><b>박보검</b><span class="chip">출석</span><span style="margin-left:auto;font-size:13px">90%</span></div>
-        <div class="row"><b style="font-size:13px">관동별곡 학습지</b></div>
-        <div class="row"><span class="lb">학습량</span><span class="st"><i>★★★★★</i></span></div>
-        <div class="row"><span class="lb">깊이</span><span class="st"><i>★★★★</i>★</span></div>
-        <div class="row"><kbd class="p">미제출</kbd><span class="in">코멘트 (선택) — 리포트에 쓰여요</span></div>
-      </div>
       <ul>
-        <li>같은 별을 한 번 더 누르면 하나 줄어듭니다.</li>
-        <li><kbd class="p">미제출</kbd>을 누르면 대책 칸이 열립니다(예: 9/30 수 5:30 재검사 약속).</li>
-        <li>선생님만 볼 메모는 <b>[더 보기]</b>의 비공개 메모에 적으십시오.</li>
+        <li><kbd class="p">미제출</kbd>을 누르면 대책 칸이 열립니다(예: 10/16 금 5:30 재검사 약속).</li>
+        <li><kbd class="p">전체 미제출</kbd>인데 코멘트를 비워 두면 '○○ 친구는 과제 제출을 하지 않았습니다!!!!'로 기록됩니다.</li>
+        <li><b>[베낌 의심]</b>은 선생님만 보는 표시입니다. 학생 페이지와 리포트에는 나가지 않아요.</li>
+        <li>선생님만 볼 메모는 학생 카드의 <b>[더 보기]</b> 비공개 메모에 적으십시오.</li>
         <li>지난 기록과 미제출 대책은 학습 관리의 <a href="https://coke4497-sys.github.io/shueguk-report/classlog.html" target="_blank" rel="noopener">수업 기록 보기</a>에서 볼 수 있어요.</li>
       </ul>
     </div>
@@ -314,7 +335,7 @@
   <details>
     <summary>버튼 이름이 바뀌는 이유 · 공개 시간</summary>
     <div class="in">
-      <p>반 카드 버튼이 상태를 알려 줍니다 — <kbd>수업 기록</kbd>(아직 없음) → <kbd>기록함</kbd> → <kbd>기록 완료 ✓</kbd>(리포트 생성을 누르면 하트가 터지며 바뀝니다) → <kbd>리포트 공개</kbd>.</p>
+      <p>반 카드 버튼이 상태를 알려 줍니다 — <kbd>수업 기록</kbd>(아직 없음) → <kbd>기록함</kbd> → <kbd>기록 완료 ✓</kbd>(리포트 생성을 누르면 하트가 터지며 바뀝니다) → <kbd>리포트 공개 ✓</kbd>.</p>
       <p>학원 운영 시간에는 보통 몇 분 안에 공개되고, 그 밖에는 다음 확인 때 올라가요. 문장이 어색하면 시간표 페이지의 <b>[수정 요청]</b>에 남겨 주십시오.</p>
     </div>
   </details>
