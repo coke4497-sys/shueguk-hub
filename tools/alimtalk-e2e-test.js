@@ -41,9 +41,11 @@ const CFG = { result: 'success', ready: true, smsFallback: true, templates: {
   absent: { label: '결석 안내', ready: true, text: '', vars: [] },
   notice_sched: tpl('수업 일정 안내', true), notice_mock: tpl('주말 실전 모의고사 신청 안내', false) } };
 const sends = [], getsCalled = [], posts = [];
-let LOG = [{ ts: '2026-09-28 18:00', kind: 'notice_sched', student: '김철수', who: '학부모1', to: '01022220001', cls: '공지', date: 'N:2026-09-28|지난 안내', ok: true, message: '' },
-  { ts: '2026-09-28 18:00', kind: 'notice_sched', student: '새친구', who: '학생', to: '01099990001', cls: '공지', date: 'N:2026-09-28|지난 안내', ok: true, message: '' },
-  { ts: '2026-09-28 18:00', kind: 'notice_sched', student: '한동명', who: '학생', to: '01011110003', cls: '공지', date: 'N:2026-09-28|지난 안내', ok: true, message: '' }];
+const KD = n => new Date(Date.now() + 9 * 3600e3 + n * 86400e3).toISOString().slice(0, 10);   // 한국 날짜 — 발송 내역은 최근 7일만 보인다
+const cancels = [];
+let LOG = [{ ts: KD(-1) + ' 18:00', kind: 'notice_sched', student: '김철수', who: '학부모1', to: '01022220001', cls: '공지', date: 'N:2026-09-28|지난 안내', ok: true, message: '' },
+  { ts: KD(-1) + ' 18:00', kind: 'notice_sched', student: '새친구', who: '학생', to: '01099990001', cls: '공지', date: 'N:2026-09-28|지난 안내', ok: true, message: '' },
+  { ts: KD(-1) + ' 18:00', kind: 'notice_sched', student: '한동명', who: '학생', to: '01011110003', cls: '공지', date: 'N:2026-09-28|지난 안내', ok: true, message: '' }];
 
 function applyFilter(rows, url){
   const u = new URL(url);
@@ -90,9 +92,12 @@ function applyFilter(rows, url){
         if (b.action === 'alimSend'){
           sends.push(b);
           const sent = b.items.map(it => ({ student: it.student, who: it.who, ok: it.to !== '01011110004', dup: it.student === '고이0', message: it.to === '01011110004' ? '수신 불가' : '보냈어요' }));
-          sent.forEach((x, i) => { if (x.ok && !x.dup) LOG.unshift({ ts: '2026-09-29 10:0' + (i % 10), kind: b.kind, student: x.student, who: x.who, to: b.items[i].to, cls: '공지', date: b.items[i].date, ok: true, message: '', by: b.by || '' }); });
+          sent.forEach((x, i) => { if (x.ok && !x.dup) LOG.unshift(b.schedule
+            ? { ts: KD(0) + ' 10:0' + (i % 10), kind: b.kind, student: x.student, who: x.who, to: b.items[i].to, cls: '공지', date: b.items[i].date, ok: false, res: '예약', sched: b.schedule, groupId: 'GS9', message: '', by: b.by || '' }
+            : { ts: KD(0) + ' 10:0' + (i % 10), kind: b.kind, student: x.student, who: x.who, to: b.items[i].to, cls: '공지', date: b.items[i].date, ok: true, message: '', by: b.by || '' }); });
           return json({ result: 'success', sent, okCount: sent.filter(x => x.ok && !x.dup).length, failCount: sent.filter(x => !x.ok).length });
         }
+        if (b.action === 'alimCancel'){ cancels.push(b); let c = 0; LOG.forEach(r => { if (r.groupId === b.groupId && r.res === '예약'){ r.res = '예약 취소'; c++; } }); return json({ result: 'success', canceled: c }); }
         if (b.action === 'alimConfigSet'){ posts.push(b); return json({ result: 'success', saved: Object.keys(b).filter(k => k !== 'action' && k !== 'pw') }); }
         if (b.action === 'alimDiscover'){ posts.push(b); return json({ result: 'success', savedPfId: 'KA01PFtest', channels: [{ pfId: 'KA01PFtest', name: '이수경국어' }],
           templates: { notice_mock: { label: '주말 실전 모의고사 신청 안내', saved: 'KA01TPmock' } }, notes: ['심사 중인 템플릿 1개'] }); }
@@ -285,6 +290,48 @@ function applyFilter(rows, url){
   const heavy = await pg.evaluate(() => Array.from(document.querySelectorAll('.tab.on,.pill.on,.pills .btn.on,#whos label.on,details.fold > summary,#pickCount,.sum b'))
     .filter(el => { const cs = getComputedStyle(el); return +cs.fontWeight >= 600 && !/Gowun Batang/.test(cs.fontFamily); }).map(el => el.className || el.tagName));
   ok(heavy.length === 0, '고운돋움에 700 굵기 없음 (굵은 곳은 고운 바탕) — ' + (heavy.join(',') || '없음'));
+
+  console.log('⑪ 예약 보내기 (2026-10-18)');
+  await pg.setViewportSize({ width: 1100, height: 900 });
+  await pg.goto(`http://localhost:${PORT}/alimtalk.html`);
+  await pg.waitForFunction(() => document.querySelectorAll('#clsSel option[value*="|"]').length > 0 && /보낼 수 있는/.test(document.getElementById('cfgState').textContent));
+  sends.length = 0;
+  await pg.selectOption('#clsSel', '정규|r001');
+  await pg.fill('#title', '11월 일정 안내');
+  ok(!(await pg.isVisible('#schDay')) && /알림톡 보내기/.test(await pg.textContent('#goBtn')), '기본은 바로 보내기 — 날짜 칸 숨김');
+  await pg.click('#whenSch');
+  ok(await pg.isVisible('#schDay') && await pg.isVisible('#schTime') && await pg.isVisible('#whenNote'), '[예약 보내기] → 날짜·시각 칸과 안내');
+  const days = await pg.$$eval('#schDay option', els => els.map(o => o.value));
+  ok(days.length >= 29 && days.length <= 30 && days[0] >= KD(0) && days[days.length - 1] <= KD(29), '날짜 = 오늘부터 30일 안 (' + days[0] + ' ~ ' + days[days.length - 1] + ')');
+  await pg.selectOption('#schDay', KD(2));
+  const times = await pg.$$eval('#schTime option', els => els.map(o => o.value));
+  ok(times[0] === '07:00' && times[times.length - 1] === '22:00' && times.length === 31 && times.every(t => /:(00|30)$/.test(t)), '시각 = 07:00~22:00 30분 단위 31칸');
+  await pg.selectOption('#schTime', '18:30');
+  ok(/예약하기 · .+ 오후 6:30/.test(await pg.textContent('#goBtn')), '버튼에 예약 시각 — ' + (await pg.textContent('#goBtn')));
+  if (days[0] === KD(0)){
+    const t0 = await pg.evaluate(() => { const s = document.getElementById('schDay'); s.value = s.options[0].value; s.dispatchEvent(new Event('change')); return Array.from(document.getElementById('schTime').options).map(o => o.value); });
+    const nowMin = (() => { const d = new Date(Date.now() + 9 * 3600e3); return d.getUTCHours() * 60 + d.getUTCMinutes(); })();
+    ok(t0.every(t => +t.slice(0, 2) * 60 + +t.slice(3) >= nowMin + 10), '오늘은 지금부터 10분 뒤 칸부터');
+    await pg.selectOption('#schDay', KD(2)); await pg.selectOption('#schTime', '18:30');
+  } else ok(true, '오늘은 남은 칸이 없어 내일부터');
+  await pg.click('#goBtn');
+  await pg.waitForFunction(() => /예약했습니다/.test(document.getElementById('result').textContent));
+  ok(/예약할까요/.test(confirmMsg) && /오후 6:30/.test(confirmMsg), '확인 창에 예약 시각 — ' + confirmMsg.split('\n')[0]);
+  ok(sends.length === 1 && sends[0].schedule === KD(2) + ' 18:30', 'alimSend 에 schedule — ' + (sends[0] && sends[0].schedule));
+  ok(sends[0].items[0].date === 'N:' + KD(2) + '|11월 일정 안내', '중복 키 = N:보낼 날짜|제목');
+  ok(/오후 6:30에 보낼 알림톡 4건을 예약했습니다/.test(await pg.textContent('#result')), '결과 문구');
+  await pg.click('#tabs [data-tab="log"]');
+  await pg.waitForFunction(() => /예약 ·/.test(document.getElementById('log').textContent));
+  const row = await pg.$eval('.log-row:has(.spill.sch)', r => r.textContent);
+  ok(/11월 일정 안내/.test(row) && /예약 · .+ 오후 6:30/.test(row) && /4건/.test(row), '발송 내역에 예약 알약·시각·건수');
+  await pg.click('.log-row .cxbtn');
+  await pg.waitForFunction(() => /예약 취소 4/.test(document.getElementById('log').textContent));
+  ok(cancels.length === 1 && cancels[0].groupId === 'GS9' && cancels[0].by === '테스트' && cancels[0].pw === 'sh', 'alimCancel — 묶음 번호·보낸 사람');
+  ok(/예약을 취소할까요/.test(confirmMsg), '취소 확인 창');
+  ok(!(await pg.$('.log-row .cxbtn')), '취소한 뒤엔 [예약 취소] 버튼 없음');
+  await pg.click('#tabs [data-tab="send"]');
+  await pg.click('#whenNow');
+  ok(!(await pg.isVisible('#schDay')) && /알림톡 보내기/.test(await pg.textContent('#goBtn')), '[바로 보내기]로 돌리면 날짜 칸 숨김');
 
   await browser.close(); server.close();
   console.log(bad ? `\n${bad}건 실패 / ${n}건` : `\n✓ ${n}건 모두 통과`);

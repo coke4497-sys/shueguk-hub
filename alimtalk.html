@@ -114,6 +114,17 @@
   .prev .pbtn{margin-top:10px;background:#fff;border-radius:9px;text-align:center;padding:8px;font-size:.84rem;color:var(--ink-soft);white-space:normal;}
   .pv-note{padding:0 16px 14px;font-size:.78rem;color:var(--cream-ink);opacity:.8;}
   /* 보내기 버튼 — 크게 한 줄, 아래 '받는 분 3명 × 학생 23명 → 69건' */
+  /* 예약 발송 (2026-10-18) — [바로 보내기][예약 보내기] + 날짜·시각(30분 단위) */
+  .when{margin:0 0 12px;}
+  .when .pills{margin-bottom:8px;}
+  .when-pick{display:none;gap:8px;}
+  .when.sched .when-pick{display:flex;}
+  .when-pick select{flex:1;min-width:0;}
+  .when-note{font-size:.8rem;color:var(--cap);margin:6px 0 0;}
+  .spill.sch{background:var(--lilac);color:var(--lilac-ink);}
+  .spill.cxl{background:var(--soft);color:var(--cap);}
+  .logtbl .cxbtn{font:inherit;font-size:.78rem;border:none;border-radius:999px;padding:3px 10px;background:var(--soft);color:var(--ink-soft);cursor:pointer;margin-top:2px;}
+  .logtbl .cxbtn:hover{background:var(--bad-bg);color:var(--bad-ink);}
   .gobtn{display:block;width:100%;font-size:1.05rem;padding:15px 18px;border-radius:14px;}
   .gonote{text-align:center;font-size:.84rem;color:var(--cap);margin:10px 0 0;min-height:1.2em;}
   .result{margin-top:12px;font-size:.88rem;border-radius:12px;padding:10px 13px;display:none;}
@@ -259,6 +270,11 @@
         </div>
 
         <div class="go">
+          <div class="when" id="when">
+            <div class="pills"><button type="button" class="pill on" id="whenNow" onclick="setWhen(false)">바로 보내기</button><button type="button" class="pill" id="whenSch" onclick="setWhen(true)">예약 보내기</button></div>
+            <div class="when-pick"><select id="schDay" onchange="schDayChanged()" aria-label="예약 날짜"></select><select id="schTime" onchange="refresh()" aria-label="예약 시각"></select></div>
+            <p class="when-note" id="whenNote" style="display:none">30분 단위로 30일 안까지 예약할 수 있어요. 보내기 전까지는 발송 내역에서 [예약 취소]로 지울 수 있습니다.</p>
+          </div>
           <button class="btn lav gobtn" id="goBtn" onclick="sendAll()" disabled>알림톡 보내기</button>
           <p class="gonote" id="goNote"></p>
           <div class="result" id="result"></div>
@@ -326,7 +342,7 @@
   const GRADE_ORDER = ['중1', '중2', '중3', '고1', '고2', '고3'];
   const MODE_NAME = { all: '전체', grade: '학년', school: '학교', cls: '반', stu: '개인' };
   const PICK_HINT = { all: '재원 명단 전체가 담깁니다', grade: '학년을 누르면 담깁니다 (여러 개)', school: '학교를 고르면 담깁니다', cls: '+ 반 추가 — 고르면 아래에 담깁니다', stu: '+ 학생 추가 — 이름을 쓰고 목록에서 고르세요' };
-  let CFG = null, BOOK = '정규', CLASSES = {}, STUS = [], MODE = 'cls', SEL = { grade: [], school: [], cls: [], stu: [] }, PLAN = null, SENDING = false;
+  let CFG = null, BOOK = '정규', CLASSES = {}, STUS = [], MODE = 'cls', SEL = { grade: [], school: [], cls: [], stu: [] }, PLAN = null, SENDING = false, SCHED = false;
 
   const $ = id => document.getElementById(id);
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
@@ -603,22 +619,28 @@
     else if (xmiss.length) note = xmiss.join('·') + '을(를) 넣어 주세요';
     else if (!ws.length) note = '받는 분을 한 명 이상 골라 주세요';
     else if (!items.length) note = picked() ? '보낼 학생이 없습니다' : '';
+    else if (SCHED && !schedVal()) note = '예약 날짜·시각을 골라 주세요';
     $('goNote').textContent = note || (items.length ? '받는 분 ' + ws.length + '명 × 학생 ' + people + '명 → ' + items.length + '건' : '');
     $('goBtn').disabled = !!note || !items.length || SENDING;
-    if (!note && items.length) PLAN = { kind, label: tpl.label, title, items, people, xv };
+    if (!SENDING) $('goBtn').textContent = SCHED ? (schedVal() ? '예약하기 · ' + schedLabel(schedVal()) : '예약하기') : '알림톡 보내기';
+    if (!note && items.length) PLAN = { kind, label: tpl.label, title, items, people, xv, sched: SCHED ? schedVal() : '' };
   }
 
   /* ── 보내기 — 확인 창 뒤 50건씩 ── */
   function sendAll(){
     const p = PLAN; if (!p || SENDING) return;
-    if (!confirm('“' + p.label + '” 알림톡을 학생 ' + p.people + '명에게 ' + p.items.length + '건 보낼까요?\n\n▶ ' + p.title)) return;
-    SENDING = true; $('goBtn').disabled = true; $('goBtn').textContent = '보내는 중…';
-    const ref = 'N:' + kstYmd() + '|' + p.title;   // 공지 화면과 같은 중복 키
+    if (p.sched && !schedOk(p.sched)){ toast('예약 시각이 너무 가깝습니다. 다시 골라 주세요.'); fillSched(); refresh(); return; }
+    if (!confirm(p.sched
+        ? '“' + p.label + '” 알림톡을 ' + schedLabel(p.sched) + '에 학생 ' + p.people + '명에게 ' + p.items.length + '건 보내도록 예약할까요?\n\n▶ ' + p.title
+        : '“' + p.label + '” 알림톡을 학생 ' + p.people + '명에게 ' + p.items.length + '건 보낼까요?\n\n▶ ' + p.title)) return;
+    SENDING = true; $('goBtn').disabled = true; $('goBtn').textContent = p.sched ? '예약하는 중…' : '보내는 중…';
+    // 공지 화면과 같은 중복 키 — 예약은 보낼 날짜로(그날 같은 제목이 두 번 가지 않게)
+    const ref = 'N:' + (p.sched ? p.sched.slice(0, 10) : kstYmd()) + '|' + p.title;
     const chunks = []; for (let i = 0; i < p.items.length; i += BATCH) chunks.push(p.items.slice(i, i + BATCH));
     let ok = 0, err = ''; const dup = [], bad = [];
     const run = chunks.reduce((prev, ch) => prev.then(() => {
       if (err) return;
-      return post({ action: 'alimSend', kind: p.kind, by: SENT_BY,
+      return post({ action: 'alimSend', kind: p.kind, by: SENT_BY, schedule: p.sched || undefined,
         items: ch.map(it => ({ student: it.student, to: it.to, who: it.who, cls: '공지', date: ref, vars: Object.assign({}, p.xv, { '학생명': it.student, '제목': p.title, '접근코드': it.code }) })) })
         .then(res => {
           if (!res || res.result !== 'success'){ err = (res && res.message) || '오류'; return; }
@@ -627,15 +649,64 @@
         }).catch(() => { err = '인터넷 연결을 확인해 주세요.'; });
     }), Promise.resolve());
     run.then(() => {
-      SENDING = false; $('goBtn').textContent = '알림톡 보내기';
-      const r = $('result');
-      if (err){ r.className = 'result err'; r.textContent = '알림톡을 보내지 못했습니다: ' + err + (ok ? ' (그전 ' + ok + '건은 보냈어요)' : ''); }
+      SENDING = false;
+      const r = $('result'), verb = p.sched ? '예약했' : '보냈';
+      if (err){ r.className = 'result err'; r.textContent = '알림톡을 ' + (p.sched ? '예약하지' : '보내지') + ' 못했습니다: ' + err + (ok ? ' (그전 ' + ok + '건은 ' + verb + '어요)' : ''); }
       else {
         r.className = 'result ' + (bad.length ? 'err' : 'ok');
-        r.textContent = '알림톡 ' + ok + '건을 보냈습니다.' + (dup.length ? ' 같은 제목으로 이미 받은 ' + dup.length + '건은 건너뛰었어요.' : '') + (bad.length ? ' 실패: ' + bad.join(', ') : '');
+        r.textContent = (p.sched ? schedLabel(p.sched) + '에 보낼 알림톡 ' + ok + '건을 예약했습니다.' : '알림톡 ' + ok + '건을 보냈습니다.') +
+          (dup.length ? ' 같은 제목으로 이미 ' + (p.sched ? '받았거나 예약된 ' : '받은 ') + dup.length + '건은 건너뛰었어요.' : '') + (bad.length ? ' 실패: ' + bad.join(', ') : '');
       }
       refresh(); loadLog();
     });
+  }
+
+  /* ── 예약 발송 (2026-10-18 원장님 "알림톡 예약발송 기능" → 알림톡 보내기 화면 · 30분 단위) ──
+   * 솔라피 예약(scheduledDate)으로 보낸다 — 백엔드 alimSend 의 schedule('yyyy-MM-dd HH:mm', 한국 시각).
+   * 고를 수 있는 시각 = 지금부터 10분 뒤 이후의 30분 칸 ~ 30일 안, 하루 07:00~22:00. */
+  const SCH_FROM = 7 * 60, SCH_TO = 22 * 60, SCH_LEAD = 10, SCH_DAYS = 30;
+  const DOW = ['일', '월', '화', '수', '목', '금', '토'];
+  function kstNowMin(){ const d = new Date(Date.now() + 9 * 3600e3); return { ymd: kstYmd(), min: d.getUTCHours() * 60 + d.getUTCMinutes() }; }
+  function hm(m){ return ('0' + Math.floor(m / 60)).slice(-2) + ':' + ('0' + m % 60).slice(-2); }
+  function hmLabel(m){ const h = Math.floor(m / 60), mm = m % 60; return (h < 12 ? '오전 ' : '오후 ') + (h % 12 || 12) + ':' + ('0' + mm).slice(-2); }
+  function dayLabel(ymd){ const d = new Date(ymd + 'T00:00:00Z'); return (+ymd.slice(5, 7)) + '/' + (+ymd.slice(8, 10)) + ' (' + DOW[d.getUTCDay()] + ')'; }
+  function schedLabel(v){ const m = /^(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2})$/.exec(v || ''); return m ? dayLabel(m[1]) + ' ' + hmLabel(+m[2] * 60 + +m[3]) : ''; }
+  function schedOk(v){ const m = /^(\d{4}-\d{2}-\d{2}) (\d{2}):(\d{2})$/.exec(v || ''); if (!m) return false;
+    const t = Date.parse(m[1] + 'T' + m[2] + ':' + m[3] + ':00+09:00'); return t >= Date.now() + SCH_LEAD * 60e3 && t <= Date.now() + SCH_DAYS * 86400e3; }
+  function slotsFor(ymd){
+    const n = kstNowMin(), out = [];
+    for (let m = SCH_FROM; m <= SCH_TO; m += 30) if (ymd !== n.ymd || m >= n.min + SCH_LEAD) out.push(m);
+    return out;
+  }
+  function fillSched(){
+    const day = $('schDay'), cur = day.value, opts = [];
+    for (let i = 0; i < SCH_DAYS; i++){ const y = kstYmd(i); if (slotsFor(y).length) opts.push(y); }
+    day.innerHTML = opts.map(y => '<option value="' + y + '">' + dayLabel(y) + (y === kstYmd() ? ' · 오늘' : y === kstYmd(1) ? ' · 내일' : '') + '</option>').join('');
+    if (opts.indexOf(cur) >= 0) day.value = cur;
+    schDayChanged(true);
+  }
+  function schDayChanged(keep){
+    const t = $('schTime'), cur = t.value, sl = slotsFor($('schDay').value);
+    t.innerHTML = sl.map(m => '<option value="' + hm(m) + '">' + hmLabel(m) + '</option>').join('');
+    if (keep && sl.map(hm).indexOf(cur) >= 0) t.value = cur;
+    refresh();
+  }
+  function schedVal(){ const d = $('schDay').value, t = $('schTime').value; return d && t && schedOk(d + ' ' + t) ? d + ' ' + t : ''; }
+  function setWhen(on){
+    SCHED = !!on;
+    $('when').classList.toggle('sched', SCHED);
+    $('whenNow').classList.toggle('on', !SCHED); $('whenSch').classList.toggle('on', SCHED);
+    $('whenNote').style.display = SCHED ? '' : 'none';
+    if (SCHED) fillSched(); else refresh();
+  }
+  /* 예약 취소 — 그 묶음의 솔라피 그룹마다 alimCancel */
+  function cancelSched(i){
+    const x = LOG_G && LOG_G.g[LOG_G.order[i]]; if (!x || !x.gids.length) return;
+    if (!confirm(schedLabel(x.sched) + '에 보낼 예정인 알림톡 ' + x.sch + '건의 예약을 취소할까요?')) return;
+    let n = 0, err = '';
+    x.gids.reduce((pr, gid) => pr.then(() => post({ action: 'alimCancel', groupId: gid, by: SENT_BY })
+      .then(r => { if (r && r.result === 'success') n += r.canceled || 0; else err = (r && r.message) || '오류'; }, () => { err = '인터넷 연결을 확인해 주세요.'; })), Promise.resolve())
+      .then(() => { toast(err ? '예약을 취소하지 못했습니다: ' + err : '예약 ' + n + '건을 취소했습니다.'); loadLog(); });
   }
 
   /* 보낸 기록의 이름 한 칸 — 마우스를 올리면 학교·학년과 연락처를 보여 준다(2026-10-03 원장님 요청).
@@ -657,18 +728,27 @@
   let LOG_G = null;   // 받아 둔 기록 묶음 — 재원 명단이 늦게 오면 이름 설명만 다시 그린다
   function loadLog(){
     // 공지 건의 date 는 'N:날짜|제목' 이라 to 를 넘기면 걸러진다 — from 만 준다
-    return api({ action: 'alimLog', from: kstYmd(-7), limit: 1000 }).then(d => {
-      const rows = (d && d.rows) || [], g = {}, order = [];
+    // 예약은 30일 앞까지라 31일치를 받아, 7일 지난 줄은 아직 안 나간 예약만 남긴다
+    return api({ action: 'alimLog', from: kstYmd(-31), limit: 2000 }).then(d => {
+      const since = kstYmd(-7), nowMs = Date.now(), g = {}, order = [];
+      const schedMs = v => { const m = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2})/.exec(v || ''); return m ? Date.parse(m[1] + 'T' + m[2] + ':00+09:00') : 0; };
+      const rows = ((d && d.rows) || []).filter(r => String(r.ts).slice(0, 10) >= since || (r.res === '예약' && schedMs(r.sched) > nowMs));
       rows.forEach(r => {
-        const k = r.kind + '§' + r.date;
-        if (!g[k]){ g[k] = { kind: r.kind, date: r.date, ts: r.ts, ok: 0, bad: 0, sms: 0, names: [], by: [] }; order.push(k); }
-        const x = g[k]; if (r.ok) x.ok++; else x.bad++;
+        const isSch = r.res === '예약' || r.res === '예약 취소';
+        const k = r.kind + '§' + r.date + (isSch ? '§S' + r.sched : '');
+        if (!g[k]){ g[k] = { kind: r.kind, date: r.date, ts: r.ts, ok: 0, bad: 0, sms: 0, sch: 0, cxl: 0, sent: 0, sched: isSch ? r.sched : '', gids: [], names: [], by: [] }; order.push(k); }
+        const x = g[k];
+        if (r.res === '예약'){
+          if (schedMs(r.sched) > nowMs){ x.sch++; if (r.groupId && x.gids.indexOf(r.groupId) < 0) x.gids.push(r.groupId); }
+          else x.sent++;   // 예약 시각이 지났다 — 솔라피가 보냈다
+        } else if (r.res === '예약 취소') x.cxl++;
+        else if (r.ok) x.ok++; else x.bad++;
         if (r.ok && /문자|SMS|LMS/i.test(String(r.message || ''))) x.sms++;   // 카카오톡을 못 받아 문자로 대체된 건(솔라피 메시지 기준)
         if (r.by && x.by.indexOf(r.by) < 0) x.by.push(r.by);
-        if (x.names.length < 400) x.names.push({ nm: r.student, who: r.who, ok: r.ok });
+        if (x.names.length < 400) x.names.push({ nm: r.student, who: r.who, ok: r.ok || r.res === '예약' || r.res === '예약 취소' });
         if (r.ts > x.ts) x.ts = r.ts;
       });
-      LOG_G = { g: g, order: order, n: rows.filter(r => r.ok).length, people: Object.keys(rows.reduce((o, r) => { o[r.student] = 1; return o; }, {})).length };
+      LOG_G = { g: g, order: order, n: rows.filter(r => r.ok || r.res === '예약').length, people: Object.keys(rows.reduce((o, r) => { o[r.student] = 1; return o; }, {})).length };
       renderLog();
     }).catch(() => { LOG_G = null; $('logSum').textContent = ''; $('log').innerHTML = '<p class="muted">기록을 불러오지 못했습니다.</p>'; });
   }
@@ -683,12 +763,16 @@
       const x = g[k], t = tplOf(x.kind), m = /^N:\d{4}-\d{2}-\d{2}\|(.*)$/.exec(x.date);
       const title = m ? m[1] : (x.kind === 'absent' ? x.date + ' 결석' : x.kind === 'preabsent' ? x.date + ' 결석 예고' : x.date);
       const ts = String(x.ts), d = ts.slice(5, 10).replace('-', '/').replace(/^0/, ''), hm = ts.slice(11, 16);
-      const st = (x.ok ? '<span class="spill ok">전송 완료</span>' : '') + (x.sms ? '<span class="spill sms">문자 대체 ' + x.sms + '</span>' : '') + (x.bad ? '<span class="spill bad">실패 ' + x.bad + '</span>' : '');
+      const st = (x.ok ? '<span class="spill ok">전송 완료</span>' : '') + (x.sms ? '<span class="spill sms">문자 대체 ' + x.sms + '</span>' : '') + (x.bad ? '<span class="spill bad">실패 ' + x.bad + '</span>' : '') +
+        (x.sch ? '<span class="spill sch">예약 · ' + esc(schedLabel(x.sched)) + '</span>' : '') +
+        (x.sent ? '<span class="spill ok">예약 발송 · ' + esc(schedLabel(x.sched)) + '</span>' : '') +
+        (x.cxl ? '<span class="spill cxl">예약 취소 ' + x.cxl + '</span>' : '') +
+        (x.sch && x.gids.length ? '<br><button type="button" class="cxbtn" onclick="cancelSched(' + order.indexOf(k) + ')">예약 취소</button>' : '');
       return '<tr class="log-row"><td class="ts" data-l="날짜"><span>' + esc(d) + '</span><small>' + esc(hm) + '</small></td>' +
         '<td class="kt" data-l="종류 · 제목"><span class="kd">' + esc(t ? t.label : x.kind) + '</span><span class="tt">' + esc(title) + '</span>' +
         '<span class="by">' + (x.by.length ? esc(x.by.join('·') + ' 선생님') : '보낸 사람 기록 없음') + '</span></td>' +
         '<td class="rc" data-l="받을 학생"><details data-k="' + esc(k) + '"' + (open[k] ? ' open' : '') + '><summary>받은 분 보기 <small>' + x.names.length + '</small></summary><div class="names">' + x.names.map(logName).join(', ') + '</div></details></td>' +
-        '<td class="n" data-l="인원">' + x.ok + '건' + (x.bad ? ' <span class="bad">+' + x.bad + '</span>' : '') + '</td>' +
+        '<td class="n" data-l="인원">' + (x.ok + x.sch + x.sent + x.cxl) + '건' + (x.bad ? ' <span class="bad">+' + x.bad + '</span>' : '') + '</td>' +
         '<td class="st" data-l="상태">' + st + '</td></tr>';
     }).join('') + '</tbody></table>';
   }
