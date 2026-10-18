@@ -11,7 +11,7 @@
      · 받는 분 = 학생·학부모1·학부모2 체크(기본 모두 — 2026-09-29 사용자 "학생, 학부모님 모두에게 발송"), 받는 분마다 한 건.
      · 발송은 백엔드 alimSend(50건씩 나눠서). 중복 키는 공지 화면(notice.html)과 같은 'N:날짜|제목' — 같은 날 같은 제목은 두 번 가지 않는다.
      · 자동 발송은 없다 — [알림톡 보내기]를 누르고 확인 창에서 한 번 더 확인해야 간다.
-     · 결석 안내(absent)는 수업일·반이름이 필요해 여기서 보내지 않는다 — 슈국 스케쥴 출석 창에서.
+     · 결석 안내(absent)·결석 예고(preabsent)는 수업일·반이름이 필요해 여기서 보내지 않는다 — 슈국 스케쥴 출석 창에서.
      · 화면은 탭 세 개(2026-10-03 원장님 디자인 시안 "디자인 개선"): [알림톡 보내기](2열 — 왼쪽 입력, 오른쪽 크림색 미리보기) / [발송 내역](표 — 날짜·종류·제목·받을 학생·인원·상태 알약) /
        [알림톡 설정](카드 두 장 — 솔라피 연결 · 카카오 채널·템플릿 = 옛 슈국 스케쥴 [알림톡] 창을 옮겨 온 것, 2026-10-01). 휴대폰(≤760px)은 한 열, 미리보기는 접었다 편다.
        슈국 스케쥴 [알림톡] 버튼은 #settings 로 와서 설정 탭이 열린다. 요소 id·함수 이름은 그대로라 E2E(tools/alimtalk-e2e-test.js)가 탭을 눌러 가며 검사한다.
@@ -516,7 +516,7 @@
     b.innerHTML = row('솔라피 API 키 · Secret', has.key && has.secret, '저장됨', '없음', '발송에 꼭 필요합니다') +
       row('문자 대체 발신번호', has.from, '저장됨', '없음', '카카오톡을 못 받는 번호는 문자로 갑니다');
     $('pfBadge').className = 'bdg' + (has.pfId ? '' : ' no'); $('pfBadge').textContent = has.pfId ? '연결됨' : '없음';
-    const all = (t.absent ? ['absent'] : []).concat(nk), okN = all.filter(k => t[k].ready).length;
+    const all = ['absent', 'preabsent'].filter(k => t[k]).concat(nk), okN = all.filter(k => t[k].ready).length;
     $('tplCount').textContent = '승인 ' + okN + ' / ' + all.length;
     tp.innerHTML = all.map(k => '<span class="bdg tp' + (t[k].ready ? '' : ' wait') + '">' + esc(t[k].label) + ' ' + (t[k].ready ? '승인됨' : '준비 전') + '</span>').join('');
     $('tplTexts').innerHTML = all.map(k => '<p class="tpl-h">' + esc(t[k].label) + '</p><div class="prev">' + esc(t[k].text) +
@@ -681,7 +681,7 @@
     document.querySelectorAll('#log .log-row details[open]').forEach(d => { open[d.getAttribute('data-k')] = true; });   // 펼쳐 둔 줄은 그대로
     $('log').innerHTML = '<table class="logtbl"><thead><tr><th>날짜</th><th>종류 · 제목</th><th>받을 학생</th><th>인원</th><th>상태</th></tr></thead><tbody>' + order.map(k => {
       const x = g[k], t = tplOf(x.kind), m = /^N:\d{4}-\d{2}-\d{2}\|(.*)$/.exec(x.date);
-      const title = m ? m[1] : (x.kind === 'absent' ? x.date + ' 결석' : x.date);
+      const title = m ? m[1] : (x.kind === 'absent' ? x.date + ' 결석' : x.kind === 'preabsent' ? x.date + ' 결석 예고' : x.date);
       const ts = String(x.ts), d = ts.slice(5, 10).replace('-', '/').replace(/^0/, ''), hm = ts.slice(11, 16);
       const st = (x.ok ? '<span class="spill ok">전송 완료</span>' : '') + (x.sms ? '<span class="spill sms">문자 대체 ' + x.sms + '</span>' : '') + (x.bad ? '<span class="spill bad">실패 ' + x.bad + '</span>' : '');
       return '<tr class="log-row"><td class="ts" data-l="날짜"><span>' + esc(d) + '</span><small>' + esc(hm) + '</small></td>' +
