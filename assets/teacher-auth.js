@@ -228,7 +228,7 @@
   }
 
   // 이 기기의 슈톡 푸시 구독을 지운다 — 로그아웃·다른 사람 로그인 때 앞 사람 앞으로 온 알림이
-  // 이 기기에 계속 뜨지 않게 (Codex 검토 P1). 3초 안에 끝나지 않아도 로그아웃은 진행한다.
+  // 이 기기에 계속 뜨지 않게 (Codex 검토 P1). 브라우저 해제가 8초 안에 안 끝나면(먹통) 로그아웃은 진행한다.
   function dropPush(token) {
     var nav = global.navigator;
     if (!nav || !nav.serviceWorker || !nav.serviceWorker.getRegistrations) return Promise.resolve();
@@ -237,16 +237,19 @@
         if (!reg.pushManager) return null;
         return reg.pushManager.getSubscription().then(function (sub) {
           if (!sub) return null;
-          var rm = token ? rawFetch(SUPABASE_URL + '/rest/v1/rpc/msg_push_remove', {
+          // 서버 삭제(keepalive — 화면을 떠나도 끝까지 간다)와 브라우저 구독 해제를 서로 기다리지 않고 함께 시작한다.
+          // 로그아웃은 브라우저 해제가 끝날 때까지 기다린다 — 해제되면 서버에 줄이 남아도 이 기기로는 오지 않는다.
+          if (token) rawFetch(SUPABASE_URL + '/rest/v1/rpc/msg_push_remove', {
             method: 'POST',
+            keepalive: true,
             headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
             body: JSON.stringify({ p_endpoint: sub.endpoint })
-          }).catch(function () {}) : Promise.resolve();
-          return rm.then(function () { return sub.unsubscribe(); }).catch(function () {});
+          }).catch(function () {});
+          return sub.unsubscribe().catch(function () {});
         });
       }));
     }).catch(function () {});
-    return Promise.race([work, new Promise(function (r) { setTimeout(r, 3000); })]);
+    return Promise.race([work, new Promise(function (r) { setTimeout(r, 8000); })]);
   }
 
   function logout() {
