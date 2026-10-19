@@ -839,6 +839,26 @@ function filterRows(rows, u){
   await ctx.close();
   failTT = false;
 
+  // 새로고침 버튼 (2026-10-20) — ?v=시각으로 다시 열고, 열린 뒤 주소에서 v를 지움 · 쓰던 글이 있으면 먼저 물음
+  ({ ctx, page } = await open({ width: 390, height: 844 }));
+  await page.waitForSelector('#m' + m3.id);
+  ok(await page.locator('#reloadBtn').isVisible() && await page.evaluate(() => document.documentElement.scrollWidth <= 392), '휴대폰 머리에 새로고침 버튼(가로 넘침 없음)');
+  let asked = '';
+  ctx.removeAllListeners('dialog'); ctx.on('dialog', d => { asked = d.message(); d.dismiss(); });
+  await page.fill('#inp', '쓰던 글');
+  await page.click('#reloadBtn');
+  await sleep(300);
+  ok(asked.includes('쓰던 메시지가 사라집니다') && (await page.inputValue('#inp')) === '쓰던 글', '쓰던 글이 있으면 묻고, [취소]면 그대로');
+  await page.fill('#inp', '');
+  const navs = [];
+  page.on('framenavigated', f => { if (f === page.mainFrame()) navs.push(f.url()); });
+  await page.click('#reloadBtn');
+  await page.waitForSelector('#m' + m3.id);
+  await sleep(500);
+  ok(navs.some(u => /[?&]v=\d+/.test(u)), '새로고침 → ?v=시각으로 다시 열림');
+  ok(!/[?&]v=/.test(page.url()), '열린 뒤 주소에서 v를 지움 (' + page.url() + ')');
+  await ctx.close();
+
   await browser.close(); server.close();
   console.log(`\n${n - bad} / ${n} 통과`);
   process.exit(bad ? 1 : 0);
