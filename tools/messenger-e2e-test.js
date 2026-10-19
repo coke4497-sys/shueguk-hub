@@ -62,9 +62,11 @@ function filterRows(rows, u){
   let out = rows.slice();
   u.searchParams.forEach((v, k) => {
     if (['select', 'order', 'limit'].includes(k)) return;
-    const m = v.match(/^(eq|gt|gte|lt|in)\.(.*)$/); if (!m) return;
+    const m = v.match(/^(eq|neq|gt|gte|lt|in|is)\.(.*)$/); if (!m) return;
     const [, op, val] = m;
     if (op === 'eq') out = out.filter(r => String(r[k]) === val);
+    if (op === 'neq') out = out.filter(r => String(r[k]) !== val);
+    if (op === 'is' && val === 'null') out = out.filter(r => r[k] == null);
     if (op === 'gt') out = out.filter(r => r[k] != null && (k === 'id' ? r[k] > Number(val) : r[k] > val));
     if (op === 'gte') out = out.filter(r => r[k] != null && (k === 'id' ? r[k] >= Number(val) : Date.parse(r[k]) >= Date.parse(val)));
     if (op === 'lt') out = out.filter(r => r[k] != null && (k === 'id' ? r[k] < Number(val) : r[k] < val));
@@ -143,7 +145,13 @@ function filterRows(rows, u){
         if (b.action === 'send' && failSendOnce){ failSendOnce = false; return json({ error: 'lookup_failed' }, 503); }
         return json({ targets: 2, sent: 2 });
       }
-      if (p === '/rest/v1/msg_messages') return json(filterRows(MSGS, u));
+      if (p === '/rest/v1/msg_messages'){
+        if (/count=exact/.test(req.headers()['prefer'] || '')){
+          const n = filterRows(MSGS, u).length;
+          return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*', 'access-control-expose-headers': 'content-range', 'content-range': (n ? '0-0/' : '*/') + n }, body: '[]' });
+        }
+        return json(filterRows(MSGS, u));
+      }
       if (p === '/rest/v1/msg_tasks') return json(filterRows(TASKS, u));
       if (p.startsWith('/storage/v1/object/authenticated/msg-files/')){
         const key = decodeURIComponent(p.slice('/storage/v1/object/authenticated/msg-files/'.length));
@@ -271,6 +279,14 @@ function filterRows(rows, u){
   await page.waitForFunction(() => document.body.dataset.tab === 'chat');
   ok(true, '할 일을 누르면 대화 탭으로');
   if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'phone-chat.png') }); await page.click('#tabBoard'); await page.screenshot({ path: path.join(process.env.SHOT, 'phone-board.png') }); await page.click('#tabChat'); }
+  await page.click('#tabBoard');
+  const mB = addMsg(BOSS, '카톡처럼 숫자 시험', [], ts());
+  await page.waitForFunction(() => !document.querySelector('#chatBadge').hidden, null, { timeout: 7000 });
+  ok((await page.locator('#chatBadge').textContent()) === '1', '업무 카드를 보는 중 새 메시지 → 대화 탭에 빨간 1');
+  await page.click('#tabChat');
+  await page.evaluate(() => { const el = document.getElementById('msgs'); el.scrollTop = el.scrollHeight; el.dispatchEvent(new Event('scroll')); });
+  await page.waitForFunction(() => document.querySelector('#chatBadge').hidden);
+  ok(true, '대화를 끝까지 보면 숫자 사라짐');
   const sw = await page.evaluate(() => document.documentElement.scrollWidth);
   ok(sw <= 390, '가로 넘침 없음 (' + sw + ')');
   await ctx.close();
@@ -369,7 +385,10 @@ function filterRows(rows, u){
   const fakeClients = { list: [], matchAll(){ return Promise.resolve(this.list); }, openWindow(u){ opened.push(u); return Promise.resolve(); }, claim(){ return Promise.resolve(); } };
   const selfObj = { addEventListener(t, f){ handlers[t] = f; }, skipWaiting(){}, clients: fakeClients,
     registration: { showNotification(t, o){ notes.push({ t, o }); return Promise.resolve(); } }, navigator: {} };
-  vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'msg-sw.js'), 'utf8'), { self: selfObj });
+  const badges = []; let stored = null;
+  selfObj.navigator = { setAppBadge(n){ badges.push(n); return Promise.resolve(); } };
+  const fakeCaches = { open(){ return Promise.resolve({ match(){ return Promise.resolve(stored == null ? undefined : { text(){ return Promise.resolve(stored); } }); }, put(k, r){ return r.text().then(t => { stored = t; }); } }); } };
+  vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'msg-sw.js'), 'utf8'), { self: selfObj, caches: fakeCaches, Response: class { constructor(b){ this.b = b; } text(){ return Promise.resolve(this.b); } } });
   let waits = [];
   const ev = (extra) => Object.assign({ waitUntil(p){ waits.push(p); } }, extra);
   handlers.push(ev({ data: { json(){ return { title: '이은지 → 나에게 할 일', body: '결석 알림톡 보내기', url: 'messenger.html#m3', tag: 'msg3' }; } } }));
@@ -379,6 +398,7 @@ function filterRows(rows, u){
   handlers.push(ev({ data: { json(){ throw new Error('x'); }, text(){ return '글자만'; } } }));
   await Promise.all(waits);
   ok(notes[1] && notes[1].t === '슈톡' && notes[1].o.body === '글자만', '내용이 깨져도 알림은 뜬다(아이폰 구독 유지)');
+  ok(badges.join(',') === '1,2', '앱 아이콘 빨간 숫자 1 → 2 (' + badges.join(',') + ')');
   waits = [];
   let closed = 0;
   handlers.notificationclick(ev({ notification: { data: { url: 'messenger.html#m9' }, close(){ closed++; } } }));
@@ -398,6 +418,12 @@ function filterRows(rows, u){
   ok((await page.locator('a.card').count()) === 5 && (await page.locator('a.card').nth(4).getAttribute('href')) === 'messenger.html', '2×2 아래 다섯째 카드 = 슈톡');
   const wb = await page.locator('a.card.wide').boundingBox(), g = await page.locator('#grid').boundingBox(), c1 = await page.locator('a.card').nth(2).boundingBox();
   ok(wb && Math.abs(wb.width - g.width) < 2 && wb.y > c1.y + c1.height - 1, '슈톡은 3행 두 칸 너비');
+  await page.waitForFunction(() => !document.querySelector('#msgBadge').hidden);
+  const others = MSGS.filter(m => m.author !== ME && !m.deleted_at && m.id > 0).length;
+  ok((await page.locator('#msgBadge').textContent()) === String(others), '슈톡 카드에 안 읽은 메시지 수 (' + others + ')');
+  await page.evaluate(id => localStorage.setItem('msg_read_' + id, '999999'), ME);
+  await page.reload(); await page.waitForSelector('a.card.wide'); await sleep(800);
+  ok(await page.locator('#msgBadge').isHidden(), '다 읽었으면 숫자 없음');
   await ctx.close();
 
   await browser.close(); server.close();

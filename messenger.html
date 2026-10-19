@@ -42,6 +42,9 @@
   .tabs{display:none;flex:none;gap:4px;margin:0 12px 8px;background:#E6ECE9;border-radius:999px;padding:3px;}
   .tabs button{flex:1;border:0;border-radius:999px;height:40px;font-size:15px;background:transparent;color:var(--ink2);}
   .tabs button.on{background:#fff;color:var(--ink);font-weight:700;}
+  /* 카카오톡처럼 빨간 원 안에 새 메시지 수 */
+  .nbadge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;margin-left:6px;border-radius:999px;background:#E5484D;color:#fff;font-size:12px;font-weight:700;line-height:1;vertical-align:1px;}
+  .nbadge[hidden]{display:none;}
   .tabwrap{background:var(--top);}
 
   .layout{flex:1;min-height:0;display:flex;}
@@ -192,7 +195,7 @@
       <span class="me" id="me"></span>
     </header>
     <div class="tabs" role="tablist">
-      <button type="button" id="tabChat" class="on" role="tab" aria-selected="true">대화</button>
+      <button type="button" id="tabChat" class="on" role="tab" aria-selected="true">대화<span class="nbadge" id="chatBadge" hidden></span></button>
       <button type="button" id="tabBoard" role="tab" aria-selected="false">업무 카드</button>
     </div>
   </div>
@@ -590,11 +593,31 @@
     loadThumbs();
     markRead();
   }
+  function boardOnly(){ return window.matchMedia && matchMedia('(max-width:900px)').matches && document.body.dataset.tab === 'board'; }
+  function unreadCount(){
+    var mark = Number(localStorage.getItem('msg_read_' + (ME && ME.id)) || 0), n = 0;
+    MSGS.forEach(function(m){ if (m.id > mark && m.author !== ME.id && !m.deleted_at) n++; });
+    return n;
+  }
+  function nlabel(n){ return n > 99 ? '99+' : String(n); }
+  function updateBadges(){
+    if (!ME) return;
+    var n = unreadCount(), b = $('chatBadge');
+    b.hidden = !n; b.textContent = nlabel(n);
+  }
+  // 홈 화면 아이콘 숫자 지우기 — 서비스 워커가 세던 수도 0으로
+  function clearAppBadge(){
+    if (navigator.clearAppBadge) navigator.clearAppBadge().catch(function(){});
+    if (window.caches) caches.open('msg-badge').then(function(c){ return c.put('badge-n', new Response('0')); }).catch(function(){});
+  }
   function markRead(){
-    if (!ME || document.hidden || !atBottom()) return;
+    // 휴대폰에서 업무 카드 탭을 보고 있으면 대화는 안 읽은 것
+    if (!ME || document.hidden || boardOnly() || !atBottom()) { updateBadges(); return; }
     var last = lastMsgId();
     if (last > Number(localStorage.getItem('msg_read_' + ME.id) || 0)) localStorage.setItem('msg_read_' + ME.id, String(last));
     $('jump').hidden = true;
+    clearAppBadge();
+    updateBadges();
   }
   $('msgs').addEventListener('scroll', function(){ if (atBottom()) markRead(); });
   $('jump').onclick = function(){ var el = $('msgs'); el.scrollTop = el.scrollHeight; markRead(); };

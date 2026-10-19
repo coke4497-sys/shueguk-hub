@@ -5,6 +5,21 @@
 self.addEventListener('install', function () { self.skipWaiting(); });
 self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });
 
+// 홈 화면 아이콘의 빨간 숫자(카카오톡처럼) — 받은 알림 수를 캐시에 세어 둔다. 슈톡 화면이 열려 읽으면 0으로.
+var BADGE_CACHE = 'msg-badge', BADGE_KEY = 'badge-n';
+function badgeRead() {
+  return caches.open(BADGE_CACHE).then(function (c) { return c.match(BADGE_KEY); })
+    .then(function (r) { return r ? r.text() : '0'; }).then(function (t) { return Number(t) || 0; })
+    .catch(function () { return 0; });
+}
+function badgeUp() {
+  return badgeRead().then(function (n) {
+    n += 1;
+    return caches.open(BADGE_CACHE).then(function (c) { return c.put(BADGE_KEY, new Response(String(n))); }).catch(function () {})
+      .then(function () { if (self.navigator && self.navigator.setAppBadge) return self.navigator.setAppBadge(n).catch(function () {}); });
+  });
+}
+
 self.addEventListener('push', function (e) {
   var d = {};
   try { d = e.data ? e.data.json() : {}; } catch (_) { d = { body: e.data ? e.data.text() : '' }; }
@@ -19,7 +34,7 @@ self.addEventListener('push', function (e) {
   };
   e.waitUntil(Promise.all([
     self.registration.showNotification(title, opts),
-    self.navigator && self.navigator.setAppBadge ? self.navigator.setAppBadge().catch(function () {}) : null
+    badgeUp()
   ]));
 });
 
