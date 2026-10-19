@@ -44,6 +44,8 @@ P -f supabase/migrations/202610190005_messenger_seen_all.sql >/dev/null || { ech
 P -f supabase/migrations/202610190005_messenger_seen_all.sql >/dev/null && ok y y "확인·모두 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610190006_messenger_reply.sql >/dev/null || { echo "답장 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610190006_messenger_reply.sql >/dev/null && ok y y "답장 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610200001_staff_manage.sql >/dev/null || { echo "강사 관리 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200001_staff_manage.sql >/dev/null && ok y y "강사 관리 마이그레이션 다시 실행해도 오류 없음"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
 B=bbbbbbbb-0000-0000-0000-000000000002   # 이은지 선생님
@@ -167,6 +169,53 @@ ok "$R1" "$R0" "답장 = reply_to 저장"
 ok "$(as $A "select public.msg_send(p_body => 'x', p_reply => 999999)" | grep -c bad_reply)" 1 "없는 메시지에 답장 거절"
 as $C "select public.msg_delete($R0)" >/dev/null
 ok "$(as $A "select reply_to from public.msg_messages where reply_to=$R0 limit 1")" "$R0" "원글을 지워도 답장 연결은 남음"
+
+echo "── 할 일 상태(강사 관리)"
+MQ=$(as $A "select (public.msg_send('상담 기록 정리 @고희주', '[]', array['$C']::uuid[])->'message'->>'id')")
+TQ=$(as $A "select id from public.msg_tasks where message_id=$MQ")
+ok "$(as $C "select public.msg_task_state($TQ, '진행중')->'task'->>'status'")" "진행중" "진행 중으로 — 사유 없어도 됨"
+ok "$(as $C "select public.msg_task_state($TQ, '미룸')" | grep -c need_reason)" 1 "미룸은 사유 필수"
+ok "$(as $C "select (public.msg_task_state($TQ, '미룸', '학부모님 통화가 안 됨')->'task')->>'state_reason'")" "학부모님 통화가 안 됨" "미룸 + 사유 저장"
+ok "$(as $C "select coalesce(done_at::text,'null') from public.msg_tasks where id=$TQ")" "null" "미룸은 남은 일(완료 시각 없음)"
+ok "$(as $C "select public.msg_task_state($TQ, '보류')" | grep -c bad_status)" 1 "없는 상태 거절"
+ok "$(as $C "select public.msg_task_state($TQ, '위임', '내일 쉬어요', '$D')" | grep -c bad_to)" 1 "비활성 사람에게 위임 거절"
+ok "$(as $C "select public.msg_task_state($TQ, '위임', '내일 쉬어요', '$C')" | grep -c same_person)" 1 "나에게 위임 거절"
+RW=$(as $C "select public.msg_task_state($TQ, '위임', '내일 쉬어요', '$B')")
+ok "$(as $C "select status||'|'||delegated_name||'|'||(done_at is not null) from public.msg_tasks where id=$TQ")" "위임|이은지|true" "위임 — 원래 줄은 끝남·넘겨받은 사람 기록"
+ok "$(as $C "select assignee_name||'|'||requester_name||'|'||status||'|'||text||'|'||delegated_from from public.msg_tasks where delegated_from=$TQ")" "이은지|이수경|대기|상담 기록 정리|$TQ" "넘겨받은 사람에게 새 할 일(맡긴 사람·글 그대로)"
+ok "$(as $C "select public.msg_task_state($TQ, '대기')" | grep -c delegated)" 1 "넘긴 할 일은 되돌리지 않음"
+ok "$(as $C "select public.msg_task_set($TQ, true)" | grep -c delegated)" 1 "옛 체크로도 못 바꿈"
+TQ2=$(as $C "select id from public.msg_tasks where delegated_from=$TQ")
+ok "$(as $B "select (public.msg_task_state($TQ2, '삭제', '이미 처리됨')->'task')->>'status'")" "삭제" "삭제 + 사유"
+ok "$(as $B "select (public.msg_task_state($TQ2, '완료')->'task')->>'done_by_name'")" "이은지" "다시 완료로"
+ok "$(as $A "select count(*)||'|'||string_agg(status, ',' order by id) from public.msg_task_log where task_id in ($TQ, $TQ2)")" "5|진행중,미룸,위임,삭제,완료" "바꿀 때마다 기록 한 줄"
+ok "$(as $A "select count(*) from public.msg_task_log where task_id=$TQ and reason='학부모님 통화가 안 됨' and by_name='고희주'")" 1 "기록에 사유·바꾼 사람"
+MR=$(as $A "select (public.msg_send('알림 @모두', '[]', '{}')->'message'->>'id')")
+TR=$(as $A "select id from public.msg_tasks where message_id=$MR and assignee='$C'")
+ok "$(as $C "select public.msg_task_state($TR, '미룸', '나중에')" | grep -c not_allowed)" 1 "@모두 할 일은 완료(확인)만"
+ok "$(as $C "select (public.msg_task_state($TR, '완료')->'task')->>'status'")" "완료" "@모두 할 일 완료"
+ok "$(as $C "insert into public.msg_task_log(task_id,status,by_name) values ($TR,'완료','x')" | grep -c 'permission denied')" 1 "기록 표에 직접 쓰기 불가"
+ok "$(anon "select public.msg_task_state($TR, '완료')" | grep -c 'permission denied')" 1 "공개 키는 상태 함수 실행 불가"
+
+echo "── 사용 시간"
+psql -X -q -d $DB -c "insert into auth.users values ('99999999-0000-0000-0000-000000000009')" -c "insert into public.teacher_accounts (user_id, login_id, display_name, role, active) values ('99999999-0000-0000-0000-000000000009','parkeh','박언호','teacher',true)" >/dev/null
+PK=99999999-0000-0000-0000-000000000009
+ok "$(as $C "select public.usage_tick('shueguk-report/timetable.html')")" "t" "1분 기록"
+ok "$(as $C "select public.usage_tick('shueguk-report/timetable.html')")" "f" "45초 안에 또 부르면 세지 않음"
+ok "$(as $C "select public.usage_tick('shueguk-hub/ops.html')")" "f" "같은 묶음(티쳐스)의 다른 페이지도 한 번만"
+ok "$(as $C "select public.usage_tick('shueguk-hub/messenger.html')")" "t" "슈톡은 따로 셈"
+psql -X -q -d $DB -c "update public.teacher_usage_last set at = now() - interval '1 minute'" >/dev/null
+ok "$(as $C "select public.usage_tick('SHUEGUK-REPORT/timetable.html')")" "t" "1분 지나면 다시 셈(대소문자 무시)"
+ok "$(as $C "select public.usage_tick('../etc/passwd')" | grep -c bad_page)" 1 "이상한 페이지 이름 거절"
+ok "$(as $E "select public.usage_tick('shueguk-hub/ops.html')")" "f" "계정 없는 로그인은 세지 않음"
+ok "$(psql -X -A -t -q -d $DB -c "select string_agg(page||'='||minutes, ',' order by page) from public.teacher_usage where user_id='$C'")" "shueguk-hub/messenger.html=1,shueguk-report/timetable.html=2" "페이지마다 분 수 누적"
+ok "$(as $C "select count(*) from public.teacher_usage" | grep -c 'permission denied')" 1 "사용 시간 표는 직접 못 읽음"
+D0=$(psql -X -A -t -q -d $DB -c "select (now() at time zone 'Asia/Seoul')::date")
+ok "$(as $C "select count(*) from public.staff_usage('$D0', '$D0')" | grep -c not_allowed)" 1 "보통 교사는 강사 관리 사용 시간 못 봄"
+ok "$(as $A "select sum(minutes) from public.staff_usage('$D0', '$D0')")" 3 "원장님(관리자)은 봄"
+ok "$(as $PK "select count(*) from public.staff_usage('$D0', '$D0')")" 2 "대표님(parkeh)도 봄"
+ok "$(as $A "select count(*) from public.staff_usage('$D0', '2020-01-01')" | grep -c bad_range)" 1 "거꾸로 된 기간 거절"
+ok "$(anon "select public.usage_tick('shueguk-hub/ops.html')" | grep -c 'permission denied')" 1 "공개 키는 사용 시간 함수 실행 불가"
 
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null
