@@ -395,7 +395,9 @@ function filterRows(rows, u){
   ({ ctx, page } = await open());
   await page.goto(`http://127.0.0.1:${PORT}/index.html`);
   await page.waitForSelector('a.card');
-  ok((await page.locator('a.card').first().getAttribute('href')) === 'messenger.html', '첫 카드 = 슈톡');
+  ok((await page.locator('a.card').count()) === 5 && (await page.locator('a.card').nth(4).getAttribute('href')) === 'messenger.html', '2×2 아래 다섯째 카드 = 슈톡');
+  const wb = await page.locator('a.card.wide').boundingBox(), g = await page.locator('#grid').boundingBox(), c1 = await page.locator('a.card').nth(2).boundingBox();
+  ok(wb && Math.abs(wb.width - g.width) < 2 && wb.y > c1.y + c1.height - 1, '슈톡은 3행 두 칸 너비');
   await ctx.close();
 
   await browser.close(); server.close();

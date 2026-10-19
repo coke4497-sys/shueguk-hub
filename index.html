@@ -64,6 +64,11 @@
   .go{margin-top:14px;display:inline-flex;align-items:center;gap:5px;font-size:.8rem;color:var(--accent);}
   .go svg{width:15px;height:15px;transition:transform .16s ease;}
   a.card:hover .go svg{transform:translateX(4px);}
+  /* 두 칸 너비(3행 슈톡) — 아이콘 · 글 · 열기를 한 줄로 */
+  .card.wide{grid-column:1 / -1;flex-direction:row;align-items:center;gap:18px;min-height:0;padding:20px 22px;}
+  .card.wide .icon{margin-bottom:0;flex:none;}
+  .card.wide .wtext{flex:1;min-width:0;}
+  .card.wide .go{margin-top:0;flex:none;}
   /* 준비 중(비활성) */
   .card.pending{opacity:.6;cursor:default;}
   .tag{margin-top:14px;display:inline-block;font-size:.74rem;color:var(--ink-soft);
@@ -78,6 +83,7 @@
     .brand .script{font-size:3.7rem;}
     .grid{grid-template-columns:1fr;}
     .card{min-height:0;}
+    .card.wide .go{display:none;}
   }
   @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
 </style>
@@ -122,11 +128,12 @@
   const REPORT = "https://coke4497-sys.github.io/shueguk-report/";
   // 메인 4메뉴 — 학습 관리·슈국 운영은 하위 메뉴 페이지(study.html / ops.html)로 이동
   const projects = [
-    { title:"슈톡",          icon:"chat",     tone:"mnt", url:"messenger.html", desc:"Shuetalk · 선생님·조교 대화 · @이름으로 할 일 맡기기 · 개인별 업무 카드" },
     { title:"슈국 스케쥴",   icon:"calendar", tone:"yel", url:REPORT+"timetable.html", desc:"정규·내신 시간표 · 오늘의 출석 · 학생 이동" },
     { title:"슈퍼스타 관리", icon:"newstu",   tone:"pnk", url:REPORT+"superstar.html", desc:"신입·아웃 슈스 · 링크 · 별 더하기" },
     { title:"학습 관리",     icon:"book",     tone:"lav", url:"study.html", desc:"어휘·문법 테스트 · H WORK · 과제 검사 · 모의고사 · 클리닉 · 지필고사 리포트" },
     { title:"슈국 운영",     icon:"gear",     tone:"sky", url:"ops.html",   desc:"공지 보내기 · 알림톡 발송 · 월별 수업 회차" },
+    // 3행 — 두 칸 너비 (2026-10-19 원장님: 2×2 아래에 슈톡)
+    { title:"슈톡",          icon:"chat",     tone:"mnt", url:"messenger.html", wide:true, desc:"Shuetalk · 선생님·조교 대화 · @이름으로 할 일 맡기기 · 개인별 업무 카드" },
   ];
 
   const grid = document.getElementById("grid");
@@ -134,6 +141,7 @@
   const ARROW = svg('<path d="M5 12h14M13 6l6 6-6 6"/>');
 
   function cardInner(p, go){
+    if (p.wide) return `<span class="icon">${svg(ICON[p.icon])}</span><span class="wtext"><h2>${p.title}</h2><p class="desc">${p.desc}</p></span>${go}`;
     return `<span class="icon">${svg(ICON[p.icon])}</span><h2>${p.title}</h2><p class="desc">${p.desc}</p>${go}`;
   }
 
@@ -146,7 +154,7 @@
       el.innerHTML = cardInner(p, `<span class="tag">준비 중</span>`);
     } else {
       el = document.createElement("a");
-      el.className = "card" + tone;
+      el.className = "card" + tone + (p.wide ? " wide" : "");
       el.href = p.url;
       el.innerHTML = cardInner(p, `<span class="go">열기 ${ARROW}</span>`);
     }
