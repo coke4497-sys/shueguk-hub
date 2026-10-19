@@ -37,7 +37,7 @@ let missing = false, failSendOnce = false;
 let mid = 0, tid = 0, clock = 0;
 const ts = () => new Date(Date.now() + (clock++)).toISOString();
 const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [];
-let noPres = false, workClip = false;
+let noPres = false, workClip = false, workAsk = false;
 function addMsg(author, body, files, createdIso){
   const t = createdIso || ts();
   const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null, reply_to: null };
@@ -129,8 +129,9 @@ function filterRows(rows, u){
         const old = PRESENCE[ME] || {};
         PRESENCE[ME] = { user_id: ME, name: '고희주', loc: b.p_on ? b.p_loc : (old.loc || ''), is_on: b.p_on, changed_at: NOWISO() };
         PLOGS.push({ id: PLOGS.length + 1, user_id: ME, is_on: b.p_on, at: NOWISO() });
-        return json(Object.assign({}, PRESENCE[ME], { work: workClip && b.p_on ? { id: 1, event: 'in', sched: '16:00', start: '16:00', clipped: true } : (b.p_on ? null : { id: 1, event: 'out', start: '16:00', minutes: 362 }) }));
+        return json(Object.assign({}, PRESENCE[ME], { work: workAsk && b.p_on ? { id: 5, event: 'in', sched: '16:00', actual: '15:10', start: '16:00', clipped: true, ask: true, diff: 50 } : workAsk ? { id: 5, event: 'out', sched: '22:00', actual: '23:20', end: '22:00', ask: true, diff: 80, minutes: 360 } : workClip && b.p_on ? { id: 1, event: 'in', sched: '16:00', start: '16:00', clipped: true } : (b.p_on ? null : { id: 1, event: 'out', start: '16:00', minutes: 362 }) }));
       }
+      if (p === '/rest/v1/rpc/work_overtime'){ const b = JSON.parse(req.postData()); calls.push(['ot', b]); return json({ id: b.p_id, minutes: 440 }); }
       if (p === '/rest/v1/rpc/msg_send'){
         const b = JSON.parse(req.postData()); calls.push(['send', b]);
         const m = addMsg(ME, b.p_body, b.p_files);
@@ -690,6 +691,26 @@ function filterRows(rows, u){
   await page.click('#wnOk');
   ok(await page.locator('#wnback').isHidden(), '[확인]을 누르면 닫힘');
   workClip = false;
+  // 30분 넘게 이른 출근 → '초과근무인가요?' [네]
+  workAsk = true;
+  await page.click('#presBtn'); await page.click('#presMenu [data-loc="정리정독"]');
+  await page.waitForSelector('#wnback:not([hidden])');
+  ok((await page.locator('#wnTitle').textContent()) === '초과근무인가요?' && (await page.locator('#wnText').textContent()).includes('15:10') && (await page.locator('#wnText').textContent()).includes('50분 이릅니다'), '50분 일찍 출근 → \'초과근무인가요?\'');
+  ok((await page.locator('#wnYes').textContent()) === '네, 초과근무예요 — 15:10부터' && (await page.locator('#wnOk').textContent()) === '아니요 — 16:00부터 기록', '버튼 두 개 — 네(15:10부터)·아니요(16:00부터)');
+  await page.click('#wnYes');
+  await sleep(200);
+  const ot1 = calls.filter(c => c[0] === 'ot').pop();
+  ok(ot1 && ot1[1].p_id === 5 && ot1[1].p_kind === 'in' && ot1[1].p_yes === true, '[네] → work_overtime(이른 출근, 네)');
+  // 80분 늦은 퇴근 → [아니요]는 근무표 끝까지(서버 기본값) — 요청 없이 닫힘
+  const nOt = calls.filter(c => c[0] === 'ot').length;
+  await page.click('#presBtn'); await page.click('#presMenu [data-out]');
+  await page.waitForSelector('#wnback:not([hidden])');
+  ok((await page.locator('#wnText').textContent()).includes('1시간 20분 늦습니다') && (await page.locator('#wnOk').textContent()) === '아니요 — 22:00까지 기록', '늦은 퇴근 → 1시간 20분 늦습니다 · 아니요(22:00까지)');
+  await page.click('#wnOk');
+  ok(await page.locator('#wnback').isHidden() && calls.filter(c => c[0] === 'ot').length === nOt, '[아니요]는 근무표 끝까지 — 따로 저장하지 않음');
+  workAsk = false;
+  await page.click('#presBtn'); await page.click('#presMenu [data-loc="본원"]');
+  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근');
   await page.setViewportSize({ width: 390, height: 844 });
   if ((await page.locator('#plback').isHidden())) await page.click('#presListBtn');
   await page.waitForFunction(() => [...document.querySelectorAll('#plbody .plrow')].some(r => r.textContent.includes('고희주') && r.offsetHeight > 0), null, { timeout: 5000 }).catch(() => {});

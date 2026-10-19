@@ -112,8 +112,37 @@ if [ "$HM" = "t" ]; then
   ok "$(echo "$W" | grep -c '"clipped": true')" "1" "일찍 출근하면 clipped=true"
   ok "$(echo "$W" | grep -c "\"start\": \"$LATER\"")" "1" "근무 시작 = 근무표 시작($LATER)"
   ok "$(P -tAc "select to_char(start_at at time zone 'Asia/Seoul','HH24:MI') from public.work_records where user_id='$D' and ymd='$T'")" "$LATER" "start_at이 근무표 시작"
+  ok "$(echo "$W" | grep -c '"ask": true')" "1" "30분 넘게 이르면 '초과근무인가요?'(ask)"
+  OID=$(P -tAc "select id from public.work_records where user_id='$D' and ymd='$T'")
+  ok "$(as $C "select public.work_overtime($OID, 'in', true)" | grep -c not_allowed)" "1" "남의 초과근무는 못 정함"
+  ok "$(as $D "select (public.work_overtime($OID, 'in', true))->>'ot_start'")" "true" "[네] → 초과근무"
+  ok "$(P -tAc "select (start_at = in_at)::text from public.work_records where id=$OID")" "true" "초과근무면 누른 시각부터"
+  ok "$(as $D "select (public.work_overtime($OID, 'in', false))->>'ot_start'")" "false" "[아니요]로 바꾸면 다시 근무표 시작부터"
+  ok "$(P -tAc "select to_char(start_at at time zone 'Asia/Seoul','HH24:MI') from public.work_records where id=$OID")" "$LATER" "start_at이 다시 근무표 시작"
 else
   echo "  - 한국 23시 이후라 '일찍 출근' 검사는 건너뜀"
+fi
+
+echo "· 늦은 퇴근 → 초과근무"
+HM2=$(P -tAc "select (now() at time zone 'Asia/Seoul')::time > '03:10'")
+if [ "$HM2" = "t" ]; then
+  E=eeeeeeee-0000-0000-0000-000000000005
+  P >/dev/null -c "insert into auth.users values ('$E'); insert into public.teacher_accounts (user_id, login_id, display_name, role, active) values ('$E','yena','최예나','assistant',true); insert into public.work_staff (user_id, wage) values ('$E', 13000)"
+  EARLIER=$(P -tAc "select to_char((now() at time zone 'Asia/Seoul') - interval '1 hour', 'HH24:MI')")
+  START3=$(P -tAc "select to_char((now() at time zone 'Asia/Seoul') - interval '3 hour', 'HH24:MI')")
+  P >/dev/null -c "insert into public.work_shifts (ymd, loc, slot, user_id, start_hm, end_hm) values ('$T', '정리정독', 1, '$E', '$START3', '$EARLIER')"
+  as $E "select public.msg_presence_set('정리정독', true)" >/dev/null
+  P >/dev/null -c "update public.work_records set in_at = date_trunc('minute', now()) - interval '3 hours', start_at = date_trunc('minute', now()) - interval '3 hours' where user_id='$E'"
+  W2=$(as $E "select (public.msg_presence_set('', false))->'work'")
+  ok "$(echo "$W2" | grep -c '"ask": true')" "1" "30분 넘게 늦은 퇴근 → ask"
+  ok "$(echo "$W2" | grep -c "\"end\": \"$EARLIER\"")" "1" "기본은 근무표 끝($EARLIER)까지"
+  ok "$(echo "$W2" | grep -o '"minutes": [0-9]*')" '"minutes": 120' "근무 120분(퇴근 시각 아님)"
+  EID=$(P -tAc "select id from public.work_records where user_id='$E'")
+  ok "$(as $E "select (public.work_overtime($EID, 'out', true))->>'minutes'")" "180" "[네] → 퇴근 시각까지 180분"
+  ok "$(P -tAc "select ot_end::text from public.work_records where id=$EID")" "true" "ot_end 표시"
+  ok "$(as $A "select (public.work_overtime($EID, 'out', false))->>'minutes'")" "120" "원장님이 [아니요]로 바꿀 수 있음"
+else
+  echo "  - 한국 03:10 전이라 늦은 퇴근 검사는 건너뜀"
 fi
 
 echo "· 시각 고치기"
@@ -127,6 +156,9 @@ ok "$(as $A "select (public.work_fix(null, '$D', '$T'::date - 2, '본원', '16:0
 ok "$(as $D "select public.work_fix(null, '$D', '$T'::date + 1, '본원', '16:00', '22:00', 'x')" | grep -c future)" "1" "앞날 기록은 못 넣음"
 P >/dev/null -c "insert into public.work_shifts (ymd, loc, slot, user_id, start_hm, end_hm) values ('$T'::date - 3, '본원', 1, '$D', '16:00', '22:00')"
 ok "$(as $D "select to_char((public.work_fix(null, '$D', '$T'::date - 3, '본원', '15:40', '22:00', '출근 못 누름')->>'start_at')::timestamptz at time zone 'Asia/Seoul', 'HH24:MI')")" "16:00" "고친 기록도 근무표 시작부터 셈"
+ok "$(as $D "select to_char((public.work_fix(null, '$D', '$T'::date - 3, '본원', '16:00', '23:00', '늦게 퇴근')->>'end_at')::timestamptz at time zone 'Asia/Seoul', 'HH24:MI')")" "22:00" "늦은 퇴근도 근무표 끝까지만"
+ok "$(as $D "select (public.work_fix(null, '$D', '$T'::date - 3, '본원', '15:00', '23:00', '행사 준비', true))->>'ot_end'")" "true" "초과근무로 고치면 적은 시각 그대로(ot_end)"
+ok "$(P -tAc "select to_char(start_at at time zone 'Asia/Seoul','HH24:MI')||'-'||to_char(end_at at time zone 'Asia/Seoul','HH24:MI')||ot_start from public.work_records where user_id='$D' and ymd='$T'::date - 3 and fix_reason='행사 준비'")" "15:00-23:00true" "초과근무 15:00~23:00"
 ok "$(as $C "select public.work_record_delete($RID)" | grep -c not_allowed)" "1" "조교는 기록을 못 지움"
 ok "$(as $K "select public.work_record_delete($RID); select count(*) from public.work_records where id=$RID")" "0" "대표님은 지울 수 있음"
 ok "$(psql -q -X -tA -d $DB -c "set role anon; select public.work_me()" 2>&1 | grep -c 'permission denied')" "1" "공개 키로는 함수 실행 불가"

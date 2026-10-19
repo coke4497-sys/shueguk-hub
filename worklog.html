@@ -170,7 +170,7 @@
     <div class="card" style="margin-top:16px;">
       <div class="row sp" style="padding-bottom:6px;"><h2 id="mTitle">조교별 근무 · 급여</h2><span class="note" id="mWho"></span></div>
       <div class="scroll" id="mBody"></div>
-      <p class="note" style="margin-top:10px;">근무시간은 슈톡 [출근]부터 [퇴근]까지입니다. 근무표 시작보다 일찍 출근하면 시작 시각부터 셉니다. 총 급여 = 근무시간 × 시급, 실수령 = 총 급여 × 0.967(시트와 같은 계산).</p>
+      <p class="note" style="margin-top:10px;">근무시간은 슈톡 [출근]부터 [퇴근]까지이고, 근무표보다 이른 출근·늦은 퇴근은 근무표 시각까지만 셉니다. 30분 넘게 차이 나면 슈톡이 '초과근무인가요?'를 묻고, 초과근무면 누른 시각 그대로 셉니다. 총 급여 = 근무시간 × 시급, 실수령 = 총 급여 × 0.967(시트와 같은 계산).</p>
     </div>
   </section>
 
@@ -249,9 +249,10 @@
       <div><label for="fxIn">출근</label><input type="time" id="fxIn" /></div>
       <div><label for="fxOut">퇴근</label><input type="time" id="fxOut" /></div>
     </div>
+    <label class="chk"><input type="checkbox" id="fxOt" />초과근무로 인정 — 근무표보다 이른 출근·늦은 퇴근을 적은 시각 그대로 셉니다</label>
     <label for="fxWhy">고친 이유 (필수)</label>
     <input type="text" id="fxWhy" maxlength="100" placeholder="예: 퇴근 버튼을 못 눌렀어요" />
-    <p class="note">원래 기록과 고친 사람·시각이 함께 남습니다. 근무표 시작보다 이른 출근은 시작 시각부터 셉니다.</p>
+    <p class="note">원래 기록과 고친 사람·시각이 함께 남습니다. 초과근무가 아니면 근무표 시작·끝 시각까지만 셉니다.</p>
     <div class="err" id="fxErr"></div>
     <div class="acts"><button class="btn" type="button" id="fxDel" hidden>기록 지우기</button><button class="btn" type="button" data-close>취소</button><button class="btn lav" type="button" id="fxSave">저장</button></div>
   </div>
@@ -308,7 +309,8 @@
   function mondayOf(y){ return addDays(y, 1 - isoDow(y)); }
   function dLabel(y){ var d = new Date(y + 'T00:00:00Z'); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + ' (' + DOWS[isoDow(y)] + ')'; }
   function hm(ts){ if (!ts) return ''; var d = new Date(Date.parse(ts) + 9 * 3600e3); return pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); }
-  function mins(r){ return r.out_at ? Math.max(0, Math.floor((Date.parse(r.out_at) - Date.parse(r.start_at)) / 60000)) : 0; }
+  function endOf(r){ return r.end_at || r.out_at; }
+  function mins(r){ var e = endOf(r); return r.out_at && e ? Math.max(0, Math.floor((Date.parse(e) - Date.parse(r.start_at)) / 60000)) : 0; }
   function dur(m){ var h = Math.floor(m / 60), r = m % 60; return h + '시간' + (r ? ' ' + r + '분' : ''); }
   function durShort(m){ return Math.floor(m / 60) + ':' + pad(m % 60); }
   function won(n){ return Math.round(n).toLocaleString('ko-KR'); }
@@ -374,7 +376,7 @@
     function P(id){ return by[id] || (by[id] = { id: id, name: nameOf(id), recs: [], mins: 0, days: {}, issues: [] }); }
     M.recs.forEach(function(r){
       var p = P(r.user_id); if (!SBY[r.user_id] && r.name) p.name = r.name;
-      p.recs.push(r); p.mins += mins(r); p.days[r.ymd] = 1;
+      p.recs.push(r); p.mins += mins(r); p.ot = (p.ot || 0) + otMin(r); p.days[r.ymd] = 1;
       if (!r.out_at && r.ymd < t) p.issues.push({ kind: 'out', rec: r });
     });
     M.shifts.forEach(function(s){
@@ -387,6 +389,20 @@
     return Object.keys(by).map(function(k){ return by[k]; }).sort(function(a, b){ return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
   }
   function shiftOf(uid, y){ return M.shifts.filter(function(s){ return s.user_id === uid && s.ymd === y; })[0]; }
+  // 근무표 시작·끝(그 날 여러 칸이면 가장 이른 시작·가장 늦은 끝)
+  function schedOf(uid, y){
+    var ss = M.shifts.filter(function(s){ return s.user_id === uid && s.ymd === y; });
+    if (!ss.length) return null;
+    var st = ss.map(function(s){ return s.start_hm; }).sort()[0], en = ss.map(function(s){ return s.end_hm; }).sort().pop();
+    return { start: st, end: en, s: Date.parse(y + 'T' + st + ':00+09:00'), e: Date.parse(y + 'T' + en + ':00+09:00') };
+  }
+  // 초과근무로 센 분(근무표보다 이른 출근 + 늦은 퇴근)
+  function otMin(r){
+    var sc = schedOf(r.user_id, r.ymd), m = 0; if (!sc) return 0;
+    if (r.ot_start) m += Math.max(0, Math.floor((sc.s - Date.parse(r.in_at)) / 60000));
+    if (r.ot_end && r.out_at) m += Math.max(0, Math.floor((Date.parse(r.out_at) - sc.e) / 60000));
+    return m;
+  }
   function renderMonth(){
     var ps = monthPeople(), totM = 0, totP = 0, totN = 0, iss = 0, nd = 0;
     ps.forEach(function(p){ var w = WAGE[p.id] || 0; p.pay = pay(p.mins, w); p.net = net(p.pay); totM += p.mins; totP += p.pay; totN += p.net; iss += p.issues.length; nd += Object.keys(p.days).length; });
@@ -400,16 +416,17 @@
     tiles.push(['확인이 필요한 기록', iss + '<small>건</small>', iss ? 'miss' : '']);
     $('mTiles').innerHTML = tiles.map(function(t){ return '<div class="tile ' + (t[2] || '') + '"><span class="k">' + t[0] + '</span><span class="v">' + t[1] + '</span></div>'; }).join('');
     if (!ps.length){ $('mBody').innerHTML = '<p class="empty">이 달 근무 기록이 없습니다.</p>'; return; }
-    var h = '<table><thead><tr><th>이름</th><th class="n">근무일</th><th class="n">총 근무시간</th><th class="n">시급</th><th class="n">총 급여</th><th class="n">실수령 (3.3% 공제)</th><th class="n">기록</th></tr></thead><tbody>';
+    var h = '<table><thead><tr><th>이름</th><th class="n">근무일</th><th class="n">총 근무시간</th><th class="n">그중 초과근무</th><th class="n">시급</th><th class="n">총 급여</th><th class="n">실수령 (3.3% 공제)</th><th class="n">기록</th></tr></thead><tbody>';
     ps.forEach(function(p){
       var w = WAGE[p.id], open = !!M.open[p.id] || !ROLE.viewer;
       h += '<tr class="person' + (open ? ' open' : '') + '" data-p="' + p.id + '"><td><b>' + esc(p.name) + '</b> <span class="note">' + (open ? '접기 ▴' : '펼치기 ▾') + '</span></td>' +
-        '<td class="n">' + Object.keys(p.days).length + '일</td><td class="n">' + dur(p.mins) + '</td>' +
+        '<td class="n">' + Object.keys(p.days).length + '일</td><td class="n">' + dur(p.mins) + '</td><td class="n">' + (p.ot ? dur(p.ot) : '—') + '</td>' +
         '<td class="n">' + (w != null ? won(w) : '—') + '</td><td class="n">' + (w != null ? won(p.pay) : '—') + '</td><td class="n"><b>' + (w != null ? won(p.net) : '—') + '</b></td>' +
         '<td class="n">' + (p.issues.length ? '<span class="pill miss">확인 ' + p.issues.length + '건</span>' : '<span class="pill ok">확인됨</span>') + '</td></tr>';
-      if (open) h += '<tr class="detail"><td colspan="7">' + daysHtml(p) + '</td></tr>';
+      if (open) h += '<tr class="detail"><td colspan="8">' + daysHtml(p) + '</td></tr>';
     });
-    if (ROLE.viewer) h += '<tr class="sum"><td>합계</td><td class="n">' + nd + '일</td><td class="n">' + dur(totM) + '</td><td></td><td class="n">' + won(totP) + '</td><td class="n">' + won(totN) + '</td><td></td></tr>';
+    var totOt = ps.reduce(function(a, p){ return a + (p.ot || 0); }, 0);
+    if (ROLE.viewer) h += '<tr class="sum"><td>합계</td><td class="n">' + nd + '일</td><td class="n">' + dur(totM) + '</td><td class="n">' + (totOt ? dur(totOt) : '—') + '</td><td></td><td class="n">' + won(totP) + '</td><td class="n">' + won(totN) + '</td><td></td></tr>';
     $('mBody').innerHTML = h + '</tbody></table>';
   }
   function daysHtml(p){
@@ -424,25 +441,43 @@
       }
       var r = x.r, sh = shiftOf(r.user_id, r.ymd), tags = [];
       if (sh && sh.orig_user_id && sh.orig_user_id !== r.user_id) tags.push(esc(nameOf(sh.orig_user_id)) + ' 대신 근무');
-      if (Date.parse(r.start_at) > Date.parse(r.in_at)) tags.push('출근 ' + hm(r.in_at) + ' → ' + hm(r.start_at) + '부터');
+      var cutIn = Date.parse(r.start_at) > Date.parse(r.in_at), cutOut = r.out_at && r.end_at && Date.parse(r.end_at) < Date.parse(r.out_at), ot = otMin(r), btn = '';
+      if (cutIn) tags.push('출근 ' + hm(r.in_at) + ' → ' + hm(r.start_at) + '부터');
+      if (cutOut) tags.push('퇴근 ' + hm(r.out_at) + ' → ' + hm(r.end_at) + '까지');
+      if (ot) tags.push('<b>초과근무 ' + dur(ot) + '</b>' + (r.ot_start ? ' · 출근 ' + hm(r.in_at) + '부터' : '') + (r.ot_end ? ' · 퇴근 ' + hm(r.out_at) + '까지' : ''));
       if (r.fixed) tags.push('고친 기록 · ' + esc(r.fix_reason));
-      var outTxt = r.out_at ? hm(r.out_at) : (r.ymd < todayYmd() ? '<span class="tag miss">퇴근 기록 없음</span>' : '근무 중');
+      if (canEdit(r.user_id) && (cutIn || (cutOut && r.out_at))) btn += '<button class="btn sm lav" type="button" data-ot="' + r.id + '|1">초과근무로 인정</button>';
+      else if (canEdit(r.user_id) && (r.ot_start || r.ot_end)) btn += '<button class="btn sm" type="button" data-ot="' + r.id + '|0">근무표 시각으로</button>';
+      var outTxt = r.out_at ? hm(endOf(r)) : (r.ymd < todayYmd() ? '<span class="tag miss">퇴근 기록 없음</span>' : '근무 중');
       return '<div class="day"><span>' + dLabel(r.ymd) + '</span><span>' + esc(r.loc) + '</span><span>' + hm(r.start_at) + ' ~ ' + outTxt + '</span><span>' + (r.out_at ? durShort(mins(r)) : '') + '</span>' +
-        '<span class="tag">' + tags.join(' · ') + '</span><span class="acts">' + (canEdit(r.user_id) ? '<button class="btn sm" type="button" data-fix="' + r.id + '">시각 고치기</button>' : '') + '</span></div>';
+        '<span class="tag">' + tags.join(' · ') + '</span><span class="acts">' + btn + (canEdit(r.user_id) ? '<button class="btn sm" type="button" data-fix="' + r.id + '">시각 고치기</button>' : '') + '</span></div>';
     }).join('') + '</div>';
   }
   $('mBody').addEventListener('click', function(e){
     var b = e.target.closest('button');
     if (b && b.dataset.fix){ var r = M.recs.filter(function(x){ return String(x.id) === b.dataset.fix; })[0]; if (r) openFix(r); return; }
+    if (b && b.dataset.ot){ setOvertime(b.dataset.ot.split('|')[0], b.dataset.ot.split('|')[1] === '1', b); return; }
     if (b && b.dataset.add){ var a = b.dataset.add.split('|'); openFix(null, { user_id: a[0], ymd: a[1], loc: a[2], start: a[3], end: a[4] }); return; }
     var tr = e.target.closest('tr.person');
     if (tr && ROLE.viewer){ M.open[tr.dataset.p] = !M.open[tr.dataset.p]; renderMonth(); }
   });
+  // 초과근무로 인정 / 근무표 시각으로 — 이른 출근·늦은 퇴근 둘 다 있으면 둘 다 바꾼다
+  function setOvertime(id, yes, b){
+    var r = M.recs.filter(function(x){ return String(x.id) === String(id); })[0]; if (!r) return;
+    var kinds = [];
+    if (yes){ if (Date.parse(r.start_at) > Date.parse(r.in_at)) kinds.push('in'); if (r.out_at && r.end_at && Date.parse(r.end_at) < Date.parse(r.out_at)) kinds.push('out'); }
+    else { if (r.ot_start) kinds.push('in'); if (r.ot_end) kinds.push('out'); }
+    if (!kinds.length) return;
+    b.disabled = true;
+    kinds.reduce(function(pr, k){ return pr.then(function(){ return rpc('work_overtime', { p_id: r.id, p_kind: k, p_yes: yes }); }); }, Promise.resolve())
+      .then(function(){ status(yes ? '초과근무로 기록했습니다.' : '근무표 시각으로 되돌렸습니다.'); loadMonth(); })
+      .catch(function(e){ status(errText(e)); b.disabled = false; });
+  }
   $('mPrev').onclick = function(){ var d = new Date(MONTH + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 1); MONTH = d.toISOString().slice(0, 7); loadMonth(); };
   $('mNext').onclick = function(){ var d = new Date(MONTH + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() + 1); MONTH = d.toISOString().slice(0, 7); loadMonth(); };
   function monthTable(){
-    var rows = [['이름', '근무일', '총 근무시간', '근무 분', '시급', '총 급여', '실수령(3.3% 공제)']];
-    monthPeople().forEach(function(p){ var w = WAGE[p.id] || 0, py = pay(p.mins, w); rows.push([p.name, Object.keys(p.days).length, durShort(p.mins), p.mins, w, py, net(py)]); });
+    var rows = [['이름', '근무일', '총 근무시간', '근무 분', '그중 초과근무 분', '시급', '총 급여', '실수령(3.3% 공제)']];
+    monthPeople().forEach(function(p){ var w = WAGE[p.id] || 0, py = pay(p.mins, w); rows.push([p.name, Object.keys(p.days).length, durShort(p.mins), p.mins, p.ot || 0, w, py, net(py)]); });
     return rows;
   }
   function copyText(t){ (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ status('표를 복사했습니다. 시트에 붙여 넣으세요.'); }).catch(function(){ status('복사하지 못했습니다.'); }); }
@@ -459,7 +494,7 @@
     rpc('work_ensure', { p_from: from, p_to: to }).catch(function(){}).then(function(){
       return Promise.all([
         api('/work_shifts?select=*&ymd=gte.' + from + '&ymd=lte.' + to + '&order=ymd.asc,slot.asc&limit=1000'),
-        api('/work_records?select=id,ymd,user_id,loc,in_at,start_at,out_at&ymd=gte.' + from + '&ymd=lte.' + to + '&limit=2000')
+        api('/work_records?select=id,ymd,user_id,loc,in_at,start_at,out_at,end_at,ot_start,ot_end&ymd=gte.' + from + '&ymd=lte.' + to + '&limit=2000')
       ]);
     }).then(function(r){ W.shifts = r[0] || []; W.recs = r[1] || []; renderWeek(); }).catch(function(e){ status(errText(e)); });
   }
@@ -470,7 +505,7 @@
     var recs = W.recs.filter(function(r){ return r.user_id === s.user_id && r.ymd === s.ymd; });
     if (recs.length){
       var r = recs[0], last = recs[recs.length - 1];
-      cls = 'ok'; sub = '✓ ' + hm(r.start_at) + ' – ' + (last.out_at ? hm(last.out_at) : (s.ymd < t ? '퇴근 없음' : '근무 중'));
+      cls = 'ok'; sub = '✓ ' + hm(r.start_at) + ' – ' + (last.out_at ? hm(endOf(last)) : (s.ymd < t ? '퇴근 없음' : '근무 중'));
     } else if (s.ymd < t || (s.ymd === t && Date.now() > Date.parse(s.ymd + 'T' + s.start_hm + ':00+09:00') + 30 * 60000)) { cls = 'miss'; sub = '출근 기록 없음'; }
     if (s.orig_user_id && s.orig_user_id !== s.user_id){ sub = nameOf(s.orig_user_id) + ' 대신 · ' + sub; if (cls !== 'miss') cls = 'swap'; }
     return { cls: cls, name: nameOf(s.user_id), sub: sub };
@@ -569,7 +604,7 @@
     $('fxLoc').innerHTML = LOCS.map(function(l){ return '<option' + (l === (r ? r.loc : add.loc) ? ' selected' : '') + '>' + l + '</option>'; }).join('');
     $('fxDate').value = y; $('fxDate').disabled = !!r;
     $('fxIn').value = r ? hm(r.in_at) : add.start; $('fxOut').value = r && r.out_at ? hm(r.out_at) : (r ? '' : add.end);
-    $('fxWhy').value = ''; $('fxErr').textContent = '';
+    $('fxWhy').value = ''; $('fxErr').textContent = ''; $('fxOt').checked = !!(r && (r.ot_start || r.ot_end));
     $('fxDel').hidden = !(r && ROLE.viewer);
     $('fixDlg').hidden = false; $('fxIn').focus();
   }
@@ -579,7 +614,7 @@
     if (!why){ $('fxErr').textContent = '고친 이유를 적어 주세요.'; return; }
     if (!$('fxIn').value || !$('fxOut').value){ $('fxErr').textContent = '출근·퇴근 시각을 모두 넣어 주세요.'; return; }
     $('fxSave').disabled = true;
-    rpc('work_fix', { p_id: FX.id, p_user: FX.user, p_ymd: $('fxDate').value, p_loc: $('fxLoc').value, p_in: $('fxIn').value, p_out: $('fxOut').value, p_reason: why })
+    rpc('work_fix', { p_id: FX.id, p_user: FX.user, p_ymd: $('fxDate').value, p_loc: $('fxLoc').value, p_in: $('fxIn').value, p_out: $('fxOut').value, p_reason: why, p_ot: $('fxOt').checked })
       .then(function(){ closeDlg(); status('근무 시각을 고쳤습니다.'); refresh(); })
       .catch(function(e){ $('fxErr').textContent = errText(e); }).then(function(){ $('fxSave').disabled = false; });
   };
@@ -599,7 +634,7 @@
   function loadYear(){
     $('yLabel').textContent = YEAR + '년';
     var who = ROLE.viewer ? '' : '&user_id=eq.' + ME.id;
-    api('/work_records?select=ymd,user_id,name,start_at,out_at&ymd=gte.' + YEAR + '-01-01&ymd=lte.' + YEAR + '-12-31' + who + '&limit=20000')
+    api('/work_records?select=ymd,user_id,name,start_at,out_at,end_at&ymd=gte.' + YEAR + '-01-01&ymd=lte.' + YEAR + '-12-31' + who + '&limit=20000')
       .then(function(r){ Y = r || []; renderYear(); }).catch(function(e){ status(errText(e)); });
   }
   function yearRows(){

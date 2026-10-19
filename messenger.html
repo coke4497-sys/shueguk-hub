@@ -57,6 +57,8 @@
   .wnbox b{font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:24px;color:var(--lavInk);}
   .wnbox p{margin:0;font-size:14.5px;line-height:1.6;}
   .wnbox button{border:0;border-radius:12px;background:var(--lav);color:var(--lavInk);font-weight:700;font-size:15px;padding:12px;min-height:46px;}
+  .wnbox button.plain{background:var(--soft);color:var(--ink);font-weight:400;}
+  .wnbox .wnbtns{display:flex;flex-direction:column;gap:8px;}
   .plpanel{background:#fff;border-radius:18px;padding:16px 18px;width:min(380px,100%);max-height:calc(100vh - 80px);overflow:auto;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 28px rgba(42,51,47,.18);}
   .plhead{display:flex;align-items:center;gap:8px;}
   .plhead .btitle{flex:1;}
@@ -373,7 +375,10 @@
   <div class="wnbox">
     <b id="wnTitle">16:00부터 근무</b>
     <p id="wnText"></p>
-    <button type="button" id="wnOk">확인</button>
+    <div class="wnbtns">
+      <button type="button" id="wnYes" hidden></button>
+      <button type="button" id="wnOk">확인</button>
+    </div>
   </div>
 </div>
 <div id="status" role="status"></div>
@@ -1177,16 +1182,40 @@
       var work = row && row.work; if (row) delete row.work;
       PRES[ME.id] = row; renderPres(); renderBoard();
       status(on ? loc + '에 출근했습니다.' : '퇴근했습니다. 수고하셨어요.' + (work && work.event === 'out' ? ' 오늘 근무 ' + Math.floor(work.minutes / 60) + '시간' + (work.minutes % 60 ? ' ' + work.minutes % 60 + '분' : '') + '.' : ''), 4000);
-      if (on && work && work.clipped) workNotice(work.start);
+      if (work && work.ask) workAsk(work);
+      else if (on && work && work.clipped) workNotice(work.start);
     }).catch(function(err){ status(errText(err)); });
   });
   // 근무표 시작보다 일찍 [출근]하면 근무 시간은 시작 시각부터 — 서버(msg_presence_set)가 정하고, 여기서는 알려 주기만 한다
+  var WN = null;
   function workNotice(start){
+    WN = null;
     $('wnTitle').textContent = start + '부터 근무';
     $('wnText').textContent = '출근을 기록했습니다. 오늘 근무표 시작이 ' + start + '이라 근무 시간은 ' + start + '부터 기록됩니다.';
+    $('wnYes').hidden = true; $('wnOk').textContent = '확인'; $('wnOk').classList.remove('plain');
     $('wnback').hidden = false; $('wnOk').focus();
   }
-  $('wnOk').onclick = function(){ $('wnback').hidden = true; };
+  // 근무표보다 30분 넘게 이른 출근·늦은 퇴근 — '초과근무인가요?' (2026-10-20 원장님 "버튼을 통해 근무 시간을 수정할 수 있도록")
+  //   [네] = 누른 시각 그대로(work_overtime), [아니요] = 근무표 시각까지(서버 기본값 그대로)
+  function workAsk(w){
+    WN = w;
+    var gap = w.diff >= 60 ? Math.floor(w.diff / 60) + '시간' + (w.diff % 60 ? ' ' + w.diff % 60 + '분' : '') : w.diff + '분';
+    $('wnTitle').textContent = '초과근무인가요?';
+    $('wnText').textContent = w.event === 'in'
+      ? '오늘 근무 시작은 ' + w.sched + '입니다. 지금 출근(' + w.actual + ')이 ' + gap + ' 이릅니다.'
+      : '오늘 근무 끝은 ' + w.sched + '입니다. 지금 퇴근(' + w.actual + ')이 ' + gap + ' 늦습니다.';
+    $('wnYes').textContent = w.event === 'in' ? '네, 초과근무예요 — ' + w.actual + '부터' : '네, 초과근무예요 — ' + w.actual + '까지';
+    $('wnOk').textContent = w.event === 'in' ? '아니요 — ' + w.sched + '부터 기록' : '아니요 — ' + w.sched + '까지 기록';
+    $('wnYes').hidden = false; $('wnOk').classList.add('plain');
+    $('wnback').hidden = false; $('wnYes').focus();
+  }
+  $('wnYes').onclick = function(){
+    var w = WN; $('wnback').hidden = true; WN = null; if (!w) return;
+    rpc('work_overtime', { p_id: w.id, p_kind: w.event, p_yes: true }).then(function(r){
+      status('초과근무로 기록했습니다.' + (r && r.minutes != null && w.event === 'out' ? ' 오늘 근무 ' + Math.floor(r.minutes / 60) + '시간' + (r.minutes % 60 ? ' ' + r.minutes % 60 + '분' : '') + '.' : ''), 4000);
+    }).catch(function(err){ status(errText(err) + ' 근무 일지에서 고칠 수 있어요.', 6000); });
+  };
+  $('wnOk').onclick = function(){ $('wnback').hidden = true; if (WN) status('근무표 시각(' + WN.sched + ')' + (WN.event === 'in' ? '부터' : '까지') + ' 기록했습니다.', 3000); WN = null; };
 
   function setTab(t){
     document.body.dataset.tab = t;

@@ -4,6 +4,8 @@
 --   work_shifts  : 날짜별 근무표 — 기본 근무표에서 만들고, 근무자 교체는 이 줄을 바꾼다(원래 근무자·사유·바꾼 사람이 남는다)
 --   work_records : 실제 근무 기록 — 슈톡 [출근]·[퇴근](msg_presence_set)이 자동으로 쓴다
 -- 근무 시간 규칙(원장님): 근무표 시작 시각보다 일찍 [출근]을 눌러도 근무 시간은 시작 시각부터 센다(start_at).
+--   근무표 끝보다 늦게 [퇴근]해도 끝 시각까지 센다(end_at). 30분(work_ot_min) 넘게 이르거나 늦으면 슈톡이 '초과근무인가요?'를 묻고,
+--   [네]를 누르면 누른 시각 그대로 센다(work_overtime → ot_start·ot_end). 근무표에 없는 날은 누른 시각 그대로.
 -- 쓰기는 함수로만, 읽기는 활성 교사만. 202610190004(출근·퇴근) 다음에 적용한다. 다시 실행해도 안전하다.
 
 create table if not exists public.work_staff (
@@ -52,6 +54,9 @@ create table if not exists public.work_records (
   in_at timestamptz not null,       -- [출근]을 누른 시각
   start_at timestamptz not null,    -- 근무 시간 시작(근무표 시작보다 이르면 시작 시각)
   out_at timestamptz,               -- [퇴근]을 누른 시각(없으면 아직 근무 중이거나 퇴근을 못 누름)
+  end_at timestamptz,               -- 근무 시간 끝(근무표 끝보다 늦으면 끝 시각, 초과근무면 퇴근 시각)
+  ot_start boolean not null default false,  -- 근무표보다 이른 출근을 초과근무로 셈
+  ot_end boolean not null default false,    -- 근무표보다 늦은 퇴근을 초과근무로 셈
   fixed boolean not null default false,
   fix_reason text not null default '',
   fixed_by_name text not null default '',
@@ -61,6 +66,9 @@ create table if not exists public.work_records (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.work_records add column if not exists end_at timestamptz;
+alter table public.work_records add column if not exists ot_start boolean not null default false;
+alter table public.work_records add column if not exists ot_end boolean not null default false;
 create index if not exists work_records_user on public.work_records (user_id, ymd);
 create index if not exists work_records_ymd on public.work_records (ymd);
 
@@ -89,6 +97,29 @@ create or replace function private.work_today()
 returns date language sql stable set search_path = '' as $$ select (now() at time zone 'Asia/Seoul')::date $$;
 revoke all on function private.work_today() from public;
 grant execute on function private.work_today() to authenticated;
+
+-- 초과근무를 묻는 기준(분) — 근무표보다 이만큼 넘게 이르거나 늦으면 묻는다
+create or replace function private.work_ot_min()
+returns integer language sql immutable set search_path = '' as $$ select 30 $$;
+revoke all on function private.work_ot_min() from public;
+grant execute on function private.work_ot_min() to authenticated;
+
+-- 그 사람·그 날 근무표의 시작·끝(한국 시간 → timestamptz). 근무표가 없으면 null
+create or replace function private.work_sched_start(p_user uuid, p_ymd date)
+returns timestamptz language sql stable security definer set search_path = '' as $$
+  select (p_ymd + min(start_hm)::time) at time zone 'Asia/Seoul' from public.work_shifts where ymd = p_ymd and user_id = p_user
+$$;
+create or replace function private.work_sched_end(p_user uuid, p_ymd date)
+returns timestamptz language sql stable security definer set search_path = '' as $$
+  select (p_ymd + max(end_hm)::time) at time zone 'Asia/Seoul' from public.work_shifts where ymd = p_ymd and user_id = p_user
+$$;
+revoke all on function private.work_sched_start(uuid, date) from public;
+revoke all on function private.work_sched_end(uuid, date) from public;
+create or replace function private.work_minutes(p_start timestamptz, p_end timestamptz)
+returns integer language sql immutable set search_path = '' as $$
+  select case when p_end is null then null else greatest(0, floor(extract(epoch from (p_end - p_start)) / 60))::int end
+$$;
+revoke all on function private.work_minutes(timestamptz, timestamptz) from public;
 
 drop policy if exists work_staff_read on public.work_staff;
 create policy work_staff_read on public.work_staff
@@ -257,8 +288,9 @@ end;
 $$;
 
 -- 근무 시각 고치기 — 본인 기록은 본인이, 모든 기록은 급여를 볼 수 있는 사람이. p_id null = 출근을 못 눌러 기록이 없는 날 새로 넣기
--- p_in·p_out: 'HH:MM'(한국 시간). 근무표 시작보다 이른 출근은 시작 시각부터 센다(자동 기록과 같은 규칙).
-create or replace function public.work_fix(p_id bigint, p_user uuid, p_ymd date, p_loc text, p_in text, p_out text, p_reason text)
+-- p_in·p_out: 'HH:MM'(한국 시간). 근무표보다 이른 출근·늦은 퇴근은 근무표 시각으로 센다 — p_ot가 참이면 초과근무로 적은 시각 그대로.
+drop function if exists public.work_fix(bigint, uuid, date, text, text, text, text);
+create or replace function public.work_fix(p_id bigint, p_user uuid, p_ymd date, p_loc text, p_in text, p_out text, p_reason text, p_ot boolean default false)
 returns jsonb
 language plpgsql security definer set search_path = ''
 as $$
@@ -270,7 +302,10 @@ declare
   v_in timestamptz;
   v_out timestamptz;
   v_start timestamptz;
-  v_sched text;
+  v_end timestamptz;
+  v_ss timestamptz;
+  v_se timestamptz;
+  v_ot boolean := coalesce(p_ot, false);
   v_name text;
   v_loc text := btrim(coalesce(p_loc, ''));
 begin
@@ -316,27 +351,75 @@ begin
   if v_out <= v_in then
     raise exception 'bad_order';
   end if;
-  select min(start_hm) into v_sched from public.work_shifts where ymd = v_ymd and user_id = v_user;
-  v_start := v_in;
-  if v_sched is not null and (v_ymd + v_sched::time) at time zone 'Asia/Seoul' > v_in then
-    v_start := (v_ymd + v_sched::time) at time zone 'Asia/Seoul';
+  v_ss := private.work_sched_start(v_user, v_ymd);
+  v_se := private.work_sched_end(v_user, v_ymd);
+  v_start := v_in; v_end := v_out;
+  if not v_ot then
+    if v_ss is not null and v_ss > v_in then v_start := v_ss; end if;
+    if v_se is not null and v_se < v_out then v_end := v_se; end if;
   end if;
-  if v_out <= v_start then
+  if v_end <= v_start then
     raise exception 'bad_order';
   end if;
   if v_row.id is not null then
-    update public.work_records set loc = v_loc, in_at = v_in, start_at = v_start, out_at = v_out,
+    update public.work_records set loc = v_loc, in_at = v_in, start_at = v_start, out_at = v_out, end_at = v_end,
+      ot_start = v_ot and v_ss is not null and v_in < v_ss, ot_end = v_ot and v_se is not null and v_out > v_se,
       orig_in_at = case when fixed then orig_in_at else in_at end,
       orig_out_at = case when fixed then orig_out_at else out_at end,
       fixed = true, fix_reason = btrim(p_reason), fixed_by_name = v_me.display_name, fixed_at = now(), updated_at = now()
     where id = v_row.id returning * into v_row;
   else
     select display_name into v_name from public.teacher_accounts where user_id = v_user;
-    insert into public.work_records (ymd, user_id, name, loc, in_at, start_at, out_at, fixed, fix_reason, fixed_by_name, fixed_at)
-    values (v_ymd, v_user, coalesce(v_name, ''), v_loc, v_in, v_start, v_out, true, btrim(p_reason), v_me.display_name, now())
+    insert into public.work_records (ymd, user_id, name, loc, in_at, start_at, out_at, end_at, ot_start, ot_end, fixed, fix_reason, fixed_by_name, fixed_at)
+    values (v_ymd, v_user, coalesce(v_name, ''), v_loc, v_in, v_start, v_out, v_end,
+      v_ot and v_ss is not null and v_in < v_ss, v_ot and v_se is not null and v_out > v_se, true, btrim(p_reason), v_me.display_name, now())
     returning * into v_row;
   end if;
   return to_jsonb(v_row);
+end;
+$$;
+
+-- 초과근무인가요? — 슈톡 창의 [네]/[아니요]. p_kind 'in'(이른 출근) · 'out'(늦은 퇴근). 본인 또는 급여를 볼 수 있는 사람만.
+--   [네] = 누른 시각 그대로 센다, [아니요] = 근무표 시각까지만 센다(기본값과 같음 — 마음을 바꿀 때 쓴다)
+create or replace function public.work_overtime(p_id bigint, p_kind text, p_yes boolean)
+returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_me public.teacher_accounts := private.msg_me();
+  v_row public.work_records;
+  v_ss timestamptz;
+  v_se timestamptz;
+begin
+  if v_me.user_id is null then
+    raise exception 'not_teacher' using errcode = '42501';
+  end if;
+  select * into v_row from public.work_records where id = p_id for update;
+  if v_row.id is null then
+    raise exception 'not_found';
+  end if;
+  if v_row.user_id <> v_me.user_id and not private.work_viewer() then
+    raise exception 'not_allowed' using errcode = '42501';
+  end if;
+  if p_kind = 'in' then
+    v_ss := private.work_sched_start(v_row.user_id, v_row.ymd);
+    update public.work_records set
+      start_at = case when coalesce(p_yes, false) or v_ss is null then in_at else greatest(in_at, v_ss) end,
+      ot_start = coalesce(p_yes, false) and v_ss is not null and in_at < v_ss, updated_at = now()
+    where id = p_id returning * into v_row;
+  elsif p_kind = 'out' then
+    if v_row.out_at is null then
+      raise exception 'not_out';
+    end if;
+    v_se := private.work_sched_end(v_row.user_id, v_row.ymd);
+    update public.work_records set
+      end_at = case when coalesce(p_yes, false) or v_se is null then out_at else least(out_at, v_se) end,
+      ot_end = coalesce(p_yes, false) and v_se is not null and out_at > v_se, updated_at = now()
+    where id = p_id returning * into v_row;
+  else
+    raise exception 'bad_kind';
+  end if;
+  return to_jsonb(v_row) || jsonb_build_object('minutes', private.work_minutes(v_row.start_at, v_row.end_at));
 end;
 $$;
 
@@ -359,7 +442,8 @@ revoke all on function public.work_staff_set(uuid, integer, boolean) from public
 revoke all on function public.work_ensure(date, date) from public, anon;
 revoke all on function public.work_roster_save(jsonb, date) from public, anon;
 revoke all on function public.work_swap(bigint, uuid, text) from public, anon;
-revoke all on function public.work_fix(bigint, uuid, date, text, text, text, text) from public, anon;
+revoke all on function public.work_fix(bigint, uuid, date, text, text, text, text, boolean) from public, anon;
+revoke all on function public.work_overtime(bigint, text, boolean) from public, anon;
 revoke all on function public.work_record_delete(bigint) from public, anon;
 grant execute on function public.work_staff_list() to authenticated;
 grant execute on function public.work_me() to authenticated;
@@ -367,12 +451,14 @@ grant execute on function public.work_staff_set(uuid, integer, boolean) to authe
 grant execute on function public.work_ensure(date, date) to authenticated;
 grant execute on function public.work_roster_save(jsonb, date) to authenticated;
 grant execute on function public.work_swap(bigint, uuid, text) to authenticated;
-grant execute on function public.work_fix(bigint, uuid, date, text, text, text, text) to authenticated;
+grant execute on function public.work_fix(bigint, uuid, date, text, text, text, text, boolean) to authenticated;
+grant execute on function public.work_overtime(bigint, text, boolean) to authenticated;
 grant execute on function public.work_record_delete(bigint) to authenticated;
 
 -- 슈톡 출근·퇴근(202610190004)에 근무 기록을 더한다 — 본문은 그대로, 근무 일지에 드는 사람만 기록하고 결과에 work를 붙인다.
---   출근: 오늘 열린 기록이 없으면 새로 연다(센터만 바꾸는 출근은 이어 간다). 근무표 시작보다 이르면 시작 시각부터 센다 → work.clipped
---   퇴근: 오늘 열린 기록을 닫는다.
+--   출근: 오늘 열린 기록이 없으면 새로 연다(센터만 바꾸는 출근은 이어 간다). 근무표 시작보다 이르면 시작 시각부터 센다 → work.clipped,
+--         30분 넘게 이르면 work.ask(슈톡이 '초과근무인가요?'를 묻는다)
+--   퇴근: 오늘 열린 기록을 닫는다. 근무표 끝보다 늦으면 끝 시각까지 센다, 30분 넘게 늦으면 work.ask
 create or replace function public.msg_presence_set(p_loc text, p_on boolean)
 returns jsonb
 language plpgsql security definer set search_path = ''
@@ -383,7 +469,8 @@ declare
   v_row public.msg_presence;
   v_today date := private.work_today();
   v_rec public.work_records;
-  v_sched text;
+  v_ss timestamptz;
+  v_se timestamptz;
   v_start timestamptz;
   v_work jsonb := null;
 begin
@@ -411,22 +498,36 @@ begin
     if p_on then
       if v_rec.id is null then
         perform private.work_fill(v_today, v_today);
-        select min(start_hm) into v_sched from public.work_shifts where ymd = v_today and user_id = v_me.user_id;
+        v_ss := private.work_sched_start(v_me.user_id, v_today);
         v_start := now();
-        if v_sched is not null and (v_today + v_sched::time) at time zone 'Asia/Seoul' > v_start then
-          v_start := (v_today + v_sched::time) at time zone 'Asia/Seoul';
+        if v_ss is not null and v_ss > v_start then
+          v_start := v_ss;
         end if;
         insert into public.work_records (ymd, user_id, name, loc, in_at, start_at)
         values (v_today, v_me.user_id, v_me.display_name, v_loc, now(), v_start)
         returning * into v_rec;
-        v_work := jsonb_build_object('id', v_rec.id, 'event', 'in', 'sched', v_sched,
-          'start', to_char(v_start at time zone 'Asia/Seoul', 'HH24:MI'), 'clipped', v_start > v_rec.in_at);
+        v_work := jsonb_build_object('id', v_rec.id, 'event', 'in',
+          'sched', to_char(v_ss at time zone 'Asia/Seoul', 'HH24:MI'),
+          'actual', to_char(v_rec.in_at at time zone 'Asia/Seoul', 'HH24:MI'),
+          'start', to_char(v_start at time zone 'Asia/Seoul', 'HH24:MI'),
+          'clipped', v_start > v_rec.in_at,
+          'ask', v_ss is not null and v_ss - v_rec.in_at > make_interval(mins => private.work_ot_min()),
+          'diff', case when v_ss is null then 0 else greatest(0, floor(extract(epoch from (v_ss - v_rec.in_at)) / 60))::int end);
       end if;
     elsif v_rec.id is not null then
-      update public.work_records set out_at = now(), updated_at = now() where id = v_rec.id returning * into v_rec;
+      v_se := private.work_sched_end(v_me.user_id, v_today);
+      update public.work_records set out_at = now(),
+        end_at = case when v_se is not null and v_se < now() then greatest(v_se, start_at) else now() end,
+        updated_at = now()
+      where id = v_rec.id returning * into v_rec;
       v_work := jsonb_build_object('id', v_rec.id, 'event', 'out',
         'start', to_char(v_rec.start_at at time zone 'Asia/Seoul', 'HH24:MI'),
-        'minutes', greatest(0, floor(extract(epoch from (v_rec.out_at - v_rec.start_at)) / 60))::int);
+        'sched', to_char(v_se at time zone 'Asia/Seoul', 'HH24:MI'),
+        'actual', to_char(v_rec.out_at at time zone 'Asia/Seoul', 'HH24:MI'),
+        'end', to_char(v_rec.end_at at time zone 'Asia/Seoul', 'HH24:MI'),
+        'ask', v_se is not null and v_rec.out_at - v_se > make_interval(mins => private.work_ot_min()),
+        'diff', case when v_se is null then 0 else greatest(0, floor(extract(epoch from (v_rec.out_at - v_se)) / 60))::int end,
+        'minutes', private.work_minutes(v_rec.start_at, v_rec.end_at));
     end if;
   end if;
   return to_jsonb(v_row) || jsonb_build_object('work', v_work);
