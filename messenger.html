@@ -137,6 +137,18 @@
   .tk.ok{background:var(--ok);color:var(--okInk);}
   .tk.seen{background:var(--lav);color:var(--lavInk);}
   .tk.sum{font-weight:700;}
+  .tk.cx{background:#ECEEED;color:#6A716C;}
+  /* 할 일 취소 + 사유 (2026-10-20 원장님) */
+  .cxb{border:0;background:transparent;color:var(--cap);font-size:12px;padding:3px 6px;margin-left:auto;flex:none;align-self:center;border-radius:8px;}
+  .cxb:hover{background:var(--soft);color:var(--ink2);}
+  .ci.x .ctx{color:#7A8680;}
+  .bx.x{background:#E4E7E5;color:#7A8680;font-size:13px;font-weight:700;}
+  .meta .why{color:var(--ink2);}
+  .cxpanel textarea{width:100%;min-height:76px;border:0;border-radius:12px;background:var(--soft);padding:10px 12px;font:inherit;font-size:14px;resize:vertical;box-sizing:border-box;}
+  .cxpanel textarea:focus{outline:2px solid var(--lavBar);}
+  .cxq{display:flex;flex-wrap:wrap;gap:6px;}
+  .cxq button{border:0;border-radius:999px;background:var(--soft);color:var(--ink2);font-size:12.5px;padding:5px 11px;}
+  .cxt{font-size:13.5px;color:var(--ink2);background:var(--soft);border-radius:10px;padding:8px 10px;}
   .ack{border:0;border-radius:999px;background:var(--lavInk);color:#fff;font-size:13px;padding:6px 14px;margin-top:6px;font-weight:700;}
   .ack.sm{font-size:12px;padding:3px 10px;margin:0 0 0 auto;flex:none;align-self:center;}
   /* 검색·꼬리표 모아 보기 (제안 1·5) */
@@ -358,6 +370,16 @@
     <div id="plbody"></div>
   </div>
 </div>
+<div class="pback" id="cxback" hidden>
+  <div class="ppanel cxpanel" role="dialog" aria-modal="true" aria-labelledby="cxtitle">
+    <span class="btitle" id="cxtitle">할 일 취소</span>
+    <div class="cxt" id="cxtask"></div>
+    <p class="pnote">진행하지 않아도 되는 이유를 적어 주십시오. 사유는 업무 카드에 함께 남아요.</p>
+    <div class="cxq" id="cxq"><button type="button">상황이 바뀌어 필요 없음</button><button type="button">다른 사람이 처리함</button><button type="button">중복 요청</button><button type="button">잘못 맡김</button></div>
+    <textarea id="cxin" maxlength="300" placeholder="취소 사유 (필수)"></textarea>
+    <div class="prow"><button class="hbtn big" type="button" id="cxok">취소하기</button><button class="hbtn plain" type="button" id="cxclose">닫기</button></div>
+  </div>
+</div>
 <div class="presmenu" id="presMenu" hidden role="menu" aria-label="출근·퇴근">
   <span class="pmt">어느 센터로 출근하나요?</span>
   <button type="button" data-loc="본원">본원</button>
@@ -406,6 +428,11 @@
     if (/p_reply|bad_reply/.test(m + JSON.stringify((e && e.data) || ''))) return /bad_reply/.test(m) ? '답장할 메시지를 찾지 못했습니다.' : '답장 기능 준비가 아직 끝나지 않았습니다(마이그레이션 202610190006).';
     if (/not_teacher/.test(m)) return '허브 개인 계정으로 로그인해야 쓸 수 있습니다.';
     if (/not_allowed/.test(m)) return '맡은 사람·맡긴 사람만 바꿀 수 있어요.';
+    if (/need_reason/.test(m)) return '취소 사유를 적어 주십시오.';
+    if (/not_pending/.test(m)) return '이미 완료되었거나 취소된 할 일입니다.';
+    if (/not_canceled/.test(m)) return '이미 다시 할 일로 돌아와 있습니다.';
+    if (/\bcanceled\b/.test(m)) return '취소한 할 일입니다. [되돌리기]를 먼저 눌러 주십시오.';
+    if (/msg_task_cancel/.test(m)) return '취소 기능 준비가 아직 끝나지 않았습니다(마이그레이션 202610200001).';
     if (/bad_files/.test(m)) return '파일 정보가 올바르지 않습니다.';
     if (/too_long/.test(m)) return '메시지가 너무 깁니다(4,000자까지).';
     if (/Failed to fetch|NetworkError/.test(m)) return '인터넷 연결을 확인해 주세요.';
@@ -665,11 +692,11 @@
   }
   // 할 일 표시: 아직 · 확인 hh:mm(알았다고 누름) · 완료 hh:mm. 여럿(@모두 등 5명 넘게)이면 '확인 n / m' 한 줄로 접고 누르면 펼친다.
   var openChips = {};
-  function seenOf(t){ return t.status === '완료' || !!t.seen_at; }
+  function seenOf(t){ return t.status !== '대기' || !!t.seen_at; }   // 완료·취소도 끝난 것으로 센다
   function chipOne(t){
-    var done = t.status === '완료', seen = !done && !!t.seen_at;
-    return '<button class="tk ' + (done ? 'ok' : seen ? 'seen' : 'wait') + '" type="button" data-card="' + esc(t.assignee || t.assignee_name) + '">'
-      + (t.ack_only ? '' : '할 일 → ') + esc(t.assignee_name) + ' · ' + (done ? (t.ack_only ? '확인 ' : '완료 ') + hm(t.done_at) : seen ? '확인 ' + hm(t.seen_at) : '아직') + '</button>';
+    var cx = t.status === '취소', done = t.status === '완료', seen = !done && !cx && !!t.seen_at;
+    return '<button class="tk ' + (cx ? 'cx' : done ? 'ok' : seen ? 'seen' : 'wait') + '" type="button" data-card="' + esc(t.assignee || t.assignee_name) + '"' + (cx ? ' title="취소 사유: ' + esc(t.cancel_reason || '') + '"' : '') + '>'
+      + (t.ack_only ? '' : '할 일 → ') + esc(t.assignee_name) + ' · ' + (cx ? '취소 ' + hm(t.done_at) : done ? (t.ack_only ? '확인 ' : '완료 ') + hm(t.done_at) : seen ? '확인 ' + hm(t.seen_at) : '아직') + '</button>';
   }
   function chipsHtml(id){
     var ts = tasksOf(id);
@@ -1072,6 +1099,8 @@
   }
 
   // ── 업무 카드 ─────────────────────────────────────
+  // 취소(사유 필수) — 맡긴 사람·맡은 사람·관리자, @모두 할 일은 맡긴 사람·관리자만 (202610200001). 열이 없으면(마이그레이션 전) 버튼 없음
+  function canCancel(t){ if (!('cancel_reason' in t)) return false; if (t.ack_only) return t.requester === ME.id || ME.role === 'admin'; return t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'; }
   function canCheck(t){ if (t.ack_only) return t.assignee === ME.id && t.status !== '완료'; return t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'; }   // @모두 할 일은 본인만, 확인한 뒤엔 되돌리지 않음
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
   // 모든 사람에게 카드 — 출근하지 않은 사람은 흐리게(내용은 그대로 보임), 오늘 수업이 있으면 반마다 수업 기록 줄 (2026-10-20 원장님)
@@ -1079,7 +1108,7 @@
     var start = dayStartMs(), map = {};
     MEMBERS.forEach(function(m){ map[m.id] = { key: m.id, name: m.name, role: m.role, todo: [], done: [], les: lessonsOf(m.id) }; });
     TASKS.forEach(function(t){
-      var done = t.status === '완료';
+      var done = t.status !== '대기';   // 완료·취소 — 오늘 것만 카드에
       if (done && !(t.done_at && Date.parse(t.done_at) >= start)) return;
       var key = t.assignee || ('n:' + t.assignee_name);
       if (!map[key]){ var mem = MBY[t.assignee]; map[key] = { key: key, name: mem ? mem.name : t.assignee_name, role: mem ? mem.role : '', todo: [], done: [], les: [] }; }
@@ -1108,8 +1137,12 @@
         var c = Date.parse(t.created_at), late = c < start ? md(t.created_at) + '부터 남음' : (now - c > LATE_MS ? Math.floor((now - c) / 3600e3) + '시간 지남' : '');
         return '<div class="ci"><button class="bx" type="button" data-tk="' + t.id + '" aria-label="완료로 표시"' + (canCheck(t) ? '' : ' disabled title="맡은 사람·맡긴 사람만 체크할 수 있어요"') + '></button>'
           + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta' + (late ? ' lt' : '') + '">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + (late ? ' · ' + late : '') + (t.seen_at ? ' · 확인함' : '') + '</span></button>'
-          + (t.assignee === ME.id && !t.seen_at && 'seen_at' in t ? '<button class="ack sm" type="button" data-ack="' + t.id + '">확인</button>' : '') + '</div>';
+          + (t.assignee === ME.id && !t.seen_at && 'seen_at' in t ? '<button class="ack sm" type="button" data-ack="' + t.id + '">확인</button>' : '')
+          + (canCancel(t) ? '<button class="cxb" type="button" data-cx="' + t.id + '" title="진행하지 않아도 되면 사유를 적고 취소합니다">취소</button>' : '') + '</div>';
       }).concat(p.done.sort(function(a, b){ return Date.parse(b.done_at) - Date.parse(a.done_at); }).map(function(t){
+        if (t.status === '취소') return '<div class="ci d x"><span class="bx x" title="취소한 할 일">×</span>'
+          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · 취소 ' + hm(t.done_at) + (t.done_by_name ? ' (' + esc(t.done_by_name) + ')' : '') + '<br><span class="why">사유: ' + esc(t.cancel_reason || '') + '</span></span></button>'
+          + (canCancel(t) ? '<button class="cxb" type="button" data-uncx="' + t.id + '" title="취소를 풀고 다시 할 일로">되돌리기</button>' : '') + '</div>';
         return '<div class="ci d"><button class="bx on" type="button" data-tk="' + t.id + '" data-done="1" aria-label="완료 취소"' + (canCheck(t) ? '' : ' disabled') + '>' + CHECK + '</button>'
           + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</span></button></div>';
       })).join('');
@@ -1136,8 +1169,41 @@
       return;
     }
     if (b.dataset.ack){ ackTask(Number(b.dataset.ack), b); return; }
+    if (b.dataset.cx){ cxOpen(Number(b.dataset.cx)); return; }
+    if (b.dataset.uncx){ cxUndo(Number(b.dataset.uncx), b); return; }
     if (b.dataset.go) goTo(Number(b.dataset.go));
   });
+  // ── 할 일 취소 + 사유 (2026-10-20 원장님 "상황이 변경되어 그 업무를 진행하지 않아도 된다면 삭제 사유기록") ──
+  // 줄을 지우지 않고 '취소'로 남긴다(사유 필수) — 오늘 카드에 '취소 · 사유'로 보이고 다음 날 사라진다. 메시지 아래 표시도 '취소'.
+  var cxId = null;
+  function cxOpen(id){
+    var t = TASKS.get(id); if (!t) return;
+    cxId = id;
+    $('cxtask').innerHTML = esc(t.assignee_name) + ' · ' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest);
+    $('cxin').value = ''; $('cxok').disabled = false;
+    $('cxback').hidden = false; $('cxin').focus();
+  }
+  function cxClose(){ $('cxback').hidden = true; cxId = null; }
+  $('cxclose').onclick = cxClose;
+  $('cxback').addEventListener('click', function(e){ if (e.target === $('cxback')) cxClose(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('cxback').hidden) cxClose(); });
+  $('cxq').addEventListener('click', function(e){ var b = e.target.closest('button'); if (b){ $('cxin').value = b.textContent; $('cxin').focus(); } });
+  $('cxok').onclick = function(){
+    var id = cxId, why = $('cxin').value.trim();
+    if (!why){ status('취소 사유를 적어 주십시오.'); $('cxin').focus(); return; }
+    $('cxok').disabled = true;
+    rpc('msg_task_cancel', { p_id: id, p_reason: why }).then(function(row){
+      cxClose(); TASKS.delete(id); addTasks([row]); renderBoard(); renderMsgs('keep');
+    }).catch(function(e){ $('cxok').disabled = false; status(errText(e), 6000); });
+  };
+  function cxUndo(id, btn){
+    if (!confirm('취소를 풀고 다시 할 일로 돌릴까요?')) return;
+    if (btn) btn.disabled = true;
+    rpc('msg_task_cancel', { p_id: id, p_undo: true }).then(function(row){
+      TASKS.delete(id); addTasks([row]); renderBoard(); renderMsgs('keep');
+    }).catch(function(e){ if (btn) btn.disabled = false; status(errText(e)); });
+  }
+
   // ── 출근·퇴근 (2026-10-19 원장님 "구성원이 어느 센터 on, off 상태를 표시") ─────────
   // 표 msg_presence(사람마다 한 줄) — 쓰기는 msg_presence_set 함수로만. 오늘 출근한 것만 ON(날짜가 바뀌면 OFF에서 시작).
   var PRES = {}, presOk = false, presDay = '', PRES_LOCS = ['본원', '화정센터', '민초센터', '정리정독'];

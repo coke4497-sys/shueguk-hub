@@ -43,6 +43,8 @@ P -f supabase/migrations/202610190004_messenger_presence.sql >/dev/null && ok y 
 P -f supabase/migrations/202610190005_messenger_seen_all.sql >/dev/null || { echo "확인·모두 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610190005_messenger_seen_all.sql >/dev/null && ok y y "확인·모두 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610190006_messenger_reply.sql >/dev/null || { echo "답장 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200001_messenger_cancel.sql >/dev/null || { echo "취소 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200001_messenger_cancel.sql >/dev/null && ok y y "취소 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610190006_messenger_reply.sql >/dev/null && ok y y "답장 마이그레이션 다시 실행해도 오류 없음"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
@@ -167,6 +169,27 @@ ok "$R1" "$R0" "답장 = reply_to 저장"
 ok "$(as $A "select public.msg_send(p_body => 'x', p_reply => 999999)" | grep -c bad_reply)" 1 "없는 메시지에 답장 거절"
 as $C "select public.msg_delete($R0)" >/dev/null
 ok "$(as $A "select reply_to from public.msg_messages where reply_to=$R0 limit 1")" "$R0" "원글을 지워도 답장 연결은 남음"
+
+echo "── 할 일 취소 · 사유 (202610200001)"
+MX=$(as $A "select (public.msg_send('시험지 출력 부탁 @고희주', '[]', array['$C']::uuid[])->'message'->>'id')")
+TX=$(as $A "select id from public.msg_tasks where message_id=$MX")
+ok "$(as $A "select public.msg_task_cancel($TX, '  ')" | grep -c need_reason)" 1 "사유 없이는 취소 못 함"
+ok "$(as $B "select public.msg_task_cancel($TX, '상황 변경')" | grep -c not_allowed)" 1 "남의 할 일은 취소 못 함"
+ok "$(as $C "select (public.msg_task_cancel($TX, ' 시험 연기로 필요 없음 ')->>'status')")" "취소" "맡은 사람이 사유와 함께 취소"
+ok "$(as $C "select cancel_reason||'|'||done_by_name||'|'||(done_at is not null) from public.msg_tasks where id=$TX")" "시험 연기로 필요 없음|고희주|true" "사유·취소한 사람·시각이 남음"
+ok "$(as $C "select public.msg_task_cancel($TX, '다시')" | grep -c not_pending)" 1 "이미 취소한 할 일은 다시 취소 못 함"
+ok "$(as $C "select public.msg_task_set($TX, true)" | grep -c canceled)" 1 "취소한 할 일은 체크 못 함"
+ok "$(as $C "select (public.msg_task_seen($TX)->>'status')")" "취소" "확인을 눌러도 취소 그대로"
+ok "$(as $A "select (public.msg_task_cancel($TX, '', true)->>'status')")" "대기" "맡긴 사람이 되돌리면 대기"
+ok "$(as $A "select cancel_reason||'|'||coalesce(done_by_name,'-')||'|'||(done_at is null) from public.msg_tasks where id=$TX")" "|-|true" "되돌리면 사유·취소한 사람 지움"
+ok "$(as $A "select public.msg_task_cancel($TX, '', true)" | grep -c not_canceled)" 1 "취소 안 된 할 일은 되돌리기 없음"
+MY=$(as $B "select (public.msg_send('회의 공지 @모두', '[]', '{}')->'message'->>'id')")
+TY=$(as $B "select id from public.msg_tasks where message_id=$MY and assignee='$C'")
+ok "$(as $C "select public.msg_task_cancel($TY, '못 가요')" | grep -c not_allowed)" 1 "@모두 받은 사람은 스스로 취소 못 함"
+ok "$(as $B "select (public.msg_task_cancel($TY, '회의 취소')->>'status')")" "취소" "@모두 보낸 사람은 취소 가능"
+ok "$(as $C "select (public.msg_task_seen($TY)->>'status')")" "취소" "@모두 확인이 취소를 완료로 덮지 않음"
+ok "$(as $C "update public.msg_tasks set status='취소' where id=$TN" 2>&1 | grep -c 'permission denied')" 1 "표에 직접 쓰기 불가"
+ok "$(anon "select public.msg_task_cancel($TX, 'x')" | grep -c 'permission denied')" 1 "공개 키는 취소 함수 실행 불가"
 
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null

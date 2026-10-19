@@ -47,7 +47,7 @@ function addMsg(author, body, files, createdIso){
 }
 function addTask(m, assignee, text, createdIso){
   const t = createdIso || m.created_at;
-  const k = { id: ++tid, message_id: m.id, assignee, assignee_name: NAME[assignee], requester: m.author, requester_name: m.author_name, text, status: '대기', done_by_name: null, done_at: null, seen_at: null, ack_only: false, created_at: t, updated_at: t };
+  const k = { id: ++tid, message_id: m.id, assignee, assignee_name: NAME[assignee], requester: m.author, requester_name: m.author_name, text, status: '대기', done_by_name: null, done_at: null, seen_at: null, ack_only: false, cancel_reason: '', created_at: t, updated_at: t };
   TASKS.push(k); return k;
 }
 // 어제 남은 일 · 4시간 지난 일 · 오늘 일
@@ -149,6 +149,13 @@ function filterRows(rows, u){
         const t = TASKS.find(x => x.id === b.p_id);
         t.seen_at = t.seen_at || ts(); if (t.ack_only && t.status !== '완료'){ t.status = '완료'; t.done_at = ts(); t.done_by_name = '고희주'; } t.updated_at = ts();
         return json(t);
+      }
+      if (p === '/rest/v1/rpc/msg_task_cancel'){
+        const b = JSON.parse(req.postData()); calls.push(['cancel', b]);
+        const t = TASKS.find(x => x.id === b.p_id);
+        if (b.p_undo){ t.status = '대기'; t.cancel_reason = ''; t.done_by_name = null; t.done_at = null; }
+        else { if (!String(b.p_reason || '').trim()) return json({ message: 'need_reason' }, 400); t.status = '취소'; t.cancel_reason = b.p_reason.trim(); t.done_by_name = '고희주'; t.done_at = ts(); }
+        t.updated_at = ts(); return json(t);
       }
       if (p === '/rest/v1/rpc/msg_task_set'){
         const b = JSON.parse(req.postData()); calls.push(['task', b]);
@@ -717,6 +724,37 @@ function filterRows(rows, u){
   ok(await page.locator('#presBtn').isHidden() && await page.locator('#pres').isHidden() && await page.locator('#presListBtn').isHidden(), '표가 없으면(마이그레이션 전) 출근 기능만 숨김');
   await ctx.close();
   noPres = false;
+
+  console.log('㉑ 할 일 취소 + 사유 (2026-10-20 원장님)');
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id);
+  const tq = TASKS.find(x => x.message_id === m1.id);   // 이수경 → 나
+  const myCard = page.locator('.pc[data-person="' + ME + '"]');
+  ok(await myCard.locator('[data-cx="' + tq.id + '"]').count() === 1, '내가 맡은 할 일에 [취소]');
+  const jwTask = TASKS.find(x => x.message_id === m4.id);
+  ok(await page.locator('[data-cx="' + jwTask.id + '"]').count() === 0, '남끼리의 할 일엔 [취소] 없음');
+  const allMine = TASKS.find(x => x.ack_only && x.assignee === ME && x.requester !== ME);
+  if (allMine) ok(await page.locator('[data-cx="' + allMine.id + '"]').count() === 0, '@모두로 받은 할 일은 스스로 취소 못 함');
+  await myCard.locator('[data-cx="' + tq.id + '"]').click();
+  ok(await page.locator('#cxback').isVisible() && (await page.locator('#cxtask').textContent()).includes('허은재'), '취소 창에 그 할 일');
+  await page.click('#cxok');
+  ok(!calls.some(c => c[0] === 'cancel') && await page.locator('#cxback').isVisible(), '사유 없이는 보내지 않음');
+  await page.locator('#cxq button', { hasText: '상황이 바뀌어' }).click();
+  ok((await page.inputValue('#cxin')) === '상황이 바뀌어 필요 없음', '빠른 사유 고르기');
+  if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'cancel-dialog.png') });
+  await page.fill('#cxin', '퇴원 철회 — 처리할 것 없음');
+  await page.click('#cxok');
+  await page.waitForFunction(() => document.querySelector('#cxback').hidden);
+  const cc = calls.filter(c => c[0] === 'cancel').pop();
+  ok(cc && cc[1].p_id === tq.id && cc[1].p_reason === '퇴원 철회 — 처리할 것 없음', 'msg_task_cancel(id, 사유)');
+  const xr = myCard.locator('.ci.x');
+  if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'cancel.png') });
+  ok(await xr.count() === 1 && (await xr.textContent()).includes('사유: 퇴원 철회'), '카드에 취소 줄과 사유');
+  ok((await page.locator('#m' + m1.id + ' .tk.cx').textContent()).includes('취소'), '메시지 아래 표시도 취소');
+  await xr.locator('[data-uncx]').click();
+  await page.waitForFunction(id => !document.querySelector('.ci.x') && document.querySelector('[data-cx="' + id + '"]'), tq.id);
+  ok(calls.filter(c => c[0] === 'cancel').pop()[1].p_undo === true, '[되돌리기] → 다시 할 일');
+  await ctx.close();
 
   console.log('⑫ 출근 전 카드는 흐리게 · 오늘 수업 기록 줄 (2026-10-20 원장님)');
   const kd = new Date(Date.now() + 9 * 3600e3), today = kd.toISOString().slice(0, 10), dn = '일월화수목금토'[kd.getUTCDay()];
