@@ -48,16 +48,15 @@ const TT = [
 ];
 const TTP = [{ week_wednesday: '2026-10-21', book: '정규', overrides: {} }];
 const TTLOG = [{ kind: '주간반휴강', from_class_id: 'r004', apply_date: '2026-10-21' }];
+// 슈톡 할 일 — 대기·완료·취소(cancel_reason), 미룸 = 대기 + due_at, 넘김 = history(맡은 사람이 바뀜)
 const TASKS = [
-  { id: 1, message_id: 1, assignee: HEEJU, assignee_name: '고희주', requester: BOSS, requester_name: '이수경', text: '중3 김민준 결석 처리', status: '완료', done_at: K('2026-10-21', '16:10'), created_at: K('2026-10-21', '15:30'), state_reason: null },
-  { id: 2, message_id: 2, assignee: HEEJU, assignee_name: '고희주', requester: EUNJI, requester_name: '이은지', text: '학부모님 상담 전화', status: '미룸', done_at: null, created_at: K('2026-10-21', '15:40'), state_reason: '학부모님 통화가 안 됨' },
-  { id: 3, message_id: 3, assignee: HEEJU, assignee_name: '고희주', requester: BOSS, requester_name: '이수경', text: '교재 주문', status: '위임', done_at: K('2026-10-21', '18:00'), delegated_name: '이은지', created_at: K('2026-10-21', '15:50'), state_reason: '내일 쉬어요' },
-  { id: 4, message_id: 3, assignee: EUNJI, assignee_name: '이은지', requester: BOSS, requester_name: '이수경', text: '교재 주문', status: '진행중', done_at: null, delegated_from: 3, created_at: K('2026-10-21', '18:00'), state_reason: null },
-  { id: 5, message_id: 4, assignee: HEEJU, assignee_name: '고희주', requester: BOSS, requester_name: '이수경', text: '옛날 일', status: '완료', done_at: K('2026-10-01', '10:00'), created_at: K('2026-10-01', '09:00') },
-];
-const TLOG = [
-  { task_id: 2, status: '미룸', reason: '학부모님 통화가 안 됨', to_name: null, by_name: '고희주', at: K('2026-10-21', '17:10') },
-  { task_id: 3, status: '위임', reason: '내일 쉬어요', to_name: '이은지', by_name: '고희주', at: K('2026-10-21', '18:00') },
+  { id: 1, message_id: 1, assignee: HEEJU, assignee_name: '고희주', requester: BOSS, requester_name: '이수경', text: '중3 김민준 결석 처리', status: '완료', done_at: K('2026-10-21', '16:10'), created_at: K('2026-10-21', '15:30'), history: [] },
+  { id: 2, message_id: 2, assignee: HEEJU, assignee_name: '고희주', requester: EUNJI, requester_name: '이은지', text: '학부모님 상담 전화', status: '대기', done_at: null, due_at: K('2026-10-21', '19:00'), due_note: '학부모님 통화가 안 됨', created_at: K('2026-10-21', '15:40'),
+    history: [{ kind: '미룸', until: K('2026-10-21', '19:00'), by: '고희주', at: K('2026-10-21', '17:10'), note: '학부모님 통화가 안 됨' }] },
+  { id: 3, message_id: 3, assignee: EUNJI, assignee_name: '이은지', requester: BOSS, requester_name: '이수경', text: '교재 주문', status: '대기', done_at: null, created_at: K('2026-10-21', '15:50'),
+    history: [{ kind: '넘김', from: '고희주', to: '이은지', by: '고희주', at: K('2026-10-21', '18:00'), note: '내일 쉬어요' }] },
+  { id: 4, message_id: 4, assignee: HEEJU, assignee_name: '고희주', requester: BOSS, requester_name: '이수경', text: '시험지 복사', status: '취소', done_at: K('2026-10-21', '18:30'), done_by_name: '이수경', cancel_reason: '상황이 바뀌어 필요 없음', created_at: K('2026-10-21', '16:00'), history: [] },
+  { id: 5, message_id: 5, assignee: HEEJU, assignee_name: '고희주', requester: BOSS, requester_name: '이수경', text: '옛날 일', status: '완료', done_at: K('2026-10-01', '10:00'), created_at: K('2026-10-01', '09:00'), updated_at: K('2026-10-01', '10:00'), history: [] },
 ];
 const USAGE = [
   { user_id: HEEJU, name: '고희주', ymd: '2026-10-21', page: 'shueguk-report/timetable.html', minutes: 30, first_at: K('2026-10-21', '15:02'), last_at: K('2026-10-21', '19:20') },
@@ -101,7 +100,6 @@ const calls = [];
       if (p === '/rest/v1/tt_period') return json(TTP);
       if (p === '/rest/v1/tt_log') return json(TTLOG);
       if (p === '/rest/v1/msg_tasks') return json(TASKS);
-      if (p === '/rest/v1/msg_task_log') return json(TLOG);
       if (p === '/rest/v1/rpc/staff_usage'){
         if (noFn) return json({ code: 'PGRST202', message: 'Could not find the function' }, 404);
         const b = JSON.parse(req.postData()); return json(USAGE.filter(x => x.ymd >= b.p_from && x.ymd <= b.p_to));
@@ -137,12 +135,12 @@ const calls = [];
   ok((await page.locator('#range').textContent()) === '10/21 (수) ~ 10/21 (수)', '기간 표시');
   const hj = await rowOf(page, HEEJU).textContent();
   ok(hj.includes('4시간 30분') && hj.includes('1일 · 본원·화정센터'), '고희주 근무 4시간 30분 · 센터 두 곳 (' + hj + ')');
-  ok(hj.includes('1 / 3 완료') && hj.includes('미룸 1') && hj.includes('위임 1'), '고희주 업무 1 / 3 완료 · 미룸 1 · 위임 1 (옛 완료는 빠짐)');
+  ok(hj.includes('1 / 3 완료') && hj.includes('미룸 1') && hj.includes('위임 1') && hj.includes('취소 1'), '고희주 업무 1 / 3 완료 · 미룸 1 · 위임(넘김) 1 · 취소 1 (옛 완료는 빠짐)');
   ok(hj.includes('35분') && hj.includes('42분'), '티쳐스 35분 · 슈톡 42분');
   const ej = await rowOf(page, EUNJI).textContent();
   ok(ej.includes('4시간 0분') || ej.includes('4시간'), '이은지 근무 = 오늘 16:00~지금(20:00) 4시간 (' + ej + ')');
   ok(ej.includes('4시간 30분') && ej.includes('3회'), '이은지 수업 4시간 30분 · 3회 (정규 2 + 이 주만 1, 내신·휴강·빈 반·다음날 제외)');
-  ok(ej.includes('진행 중 1'), '이은지 넘겨받은 일 진행 중');
+  ok(ej.includes('0 / 1 완료') && ej.includes('대기 1'), '이은지 넘겨받은 일 대기');
   const bs = await rowOf(page, BOSS).textContent();
   ok(bs.includes('2시간') && bs.includes('1회'), "'슈' 수업 = 이수경 2시간");
   ok(bs.includes('출근 기록 없음') && bs.includes('맡은 일 없음'), '기록 없는 사람도 줄');
@@ -151,9 +149,10 @@ const calls = [];
   await page.waitForSelector('#detail:not([hidden])');
   const dt = await page.locator('#detail').textContent();
   ok(dt.includes('화정센터 · 15:00 ~ 17:00 (센터 옮김)') && dt.includes('본원 · 17:00 ~ 19:30'), '근무 기록 줄(센터 옮김)');
-  ok(dt.includes('미룸 학부모님 상담 전화') && dt.includes('사유: 학부모님 통화가 안 됨'), '미룸 + 사유');
-  ok(dt.includes('이은지에게 넘김 · 내일 쉬어요'), '위임 = 넘겨받은 사람 + 사유');
-  ok(dt.includes('고희주 → 미룸 · 학부모님 통화가 안 됨'), '상태 기록(누가·언제·사유)');
+  ok(dt.includes('미룸 학부모님 상담 전화') && dt.includes('10/21 (수) 19:00까지 하겠다고 미룸 — 학부모님 통화가 안 됨') && dt.includes('약속 지남'), '미룸 = 언제까지 + 메모 + 약속 지남');
+  ok(dt.includes('이은지님에게 넘김 — 내일 쉬어요 · 지금 이은지 · 대기'), '위임(넘김) = 받은 사람 + 사유 + 지금 상태');
+  ok(dt.includes('취소 사유: 상황이 바뀌어 필요 없음') && dt.includes('(이수경)'), '취소 = 사유 + 취소한 사람');
+  ok(dt.includes('고희주 · 10/21 (수) 19:00까지 미룸'), '기록 리스트(누가·언제)');
   ok(dt.includes('슈국 스케쥴') && dt.includes('30분') && dt.includes('슈국 운영'), '페이지별 사용 시간');
   ok(dt.includes('15:00 ~ 19:30 사이'), '슈톡 사용 시각 범위');
   await rowOf(page, EUNJI).click();

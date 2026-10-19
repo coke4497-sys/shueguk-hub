@@ -152,20 +152,6 @@ function filterRows(rows, u){
         t.seen_at = t.seen_at || ts(); if (t.ack_only && t.status !== '완료'){ t.status = '완료'; t.done_at = ts(); t.done_by_name = '고희주'; } t.updated_at = ts();
         return json(t);
       }
-      if (p === '/rest/v1/rpc/msg_task_state'){
-        const b = JSON.parse(req.postData()); calls.push(['state', b]);
-        const t = TASKS.find(x => x.id === b.p_id), cl = ['완료', '위임', '삭제'].includes(b.p_status);
-        t.status = b.p_status; t.state_reason = b.p_reason; t.state_by_name = '고희주'; t.state_at = ts();
-        t.done_at = cl ? ts() : null; t.done_by_name = cl ? '고희주' : null;
-        let nw = null;
-        if (b.p_status === '위임'){
-          t.delegated_to = b.p_to; t.delegated_name = NAME[b.p_to];
-          nw = { id: ++tid, message_id: t.message_id, assignee: b.p_to, assignee_name: NAME[b.p_to], requester: t.requester, requester_name: t.requester_name, text: t.text, status: '대기', done_by_name: null, done_at: null, seen_at: null, ack_only: false, state_at: null, state_reason: null, delegated_from: t.id, created_at: ts(), updated_at: ts() };
-          TASKS.push(nw);
-        }
-        t.updated_at = ts();
-        return json({ task: t, new: nw });
-      }
       if (p === '/rest/v1/rpc/msg_task_set'){
         const b = JSON.parse(req.postData()); calls.push(['task', b]);
         const t = TASKS.find(x => x.id === b.p_id);
@@ -858,62 +844,6 @@ function filterRows(rows, u){
   await ctx.close();
   failTT = false;
 
-  console.log('⑳ 할 일 상태 (진행 중·미룸·위임·삭제 + 사유)');
-  ok(!(await (async () => { ({ ctx, page } = await open()); await page.waitForSelector('.pc'); const c = await page.locator('.stb').count(); await ctx.close(); return c; })()), '마이그레이션 전(state_at 없음)에는 상태 버튼 없음');
-  const ms1 = addMsg(EUNJI, '상담 기록 정리 @고희주', [], ago(0.05));
-  const ts1 = addTask(ms1, ME, '상담 기록 정리'); ts1.state_at = null;
-  const ms2 = addMsg(EUNJI, '교재 주문 @고희주', [], ago(0.04));
-  const ts2 = addTask(ms2, ME, '교재 주문'); ts2.state_at = null;
-  const ms3 = addMsg(BOSS, '공지 @모두', [], ago(0.03));
-  const ts3 = addTask(ms3, ME, '공지'); ts3.ack_only = true; ts3.state_at = null;
-  ({ ctx, page } = await open());
-  await page.waitForSelector('.pc[data-person="' + ME + '"] [data-st="' + ts1.id + '"]');
-  ok(await page.locator('[data-st="' + ts3.id + '"]').count() === 0, '@모두 할 일에는 상태 버튼 없음');
-  await page.click('[data-st="' + ts1.id + '"]');
-  ok(!(await page.locator('#stback').isHidden()), '상태 창 열림');
-  ok((await page.locator('#stpills button.on').textContent()) === '대기', '지금 상태가 골라져 있음');
-  ok((await page.locator('#stpills button').allTextContents()).join(',') === '대기,진행 중,미룸,위임,삭제,완료', '상태 여섯 가지');
-  await page.click('#stpills [data-v="미룸"]');
-  ok(!(await page.locator('#strf').isHidden()) && await page.locator('#sttof').isHidden(), '미룸 → 사유 칸만');
-  const before = calls.length;
-  await page.click('#stsave');
-  ok(calls.slice(before).every(c => c[0] !== 'state') && (await page.locator('#status').textContent()).includes('사유'), '사유 없이 저장하면 막음');
-  await page.fill('#streason', '학부모님 통화가 안 됨');
-  await page.click('#stsave');
-  await page.waitForFunction(() => document.querySelector('#stback').hidden);
-  let stc = calls.filter(c => c[0] === 'state').pop();
-  ok(stc && stc[1].p_status === '미룸' && stc[1].p_reason === '학부모님 통화가 안 됨' && stc[1].p_to === null, 'msg_task_state(미룸, 사유)');
-  const myCard = page.locator('.pc[data-person="' + ME + '"]');
-  ok((await myCard.textContent()).includes('미룸학부모님 통화가 안 됨'), '카드에 미룸 알약 + 사유');
-  ok(await myCard.locator('.ci:not(.d) [data-st="' + ts1.id + '"]').count() === 1, '미룸은 남은 일에 그대로');
-  ok((await page.locator('#m' + ms1.id + ' .tk').textContent()).includes('미룸'), '메시지 아래 표시 = 미룸');
-  await page.click('[data-st="' + ts2.id + '"]'); await page.click('#stpills [data-v="진행중"]');
-  ok(await page.locator('#strf').isHidden(), '진행 중은 사유 없이');
-  await page.click('#stsave'); await page.waitForFunction(() => document.querySelector('#stback').hidden);
-  ok((await myCard.textContent()).includes('진행 중'), '진행 중 알약');
-  // 위임
-  await page.click('[data-st="' + ts1.id + '"]'); await page.click('#stpills [data-v="위임"]');
-  ok(!(await page.locator('#sttof').isHidden()), '위임 → 사람 고르기');
-  ok(!(await page.locator('#stto').innerHTML()).includes('>고희주'), '맡은 사람(나)은 목록에 없음');
-  await page.fill('#streason', '내일 쉬어요');
-  await page.click('#stsave');
-  ok((await page.locator('#status').textContent()).includes('사람'), '사람 없이 저장하면 막음');
-  await page.selectOption('#stto', EUNJI);
-  await page.click('#stsave'); await page.waitForFunction(() => document.querySelector('#stback').hidden);
-  stc = calls.filter(c => c[0] === 'state').pop();
-  ok(stc[1].p_status === '위임' && stc[1].p_to === EUNJI && stc[1].p_reason === '내일 쉬어요', 'msg_task_state(위임, 사유, 받는 사람)');
-  const ec2 = page.locator('.pc[data-person="' + EUNJI + '"]');
-  ok((await ec2.textContent()).includes('고희주에게서 넘겨받음'), '넘겨받은 사람 카드에 새 할 일');
-  ok((await myCard.locator('.ci.d').first().textContent()).includes('이은지에게 위임'), '내 카드는 끝난 일로(이은지에게 위임)');
-  ok(await myCard.locator('.ci.d .bx').first().isDisabled(), '위임한 할 일은 체크 불가');
-  ok((await page.locator('#m' + ms1.id).textContent()).includes('위임 → 이은지'), '메시지 아래 = 위임 → 이은지');
-  // 삭제
-  await page.click('[data-st="' + ts2.id + '"]'); await page.click('#stpills [data-v="삭제"]');
-  ok((await page.locator('#strl').textContent()).includes('하지 않는 사유'), '삭제 사유 안내');
-  await page.fill('#streason', '이미 주문됨'); await page.click('#stsave'); await page.waitForFunction(() => document.querySelector('#stback').hidden);
-  ok((await myCard.textContent()).includes('삭제이미 주문됨'), '삭제 + 사유는 끝난 일로');
-  await page.keyboard.press('Escape');
-  if (process.env.SHOT){ await page.click('[data-st="' + ts2.id + '"]'); await page.click('#stpills [data-v="위임"]'); await page.screenshot({ path: path.join(process.env.SHOT, 'state-dialog.png') }); }
   // 새로고침 버튼 (2026-10-20) — ?v=시각으로 다시 열고, 열린 뒤 주소에서 v를 지움 · 쓰던 글이 있으면 먼저 물음
   ({ ctx, page } = await open({ width: 390, height: 844 }));
   await page.waitForSelector('#m' + m3.id);

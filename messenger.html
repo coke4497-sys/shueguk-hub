@@ -147,25 +147,6 @@
   .tk.ok{background:var(--ok);color:var(--okInk);}
   .tk.seen{background:var(--lav);color:var(--lavInk);}
   .tk.sum{font-weight:700;}
-  .tk.prog{background:#E9EDF8;color:#3F4E78;}
-  .tk.late{background:var(--late);color:var(--lateInk);}
-  .tk.gone{background:#EEF1EF;color:#5C6A64;}
-  .stp{display:inline-block;font-size:11px;border-radius:999px;padding:0 7px;margin-right:4px;}
-  .stp.prog{background:#E9EDF8;color:#3F4E78;}
-  .stp.late{background:var(--late);color:var(--lateInk);}
-  .stp.gone{background:#E3E8E5;color:#4F5C56;}
-  .stb{border:0;border-radius:999px;background:var(--soft);color:var(--ink2);font-size:12px;padding:3px 9px;flex:none;align-self:center;}
-  .stb:hover{background:var(--lav);color:var(--lavInk);}
-  .stpanel{background:#fff;border-radius:18px;padding:18px 20px;max-width:440px;width:100%;display:flex;flex-direction:column;gap:12px;max-height:90vh;overflow:auto;}
-  .sttext{margin:0;font-size:14px;line-height:1.55;background:var(--soft);border-radius:12px;padding:10px 12px;overflow-wrap:anywhere;}
-  .stpills{display:flex;flex-wrap:wrap;gap:6px;}
-  .stpills button{border:0;border-radius:999px;padding:7px 14px;font-size:13.5px;background:var(--soft);color:var(--ink2);min-height:36px;}
-  .stpills button.on{background:var(--lavInk);color:#fff;font-weight:700;}
-  .stf{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--ink2);}
-  .stf[hidden]{display:none;}
-  .stf textarea,.stf select{font:inherit;font-size:14px;border:1px solid #D7E0DB;border-radius:10px;padding:8px 10px;color:var(--ink);background:#fff;}
-  .stf textarea{min-height:64px;resize:vertical;}
-  .stbtns{display:flex;gap:8px;justify-content:flex-end;}
   .ack{border:0;border-radius:999px;background:var(--lavInk);color:#fff;font-size:13px;padding:6px 14px;margin-top:6px;font-weight:700;}
   .ack.sm{font-size:12px;padding:3px 10px;margin:0 0 0 auto;flex:none;align-self:center;}
   /* 검색·꼬리표 모아 보기 (제안 1·5) */
@@ -388,17 +369,6 @@
     <div id="plbody"></div>
   </div>
 </div>
-<!-- 할 일 상태 바꾸기 (2026-10-19 원장님 강사 관리 "완료 진행중 미룸 위임 삭제 사유") -->
-<div class="pback" id="stback" hidden>
-  <div class="stpanel" role="dialog" aria-modal="true" aria-labelledby="sttitle">
-    <div class="plhead"><span class="btitle" id="sttitle">할 일 상태</span><button class="hbtn plain" type="button" id="stclose">닫기</button></div>
-    <p class="sttext" id="sttext"></p>
-    <div class="stpills" id="stpills" role="radiogroup" aria-label="상태"></div>
-    <label class="stf" id="sttof" hidden>누구에게 넘길까요?<select id="stto"></select></label>
-    <label class="stf" id="strf" hidden><span id="strl">사유 (꼭 적어 주십시오)</span><textarea id="streason" maxlength="300" placeholder="예: 학부모님 통화가 안 되어 내일 다시 연락드립니다"></textarea></label>
-    <div class="stbtns"><button class="hbtn" type="button" id="stsave">저장</button></div>
-  </div>
-</div>
 <div class="presmenu" id="presMenu" hidden role="menu" aria-label="출근·퇴근">
   <span class="pmt">어느 센터로 출근하나요?</span>
   <button type="button" data-loc="본원">본원</button>
@@ -510,7 +480,7 @@
       $('cnt').textContent = MEMBERS.length + '명';
       return Promise.all([
         api('/msg_messages?select=*&order=id.desc&limit=' + PAGE),
-        api('/msg_tasks?select=*&status=in.(' + encodeURIComponent('대기,진행중,미룸') + ')&order=id.asc&limit=1000'),
+        api('/msg_tasks?select=*&status=eq.' + encodeURIComponent('대기') + '&order=id.asc&limit=1000'),
         api('/msg_tasks?select=*&done_at=gte.' + encodeURIComponent(new Date(dayStartMs()).toISOString()) + '&order=id.asc&limit=1000')
       ]);
     }).then(function(res){
@@ -734,19 +704,11 @@
   }
   // 할 일 표시: 아직 · 확인 hh:mm(알았다고 누름) · 완료 hh:mm. 여럿(@모두 등 5명 넘게)이면 '확인 n / m' 한 줄로 접고 누르면 펼친다.
   var openChips = {};
-  // 상태: 대기·진행중·미룸 = 남은 일, 완료·위임·삭제 = 끝난 일 (마이그레이션 202610200005)
-  var CLOSED = { '완료': 1, '위임': 1, '삭제': 1 };
-  function closed(t){ return !!CLOSED[t.status]; }
-  function seenOf(t){ return closed(t) || !!t.seen_at; }
+  function seenOf(t){ return t.status === '완료' || !!t.seen_at; }
   function chipOne(t){
-    var done = t.status === '완료', seen = !closed(t) && !!t.seen_at;
-    var cls = done ? 'ok' : t.status === '위임' || t.status === '삭제' ? 'gone' : t.status === '진행중' ? 'prog' : t.status === '미룸' ? 'late' : seen ? 'seen' : 'wait';
-    var st = done ? (t.ack_only ? '확인 ' : '완료 ') + hm(t.done_at)
-      : t.status === '위임' ? '위임 → ' + esc(t.delegated_name || '')
-      : t.status === '삭제' ? '삭제' : t.status === '진행중' ? '진행 중' : t.status === '미룸' ? '미룸'
-      : seen ? '확인 ' + hm(t.seen_at) : '아직';
-    return '<button class="tk ' + cls + '" type="button" data-card="' + esc(t.assignee || t.assignee_name) + '"' + (t.state_reason ? ' title="' + esc(t.state_reason) + '"' : '') + '>'
-      + (t.ack_only ? '' : '할 일 → ') + esc(t.assignee_name) + ' · ' + st + '</button>';
+    var done = t.status === '완료', seen = !done && !!t.seen_at;
+    return '<button class="tk ' + (done ? 'ok' : seen ? 'seen' : 'wait') + '" type="button" data-card="' + esc(t.assignee || t.assignee_name) + '">'
+      + (t.ack_only ? '' : '할 일 → ') + esc(t.assignee_name) + ' · ' + (done ? (t.ack_only ? '확인 ' : '완료 ') + hm(t.done_at) : seen ? '확인 ' + hm(t.seen_at) : '아직') + '</button>';
   }
   function chipsHtml(id){
     var ts = tasksOf(id);
@@ -1149,34 +1111,20 @@
   }
 
   // ── 업무 카드 ─────────────────────────────────────
-  function canCheck(t){ if (t.status === '위임') return false; if (t.ack_only) return t.assignee === ME.id && t.status !== '완료'; return t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'; }   // @모두 할 일은 본인만, 확인한 뒤엔 되돌리지 않음 · 위임한 일은 잠금
-  function canState(t){ return 'state_at' in t && !t.ack_only && canCheck(t); }   // 상태 바꾸기 — 마이그레이션 202610200005 뒤, @모두 할 일 제외
+  function canCheck(t){ if (t.ack_only) return t.assignee === ME.id && t.status !== '완료'; return t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'; }   // @모두 할 일은 본인만, 확인한 뒤엔 되돌리지 않음
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
   // 모든 사람에게 카드 — 출근하지 않은 사람은 흐리게(내용은 그대로 보임), 오늘 수업이 있으면 반마다 수업 기록 줄 (2026-10-20 원장님)
   function people(){
     var start = dayStartMs(), map = {};
     MEMBERS.forEach(function(m){ map[m.id] = { key: m.id, name: m.name, role: m.role, todo: [], done: [], les: lessonsOf(m.id) }; });
     TASKS.forEach(function(t){
-      var done = closed(t);
+      var done = t.status === '완료';
       if (done && !(t.done_at && Date.parse(t.done_at) >= start)) return;
       var key = t.assignee || ('n:' + t.assignee_name);
       if (!map[key]){ var mem = MBY[t.assignee]; map[key] = { key: key, name: mem ? mem.name : t.assignee_name, role: mem ? mem.role : '', todo: [], done: [], les: [] }; }
       map[key][done ? 'done' : 'todo'].push(t);
     });
     return map;
-  }
-  function doneWord(t){ return t.status === '위임' ? esc(t.delegated_name || '') + '에게 위임' : t.status === '삭제' ? '삭제' : '완료'; }
-  // 진행 중·미룸·위임·삭제는 알약 + 사유 한 줄
-  function stateNote(t){
-    var pill = t.status === '진행중' ? '<span class="stp prog">진행 중</span>' : t.status === '미룸' ? '<span class="stp late">미룸</span>'
-      : t.status === '위임' || t.status === '삭제' ? '<span class="stp gone">' + (t.status === '위임' ? '위임' : '삭제') + '</span>' : '';
-    if (!pill) return '';
-    return '<span class="meta">' + pill + esc(t.state_reason || '') + (t.state_by_name && t.state_by_name !== t.assignee_name ? ' · ' + esc(t.state_by_name) : '') + '</span>';
-  }
-  function fromNote(t){
-    if (!t.delegated_from) return '';
-    var o = TASKS.get(t.delegated_from);
-    return ' · ' + (o ? esc(o.assignee_name) + '에게서 넘겨받음' : '넘겨받음');
   }
   function renderBoard(){
     var map = people(), list = Object.keys(map).map(function(k){ return map[k]; });
@@ -1198,13 +1146,11 @@
       var items = p.les.map(lessonHtml).join('') + p.todo.sort(function(a, b){ return a.id - b.id; }).map(function(t){
         var c = Date.parse(t.created_at), late = c < start ? md(t.created_at) + '부터 남음' : (now - c > LATE_MS ? Math.floor((now - c) / 3600e3) + '시간 지남' : '');
         return '<div class="ci"><button class="bx" type="button" data-tk="' + t.id + '" aria-label="완료로 표시"' + (canCheck(t) ? '' : ' disabled title="맡은 사람·맡긴 사람만 체크할 수 있어요"') + '></button>'
-          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta' + (late ? ' lt' : '') + '">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + (late ? ' · ' + late : '') + (t.seen_at ? ' · 확인함' : '') + fromNote(t) + '</span>' + stateNote(t) + '</button>'
-          + (t.assignee === ME.id && !t.seen_at && 'seen_at' in t ? '<button class="ack sm" type="button" data-ack="' + t.id + '">확인</button>' : '')
-          + (canState(t) ? '<button class="stb" type="button" data-st="' + t.id + '">상태</button>' : '') + '</div>';
+          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta' + (late ? ' lt' : '') + '">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + (late ? ' · ' + late : '') + (t.seen_at ? ' · 확인함' : '') + '</span></button>'
+          + (t.assignee === ME.id && !t.seen_at && 'seen_at' in t ? '<button class="ack sm" type="button" data-ack="' + t.id + '">확인</button>' : '') + '</div>';
       }).concat(p.done.sort(function(a, b){ return Date.parse(b.done_at) - Date.parse(a.done_at); }).map(function(t){
         return '<div class="ci d"><button class="bx on" type="button" data-tk="' + t.id + '" data-done="1" aria-label="완료 취소"' + (canCheck(t) ? '' : ' disabled') + '>' + CHECK + '</button>'
-          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · ' + doneWord(t) + ' ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</span>' + stateNote(t) + '</button>'
-          + (canState(t) && t.status !== '완료' ? '<button class="stb" type="button" data-st="' + t.id + '">상태</button>' : '') + '</div>';
+          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</span></button></div>';
       })).join('');
       if (!tot) items += '<div class="none">오늘 할 일이 없습니다.</div>';
       return '<section class="pc' + (p.on ? '' : ' offd') + '" data-person="' + esc(p.key) + '"' + (p.on ? '' : ' title="출근 전 · 내용은 볼 수 있어요"') + '><div class="ph1"><span class="pn">' + esc(p.name) + '</span><span class="prl">' + (p.key === ME.id ? '나 · ' : '') + esc(p.role ? roleLabel(p.role) : '') + '</span>' + presTag(p.key)
@@ -1229,54 +1175,8 @@
       return;
     }
     if (b.dataset.ack){ ackTask(Number(b.dataset.ack), b); return; }
-    if (b.dataset.st){ stOpen(Number(b.dataset.st)); return; }
     if (b.dataset.go) goTo(Number(b.dataset.go));
   });
-  // ── 할 일 상태 바꾸기 (2026-10-19 원장님 강사 관리) ─────────
-  // 미룸·위임·삭제는 사유 필수, 위임은 넘겨받을 사람도. 위임하면 그 사람에게 새 할 일이 생기고 원래 줄은 끝난 일로.
-  var ST_LIST = [['대기', '대기'], ['진행중', '진행 중'], ['미룸', '미룸'], ['위임', '위임'], ['삭제', '삭제'], ['완료', '완료']];
-  var stCur = null, stPick = '';
-  function stNeedReason(v){ return v === '미룸' || v === '위임' || v === '삭제'; }
-  function stDraw(){
-    $('stpills').innerHTML = ST_LIST.map(function(x){ return '<button type="button" role="radio" aria-checked="' + (x[0] === stPick) + '" data-v="' + x[0] + '"' + (x[0] === stPick ? ' class="on"' : '') + '>' + x[1] + '</button>'; }).join('');
-    $('strf').hidden = !stNeedReason(stPick);
-    $('sttof').hidden = stPick !== '위임';
-    $('strl').textContent = stPick === '위임' ? '넘기는 사유 (꼭 적어 주십시오)' : stPick === '삭제' ? '하지 않는 사유 (꼭 적어 주십시오)' : '미루는 사유 (꼭 적어 주십시오)';
-  }
-  function stOpen(id){
-    var t = TASKS.get(id); if (!t) return;
-    stCur = t; stPick = t.status;
-    $('sttext').textContent = tagSplit(t.text).rest + ' — ' + t.assignee_name + ' · ' + t.requester_name + '님이 맡김';
-    $('streason').value = t.state_reason || '';
-    $('stto').innerHTML = '<option value="">사람을 고르십시오</option>' + MEMBERS.filter(function(m){ return m.id !== t.assignee; })
-      .map(function(m){ return '<option value="' + esc(m.id) + '">' + esc(m.name) + ' · ' + roleLabel(m.role) + (presOk ? ' · ' + (presLoc(m.id) ? esc(presLoc(m.id)) + ' 출근' : '출근 전') : '') + '</option>'; }).join('');
-    stDraw();
-    $('stback').hidden = false;
-    $('stsave').disabled = false;
-  }
-  function stClose(){ $('stback').hidden = true; stCur = null; }
-  $('stpills').addEventListener('click', function(e){ var b = e.target.closest('button[data-v]'); if (!b) return; stPick = b.dataset.v; stDraw(); if (!$('strf').hidden) $('streason').focus(); });
-  $('stclose').onclick = stClose;
-  $('stback').addEventListener('click', function(e){ if (e.target === $('stback')) stClose(); });
-  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('stback').hidden) stClose(); });
-  $('stsave').onclick = function(){
-    var t = stCur; if (!t) return;
-    var reason = $('streason').value.trim(), to = $('stto').value;
-    if (stNeedReason(stPick) && !reason){ status('사유를 적어 주십시오.'); $('streason').focus(); return; }
-    if (stPick === '위임' && !to){ status('넘겨받을 사람을 고르십시오.'); $('stto').focus(); return; }
-    if (stPick === t.status && !stNeedReason(stPick)){ stClose(); return; }
-    $('stsave').disabled = true;
-    rpc('msg_task_state', { p_id: t.id, p_status: stPick, p_reason: stNeedReason(stPick) ? reason : null, p_to: stPick === '위임' ? to : null }).then(function(res){
-      addTasks([res.task].concat(res.new ? [res.new] : []));
-      stClose(); renderBoard(); renderMsgs('keep');
-      status(stPick === '위임' ? (res.new ? res.new.assignee_name : '') + '님에게 넘겼습니다.' : '상태를 바꿨습니다.', 3000);
-    }).catch(function(e){
-      $('stsave').disabled = false;
-      var m = String(e.message) + JSON.stringify(e.data || '');
-      status(/msg_task_state|PGRST202/.test(m) ? '상태 기능 준비가 아직 끝나지 않았습니다(마이그레이션 202610200005).'
-        : /need_reason/.test(m) ? '사유를 적어 주십시오.' : /delegated/.test(m) ? '이미 다른 사람에게 넘긴 할 일입니다.' : errText(e), 5000);
-    });
-  };
   // ── 출근·퇴근 (2026-10-19 원장님 "구성원이 어느 센터 on, off 상태를 표시") ─────────
   // 표 msg_presence(사람마다 한 줄) — 쓰기는 msg_presence_set 함수로만. 오늘 출근한 것만 ON(날짜가 바뀌면 OFF에서 시작).
   var PRES = {}, presOk = false, presDay = '', PRES_LOCS = ['본원', '화정센터', '민초센터', '정리정독'];
