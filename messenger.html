@@ -1263,6 +1263,7 @@
       PRES[ME.id] = row; renderPres(); renderBoard();
       status(on ? loc + '에 출근했습니다.' : '퇴근했습니다. 수고하셨어요.' + (work && work.event === 'out' ? ' 오늘 근무 ' + Math.floor(work.minutes / 60) + '시간' + (work.minutes % 60 ? ' ' + work.minutes % 60 + '분' : '') + '.' : ''), 4000);
       if (work && work.ask) workAsk(work);
+      else if (!on && work && work.early) workEarly(work);
       else if (on && work && work.clipped) workNotice(work.start);
     }).catch(function(err){ status(errText(err)); });
   });
@@ -1277,6 +1278,18 @@
   }
   // 근무표보다 30분 넘게 이른 출근·늦은 퇴근 — '초과근무인가요?' (2026-10-20 원장님 "버튼을 통해 근무 시간을 수정할 수 있도록")
   //   [네] = 누른 시각 그대로(work_overtime), [아니요] = 근무표 시각까지(서버 기본값 그대로)
+  // 근무표 끝보다 30분 넘게 일찍 [퇴근] — '조기퇴근인가요?' (2026-10-20 원장님 "조기퇴근인가요? 버튼 추가", 202610200003)
+  //   [네] = 조기퇴근 표시(work_early 참 — 근무 시간은 실제 퇴근까지), [아니요, 잘못 눌렀어요] = 퇴근 취소(기록·출근 상태 되돌림)
+  function workEarly(w){
+    WN = w; WN.mode = 'early';
+    var d = w.early_diff, gap = d >= 60 ? Math.floor(d / 60) + '시간' + (d % 60 ? ' ' + d % 60 + '분' : '') : d + '분';
+    $('wnTitle').textContent = '조기퇴근인가요?';
+    $('wnText').textContent = '오늘 근무 끝은 ' + w.sched + '입니다. 지금 퇴근(' + w.actual + ')이 ' + gap + ' 이릅니다.';
+    $('wnYes').textContent = '네, 조기퇴근이에요 — ' + w.actual + '까지 기록';
+    $('wnOk').textContent = '아니요, 잘못 눌렀어요 — 퇴근 취소';
+    $('wnYes').hidden = false; $('wnOk').classList.add('plain');
+    $('wnback').hidden = false; $('wnYes').focus();
+  }
   function workAsk(w){
     WN = w;
     var gap = w.diff >= 60 ? Math.floor(w.diff / 60) + '시간' + (w.diff % 60 ? ' ' + w.diff % 60 + '분' : '') : w.diff + '분';
@@ -1291,13 +1304,27 @@
   }
   $('wnYes').onclick = function(){
     var w = WN; $('wnback').hidden = true; WN = null; if (!w) return;
+    if (w.mode === 'early'){
+      rpc('work_early', { p_id: w.id, p_yes: true }).then(function(){ status('조기퇴근으로 기록했습니다. 수고하셨어요.', 4000); })
+        .catch(function(err){ status(errText(err) + ' 근무 일지에서 고칠 수 있어요.', 6000); });
+      return;
+    }
     rpc('work_overtime', { p_id: w.id, p_kind: w.event, p_yes: true }).then(function(r){
       // 조교는 승인 요청(박언호 대표님 업무 카드에 할 일 — 202610200002), 대표님·원장님은 바로 승인
       if (r && r.message_id) pushAfterSend(r.message_id);
       status(r && r.ot_status === '대기' ? '초과근무 승인을 요청했습니다. 박언호 대표님이 승인하면 근무 시간에 반영돼요.' : '초과근무로 기록했습니다.', 6000);
     }).catch(function(err){ status(errText(err) + ' 근무 일지에서 고칠 수 있어요.', 6000); });
   };
-  $('wnOk').onclick = function(){ $('wnback').hidden = true; if (WN) status('근무표 시각(' + WN.sched + ')' + (WN.event === 'in' ? '부터' : '까지') + ' 기록했습니다.', 3000); WN = null; };
+  $('wnOk').onclick = function(){
+    if (WN && WN.mode === 'early'){
+      var w = WN; $('wnback').hidden = true; WN = null;
+      rpc('work_early', { p_id: w.id, p_yes: false }).then(function(r){
+        if (r && r.presence){ PRES[ME.id] = r.presence; renderPres(); renderBoard(); }
+        status('퇴근을 취소했습니다. 계속 근무 중으로 기록돼요.', 4000);
+      }).catch(function(err){ status(/too_late/.test(String(err && err.message)) ? '이미 다시 출근한 뒤라 취소할 수 없습니다. 근무 일지에서 고쳐 주세요.' : errText(err), 6000); });
+      return;
+    }
+    $('wnback').hidden = true; if (WN) status('근무표 시각(' + WN.sched + ')' + (WN.event === 'in' ? '부터' : '까지') + ' 기록했습니다.', 3000); WN = null; };
 
   function setTab(t){
     document.body.dataset.tab = t;

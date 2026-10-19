@@ -36,6 +36,8 @@ P -f supabase/migrations/202610200001_work_log.sql >/dev/null || { echo "근무 
 P -f supabase/migrations/202610200001_work_log.sql >/dev/null && ok y y "다시 실행해도 오류 없음"
 P -f supabase/migrations/202610200002_work_overtime_approval.sql >/dev/null || { echo "초과근무 승인 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200002_work_overtime_approval.sql >/dev/null && ok y y "초과근무 승인 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610200003_work_early_out.sql >/dev/null || { echo "조기퇴근 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200003_work_early_out.sql >/dev/null && ok y y "조기퇴근 마이그레이션 다시 실행해도 오류 없음"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin) 이수경
 K=aaaaaaaa-0000-0000-0000-00000000000b   # 박언호 대표님(parkeh, teacher)
@@ -158,6 +160,36 @@ if [ "$HM2" = "t" ]; then
   ok "$(as $A "select (public.work_overtime($EID, 'out', true))->>'ot_status'")" "승인" "원장님이 직접 [초과근무로 인정]하면 바로 승인"
 else
   echo "  - 한국 03:10 전이라 늦은 퇴근 검사는 건너뜀"
+fi
+
+echo "· 조기퇴근"
+HM3=$(P -tAc "select (now() at time zone 'Asia/Seoul')::time between '03:10' and '21:30'")
+if [ "$HM3" = "t" ]; then
+  G=99999999-0000-0000-0000-000000000009
+  P >/dev/null -c "insert into auth.users values ('$G'); insert into public.teacher_accounts (user_id, login_id, display_name, role, active) values ('$G','minseo','김민서','assistant',true); insert into public.work_staff (user_id, wage) values ('$G', 12000)"
+  S3=$(P -tAc "select to_char((now() at time zone 'Asia/Seoul') - interval '3 hour', 'HH24:MI')")
+  L2=$(P -tAc "select to_char((now() at time zone 'Asia/Seoul') + interval '2 hour', 'HH24:MI')")
+  P >/dev/null -c "insert into public.work_shifts (ymd, loc, slot, user_id, start_hm, end_hm) values ('$T', '민초센터', 4, '$G', '$S3', '$L2')"
+  as $G "select public.msg_presence_set('민초센터', true)" >/dev/null
+  W3=$(as $G "select (public.msg_presence_set('', false))->'work'")
+  ok "$(echo "$W3" | grep -c '"early": true')" "1" "근무표 끝보다 30분 넘게 일찍 퇴근 → early"
+  ok "$(echo "$W3" | grep -c '"ask": false')" "1" "초과근무 질문은 없음"
+  G1=$(P -tAc "select id from public.work_records where user_id='$G' order by id limit 1")
+  ok "$(as $C "select public.work_early($G1, true)" | grep -c not_allowed)" "1" "남의 조기퇴근은 못 정함"
+  ok "$(as $G "select (public.work_early($G1, true))->>'early_out'")" "true" "[네] → 조기퇴근 표시"
+  ok "$(P -tAc "select (end_at = out_at)::text from public.work_records where id=$G1")" "true" "근무 시간은 실제 퇴근까지"
+  as $G "select public.msg_presence_set('민초센터', true)" >/dev/null
+  as $G "select public.msg_presence_set('', false)" >/dev/null
+  G2=$(P -tAc "select id from public.work_records where user_id='$G' order by id desc limit 1")
+  NLOG=$(P -tAc "select count(*) from public.msg_presence_log where user_id='$G'")
+  ok "$(as $G "select (public.work_early($G2, false))->>'out_at' is null")" "t" "[아니요, 잘못 눌렀어요] → 퇴근 취소(기록 다시 열림)"
+  ok "$(P -tAc "select is_on::text from public.msg_presence where user_id='$G'")" "true" "슈톡 출근 상태로 되돌아감"
+  ok "$(P -tAc "select count(*) from public.msg_presence_log where user_id='$G'")" "$((NLOG-1))" "방금 남긴 퇴근 기록 줄을 지움"
+  ok "$(P -tAc "select is_on::text from public.msg_presence_log where user_id='$G' order by id desc limit 1")" "true" "마지막 기록은 출근"
+  ok "$(as $G "select public.work_early($G1, false)" | grep -c too_late)" "1" "그 뒤 다시 출근한 기록의 퇴근은 취소 못 함"
+  ok "$(as $A "select public.work_early($G2, false)" | grep -c not_out)" "1" "열린 기록은 취소할 퇴근이 없음"
+else
+  echo "  - 한국 03:10 전·21:30 뒤라 조기퇴근 검사는 건너뜀"
 fi
 
 echo "· 시각 고치기"
