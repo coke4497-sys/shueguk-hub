@@ -999,11 +999,12 @@
   // ── 오늘 수업 기록 (2026-10-20 원장님 "수업이 있는 경우 각 반의 수업 기록을 리스트에 추가. 완료하면 자동으로 체크") ──
   // 오늘 시간표(그 주 정규/내신 + 학년 예외, '이 주만' 반, 휴강·옮긴 수업 제외 — 리포트 classlog.html '기록 없는 수업'과 같은 규칙)를
   // 담당T 이름으로 사람에게 붙이고, class_notes 에 [리포트 생성](requested_at)이 있으면 완료로 체크한다. 1분마다 다시 읽는다.
-  var LES = { ok: false, day: '', by: {}, at: 0, busy: false };
+  var LES = { ok: false, day: '', by: {}, at: 0, tryDay: '', busy: false };
   var LES_MS = 60000, TT_URL = 'https://coke4497-sys.github.io/shueguk-report/timetable.html';
   var WDAY = '일월화수목금토';
   function addDay(y, n){ var d = new Date(y + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
-  function prevWed(y){ return addDay(y, -((new Date(y + 'T00:00:00Z').getUTCDay() - 3 + 7) % 7)); }
+  // 그 날짜의 수업 주차(수요일) — 월·화는 다가오는 수요일 주차 (timetable.html weekStartOf·sessions.html weekWed 와 같은 규칙, Codex 검토)
+  function weekWed(y){ var k = new Date(y + 'T00:00:00Z').getUTCDay(); return addDay(y, (k === 1 || k === 2) ? 3 - k : -((k - 3 + 7) % 7)); }
   function gradeOfName(n){ var m = /([중고])\s*([1-3])/.exec(String(n || '')); return m ? m[1] + m[2] : ''; }
   function minsOf(t){   // 시간표 표기('5:30'·'오전9:30'·'밤10:00') → 분 (timetable.html mins 와 같은 규칙)
     var s = String(t || '').trim(), am = s.indexOf('오전') === 0, night = s.indexOf('밤') === 0;
@@ -1027,9 +1028,9 @@
   }
   function loadLessons(force){
     var day = todayYmd();
-    if (LES.busy || (!force && LES.day === day && Date.now() - LES.at < LES_MS)) return;
-    LES.busy = true;
-    var wed = prevWed(day), wid = 'w' + day.slice(2).replace(/-/g, ''), dn = WDAY[new Date(day + 'T00:00:00Z').getUTCDay()];
+    if (LES.busy || (!force && LES.tryDay === day && Date.now() - LES.at < LES_MS)) return;   // 실패해도 1분 뒤에 다시 (Codex 검토)
+    LES.busy = true; LES.tryDay = day; LES.at = Date.now();
+    var wed = weekWed(day), wid = 'w' + day.slice(2).replace(/-/g, ''), dn = WDAY[new Date(day + 'T00:00:00Z').getUTCDay()];
     var sel = '?select=book,class_id,name,day,start_time,end_time,teacher,roster';
     Promise.all([
       api('/tt_classes' + sel + '&day=eq.' + encodeURIComponent(dn) + '&class_id=not.like.w*&limit=1000'),

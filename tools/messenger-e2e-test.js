@@ -38,7 +38,8 @@ let mid = 0, tid = 0, clock = 0;
 const ts = () => new Date(Date.now() + (clock++)).toISOString();
 const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [];
 let noPres = false;
-const TT = [], TTP = [], TTLOG = [], NOTES = [];   // 시간표·기간·주간 기록·수업 기록 (오늘 수업 줄)
+const TT = [], TTP = [], TTLOG = [], NOTES = [];
+let failTT = false;   // 시간표·기간·주간 기록·수업 기록 (오늘 수업 줄)
 function addMsg(author, body, files, createdIso){
   const t = createdIso || ts();
   const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null, reply_to: null };
@@ -108,6 +109,7 @@ function filterRows(rows, u){
       if (!window.PushManager) window.PushManager = function(){};
       Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { register(){ return Promise.resolve(reg); }, getRegistrations(){ return Promise.resolve([reg]); }, addEventListener(){} } });
     }, opts.perm || 'granted');
+    if (opts.now) await ctx.addInitScript(t => { const D = Date, off = t - D.now(); window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; }, opts.now);
     await ctx.addInitScript(id => localStorage.setItem('shueguk_teacher_session_v2', JSON.stringify({
       access_token: 'tok', refresh_token: 'refresh-tok', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id } })), ME);
     ctx.setDefaultTimeout(8000);
@@ -179,6 +181,7 @@ function filterRows(rows, u){
         return json(filterRows(MSGS, u));
       }
       if (p === '/rest/v1/msg_tasks') return json(filterRows(TASKS, u));
+      if (failTT && /^\/rest\/v1\/(tt_|class_notes)/.test(p)){ calls.push(['ttfail', p]); return json({ message: 'boom' }, 500); }
       if (p === '/rest/v1/tt_classes'){
         calls.push(['tt', u.search]);
         const cid = u.searchParams.get('class_id') || '', day = (u.searchParams.get('day') || '').replace(/^eq\./, '');
@@ -717,7 +720,7 @@ function filterRows(rows, u){
 
   console.log('⑫ 출근 전 카드는 흐리게 · 오늘 수업 기록 줄 (2026-10-20 원장님)');
   const kd = new Date(Date.now() + 9 * 3600e3), today = kd.toISOString().slice(0, 10), dn = '일월화수목금토'[kd.getUTCDay()];
-  const wedOf = y => { const d = new Date(y + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() - 3 + 7) % 7); return d.toISOString().slice(0, 10); };
+  const wedOf = y => { const d = new Date(y + 'T00:00:00Z'), k = d.getUTCDay(); d.setUTCDate(d.getUTCDate() + (k === 1 || k === 2 ? 3 - k : -((k - 3 + 7) % 7))); return d.toISOString().slice(0, 10); };   // 월·화는 다가오는 수요일 주차
   const wid = 'w' + today.slice(2).replace(/-/g, '');
   TTP.push({ week_wednesday: wedOf(today), book: '내신', overrides: { '중2': '정규' } });
   TT.push(
@@ -762,6 +765,27 @@ function filterRows(rows, u){
   await page.waitForFunction(id => document.querySelectorAll('.pc[data-person="' + id + '"] .ls .bx.on').length === 2, EUNJI, { timeout: 8000 }).catch(() => {});
   ok(await ec.locator('.ls .bx.on').count() === 2, '리포트를 생성하면 1분 안에 자동 체크');
   await ctx.close();
+  // 월·화는 다가오는 수요일 주차의 기간을 따른다 (Codex 검토)
+  const ymdK = ms => new Date(ms + 9 * 3600e3).toISOString().slice(0, 10);
+  let mon = Date.now(); while (new Date(mon + 9 * 3600e3).getUTCDay() !== 1) mon += 86400e3;
+  const monY = ymdK(mon), nextWed = ymdK(mon + 2 * 86400e3), lastWed = ymdK(mon - 5 * 86400e3);
+  TTP.push({ week_wednesday: nextWed, book: '내신', overrides: {} }, { week_wednesday: lastWed, book: '정규', overrides: {} });
+  TT.push({ book: '내신', class_id: 'n101', name: '고1 월요진도', day: '월', start_time: '5:00', end_time: '6:30', teacher: '은지', roster: '가' },
+          { book: '정규', class_id: 'r101', name: '고1 월요가', day: '월', start_time: '5:00', end_time: '6:30', teacher: '은지', roster: '가' });
+  ({ ctx, page } = await open(null, { now: Date.parse(monY + 'T18:00:00+09:00') }));
+  await page.waitForSelector('.pc[data-person="' + EUNJI + '"] .ls');
+  const monTxt = await page.locator('.pc[data-person="' + EUNJI + '"]').textContent();
+  ok(monTxt.includes('고1 월요진도') && !monTxt.includes('고1 월요가'), '월요일은 다가오는 수요일 주차(내신) 시간표');
+  await ctx.close();
+  // 시간표를 못 읽어도 3초마다 다시 부르지 않는다(1분 뒤에) (Codex 검토)
+  failTT = true;
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id); await sleep(7500);
+  const tries = calls.filter(c => c[0] === 'ttfail' && c[1] === '/rest/v1/tt_period').length;
+  ok(tries === 1, '실패해도 1분 안에는 다시 안 부름 (' + tries + '번)');
+  ok(await page.locator('.ls').count() === 0 && await page.locator('.pc').count() >= 4, '못 읽으면 수업 줄 없이 카드만 (' + await page.locator('.ls').count() + '·' + await page.locator('.pc').count() + ')');
+  await ctx.close();
+  failTT = false;
 
   await browser.close(); server.close();
   console.log(`\n${n - bad} / ${n} 통과`);
