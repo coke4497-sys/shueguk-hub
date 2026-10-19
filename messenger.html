@@ -468,6 +468,8 @@
       setLive(true);
       // 화면 밖(불러오지 않은 구간)의 인용 원글이 바뀌었으면(지움 등) 인용도 고친다 — Codex 검토
       var qch = false;
+      // 화면 밖 구간의 메시지가 지워지면 대화 탭 숫자(gap)도 다시 센다 — 같은 줄은 한 번만 (Codex 검토)
+      (res[0] || []).forEach(function(m){ if (firstId != null && m.id < firstId && m.deleted_at && !offSeen[m.id + '|' + m.updated_at]){ offSeen[m.id + '|' + m.updated_at] = 1; gap.key = ''; qch = true; } });
       (res[0] || []).forEach(function(m){ var c = QCACHE[m.id]; if (c && (firstId == null || m.id < firstId) && c.updated_at !== m.updated_at){ QCACHE[m.id] = m; qch = true; } });   // 바뀐 때만 다시 그림
       var newMsgs = (res[0] || []).filter(function(m){ return firstId == null || m.id >= firstId; });
       var deleted = newMsgs.filter(function(m){ return m.deleted_at; });
@@ -724,7 +726,7 @@
   }
   function boardOnly(){ return window.matchMedia && matchMedia('(max-width:900px)').matches && document.body.dataset.tab === 'board'; }
   // 안 읽은 수 = 불러온 메시지 중 읽은 자리 뒤 + (읽은 자리가 불러온 첫 메시지보다 앞이면) 그 사이를 서버에서 센 수 — Codex 검토
-  var gap = { key: '', n: 0 };
+  var gap = { key: '', n: 0 }, offSeen = {};
   function unreadCount(){
     var mark = Number(localStorage.getItem('msg_read_' + (ME && ME.id)) || 0), n = 0;
     MSGS.forEach(function(m){ if (m.id > mark && m.author !== ME.id && !m.deleted_at) n++; });

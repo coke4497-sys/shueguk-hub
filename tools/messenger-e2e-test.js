@@ -324,6 +324,9 @@ function filterRows(rows, u){
   addMsg(BOSS, '하나 더', [], ts());
   await page.waitForFunction(() => document.querySelector('#chatBadge').textContent === '86', null, { timeout: 9000 }).catch(() => {});
   ok((await page.locator('#chatBadge').textContent()) === '86', '80개 넘게 쌓여도 대화 탭 숫자는 전부 (86)');
+  const offOne = MSGS.find(m => m.id > before80 && m.author === BOSS); offOne.deleted_at = ts(); offOne.body = ''; offOne.updated_at = ts();   // 화면 밖 구간 메시지를 다른 창에서 지움
+  await page.waitForFunction(() => document.querySelector('#chatBadge').textContent === '85', null, { timeout: 9000 }).catch(() => {});
+  ok((await page.locator('#chatBadge').textContent()) === '85', '화면 밖 메시지가 지워지면 다시 셈 (85)');
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   await sleep(200);
   ok(await page.evaluate(() => window.__cleared) === 0, '업무 카드 탭으로 돌아오면 앱 아이콘 숫자를 지우지 않음');
