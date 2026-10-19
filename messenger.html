@@ -672,6 +672,8 @@
   }
 
   // ── 대화 그리기 ───────────────────────────────────
+  // 대화 옆 동그라미 글자 — 이름 가운데 글자, 이수경 원장님은 '슈'(2026-10-20 원장님)
+  function avChar(n){ n = String(n || ''); return /^이수경/.test(n) ? '슈' : (n.slice(-2, -1) || n.charAt(0)); }
   function sortedMsgs(){ return Array.from(MSGS.values()).sort(function(a, b){ return a.id - b.id; }); }
   function lastMsgId(){ var x = 0; MSGS.forEach(function(m){ if (m.id > x) x = m.id; }); return x; }
   function tasksOf(id){ var out = []; TASKS.forEach(function(t){ if (t.message_id === id) out.push(t); }); return out.sort(function(a, b){ return a.id - b.id; }); }
@@ -788,7 +790,7 @@
     var bb = m.deleted_at ? '<div class="bb del">삭제된 메시지입니다.</div>'
       : (m.body ? '<div class="bb">' + bodyHtml(m.body) + '</div>' : '');
     return '<div class="m' + (mine ? ' mine' : '') + (cont ? ' cont' : '') + '" id="m' + m.id + '">'
-      + '<div class="av" style="background:' + tn[0] + ';color:' + tn[1] + '">' + esc(m.author_name.slice(-2, -1) || m.author_name.charAt(0)) + '</div>'
+      + '<div class="av" style="background:' + tn[0] + ';color:' + tn[1] + '">' + esc(avChar(m.author_name)) + '</div>'
       + '<div class="mb"><div class="nm">' + esc(m.author_name) + '<span class="rl">' + esc(mem ? roleLabel(mem.role) : '') + '</span></div>'
       + quoteHtml(m)
       + '<div class="line">' + bb + '<span class="t">' + hm(m.created_at) + '</span>'

@@ -240,6 +240,8 @@ function filterRows(rows, u){
   ok((await page.locator('#m' + m3.id + ' .at').textContent()) === '@고희주', '@이름 강조');
   ok((await page.locator('#m' + m2.id + ' .tk').textContent()).includes('이은지 · 아직'), '메시지 아래 할 일 표시');
   ok(await page.locator('#live').textContent() === '실시간', '실시간 표시');
+  ok((await page.locator('#m' + m1.id + ' .av').textContent()) === '슈', '이수경 원장님 동그라미 글자는 \'슈\'');
+  ok((await page.locator('#m' + m3.id + ' .av').textContent()) === '은', '다른 사람은 이름 가운데 글자');
 
   console.log('② 업무 카드');
   const firstCard = page.locator('.pc').first();
