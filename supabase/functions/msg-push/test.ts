@@ -1,7 +1,7 @@
 // msg-push 로컬 검사 — deno test supabase/functions/msg-push/test.ts
 // ① 받을 기기 고르기(plan) ② 이 런타임(Deno)에서 web-push 암호화가 되는지 — 가짜 구독 키로 만든 요청을
 //    그 기기의 비밀 키로 풀어 내용이 같은지 본다(네트워크 없음).
-import { plan, cut } from './index.ts'
+import { plan, cut, handPlan } from './index.ts'
 import webpush from 'npm:web-push@3.6.7'
 import ece from 'npm:http_ece@1.2.0'
 import crypto from 'node:crypto'
@@ -33,6 +33,16 @@ Deno.test('비활성(퇴사) 교사의 기기는 받지 않는다', () => {
   const msg = { id: 3, author: A, author_name: '이수경', body: '공지 @고희주', files: [], deleted_at: null }
   const items = plan(msg, [{ assignee: C, text: '공지' }], [sub(1, B), sub(2, C)], new Set([A, B]))
   assertEquals(items.map((i) => i.sub.id), [1])
+})
+
+Deno.test('넘겨받은 사람 기기에만, 대기 중·활성일 때만', () => {
+  const t = { id: 9, message_id: 4, text: '교재 주문', to: B, status: '대기' }
+  const items = handPlan(t, '고희주', [sub(1, A), sub(2, B), sub(3, B)], new Set([A, B]))
+  assertEquals(items.map((i) => i.sub.id), [2, 3])
+  assertEquals(items[0].payload.title, '고희주 → 나에게 넘긴 일')
+  assertEquals(items[0].payload.url.endsWith('#m4'), true)
+  assertEquals(handPlan({ ...t, status: '취소' }, 'x', [sub(2, B)], new Set([B])).length, 0)
+  assertEquals(handPlan(t, 'x', [sub(2, B)], new Set([A])).length, 0)
 })
 
 Deno.test('Deno에서 web-push 암호화가 되고 받는 기기가 풀 수 있다', () => {

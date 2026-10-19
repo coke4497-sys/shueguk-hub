@@ -145,7 +145,20 @@
   .bx.x{background:#E4E7E5;color:#7A8680;font-size:13px;font-weight:700;}
   .meta .why{color:var(--ink2);}
   .cxpanel textarea{width:100%;min-height:76px;border:0;border-radius:12px;background:var(--soft);padding:10px 12px;font:inherit;font-size:14px;resize:vertical;box-sizing:border-box;}
-  .cxpanel textarea:focus{outline:2px solid var(--lavBar);}
+  .cxm{display:flex;gap:4px;background:var(--soft);border-radius:999px;padding:3px;}
+  .cxm button{flex:1;border:0;border-radius:999px;background:transparent;font-size:13.5px;padding:7px 8px;color:var(--ink2);}
+  .cxm button.on{background:#fff;color:var(--ink);font-weight:700;}
+  .cxm button[hidden]{display:none;}
+  .cxs{display:flex;flex-direction:column;gap:10px;}
+  .cxs[hidden]{display:none;}
+  .dfrow{display:flex;gap:8px;}
+  .dfrow input,.dfrow select,#dgTo,.cxinput{border:0;border-radius:12px;background:var(--soft);padding:10px 12px;font:inherit;font-size:14px;min-width:0;}
+  .dfrow input{flex:1.3;} .dfrow select{flex:1;}
+  .cxq button.on{background:var(--lav);color:var(--lavInk);}
+  .meta .due{color:var(--lavInk);}
+  .meta .due.over{color:var(--lateInk);font-weight:700;}
+  .hist{display:block;font-size:11px;color:var(--cap);margin-top:2px;line-height:1.5;}
+  .cxpanel textarea:focus,.cxinput:focus,#dgTo:focus,.dfrow input:focus,.dfrow select:focus{outline:2px solid var(--lavBar);}
   .cxq{display:flex;flex-wrap:wrap;gap:6px;}
   .cxq button{border:0;border-radius:999px;background:var(--soft);color:var(--ink2);font-size:12.5px;padding:5px 11px;}
   .cxt{font-size:13.5px;color:var(--ink2);background:var(--soft);border-radius:10px;padding:8px 10px;}
@@ -372,12 +385,29 @@
 </div>
 <div class="pback" id="cxback" hidden>
   <div class="ppanel cxpanel" role="dialog" aria-modal="true" aria-labelledby="cxtitle">
-    <span class="btitle" id="cxtitle">할 일 취소</span>
+    <span class="btitle" id="cxtitle">할 일 관리</span>
     <div class="cxt" id="cxtask"></div>
-    <p class="pnote">진행하지 않아도 되는 이유를 적어 주십시오. 사유는 업무 카드에 함께 남아요.</p>
-    <div class="cxq" id="cxq"><button type="button">상황이 바뀌어 필요 없음</button><button type="button">다른 사람이 처리함</button><button type="button">중복 요청</button><button type="button">잘못 맡김</button></div>
-    <textarea id="cxin" maxlength="300" placeholder="취소 사유 (필수)"></textarea>
-    <div class="prow"><button class="hbtn big" type="button" id="cxok">취소하기</button><button class="hbtn plain" type="button" id="cxclose">닫기</button></div>
+    <div class="cxm" id="cxmodes"><button type="button" data-mode="defer">미루기</button><button type="button" data-mode="deleg">넘기기</button><button type="button" data-mode="cancel">취소</button></div>
+    <div class="cxs" data-sec="defer">
+      <p class="pnote">언제까지 하겠다고 적어 두면 업무 카드에 '○○까지'로 보입니다. 그 시각이 지나면 빨갛게 표시돼요.</p>
+      <div class="cxq" id="dfq"><button type="button" data-q="tonight">오늘 밤 9시</button><button type="button" data-q="tmr">내일 오후 3시</button><button type="button" data-q="d2">모레 오후 3시</button></div>
+      <div class="dfrow"><input type="date" id="dfDate" aria-label="날짜"><select id="dfTime" aria-label="시각"></select></div>
+      <input class="cxinput" id="dfNote" maxlength="200" placeholder="메모 (선택) — 예: 수업 끝나고 처리">
+      <div class="prow"><button class="hbtn big" type="button" id="dfok">이때까지 하기</button><button class="hbtn plain" type="button" id="dfclear" hidden>미룸 풀기</button></div>
+    </div>
+    <div class="cxs" data-sec="deleg">
+      <p class="pnote">다른 사람에게 넘기면 그 사람 카드로 옮겨지고 휴대폰 알림이 갑니다.</p>
+      <select id="dgTo" aria-label="넘길 사람"></select>
+      <input class="cxinput" id="dgNote" maxlength="200" placeholder="전달할 말 (선택)">
+      <div class="prow"><button class="hbtn big" type="button" id="dgok">넘기기</button></div>
+    </div>
+    <div class="cxs" data-sec="cancel">
+      <p class="pnote">진행하지 않아도 되는 이유를 적어 주십시오. 사유는 업무 카드에 함께 남아요.</p>
+      <div class="cxq" id="cxq"><button type="button">상황이 바뀌어 필요 없음</button><button type="button">다른 사람이 처리함</button><button type="button">중복 요청</button><button type="button">잘못 맡김</button></div>
+      <textarea id="cxin" maxlength="300" placeholder="취소 사유 (필수)"></textarea>
+      <div class="prow"><button class="hbtn big" type="button" id="cxok">취소하기</button></div>
+    </div>
+    <div class="prow"><button class="hbtn plain" type="button" id="cxclose">닫기</button></div>
   </div>
 </div>
 <div class="presmenu" id="presMenu" hidden role="menu" aria-label="출근·퇴근">
@@ -432,6 +462,11 @@
     if (/not_pending/.test(m)) return '이미 완료되었거나 취소된 할 일입니다.';
     if (/not_canceled/.test(m)) return '이미 다시 할 일로 돌아와 있습니다.';
     if (/msg_deleted/.test(m)) return '메시지를 지운 할 일은 되돌릴 수 없습니다.';
+    if (/same_person/.test(m)) return '지금 맡은 사람에게는 넘길 수 없습니다.';
+    if (/bad_person/.test(m)) return '넘길 수 없는 사람입니다(사용하지 않는 계정).';
+    if (/ack_only/.test(m)) return '@모두 할 일은 넘길 수 없습니다.';
+    if (/bad_until/.test(m)) return '지금부터 60일 안의 시각을 골라 주십시오.';
+    if (/msg_task_delegate|msg_task_defer/.test(m)) return '넘기기·미루기 준비가 아직 끝나지 않았습니다(마이그레이션 202610200002).';
     if (/\bcanceled\b/.test(m)) return '취소한 할 일입니다. [되돌리기]를 먼저 눌러 주십시오.';
     if (/msg_task_cancel/.test(m)) return '취소 기능 준비가 아직 끝나지 않았습니다(마이그레이션 202610200001).';
     if (/bad_files/.test(m)) return '파일 정보가 올바르지 않습니다.';
@@ -1101,6 +1136,10 @@
 
   // ── 업무 카드 ─────────────────────────────────────
   // 취소(사유 필수) — 맡긴 사람·맡은 사람·관리자, @모두 할 일은 맡긴 사람·관리자만 (202610200001). 열이 없으면(마이그레이션 전) 버튼 없음
+  // 미루기(언제까지 하겠다) — 맡은 사람·관리자 / 넘기기 — 맡은 사람·맡긴 사람·관리자, @모두 할 일 제외 (202610200002). 열이 없으면 버튼 없음
+  function canDefer(t){ return 'due_at' in t && t.status === '대기' && (t.assignee === ME.id || ME.role === 'admin'); }
+  function canDeleg(t){ return 'hand_push' in t && t.status === '대기' && !t.ack_only && (t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'); }
+  function canManage(t){ return t.status === '대기' && (canCancel(t) || canDefer(t) || canDeleg(t)); }
   function canCancel(t){ if (!('cancel_reason' in t)) return false; if (t.ack_only) return t.requester === ME.id || ME.role === 'admin'; return t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'; }
   function canCheck(t){ if (t.ack_only) return t.assignee === ME.id && t.status !== '완료'; return t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'; }   // @모두 할 일은 본인만, 확인한 뒤엔 되돌리지 않음
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
@@ -1136,13 +1175,16 @@
       var tot = p.tot, pct = tot ? Math.round(p.fin * 100 / tot) : 0, full = tot && !p.left;
       var items = p.les.map(lessonHtml).join('') + p.todo.sort(function(a, b){ return a.id - b.id; }).map(function(t){
         var c = Date.parse(t.created_at), late = c < start ? md(t.created_at) + '부터 남음' : (now - c > LATE_MS ? Math.floor((now - c) / 3600e3) + '시간 지남' : '');
+        var due = t.due_at ? Date.parse(t.due_at) : 0, over = due && due < now;
+        if (due) late = '';   // '언제까지 하겠다'고 미룬 일은 그 약속 시각으로 본다
+        var dueHtml = due ? ' · <span class="due' + (over ? ' over' : '') + '">' + (over ? '약속 지남 · ' : '미룸 · ') + esc(whenLabel(t.due_at)) + '까지' + (t.due_note ? ' — ' + esc(t.due_note) : '') + '</span>' : '';
         return '<div class="ci"><button class="bx" type="button" data-tk="' + t.id + '" aria-label="완료로 표시"' + (canCheck(t) ? '' : ' disabled title="맡은 사람·맡긴 사람만 체크할 수 있어요"') + '></button>'
-          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta' + (late ? ' lt' : '') + '">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + (late ? ' · ' + late : '') + (t.seen_at ? ' · 확인함' : '') + '</span></button>'
+          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta' + (late ? ' lt' : '') + '">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + (late ? ' · ' + late : '') + (t.seen_at ? ' · 확인함' : '') + dueHtml + histHtml(t) + '</span></button>'
           + (t.assignee === ME.id && !t.seen_at && 'seen_at' in t ? '<button class="ack sm" type="button" data-ack="' + t.id + '">확인</button>' : '')
-          + (canCancel(t) ? '<button class="cxb" type="button" data-cx="' + t.id + '" title="진행하지 않아도 되면 사유를 적고 취소합니다">취소</button>' : '') + '</div>';
+          + (canManage(t) ? '<button class="cxb" type="button" data-cx="' + t.id + '" title="미루기 · 넘기기 · 취소">관리</button>' : '') + '</div>';
       }).concat(p.done.sort(function(a, b){ return Date.parse(b.done_at) - Date.parse(a.done_at); }).map(function(t){
         if (t.status === '취소') return '<div class="ci d x"><span class="bx x" title="취소한 할 일">×</span>'
-          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · 취소 ' + hm(t.done_at) + (t.done_by_name ? ' (' + esc(t.done_by_name) + ')' : '') + '<br><span class="why">사유: ' + esc(t.cancel_reason || '') + '</span></span></button>'
+          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · 취소 ' + hm(t.done_at) + (t.done_by_name ? ' (' + esc(t.done_by_name) + ')' : '') + '<br><span class="why">사유: ' + esc(t.cancel_reason || '') + '</span>' + histHtml(t) + '</span></button>'
           + (canCancel(t) && !(MSGS.get(t.message_id) || {}).deleted_at ? '<button class="cxb" type="button" data-uncx="' + t.id + '" title="취소를 풀고 다시 할 일로">되돌리기</button>' : '') + '</div>';
         return '<div class="ci d"><button class="bx on" type="button" data-tk="' + t.id + '" data-done="1" aria-label="완료 취소"' + (canCheck(t) ? '' : ' disabled') + '>' + CHECK + '</button>'
           + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</span></button></div>';
@@ -1176,26 +1218,91 @@
   });
   // ── 할 일 취소 + 사유 (2026-10-20 원장님 "상황이 변경되어 그 업무를 진행하지 않아도 된다면 삭제 사유기록") ──
   // 줄을 지우지 않고 '취소'로 남긴다(사유 필수) — 오늘 카드에 '취소 · 사유'로 보이고 다음 날 사라진다. 메시지 아래 표시도 '취소'.
-  var cxId = null;
+  var cxId = null, cxMode = '';
+  // 날짜·시각 표기 — '10/21 (화) 오후 3:00'
+  function whenLabel(ts){ var d = kst(ts); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + ' (' + '일월화수목금토'[d.getUTCDay()] + ') ' + hm(ts); }
+  // 넘기기·미루기 기록 리스트(최근 3개) — 202610200002
+  function histHtml(t){
+    var h = Array.isArray(t.history) ? t.history : [];
+    if (!h.length) return '';
+    return h.slice(-3).map(function(x){
+      var s = x.kind === '넘김' ? esc(x.by) + ' · ' + esc(x.from) + ' → ' + esc(x.to) + ' 넘김'
+        : x.kind === '미룸' ? esc(x.by) + ' · ' + esc(whenLabel(x.until)) + '까지 미룸'
+        : esc(x.by) + ' · 미룸 풀기';
+      return '<span class="hist">' + (x.at ? esc(md(x.at) + ' ' + hm(x.at)) + ' ' : '') + s + (x.note ? ' — ' + esc(x.note) : '') + '</span>';
+    }).join('');
+  }
+  function cxSetMode(mode){
+    cxMode = mode;
+    document.querySelectorAll('#cxmodes button').forEach(function(b){ b.classList.toggle('on', b.dataset.mode === mode); });
+    document.querySelectorAll('#cxback .cxs').forEach(function(x){ x.hidden = x.dataset.sec !== mode; });
+    var f = mode === 'cancel' ? $('cxin') : mode === 'deleg' ? $('dgTo') : $('dfDate');
+    if (f) f.focus();
+  }
+  var DF_TIMES = []; for (var dh = 7; dh <= 23; dh++){ DF_TIMES.push((dh < 10 ? '0' : '') + dh + ':00'); DF_TIMES.push((dh < 10 ? '0' : '') + dh + ':30'); }
+  $('dfTime').innerHTML = DF_TIMES.map(function(v){ var h = +v.slice(0, 2); return '<option value="' + v + '">' + (h < 12 ? '오전 ' : '오후 ') + ((h % 12) || 12) + ':' + v.slice(3) + '</option>'; }).join('');
+  function dfSet(ymdStr, time){ $('dfDate').value = ymdStr; $('dfTime').value = time; }
+  function addDayKst(n){ return new Date(Date.parse(todayYmd() + 'T00:00:00+09:00') + n * 86400e3 + 9 * 3600e3).toISOString().slice(0, 10); }
   function cxOpen(id){
     var t = TASKS.get(id); if (!t) return;
     cxId = id;
     $('cxtask').innerHTML = esc(t.assignee_name) + ' · ' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest);
-    $('cxin').value = ''; $('cxok').disabled = false;
-    $('cxback').hidden = false; $('cxin').focus();
+    $('cxin').value = ''; $('cxok').disabled = false; $('dfok').disabled = false; $('dgok').disabled = false;
+    $('dfNote').value = t.due_note || ''; $('dgNote').value = '';
+    if (t.due_at){ var d = kst(t.due_at).toISOString(); dfSet(d.slice(0, 10), d.slice(11, 16)); } else dfSet(addDayKst(1), '15:00');
+    $('dfclear').hidden = !t.due_at;
+    $('dgTo').innerHTML = '<option value="">넘길 사람 고르기</option>' + MEMBERS.filter(function(m){ return m.id !== t.assignee; }).map(function(m){
+      var l = presOk ? presLoc(m.id) : '';
+      return '<option value="' + esc(m.id) + '">' + esc(m.name) + ' · ' + esc(roleLabel(m.role)) + (presOk ? (l ? ' · ' + esc(l) + ' ON' : ' · OFF') : '') + '</option>';
+    }).join('');
+    var ok = { defer: canDefer(t), deleg: canDeleg(t), cancel: canCancel(t) };
+    document.querySelectorAll('#cxmodes button').forEach(function(b){ b.hidden = !ok[b.dataset.mode]; });
+    $('cxback').hidden = false;
+    cxSetMode(ok.defer ? 'defer' : ok.deleg ? 'deleg' : 'cancel');
   }
   function cxClose(){ $('cxback').hidden = true; cxId = null; }
+  function cxDone(id, row){ cxClose(); TASKS.delete(id); addTasks([row]); renderBoard(); renderMsgs('keep'); }
   $('cxclose').onclick = cxClose;
+  $('cxmodes').addEventListener('click', function(e){ var b = e.target.closest('button'); if (b) cxSetMode(b.dataset.mode); });
   $('cxback').addEventListener('click', function(e){ if (e.target === $('cxback')) cxClose(); });
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('cxback').hidden) cxClose(); });
   $('cxq').addEventListener('click', function(e){ var b = e.target.closest('button'); if (b){ $('cxin').value = b.textContent; $('cxin').focus(); } });
+  $('dfq').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.q === 'tonight') dfSet(todayYmd(), '21:00');
+    if (b.dataset.q === 'tmr') dfSet(addDayKst(1), '15:00');
+    if (b.dataset.q === 'd2') dfSet(addDayKst(2), '15:00');
+  });
   $('cxok').onclick = function(){
     var id = cxId, why = $('cxin').value.trim();
     if (!why){ status('취소 사유를 적어 주십시오.'); $('cxin').focus(); return; }
     $('cxok').disabled = true;
-    rpc('msg_task_cancel', { p_id: id, p_reason: why }).then(function(row){
-      cxClose(); TASKS.delete(id); addTasks([row]); renderBoard(); renderMsgs('keep');
-    }).catch(function(e){ $('cxok').disabled = false; status(errText(e), 6000); });
+    rpc('msg_task_cancel', { p_id: id, p_reason: why }).then(function(row){ cxDone(id, row); })
+      .catch(function(e){ $('cxok').disabled = false; status(errText(e), 6000); });
+  };
+  $('dfok').onclick = function(){
+    var id = cxId, d = $('dfDate').value, tm = $('dfTime').value;
+    if (!d || !tm){ status('날짜와 시각을 골라 주십시오.'); return; }
+    var until = new Date(d + 'T' + tm + ':00+09:00');
+    if (!(until.getTime() > Date.now())){ status('지금보다 뒤의 시각을 골라 주십시오.'); return; }
+    $('dfok').disabled = true;
+    rpc('msg_task_defer', { p_id: id, p_until: until.toISOString(), p_note: $('dfNote').value.trim() }).then(function(row){ cxDone(id, row); })
+      .catch(function(e){ $('dfok').disabled = false; status(errText(e), 6000); });
+  };
+  $('dfclear').onclick = function(){
+    var id = cxId;
+    rpc('msg_task_defer', { p_id: id, p_until: null }).then(function(row){ cxDone(id, row); }).catch(function(e){ status(errText(e), 6000); });
+  };
+  $('dgok').onclick = function(){
+    var id = cxId, to = $('dgTo').value;
+    if (!to){ status('넘길 사람을 골라 주십시오.'); $('dgTo').focus(); return; }
+    $('dgok').disabled = true;
+    rpc('msg_task_delegate', { p_id: id, p_to: to, p_note: $('dgNote').value.trim() }).then(function(row){
+      cxDone(id, row);
+      status((MBY[to] ? MBY[to].name : '') + '에게 넘겼습니다.');
+      // 넘겨받은 사람 휴대폰 알림 — 서버가 한 번만 보낸다(실패하면 5초 뒤 한 번 더)
+      fn({ action: 'hand', task_id: id }, true).catch(function(){ setTimeout(function(){ fn({ action: 'hand', task_id: id }, true).catch(function(){}); }, 5000); });
+    }).catch(function(e){ $('dgok').disabled = false; status(errText(e), 6000); });
   };
   function cxUndo(id, btn){
     if (!confirm('취소를 풀고 다시 할 일로 돌릴까요?')) return;

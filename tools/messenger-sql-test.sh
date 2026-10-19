@@ -45,6 +45,8 @@ P -f supabase/migrations/202610190005_messenger_seen_all.sql >/dev/null && ok y 
 P -f supabase/migrations/202610190006_messenger_reply.sql >/dev/null || { echo "답장 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200001_messenger_cancel.sql >/dev/null || { echo "취소 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200001_messenger_cancel.sql >/dev/null && ok y y "취소 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610200002_messenger_handover.sql >/dev/null || { echo "넘기기·미루기 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200002_messenger_handover.sql >/dev/null && ok y y "넘기기·미루기 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610190006_messenger_reply.sql >/dev/null && ok y y "답장 마이그레이션 다시 실행해도 오류 없음"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
@@ -196,6 +198,28 @@ as $A "select public.msg_task_cancel($TZ, '필요 없어짐')" >/dev/null
 as $A "select public.msg_delete($MZ)" >/dev/null
 ok "$(as $A "select count(*)||'|'||min(status)||'|'||min(cancel_reason) from public.msg_tasks where message_id=$MZ")" "1|취소|필요 없어짐" "메시지를 지워도 취소 기록은 남고 대기 할 일만 지움"
 ok "$(as $A "select public.msg_task_cancel($TZ, '', true)" | grep -c msg_deleted)" 1 "지운 메시지의 취소는 되돌리지 않음"
+
+echo "── 넘기기 · 미루기 (202610200002)"
+MH=$(as $A "select (public.msg_send('교재 주문 @고희주', '[]', array['$C']::uuid[])->'message'->>'id')")
+TH=$(as $A "select id from public.msg_tasks where message_id=$MH")
+ok "$(as $B "select public.msg_task_delegate($TH, '$B', '')" | grep -c not_allowed)" 1 "상관없는 사람은 넘기지 못함"
+ok "$(as $C "select public.msg_task_delegate($TH, '$D', '')" | grep -c bad_person)" 1 "비활성 교사에게는 못 넘김"
+ok "$(as $C "select public.msg_task_delegate($TH, '$C', '')" | grep -c same_person)" 1 "지금 맡은 사람에게는 못 넘김"
+as $C "select public.msg_task_seen($TH)" >/dev/null
+ok "$(as $C "select (public.msg_task_delegate($TH, '$B', ' 오늘 센터 못 가요 ')->>'assignee_name')")" "이은지" "맡은 사람이 다른 사람에게 넘김"
+ok "$(as $C "select (seen_at is null)||'|'||hand_push||'|'||hand_by||'|'||(history->-1->>'kind')||'|'||(history->-1->>'from')||'|'||(history->-1->>'to')||'|'||(history->-1->>'note') from public.msg_tasks where id=$TH")" "true|$B|$C|넘김|고희주|이은지|오늘 센터 못 가요" "넘김 기록·확인 초기화·알림 자리"
+ok "$(as $C "select public.msg_task_defer($TH, now() + interval '1 day', '')" | grep -c not_allowed)" 1 "넘긴 뒤에는 옛 담당자가 미루지 못함"
+ok "$(as $B "select public.msg_task_defer($TH, now() - interval '1 hour', '')" | grep -c bad_until)" 1 "지난 시각으로는 못 미룸"
+ok "$(as $B "select public.msg_task_defer($TH, now() + interval '90 days', '')" | grep -c bad_until)" 1 "60일 넘게는 못 미룸"
+ok "$(as $B "select (public.msg_task_defer($TH, now() + interval '1 day', '내일 수업 끝나고')->>'due_note')")" "내일 수업 끝나고" "맡은 사람이 언제까지 하겠다고 미룸"
+ok "$(as $B "select (due_at > now())||'|'||jsonb_array_length(history)||'|'||(history->-1->>'kind')||'|'||(history->-1->>'until' is not null) from public.msg_tasks where id=$TH")" "true|2|미룸|true" "미룸 기록이 쌓임"
+ok "$(as $B "select (public.msg_task_defer($TH, null, '')->>'due_at') is null")" "t" "미룸 풀기"
+ok "$(as $B "select history->-1->>'kind' from public.msg_tasks where id=$TH")" "미룸 해제" "미룸 해제도 기록"
+ok "$(as $A "select (public.msg_task_delegate($TH, '$C', '')->>'assignee_name')")" "고희주" "맡긴 사람이 다시 넘김"
+ok "$(as $B "select public.msg_task_delegate($TY, '$A', '')" | grep -c ack_only)" 1 "@모두 할 일은 넘기지 않음"
+ok "$(as $C "update public.msg_tasks set assignee='$B' where id=$TH" 2>&1 | grep -c 'permission denied')" 1 "표에 직접 쓰기 불가"
+ok "$(anon "select public.msg_task_delegate($TH, '$B', '')" | grep -c 'permission denied')" 1 "공개 키는 넘기기 함수 실행 불가"
+ok "$(anon "select public.msg_task_defer($TH, now(), '')" | grep -c 'permission denied')" 1 "공개 키는 미루기 함수 실행 불가"
 
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null
