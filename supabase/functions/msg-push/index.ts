@@ -116,24 +116,25 @@ const handler = withSupabase({ auth: 'user' }, async (request, context) => {
   if (input.action === 'send') {
     const id = Number(input.message_id)
     if (!Number.isInteger(id) || id <= 0) return reply(400, { error: 'bad_id' })
-    // 한 번만 — 아직 안 보낸 메시지를 잡는다. 이미 보냈거나 지운 메시지·남이 쓴 메시지면 그만.
-    const { data: claimed } = await admin.from('msg_messages')
-      .update({ pushed_at: new Date().toISOString() })
-      .eq('id', id).is('pushed_at', null).is('deleted_at', null).eq('author', uid)
-      .select('id,author,author_name,body,files,deleted_at')
-    const msg = claimed && claimed[0]
-    if (!msg) return reply(200, { skipped: true })
-    const [t, s, a] = await Promise.all([
+    // ① 먼저 다 읽는다 — 메시지(아직 안 보냄·안 지움·내가 씀)·할 일·구독·활성 교사.
+    //    하나라도 실패하면 아무것도 바꾸지 않고 503 → 화면이 5초 뒤 다시 부른다 (Codex 검토)
+    const [m, t, s, a] = await Promise.all([
+      admin.from('msg_messages').select('id,author,author_name,body,files,deleted_at')
+        .eq('id', id).is('pushed_at', null).is('deleted_at', null).eq('author', uid).maybeSingle(),
       admin.from('msg_tasks').select('assignee,text').eq('message_id', id),
       admin.from('msg_push_subs').select('*'),
       admin.from('teacher_accounts').select('user_id').eq('active', true),
     ])
-    // 조회가 하나라도 실패하면 잡은 자리(pushed_at)를 풀고 실패로 돌려준다 — 화면이 다시 부르면 그때 보낸다
-    // (빈 명단으로 보고 '성공'하면 알림이 영영 사라진다 — Codex 검토 P1)
-    if (t.error || s.error || a.error) {
-      await admin.from('msg_messages').update({ pushed_at: null }).eq('id', id)
-      return reply(503, { error: 'lookup_failed' })
-    }
+    if (m.error || t.error || s.error || a.error) return reply(503, { error: 'lookup_failed' })
+    if (!m.data) return reply(200, { skipped: true })
+    // ② 다 읽은 뒤에만 '보냄' 자리를 잡는다 — 비어 있을 때만 채우므로 두 번 불려도 한 번만 보낸다.
+    //    잡기 자체가 실패하면 그대로 503(아무것도 안 바뀜 — 다시 부르면 처음부터).
+    const { data: claimed, error: ce } = await admin.from('msg_messages')
+      .update({ pushed_at: new Date().toISOString() })
+      .eq('id', id).is('pushed_at', null).select('id')
+    if (ce) return reply(503, { error: 'claim_failed' })
+    if (!claimed || !claimed.length) return reply(200, { skipped: true })
+    const msg = m.data
     const tasks = t.data, subs = s.data, act = a.data
     const active = new Set<string>((act || []).map((r: { user_id: string }) => r.user_id))
     const items = plan(msg, tasks || [], subs || [], active)
