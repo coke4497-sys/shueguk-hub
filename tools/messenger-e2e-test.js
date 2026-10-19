@@ -40,9 +40,10 @@ const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE =
 let noPres = false, workClip = false, workAsk = false, workEarly = false;
 const TT = [], TTP = [], TTLOG = [], NOTES = [];
 let failTT = false;
+const BOT = { tick: { msgs: [], summary: false } };
 const STUDENTS = [
-  { name: '김민준', teacher: '이은지', enrolled: 'Y' }, { name: '박하늘', teacher: '김지원', enrolled: 'Y' },
-  { name: '이준A', teacher: '이은지', enrolled: 'Y' }, { name: '이준B', teacher: '김지원', enrolled: 'Y' },
+  { name: '김민준', school: '서정중', grade: '2026 중등 3학년', teacher: '이은지', enrolled: 'Y' }, { name: '박하늘', teacher: '김지원', enrolled: 'Y' },
+  { name: '이준A', school: '화정고', grade: '2026 고등 1학년', teacher: '이은지', enrolled: 'Y' }, { name: '이준B', school: '백양고', grade: '2026 고등 1학년', teacher: '김지원', enrolled: 'Y' },
   { name: '고은비', teacher: '고희주', enrolled: 'Y' }, { name: '최퇴원', teacher: '이은지', enrolled: '퇴원' }];   // 시간표·기간·주간 기록·수업 기록 (오늘 수업 줄)
 function addMsg(author, body, files, createdIso){
   const t = createdIso || ts();
@@ -220,6 +221,24 @@ function filterRows(rows, u){
         calls.push(['tt', u.search]);
         const cid = u.searchParams.get('class_id') || '', day = (u.searchParams.get('day') || '').replace(/^eq\./, '');
         return json(TT.filter(c => cid.startsWith('not.like.w') ? !/^w/.test(c.class_id) && (!day || c.day === day) : cid.startsWith('like.') ? c.class_id.startsWith(cid.slice(5).replace('*', '')) : true));
+      }
+      if (p === '/rest/v1/rpc/msg_bot_tick'){ calls.push(['tick']); const r = BOT.tick; BOT.tick = { msgs: [], summary: false }; return json(r); }
+      if (p === '/rest/v1/rpc/msg_bot_ask'){
+        const b = JSON.parse(req.postData()); calls.push(['ask', b]);
+        const m = addMsg(null, b.p_text, []); m.author_name = '클로슈'; m.reply_to = b.p_msg; m.bot = { kind: 'ask', for: b.p_msg, options: b.p_options };
+        return json(m);
+      }
+      if (p === '/rest/v1/rpc/msg_bot_pick'){
+        const b = JSON.parse(req.postData()); calls.push(['pick', b]);
+        const ask = MSGS.find(x => x.id === b.p_ask), src = MSGS.find(x => x.id === ask.bot.for), to = MEMBERS.find(x => x.user_id === b.p_uid);
+        const k = addTask(src, to.user_id, src.body); k.assignee_name = to.name; k.ack_only = true; k.hand_push = to.user_id;
+        ask.bot = Object.assign({}, ask.bot, { done: { to: to.name, uid: to.user_id, by: '고희주', at: ts(), task: true } }); ask.updated_at = ts();
+        return json({ message: ask, tasks: [k] });
+      }
+      if (p === '/rest/v1/rpc/msg_bot_post'){
+        const b = JSON.parse(req.postData()); calls.push(['bpost', b]);
+        const m = addMsg(null, b.p_text, []); m.author_name = '클로슈'; m.reply_to = b.p_reply || null; m.bot = { kind: b.p_kind };
+        return json(m);
       }
       if (p === '/rest/v1/students'){ calls.push(['stu']); return json(STUDENTS); }
       if (p === '/rest/v1/tt_period') return json(TTP.filter(x => 'eq.' + x.week_wednesday === u.searchParams.get('week_wednesday')));
@@ -1071,6 +1090,59 @@ function filterRows(rows, u){
   ok(calls.filter(c => c[0] === 'prog').pop()[1].p_on === false && !(await page.locator('#m' + mpg.id + ' .tk').textContent()).includes('진행 중'), '진행 중 풀기');
   await page.click('[data-cx="' + tpg2.id + '"]');
   ok(await page.locator('#cxmodes [data-mode="prog"]').isHidden(), '내가 맡긴 남의 일은 진행 중 표시 못 함(맡은 사람만)');
+  await ctx.close();
+
+  console.log('㉕ 클로슈 (2026-10-20 원장님)');
+  TT.push({ book: '내신', class_id: 'n201', name: '중3 진도', day: dn, start_time: '6:00', end_time: '7:30', teacher: '은지', roster: '박하늘 김민준(병결)' });
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#msgs .m');
+  // ① 학생 이름이 없으면 선생님 보기로 묻기
+  await page.click('#tags [data-tag="결석"]'); await page.fill('#inp', '중3 친구 병결입니다'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('.botm .bopt'), null, { timeout: 6000 }).catch(() => {});
+  let ask = calls.filter(c => c[0] === 'ask').pop();
+  ok(ask && /학생 이름을 찾지 못했어요/.test(ask[1].p_text) && ask[1].p_options.some(o => o.uid === EUNJI) && !ask[1].p_options.some(o => o.uid === ME), '학생을 못 찾으면 클로슈가 선생님 보기로 질문(조교 제외)');
+  ok((await page.locator('.botm .nm').last().textContent()).startsWith('클로슈') && (await page.locator('.botm .av').last().textContent()) === '클', '클로슈 이름·동그라미');
+  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === MSGS[MSGS.length - 1].id), '클로슈 질문도 휴대폰 알림 요청');
+  await page.locator('.botm .bopt', { hasText: '이은지' }).last().click();
+  await page.waitForFunction(() => document.querySelector('.botm .bdone'), null, { timeout: 5000 }).catch(() => {});
+  const pk = calls.filter(c => c[0] === 'pick').pop();
+  ok(pk && pk[1].p_uid === EUNJI, 'msg_bot_pick(이은지)');
+  ok((await page.locator('.botm .bdone').last().textContent()).includes('이은지 선생님께 확인 요청을 올렸습니다'), '고른 결과가 질문 아래에');
+  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'hand'), '고른 선생님 휴대폰 알림(hand)');
+  ok((await page.locator('.pc[data-person="' + EUNJI + '"]').textContent()).includes('중3 친구 병결입니다'), '이은지 업무 카드에 확인 요청');
+  // 같은 이름(이준A·이준B)
+  await page.click('#tags [data-tag="지각"]'); await page.fill('#inp', '고1 이준 10분 지각'); await page.click('#send');
+  await page.waitForFunction(n => document.querySelectorAll('.botm').length > n, await page.locator('.botm').count(), { timeout: 6000 }).catch(() => {});
+  ask = calls.filter(c => c[0] === 'ask').pop();
+  ok(ask && ask[1].p_options.length === 2 && /이준A · 화정고 고1 · 이은지 선생님/.test(ask[1].p_options.map(o => o.label).join('|')) && /이준B · 백양고 고1 · 김지원 선생님/.test(ask[1].p_options.map(o => o.label).join('|')), '같은 이름이면 학생별(학교·학년·담당) 보기로 질문');
+  // ④ 질문에 답하기
+  await page.focus('#inp'); await page.fill('#inp', '@클로'); await page.dispatchEvent('#inp', 'input');
+  await page.waitForSelector('#mention.on', { timeout: 5000 }).catch(() => {});
+  ok((await page.locator('#mention').textContent()).includes('클로슈'), '@ 목록에 클로슈');
+  await page.keyboard.press('Escape'); await page.fill('#inp', '@클로슈 김민준 담당이 누구야?'); await page.click('#send');
+  await page.waitForFunction(() => [...document.querySelectorAll('.botm .bb')].some(e => e.textContent.includes('담당 이은지')), null, { timeout: 6000 }).catch(() => {});
+  let bp = calls.filter(c => c[0] === 'bpost').pop();
+  ok(bp && bp[1].p_kind === 'answer' && /김민준 · 서정중 중3 · 담당 이은지 선생님/.test(bp[1].p_text) && /이번 주 수업: .* 6:00 중3 진도\(은지T\)/.test(bp[1].p_text), '학생 이름 → 담당·이번 주 수업 (' + (bp && bp[1].p_text) + ')');
+  ok(!calls.filter(c => c[0] === 'send').pop()[1].p_mentions.length, '@클로슈는 할 일을 만들지 않음');
+  await page.fill('#inp', '@클로슈 오늘 수업'); await page.click('#send');
+  await page.waitForFunction(n => document.querySelectorAll('.botm').length > n, await page.locator('.botm').count() - 1, { timeout: 6000 }).catch(() => {});
+  await sleep(800); bp = calls.filter(c => c[0] === 'bpost').pop();
+  ok(bp && /^오늘 수업 \d+개:\n/.test(bp[1].p_text) && bp[1].p_text.includes('고2 화정A (이은지'), '오늘 수업 목록 (' + (bp && bp[1].p_text.split('\n')[0]) + ')');
+  await page.fill('#inp', '@클로슈 이은지 남은 일'); await page.click('#send'); await sleep(1200);
+  bp = calls.filter(c => c[0] === 'bpost').pop();
+  ok(bp && /^이은지 남은 일 \d+건/.test(bp[1].p_text), '남은 일 답');
+  await page.fill('#inp', '@클로슈 안녕'); await page.click('#send'); await sleep(1200);
+  bp = calls.filter(c => c[0] === 'bpost').pop();
+  ok(bp && /이렇게 물어보세요/.test(bp[1].p_text), '모르는 질문엔 쓰는 법 안내');
+  // ②·③ 약속 지남 알림 · 오늘 정리
+  const dueMsg = addMsg(null, '@이은지 약속 시각(10/20 오후 3:00)이 지났어요 — 교재 주문', []); dueMsg.author_name = '클로슈'; dueMsg.bot = { kind: 'due', to: [EUNJI] };
+  BOT.tick = { msgs: [dueMsg.id], summary: true };
+  await page.evaluate(() => { const D = Date, off = 61000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
+  await page.waitForFunction(() => true); await sleep(5000);
+  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === dueMsg.id), '약속 지남 알림 → 휴대폰 알림 요청');
+  bp = calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'summary').pop();
+  ok(bp && /^오늘 정리 · /.test(bp[1].p_text) && /할 일: 오늘 완료 \d+건 · 남은 일 \d+건/.test(bp[1].p_text) && /수업 기록: \d+ \/ \d+ 완료/.test(bp[1].p_text), '밤 9시 오늘 정리 (' + (bp && bp[1].p_text.replace(/\n/g, ' / ')) + ')');
+  if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'bot.png') });
   await ctx.close();
 
   await browser.close(); server.close();

@@ -45,6 +45,13 @@ Deno.test('넘겨받은 사람 기기에만, 대기 중·활성일 때만', () =
   assertEquals(handPlan(t, 'x', [sub(2, B)], new Set([A])).length, 0)
 })
 
+Deno.test('클로슈 메시지 — 받을 사람이 정해지면 그 사람 기기에만', () => {
+  const bot = { id: 5, author: null, author_name: '클로슈', body: '@이은지 약속 시각이 지났어요', files: [], deleted_at: null, bot: { to: [B] } }
+  assertEquals(plan(bot, [], [sub(1, A), sub(2, B), sub(3, C)], new Set([A, B, C])).map((i) => i.sub.id), [2])
+  const all = { ...bot, bot: {} }
+  assertEquals(plan(all, [], [sub(1, A), sub(2, B)], new Set([A, B])).map((i) => i.sub.id), [1, 2])
+})
+
 Deno.test('Deno에서 web-push 암호화가 되고 받는 기기가 풀 수 있다', () => {
   const vapid = webpush.generateVAPIDKeys()
   webpush.setVapidDetails('https://coke4497-sys.github.io/shueguk-hub/messenger.html', vapid.publicKey, vapid.privateKey)

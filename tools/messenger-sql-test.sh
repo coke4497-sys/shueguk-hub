@@ -55,6 +55,8 @@ P -f supabase/migrations/202610200006_task_progress.sql >/dev/null && ok y y "�
 for w in 202610200001_work_log 202610200002_work_overtime_approval 202610200003_work_early_out 202610200004_work_early_confirm; do P -f supabase/migrations/$w.sql >/dev/null || { echo "근무 일지 마이그레이션 실패 $w"; exit 1; }; done
 P -f supabase/migrations/202610200005_staff_manage.sql >/dev/null || { echo "강사 관리 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200005_staff_manage.sql >/dev/null && ok y y "강사 관리 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610200007_messenger_bot.sql >/dev/null || { echo "클로슈 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200007_messenger_bot.sql >/dev/null && ok y y "클로슈 마이그레이션 다시 실행해도 오류 없음"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
 B=bbbbbbbb-0000-0000-0000-000000000002   # 이은지 선생님
@@ -274,6 +276,37 @@ ok "$(as $A "select sum(minutes) from public.staff_usage('$D0', '$D0')")" 3 "원
 ok "$(as $PK "select count(*) from public.staff_usage('$D0', '$D0')")" 2 "대표님(parkeh)도 봄"
 ok "$(as $A "select count(*) from public.staff_usage('$D0', '2020-01-01')" | grep -c bad_range)" 1 "거꾸로 된 기간 거절"
 ok "$(anon "select public.usage_tick('shueguk-hub/ops.html')" | grep -c 'permission denied')" 1 "공개 키는 사용 시간 함수 실행 불가"
+
+echo "── 클로슈 (202610200007)"
+MQ=$(as $C "select (public.msg_send('[결석] 중3 민준 결석', '[]', '{}')->'message'->>'id')")
+ok "$(as $B "select public.msg_bot_ask($MQ, '누구인가요?', '[{\"label\":\"이은지T\",\"uid\":\"$B\"}]')" | grep -c not_allowed)" 1 "배정 질문은 글쓴이만"
+ok "$(as $C "select public.msg_bot_ask($MQ, 'x', '[{\"label\":\"퇴사\",\"uid\":\"$D\"}]')" | grep -c bad_options)" 1 "보기에 비활성 교사 불가"
+AQ=$(as $C "select (public.msg_bot_ask($MQ, '민준 학생이 두 명이에요. 누구인가요?', '[{\"label\":\"민준A · 이은지T\",\"uid\":\"$B\"},{\"label\":\"민준B · 원장\",\"uid\":\"$A\"}]')->>'id')")
+ok "$(as $C "select author is null and author_name='클로슈' and bot->>'kind'='ask' and reply_to=$MQ from public.msg_messages where id=$AQ")" "t" "클로슈 이름으로 질문(원글에 답장)"
+ok "$(as $C "select public.msg_bot_ask($MQ, 'x', '[{\"label\":\"a\",\"uid\":\"$B\"}]')" | grep -c exists)" 1 "같은 글엔 한 번만 묻기"
+ok "$(as $B "select public.msg_bot_pick($AQ, '$A')" | grep -c not_allowed)" 1 "보기의 다른 선생님 대신 고르기 불가"
+ok "$(as $C "select public.msg_bot_pick($AQ, '$C')" | grep -c bad_pick)" 1 "보기에 없는 사람 불가"
+ok "$(as $B "select jsonb_array_length(public.msg_bot_pick($AQ, '$B')->'tasks')")" "1" "보기에 있는 선생님 본인이 '내 학생'으로 고름"
+ok "$(as $B "select assignee_name||'|'||ack_only||'|'||requester_name||'|'||hand_push||'|'||hand_by from public.msg_tasks where message_id=$MQ")" "이은지|true|고희주|$B|$B" "고른 선생님에게 확인만 할 일 + 넘김 알림 자리"
+ok "$(as $C "select bot->'done'->>'to' from public.msg_messages where id=$AQ")" "이은지" "질문에 고른 결과 남김"
+ok "$(as $C "select public.msg_bot_pick($AQ, '$A')" | grep -c already)" 1 "이미 고른 질문은 다시 못 고름"
+ok "$(as $C "select public.msg_bot_post('answer', '답', $MQ)" | grep -c not_allowed)" 1 "@클로슈 없는 글엔 답 불가"
+MA2=$(as $C "select (public.msg_send('@클로슈 김민준 담당이 누구야?', '[]', '{}')->'message'->>'id')")
+ok "$(as $B "select public.msg_bot_post('answer', '답', $MA2)" | grep -c not_allowed)" 1 "남의 질문엔 답을 올릴 수 없음"
+ok "$(as $C "select (public.msg_bot_post('answer', '김민준 · 담당 이은지 선생님', $MA2)->>'author_name')")" "클로슈" "내 질문에 클로슈 답"
+ok "$(as $C "select public.msg_bot_post('answer', '또', $MA2)" | grep -c exists)" 1 "질문마다 답 한 번"
+MD=$(as $A "select (public.msg_send('교재 주문 @이은지', '[]', array['$B']::uuid[])->'message'->>'id')")
+TD=$(as $A "select id from public.msg_tasks where message_id=$MD")
+as $B "select public.msg_task_defer($TD, now() + interval '1 hour', '저녁에')" >/dev/null
+psql -X -q -d $DB -c "update public.msg_tasks set due_at = now() - interval '5 minutes' where id=$TD" >/dev/null
+ok "$(as $C "select jsonb_array_length(public.msg_bot_tick()->'msgs') >= 1")" "t" "약속 지난 할 일에 클로슈 알림"
+ok "$(as $C "select (body ~ '^@이은지 약속 시각\(\d+/\d+ 오[전후] \d+:\d\d\)이 지났어요 — 교재 주문 \(저녁에\)$')||'|'||(bot->'to'->>0) from public.msg_messages where bot->>'kind'='due' and (bot->>'task')::bigint=$TD")" "true|$B" "알림 글·받는 사람"
+ok "$(as $C "select jsonb_array_length(public.msg_bot_tick()->'msgs')")" "0" "같은 약속엔 한 번만"
+as $B "select public.msg_task_defer($TD, now() + interval '2 hours', '')" >/dev/null
+ok "$(as $C "select due_alerted_at is null from public.msg_tasks where id=$TD")" "t" "다시 미루면 알림 자리 비움"
+ok "$(as $E "select public.msg_bot_tick()" | grep -c not_teacher)" 1 "계정 없는 로그인은 못 부름"
+ok "$(anon "select public.msg_bot_tick()" | grep -c 'permission denied')" 1 "공개 키는 클로슈 함수 실행 불가"
+ok "$(as $C "select count(*) from public.msg_bot_runs" 2>&1 | grep -c 'permission denied')" 1 "중복 방지 표는 직접 못 읽음"
 
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null

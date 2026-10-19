@@ -1,6 +1,7 @@
 // 슈톡(Shuetalk) 휴대폰 푸시 알림 (2026-10-19)
 // POST { action: 'key' }                 → { key }  VAPID 공개 키 (구독할 때 쓴다)
 // POST { action: 'send', message_id }    → 그 메시지 알림을 보낸다 (한 메시지에 한 번만 — msg_messages.pushed_at 으로 잡음)
+//                                          내 메시지 또는 클로슈 메시지(bot — 아무 활성 교사나 불러도 한 번만 나감)
 // POST { action: 'test' }                → 내 기기들에 시험 알림
 // POST { action: 'hand', task_id }       → 내가 넘긴 할 일을 받은 사람 기기에 알림 (msg_tasks.hand_push 로 한 번만 — 202610200002)
 // 호출하는 사람은 활성 교사(teacher_accounts)여야 한다. 받는 사람: 작성자 빼고 구독한 모든 기기
@@ -25,7 +26,7 @@ export function cut(s: string, n: number) {
   return t.length > n ? t.slice(0, n - 1) + '…' : t
 }
 
-type Msg = { id: number; author: string | null; author_name: string; body: string; files: { name?: string }[]; deleted_at: string | null }
+type Msg = { id: number; author: string | null; author_name: string; body: string; files: { name?: string }[]; deleted_at: string | null; bot?: { to?: string[] } | null }
 type Task = { assignee: string | null; text: string }
 type Sub = { id: number; user_id: string; endpoint: string; p256dh: string; auth: string; mode: string; fail_count: number }
 
@@ -36,8 +37,11 @@ export function plan(msg: Msg, tasks: Task[], subs: Sub[], active: Set<string>) 
   tasks.forEach((t) => { if (t.assignee) mine.set(t.assignee, t) })
   const files = (msg.files || []).length
   const text = cut(msg.body, 140) || (files ? '파일 ' + files + '개를 보냈습니다.' : '')
+  // 클로슈 메시지에 받을 사람(bot.to)이 정해져 있으면 그 사람 기기에만(약속 지남 알림 등 — 202610200007)
+  const only = msg.bot && Array.isArray(msg.bot.to) ? new Set(msg.bot.to) : null
   return subs
     .filter((s) => s.user_id !== msg.author && active.has(s.user_id))
+    .filter((s) => !only || only.has(s.user_id))
     .filter((s) => s.mode !== 'mention' || mine.has(s.user_id))
     .map((s) => {
       const t = mine.get(s.user_id)
@@ -130,8 +134,8 @@ const handler = withSupabase({ auth: 'user' }, async (request, context) => {
     // ① 먼저 다 읽는다 — 메시지(아직 안 보냄·안 지움·내가 씀)·할 일·구독·활성 교사.
     //    하나라도 실패하면 아무것도 바꾸지 않고 503 → 화면이 5초 뒤 다시 부른다 (Codex 검토)
     const [m, t, s, a] = await Promise.all([
-      admin.from('msg_messages').select('id,author,author_name,body,files,deleted_at')
-        .eq('id', id).is('pushed_at', null).is('deleted_at', null).eq('author', uid).maybeSingle(),
+      admin.from('msg_messages').select('id,author,author_name,body,files,deleted_at,bot')
+        .eq('id', id).is('pushed_at', null).is('deleted_at', null).or('author.eq.' + uid + ',and(author.is.null,bot.not.is.null)').maybeSingle(),
       admin.from('msg_tasks').select('assignee,text').eq('message_id', id),
       admin.from('msg_push_subs').select('*'),
       admin.from('teacher_accounts').select('user_id').eq('active', true),
@@ -144,8 +148,8 @@ const handler = withSupabase({ auth: 'user' }, async (request, context) => {
     //    (읽은 뒤 그 사이에 지운 메시지의 원문이 나가지 않게 — Codex 검토)
     const { data: claimed, error: ce } = await admin.from('msg_messages')
       .update({ pushed_at: new Date().toISOString() })
-      .eq('id', id).is('pushed_at', null).is('deleted_at', null).eq('author', uid)
-      .select('id,author,author_name,body,files,deleted_at')
+      .eq('id', id).is('pushed_at', null).is('deleted_at', null).or('author.eq.' + uid + ',and(author.is.null,bot.not.is.null)')
+      .select('id,author,author_name,body,files,deleted_at,bot')
     if (ce) return reply(503, { error: 'claim_failed' })
     if (!claimed || !claimed.length) return reply(200, { skipped: true })
     const msg = claimed[0]
