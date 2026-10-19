@@ -1,0 +1,17 @@
+{
+  "name": "슈국 대화방",
+  "short_name": "슈국 대화방",
+  "description": "이수경국어 선생님·조교 대화방",
+  "lang": "ko",
+  "id": "./messenger.html",
+  "start_url": "./messenger.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F6F8F7",
+  "theme_color": "#F6F8F7",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

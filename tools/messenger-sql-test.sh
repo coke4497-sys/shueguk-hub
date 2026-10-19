@@ -35,6 +35,8 @@ P -f supabase/migrations/202609290003_teacher_admin.sql >/dev/null
 P -f supabase/migrations/202609290004_teacher_assistant_role.sql >/dev/null
 P -f supabase/migrations/202610190001_messenger.sql >/dev/null || { echo "마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610190001_messenger.sql >/dev/null && ok y y "다시 실행해도 오류 없음"
+P -f supabase/migrations/202610190002_messenger_push.sql >/dev/null || { echo "푸시 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610190002_messenger_push.sql >/dev/null && ok y y "푸시 마이그레이션 다시 실행해도 오류 없음"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
 B=bbbbbbbb-0000-0000-0000-000000000002   # 이은지 선생님
@@ -97,6 +99,20 @@ ok "$(as $A "select body||'|'||files::text from public.msg_messages where id=$M"
 ok "$(psql -X -A -t -q -d $DB -c "select public||'|'||file_size_limit from storage.buckets where id='msg-files'")" "false|20971520" "비공개 파일 버킷 20MB"
 ok "$(as $C "insert into storage.objects(bucket_id,name) values ('msg-files','m/202610/x') returning 1")" 1 "교사는 파일 올림"
 ok "$(as $E "insert into storage.objects(bucket_id,name) values ('msg-files','m/202610/y')" | grep -c 'row-level security')" 1 "계정 없는 로그인은 파일 못 올림"
+
+echo "── 휴대폰 알림 구독"
+SUB='{"endpoint":"https://fcm.googleapis.com/fcm/send/abc","keys":{"p256dh":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB","auth":"aaaaaaaaaaaaaaaa"}}'
+ok "$(as $C "select public.msg_push_save('$SUB', 'all', 'iPhone')->>'mode'")" "all" "구독 저장"
+ok "$(as $C "select public.msg_push_state('https://fcm.googleapis.com/fcm/send/abc')->>'saved'")" "true" "내 구독 확인"
+ok "$(as $B "select public.msg_push_state('https://fcm.googleapis.com/fcm/send/abc')->>'saved'")" "false" "남의 구독은 안 보임"
+ok "$(as $B "select public.msg_push_save('$SUB', 'mention', '')->>'mode'")" "mention" "같은 기기를 다른 사람이 저장하면 주인이 바뀜"
+ok "$(psql -X -A -t -q -d $DB -c "select count(*)||'|'||min(user_id::text) from public.msg_push_subs")" "1|$B" "기기당 한 줄"
+ok "$(as $C "select public.msg_push_remove('https://fcm.googleapis.com/fcm/send/abc')->>'removed'")" "0" "남의 구독은 못 지움"
+ok "$(as $B "select public.msg_push_remove('https://fcm.googleapis.com/fcm/send/abc')->>'removed'")" "1" "내 구독 지우기"
+ok "$(as $B "select public.msg_push_save('{\"endpoint\":\"http://x\",\"keys\":{\"p256dh\":\"BBBBBBBBBBBBBBBBBBBBBBBBB\",\"auth\":\"aaaaaaaaaa\"}}', 'all', '')" | grep -c bad_sub)" 1 "https 아닌 주소 거절"
+ok "$(as $E "select public.msg_push_save('$SUB', 'all', '')" | grep -c not_teacher)" 1 "계정 없는 로그인은 구독 못 함"
+ok "$(as $B "select count(*) from public.msg_push_subs" | grep -c 'permission denied')" 1 "구독 표는 직접 못 읽음"
+ok "$(anon "select public.msg_push_save('$SUB', 'all', '')" | grep -c 'permission denied')" 1 "공개 키는 함수 실행 불가"
 
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null

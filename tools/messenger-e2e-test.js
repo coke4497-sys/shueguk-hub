@@ -36,7 +36,7 @@ const NAME = { [ME]: '고희주', [EUNJI]: '이은지', [BOSS]: '이수경' };
 let missing = false;
 let mid = 0, tid = 0, clock = 0;
 const ts = () => new Date(Date.now() + (clock++)).toISOString();
-const MSGS = [], TASKS = [], OBJECTS = {}, calls = [];
+const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {};
 function addMsg(author, body, files, createdIso){
   const t = createdIso || ts();
   const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null };
@@ -85,8 +85,18 @@ function filterRows(rows, u){
   }).listen(PORT);
   const browser = await chromium.launch();
 
-  async function open(viewport){
-    const ctx = await browser.newContext({ viewport: viewport || { width: 1400, height: 900 }, acceptDownloads: true });
+  async function open(viewport, opts){
+    opts = opts || {};
+    const ctx = await browser.newContext({ viewport: viewport || { width: 1400, height: 900 }, acceptDownloads: true, userAgent: opts.ua });
+    if (opts.fakePush) await ctx.addInitScript(() => {
+      // 헤드리스 크로미엄에는 실제 푸시 서비스가 없어 구독을 흉내 낸다
+      window.__subscribed = null;
+      Object.defineProperty(window, 'Notification', { configurable: true, value: { permission: 'default', requestPermission(){ window.Notification.permission = 'granted'; return Promise.resolve('granted'); } } });
+      const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/fake-1', toJSON(){ return { endpoint: this.endpoint, keys: { p256dh: 'B'.repeat(87), auth: 'a'.repeat(22) } }; }, unsubscribe(){ window.__subscribed = null; return Promise.resolve(true); } };
+      const reg = { pushManager: { getSubscription(){ return Promise.resolve(window.__subscribed); }, subscribe(o){ window.__subOpts = { uv: o.userVisibleOnly, keyLen: o.applicationServerKey.length }; window.__subscribed = sub; return Promise.resolve(sub); } } };
+      if (!window.PushManager) window.PushManager = function(){};
+      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { register(){ return Promise.resolve(reg); }, addEventListener(){} } });
+    });
     await ctx.addInitScript(id => localStorage.setItem('shueguk_teacher_session_v2', JSON.stringify({
       access_token: 'tok', refresh_token: 'refresh-tok', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id } })), ME);
     ctx.setDefaultTimeout(8000);
@@ -122,6 +132,15 @@ function filterRows(rows, u){
         m.body = ''; m.files = []; m.deleted_at = ts(); m.updated_at = m.deleted_at;
         for (let i = TASKS.length - 1; i >= 0; i--) if (TASKS[i].message_id === m.id) TASKS.splice(i, 1);
         return json(m);
+      }
+      if (p === '/rest/v1/rpc/msg_push_state'){ const b = JSON.parse(req.postData()); const x = PUSHSUBS[b.p_endpoint]; return json({ saved: !!x, mode: x ? x.mode : 'all', devices: Object.keys(PUSHSUBS).length }); }
+      if (p === '/rest/v1/rpc/msg_push_save'){ const b = JSON.parse(req.postData()); calls.push(['psave', b]); PUSHSUBS[b.p_sub.endpoint] = { mode: b.p_mode }; return json({ id: 1, mode: b.p_mode }); }
+      if (p === '/rest/v1/rpc/msg_push_remove'){ const b = JSON.parse(req.postData()); calls.push(['premove', b]); delete PUSHSUBS[b.p_endpoint]; return json({ removed: 1 }); }
+      if (p === '/functions/v1/msg-push'){
+        const b = JSON.parse(req.postData()); calls.push(['fn', b]);
+        if (b.action === 'key') return json({ key: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U' });
+        if (b.action === 'test') return json({ devices: 1, sent: 1, gone: 0, failed: 0 });
+        return json({ targets: 2, sent: 2 });
       }
       if (p === '/rest/v1/msg_messages') return json(filterRows(MSGS, u));
       if (p === '/rest/v1/msg_tasks') return json(filterRows(TASKS, u));
@@ -161,7 +180,8 @@ function filterRows(rows, u){
   ok((await firstCard.locator('.pcnt').textContent()) === '0 / 2', '내 카드 0 / 2');
   ok((await firstCard.textContent()).includes('부터 남음'), '어제 남은 일 표시');
   const eunji = page.locator('.pc[data-person="' + EUNJI + '"]');
-  ok((await eunji.textContent()).includes('4시간 지남'), '3시간 넘은 일은 지남 표시');
+  const et = await eunji.textContent();
+  ok(et.includes('4시간 지남') || et.includes('부터 남음'), '3시간 넘은 일은 지남 표시(자정 넘으면 M/D부터 남음)');
   ok(!(await eunji.locator('.bx').first().isDisabled()), '내가 맡긴 일은 체크 가능');
   const jiwon = page.locator('.pc[data-person="44444444-4444-4444-4444-444444444444"]');
   ok(await jiwon.locator('.bx').first().isDisabled(), '남끼리의 일은 체크 불가');
@@ -262,7 +282,88 @@ function filterRows(rows, u){
   await ctx.close();
   missing = false;
 
-  console.log('⑫ 티쳐스 첫 화면');
+  console.log('⑫ 휴대폰 알림');
+  ({ ctx, page } = await open(null, { fakePush: true }));
+  await page.waitForSelector('#m' + m3.id);
+  await page.waitForFunction(() => !document.querySelector('#pbanner').hidden);
+  ok((await page.locator('#notiBtn').textContent()) === '알림 꺼짐', '머리 버튼: 알림 꺼짐');
+  ok(await page.locator('#pbanner').isVisible(), '꺼져 있으면 위에 안내 띠');
+  await page.click('#pbannerBtn');
+  ok(await page.locator('#pback').isVisible(), '알림 창 열림');
+  await page.click('#pon');
+  await page.waitForFunction(() => document.querySelector('#notiBtn').textContent === '알림 켜짐');
+  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'key'), '공개 키 받기');
+  const so = await page.evaluate(() => window.__subOpts);
+  ok(so && so.uv === true && so.keyLen === 65, '구독 — userVisibleOnly · 65바이트 키');
+  const ps = calls.filter(c => c[0] === 'psave').pop();
+  ok(ps && ps[1].p_sub.endpoint.includes('fake-1') && ps[1].p_mode === 'all' && ps[1].p_sub.keys.auth, 'msg_push_save — 구독·모든 메시지');
+  ok(!(await page.locator('#pbanner').isVisible()), '켜면 안내 띠 사라짐');
+  await page.check('input[name="pm"][value="mention"]');
+  await page.waitForFunction(() => true);
+  await sleep(300);
+  ok(calls.filter(c => c[0] === 'psave').pop()[1].p_mode === 'mention', '범위 바꾸기 → mention 저장');
+  await page.click('#ptest');
+  await sleep(300);
+  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'test'), '시험 알림 요청');
+  await page.click('#pclose');
+  await page.click('#inp'); await page.keyboard.type('푸시 시험 @이은지'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  await sleep(300);
+  const lastId = MSGS[MSGS.length - 1].id;
+  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === lastId), '보낸 뒤 msg-push send(message_id)');
+  await page.click('#notiBtn'); await page.click('#poff');
+  await page.waitForFunction(() => document.querySelector('#notiBtn').textContent === '알림 꺼짐');
+  ok(calls.some(c => c[0] === 'premove' && c[1].p_endpoint.includes('fake-1')), '끄기 → msg_push_remove');
+  await ctx.close();
+
+  console.log('⑬ 아이폰 사파리(홈 화면 추가 전)');
+  ({ ctx, page } = await open({ width: 390, height: 844 }, { ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1' }));
+  await page.waitForSelector('#m' + m3.id);
+  await page.click('#notiBtn');
+  ok(await page.locator('#pios').isVisible(), '홈 화면에 추가 안내');
+  ok(!(await page.locator('#pon').isVisible()), '켜기 버튼은 숨김');
+  await ctx.close();
+
+  console.log('⑭ 서비스 워커(msg-sw.js) — 알림 띄우기');
+  ({ ctx, page } = await open());
+  await ctx.grantPermissions(['notifications'], { origin: `http://127.0.0.1:${PORT}` });
+  await page.waitForSelector('#m' + m3.id);
+  const shown = await page.evaluate(async () => {
+    const reg = await navigator.serviceWorker.register('msg-sw.js');
+    await navigator.serviceWorker.ready;
+    return { scope: reg.scope, ok: !!reg.active };
+  });
+  ok(shown.ok && shown.scope.endsWith('/'), '서비스 워커 등록 (' + shown.scope + ')');
+  // 알림 처리 자체는 아래 Node 검사(msg-sw.js 를 떼어 실행)로 본다 — 헤드리스 워커 평가는 들쭉날쭉해서
+  const vm = require('vm');
+  const notes = [], opened = [], posted = [];
+  const handlers = {};
+  const fakeClients = { list: [], matchAll(){ return Promise.resolve(this.list); }, openWindow(u){ opened.push(u); return Promise.resolve(); }, claim(){ return Promise.resolve(); } };
+  const selfObj = { addEventListener(t, f){ handlers[t] = f; }, skipWaiting(){}, clients: fakeClients,
+    registration: { showNotification(t, o){ notes.push({ t, o }); return Promise.resolve(); } }, navigator: {} };
+  vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'msg-sw.js'), 'utf8'), { self: selfObj });
+  let waits = [];
+  const ev = (extra) => Object.assign({ waitUntil(p){ waits.push(p); } }, extra);
+  handlers.push(ev({ data: { json(){ return { title: '이은지 → 나에게 할 일', body: '결석 알림톡 보내기', url: 'messenger.html#m3', tag: 'msg3' }; } } }));
+  await Promise.all(waits);
+  ok(notes.length === 1 && notes[0].t === '이은지 → 나에게 할 일' && notes[0].o.body === '결석 알림톡 보내기', '푸시를 받으면 알림이 뜬다');
+  ok(notes[0] && notes[0].o.data.url === 'messenger.html#m3' && notes[0].o.tag === 'msg3' && notes[0].o.renotify === true, '알림에 메시지 주소·묶음 이름');
+  handlers.push(ev({ data: { json(){ throw new Error('x'); }, text(){ return '글자만'; } } }));
+  await Promise.all(waits);
+  ok(notes[1] && notes[1].t === '슈국 대화방' && notes[1].o.body === '글자만', '내용이 깨져도 알림은 뜬다(아이폰 구독 유지)');
+  waits = [];
+  let closed = 0;
+  handlers.notificationclick(ev({ notification: { data: { url: 'messenger.html#m9' }, close(){ closed++; } } }));
+  await Promise.all(waits);
+  ok(closed === 1 && opened[0] === 'messenger.html#m9', '열린 창이 없으면 새로 연다');
+  waits = []; let focused = 0;
+  fakeClients.list = [{ url: 'https://x/shueguk-hub/messenger.html', postMessage(m){ posted.push(m); }, focus(){ focused++; return Promise.resolve(); } }];
+  handlers.notificationclick(ev({ notification: { data: { url: 'messenger.html#m10' }, close(){} } }));
+  await Promise.all(waits);
+  ok(focused === 1 && posted[0] && posted[0].type === 'msg-open' && posted[0].url === 'messenger.html#m10' && opened.length === 1, '열린 대화방이 있으면 그 창으로 가서 메시지를 보여 준다');
+  await ctx.close();
+
+  console.log('⑮ 티쳐스 첫 화면');
   ({ ctx, page } = await open());
   await page.goto(`http://127.0.0.1:${PORT}/index.html`);
   await page.waitForSelector('a.card');

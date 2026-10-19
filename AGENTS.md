@@ -23,7 +23,7 @@ GitHub Pages로 배포됩니다(`coke4497-sys.github.io/shueguk-hub/`). 자세�
 - `tt_classes`를 새로 읽는 코드는 `class_id=not.like.w*`로 '이 주만' 반을 뺍니다.
 - 교사 화면의 [질문 대기]·전자칠판 도착 PATCH는 `status=in.(예약,명단)` 조건으로 이미 줄 선 학생을 되돌리지 않습니다. 조건을 빼는 변경은 지적하세요. 재호출은 `status=eq.호출` 조건으로 `called_at`만 바꿉니다.
 - `sb()` 응답 처리는 빈 본문(201/204)도 받아야 합니다(`r.text()` 경유). `r.json()`으로 바꾸면 일괄 INSERT가 성공하고도 오류로 보입니다.
-- 슈국 대화방(`messenger.html`)의 `msg_messages`·`msg_tasks`는 **함수(`msg_send`·`msg_task_set`·`msg_delete`)로만 씁니다** — 표에 INSERT/UPDATE 권한을 주거나 화면이 작성자 이름을 정하게 하는 변경, `msg-files` 버킷을 공개로 바꾸는 변경, 할 일 체크를 맡은 사람·맡긴 사람·관리자 밖으로 넓히는 변경은 지적하세요. 새로 받기는 `updated_at` 30초 겹침 폴링이라 겹침을 없애면 동시에 쓴 줄을 놓칩니다.
+- 슈국 대화방(`messenger.html`)의 `msg_messages`·`msg_tasks`는 **함수(`msg_send`·`msg_task_set`·`msg_delete`)로만 씁니다** — 표에 INSERT/UPDATE 권한을 주거나 화면이 작성자 이름을 정하게 하는 변경, `msg-files` 버킷을 공개로 바꾸는 변경, 할 일 체크를 맡은 사람·맡긴 사람·관리자 밖으로 넓히는 변경은 지적하세요. 새로 받기는 `updated_at` 30초 겹침 폴링이라 겹침을 없애면 동시에 쓴 줄을 놓칩니다. 푸시(`msg-push` 함수·`msg-sw.js`): VAPID 비밀 키를 저장소·화면에 넣는 변경, `pushed_at` 잡기(한 메시지 한 번)를 없애는 변경, 서비스 워커가 받은 푸시를 알림 없이 넘기는 변경(아이폰 구독이 끊김)은 지적하세요.
 - 사진은 목록 조회에 싣지 않고 처음 보는 건만 `select=id,photo`로 따로 받습니다(폴링에 매번 실으면 무거움).
 
 ### 화면·디자인 (사용자 확정 사항 — 되돌리지 말 것)
