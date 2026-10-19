@@ -78,6 +78,7 @@ begin
   select v_id, t.user_id, t.display_name, v_me.user_id, v_me.display_name, v_text, v_all
   from public.teacher_accounts t
   where t.active and t.user_id = any (v_ids)
+    and (not v_all or t.user_id <> v_me.user_id)   -- @모두는 나를 늘 뺀다(내 이름을 함께 적어도 — Codex 검토)
   order by t.display_name;
 
   return (

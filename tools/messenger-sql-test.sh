@@ -157,6 +157,8 @@ ok "$(as $C "select (public.msg_task_set($TN2, true)->>'seen_at') is not null")"
 ok "$(as $A "select ack_only from public.msg_tasks where id=$TN")" "f" "보통 할 일은 ack_only 아님"
 ok "$(anon "select public.msg_task_seen($TN)" | grep -c 'permission denied')" 1 "공개 키는 확인 함수 실행 불가"
 
+MS=$(as $B "select (public.msg_send('내 이름도 적은 공지 @모두 @이은지', '[]', array['$B']::uuid[])->'message'->>'id')")
+ok "$(as $B "select count(*) filter (where assignee='$B')||'|'||count(*) from public.msg_tasks where message_id=$MS")" "0|2" "@모두는 내 이름을 함께 적어도 나를 뺌"
 echo "── 답장"
 ok "$(psql -X -A -t -q -d $DB -c "select count(*) from pg_proc where proname='msg_send'")" 1 "msg_send는 하나(네 인자)"
 R0=$(as $C "select (public.msg_send('질문 있습니다', '[]', '{}')->'message'->>'id')")
