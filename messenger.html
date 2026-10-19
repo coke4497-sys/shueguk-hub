@@ -603,7 +603,7 @@
       var key = mark + '|' + firstId;
       if (gap.key !== key){
         gap = { key: key, n: 0 };
-        fetch(REST + '/msg_messages?select=id&id=gt.' + mark + '&id=lt.' + firstId + '&author=neq.' + ME.id + '&deleted_at=is.null', { headers: { Prefer: 'count=exact', Range: '0-0' } })
+        fetch(REST + '/msg_messages?select=id&id=gt.' + mark + '&id=lt.' + firstId + '&or=(author.is.null,author.neq.' + ME.id + ')&deleted_at=is.null', { headers: { Prefer: 'count=exact', Range: '0-0' } })
           .then(function(r){ var m = String(r.headers.get('content-range') || '').match(/\/(\d+)$/); if (gap.key === key && m){ gap.n = Number(m[1]); updateBadges(); } })
           .catch(function(){});
       }

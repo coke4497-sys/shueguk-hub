@@ -12,7 +12,13 @@ function badgeRead() {
     .then(function (r) { return r ? r.text() : '0'; }).then(function (t) { return Number(t) || 0; })
     .catch(function () { return 0; });
 }
+// 거의 동시에 온 푸시가 같은 숫자를 읽고 둘 다 +1 하지 않게 차례로 처리한다 (Codex 검토)
+var badgeChain = Promise.resolve();
 function badgeUp() {
+  badgeChain = badgeChain.then(badgeStep, badgeStep);
+  return badgeChain;
+}
+function badgeStep() {
   return badgeRead().then(function (n) {
     n += 1;
     return caches.open(BADGE_CACHE).then(function (c) { return c.put(BADGE_KEY, new Response(String(n))); }).catch(function () {})

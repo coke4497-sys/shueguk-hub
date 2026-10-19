@@ -63,6 +63,11 @@ function filterRows(rows, u){
   let out = rows.slice();
   u.searchParams.forEach((v, k) => {
     if (['select', 'order', 'limit'].includes(k)) return;
+    if (k === 'or'){   // or=(author.is.null,author.neq.X) 꼴만
+      const parts = v.replace(/^\(|\)$/g, '').split(',').map(x => x.split('.'));
+      out = out.filter(r => parts.some(([f, op, val]) => op === 'is' ? r[f] == null : op === 'neq' ? String(r[f]) !== val : op === 'eq' ? String(r[f]) === val : false));
+      return;
+    }
     const m = v.match(/^(eq|neq|gt|gte|lt|in|is)\.(.*)$/); if (!m) return;
     const [, op, val] = m;
     if (op === 'eq') out = out.filter(r => String(r[k]) === val);
@@ -426,6 +431,9 @@ function filterRows(rows, u){
   await Promise.all(waits);
   ok(notes[1] && notes[1].t === '슈톡' && notes[1].o.body === '글자만', '내용이 깨져도 알림은 뜬다(아이폰 구독 유지)');
   ok(badges.join(',') === '1,2', '앱 아이콘 빨간 숫자 1 → 2 (' + badges.join(',') + ')');
+  for (let i = 0; i < 3; i++) handlers.push(ev({ data: { json(){ return { title: 't', body: 'b' + i }; } } }));   // 거의 동시에 셋
+  await Promise.all(waits);
+  ok(stored === '5' && badges[badges.length - 1] === 5, '동시에 온 푸시도 하나씩 셈 (' + badges.join(',') + ')');
   waits = [];
   let closed = 0;
   handlers.notificationclick(ev({ notification: { data: { url: 'messenger.html#m9' }, close(){ closed++; } } }));

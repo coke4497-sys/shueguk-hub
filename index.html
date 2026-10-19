@@ -180,7 +180,7 @@
       const el = document.getElementById("msgBadge");
       function count(){
         const mark = Number(localStorage.getItem("msg_read_" + uid) || 0);
-        fetch(SB + "/rest/v1/msg_messages?select=id&id=gt." + mark + "&author=neq." + uid + "&deleted_at=is.null",
+        fetch(SB + "/rest/v1/msg_messages?select=id&id=gt." + mark + "&or=(author.is.null,author.neq." + uid + ")&deleted_at=is.null",
           { headers: { Prefer: "count=exact", Range: "0-0" } })
           .then(r => { if (!r.ok && r.status !== 206) throw 0; const cr = r.headers.get("content-range") || ""; return Number(cr.split("/")[1]) || 0; })
           .then(n => { el.hidden = !n; el.textContent = n > 99 ? "99+" : String(n); el.setAttribute("aria-label", "새 메시지 " + n + "개"); })
