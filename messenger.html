@@ -1023,8 +1023,7 @@
   function lessonUid(teacher){
     var k = teacherKey(teacher); if (!k) return '';
     var hit = MEMBERS.filter(function(m){ return teacherKey(m.name) === k; });
-    if (hit.length > 1) hit = hit.filter(function(m){ return m.role !== 'assistant'; });
-    return hit.length === 1 ? hit[0].id : '';   // 못 가리면 붙이지 않는다
+    return hit.length === 1 ? hit[0].id : '';   // 둘 이상과 맞으면(역할과 상관없이) 붙이지 않는다 — Codex 검토
   }
   function loadLessons(force){
     var day = todayYmd();
