@@ -86,7 +86,7 @@
         <select id="who" aria-label="사람"><option value="">모든 사람</option></select>
         <span class="range" id="range"></span>
       </div>
-      <p class="note">근무 = 슈톡 [출근하기]·[퇴근] 기록 · 수업 = 슈국 스케쥴 시간표(그 주 정규/내신, 휴강·옮긴 수업 반영) · 사용 시간 = 화면을 띄워 두고 10분 안에 조작한 시간만 1분 단위로 셉니다.</p>
+      <p class="note">근무 = 슈톡 [출근하기]·[퇴근]을 누른 그대로의 기록(조교 급여용 근무 시간은 근무표 기준으로 맞춘 <a href="worklog.html">조교 근무 일지</a>에 있습니다) · 수업 = 슈국 스케쥴 시간표(그 주 정규/내신, 휴강·옮긴 수업 반영) · 사용 시간 = 화면을 띄워 두고 10분 안에 조작한 시간만 1분 단위로 셉니다.</p>
     </div>
     <div id="warns"></div>
     <div class="card"><div class="tbox"><table>
@@ -194,7 +194,7 @@
     var seq = ++loadSeq, fromIso = new Date(dayStart(f)).toISOString(), toIso = new Date(dayStart(addDay(e, 1))).toISOString();
     $('range').textContent = dlabel(f) + ' ~ ' + dlabel(e) + ' · 불러오는 중…';
     var warn = [];
-    var soft = function(label){ return function(err){ warn.push(label + (missingFn(err) ? ' — 데이터베이스 준비 전입니다(마이그레이션 202610200001). 클로슈에게 적용을 요청해 주세요.' : ' — 불러오지 못했습니다.')); return null; }; };
+    var soft = function(label){ return function(err){ warn.push(label + (missingFn(err) ? ' — 데이터베이스 준비 전입니다(마이그레이션 202610200005). 클로슈에게 적용을 요청해 주세요.' : ' — 불러오지 못했습니다.')); return null; }; };
     var weds = {}; for (var y = f; y <= e; y = addDay(y, 1)) weds[weekWed(y)] = 1;
     var wedList = Object.keys(weds);
     var sel0 = '?select=book,class_id,name,day,start_time,end_time,teacher,roster';

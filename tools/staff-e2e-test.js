@@ -163,14 +163,14 @@ const calls = [];
   ok(!dt2.includes('중2 가') && !dt2.includes('고2 진도'), '휴강·다른 기간 반은 없음');
   if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'staff-pc.png'), fullPage: true }); }
   await page.fill('#from', '2026-10-20'); await page.dispatchEvent('#from', 'change');
-  await page.waitForFunction(() => document.querySelector('#range').textContent.startsWith('10/20 (화)'));
+  await page.waitForFunction(() => document.querySelector('#range').textContent === '10/20 (화) ~ 10/21 (수)');
   const dt3 = await page.locator('#detail').textContent();
   ok(dt3.includes('10/20 (화)본원 · 14:00 ~ 퇴근 기록 없음'), '어제 퇴근을 안 누르면 퇴근 기록 없음(시간에 안 넣음)');
   ok((await rowOf(page, EUNJI).textContent()).includes('퇴근 기록 없음 1'), '표에도 퇴근 기록 없음 1');
   ok(!(await page.locator('[data-p].on').count()), '날짜를 직접 고르면 기간 알약 꺼짐');
   console.log('④ 이번 주 · 사람 고르기');
   await page.click('[data-p="week"]');
-  await page.waitForFunction(() => document.querySelector('#range').textContent.startsWith('10/21 (수) ~ 10/27 (화)'));
+  await page.waitForFunction(() => document.querySelector('#range').textContent === '10/21 (수) ~ 10/27 (화)');
   ok(true, '이번 주 = 수~화');
   const ejw = await rowOf(page, EUNJI).textContent();
   ok(ejw.includes('4회'), '다음날 이 주만 반도 이번 주에 (4회)');
@@ -182,7 +182,7 @@ const calls = [];
   noFn = true;
   ({ ctx, page } = await open('staff.html', BOSS, { viewport: { width: 390, height: 844 } }));
   await page.waitForSelector('.warn');
-  ok((await page.locator('#warns').textContent()).includes('202610200001'), '사용 시간 함수 없음 안내');
+  ok((await page.locator('#warns').textContent()).includes('202610200005'), '사용 시간 함수 없음 안내');
   ok(await page.evaluate(() => document.documentElement.scrollWidth <= 392), '휴대폰 가로 스크롤 없음(표는 상자 안에서)');
   if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'staff-phone.png'), fullPage: true }); }
   await ctx.close();

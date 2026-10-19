@@ -37,7 +37,7 @@ let missing = false, failSendOnce = false;
 let mid = 0, tid = 0, clock = 0;
 const ts = () => new Date(Date.now() + (clock++)).toISOString();
 const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [];
-let noPres = false;
+let noPres = false, workClip = false, workAsk = false, workEarly = false;
 const TT = [], TTP = [], TTLOG = [], NOTES = [];
 let failTT = false;   // 시간표·기간·주간 기록·수업 기록 (오늘 수업 줄)
 function addMsg(author, body, files, createdIso){
@@ -132,8 +132,10 @@ function filterRows(rows, u){
         const old = PRESENCE[ME] || {};
         PRESENCE[ME] = { user_id: ME, name: '고희주', loc: b.p_on ? b.p_loc : (old.loc || ''), is_on: b.p_on, changed_at: NOWISO() };
         PLOGS.push({ id: PLOGS.length + 1, user_id: ME, is_on: b.p_on, at: NOWISO() });
-        return json(PRESENCE[ME]);
+        return json(Object.assign({}, PRESENCE[ME], { work: workEarly && !b.p_on ? { id: 7, event: 'out', sched: '22:00', actual: '21:00', end: '21:00', ask: false, diff: 0, early: true, early_diff: 60, minutes: 300, early_status: '대기', message_id: 92 } : workAsk && b.p_on ? { id: 5, event: 'in', sched: '16:00', actual: '15:10', start: '16:00', clipped: true, ask: true, diff: 50 } : workAsk ? { id: 5, event: 'out', sched: '22:00', actual: '23:20', end: '22:00', ask: true, diff: 80, minutes: 360 } : workClip && b.p_on ? { id: 1, event: 'in', sched: '16:00', start: '16:00', clipped: true } : (b.p_on ? null : { id: 1, event: 'out', start: '16:00', minutes: 362 }) }));
       }
+      if (p === '/rest/v1/rpc/work_early'){ const b = JSON.parse(req.postData()); calls.push(['early', b]); if (!b.p_yes){ PRESENCE[ME] = Object.assign({}, PRESENCE[ME], { is_on: true, changed_at: NOWISO() }); return json({ id: b.p_id, out_at: null, presence: PRESENCE[ME] }); } return json({ id: b.p_id, early_out: true }); }
+      if (p === '/rest/v1/rpc/work_overtime'){ const b = JSON.parse(req.postData()); calls.push(['ot', b]); return json({ id: b.p_id, minutes: 440, ot_status: '대기', message_id: 91 }); }
       if (p === '/rest/v1/rpc/msg_send'){
         const b = JSON.parse(req.postData()); calls.push(['send', b]);
         const m = addMsg(ME, b.p_body, b.p_files);
@@ -708,6 +710,61 @@ function filterRows(rows, u){
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'pres-list.png') });
   // 휴대폰에서도 내 줄이 보여야 한다(예전엔 '.me' 클래스라 휴대폰에서 숨겨졌다)
   await page.click('#plclose');
+  workClip = true;
+  await page.click('#presBtn'); await page.click('#presMenu [data-loc="본원"]');
+  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근');
+  await page.waitForSelector('#wnback:not([hidden])');
+  ok((await page.locator('#wnTitle').textContent()) === '16:00부터 근무' && (await page.locator('#wnText').textContent()).includes('16:00부터 기록됩니다'), '근무표 시작보다 일찍 출근 → \'16:00부터 근무\' 안내 창');
+  ok(await page.evaluate(() => document.activeElement && document.activeElement.id === 'wnOk'), '안내 창의 [확인]에 초점');
+  await page.click('#wnOk');
+  ok(await page.locator('#wnback').isHidden(), '[확인]을 누르면 닫힘');
+  workClip = false;
+  // 30분 넘게 이른 출근 → '초과근무인가요?' [네]
+  workAsk = true;
+  await page.click('#presBtn'); await page.click('#presMenu [data-loc="정리정독"]');
+  await page.waitForSelector('#wnback:not([hidden])');
+  ok((await page.locator('#wnTitle').textContent()) === '초과근무인가요?' && (await page.locator('#wnText').textContent()).includes('15:10') && (await page.locator('#wnText').textContent()).includes('50분 이릅니다'), '50분 일찍 출근 → \'초과근무인가요?\'');
+  ok((await page.locator('#wnYes').textContent()) === '네, 초과근무예요 — 15:10부터' && (await page.locator('#wnOk').textContent()) === '아니요 — 16:00부터 기록', '버튼 두 개 — 네(15:10부터)·아니요(16:00부터)');
+  await page.click('#wnYes');
+  await sleep(200);
+  const ot1 = calls.filter(c => c[0] === 'ot').pop();
+  ok(ot1 && ot1[1].p_id === 5 && ot1[1].p_kind === 'in' && ot1[1].p_yes === true, '[네] → work_overtime(이른 출근, 네)');
+  await page.waitForFunction(() => document.querySelector('#status').textContent.includes('승인'));
+  ok((await page.locator('#status').textContent()).includes('박언호 대표님이 승인하면'), '조교는 승인 요청 안내');
+  await page.waitForFunction(() => true); await sleep(300);
+  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === 91), '승인 요청 글 휴대폰 알림(msg-push)');
+  // 80분 늦은 퇴근 → [아니요]는 근무표 끝까지(서버 기본값) — 요청 없이 닫힘
+  const nOt = calls.filter(c => c[0] === 'ot').length;
+  await page.click('#presBtn'); await page.click('#presMenu [data-out]');
+  await page.waitForSelector('#wnback:not([hidden])');
+  ok((await page.locator('#wnText').textContent()).includes('1시간 20분 늦습니다') && (await page.locator('#wnOk').textContent()) === '아니요 — 22:00까지 기록', '늦은 퇴근 → 1시간 20분 늦습니다 · 아니요(22:00까지)');
+  await page.click('#wnOk');
+  ok(await page.locator('#wnback').isHidden() && calls.filter(c => c[0] === 'ot').length === nOt, '[아니요]는 근무표 끝까지 — 따로 저장하지 않음');
+  workAsk = false;
+  await page.click('#presBtn'); await page.click('#presMenu [data-loc="본원"]');
+  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근');
+  // 60분 일찍 퇴근 → '조기퇴근인가요?' [아니요, 잘못 눌렀어요] = 퇴근 취소
+  workEarly = true;
+  await page.click('#presBtn'); await page.click('#presMenu [data-out]');
+  await page.waitForSelector('#wnback:not([hidden])');
+  ok((await page.locator('#wnTitle').textContent()) === '조기퇴근인가요?' && (await page.locator('#wnText').textContent()).includes('지금 퇴근(21:00)이 1시간 이릅니다'), '60분 일찍 퇴근 → \'조기퇴근인가요?\'');
+  ok((await page.locator('#wnYes').textContent()) === '네, 조기퇴근이에요 — 21:00까지 기록' && (await page.locator('#wnOk').textContent()) === '아니요, 잘못 눌렀어요 — 퇴근 취소', '버튼 두 개 — 조기퇴근·퇴근 취소');
+  ok((await page.locator('#wnText').textContent()).includes('박언호 대표님께 조기퇴근 확인 요청이 갔어요') && await page.locator('#wnNote').isVisible(), '확인 요청 안내 + 사유 칸');
+  await sleep(200);
+  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === 92), '조기퇴근 확인 요청 글 휴대폰 알림');
+  await page.click('#wnOk');
+  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근');
+  const e1 = calls.filter(c => c[0] === 'early').pop();
+  ok(e1 && e1[1].p_id === 7 && e1[1].p_yes === false && (await page.locator('#status').textContent()).includes('퇴근을 취소했습니다'), '[아니요] → work_early(취소) · 다시 \'본원 출근\'');
+  await page.click('#presBtn'); await page.click('#presMenu [data-out]');
+  await page.waitForSelector('#wnback:not([hidden])');
+  await page.fill('#wnNote', '병원 진료');
+  await page.click('#wnYes');
+  await sleep(200);
+  const e2 = calls.filter(c => c[0] === 'early').pop();
+  ok(e2 && e2[1].p_yes === true && e2[1].p_note === '병원 진료' && await page.locator('#wnback').isHidden(), '[네] + 사유 → work_early(조기퇴근, 병원 진료)');
+  ok((await page.locator('#status').textContent()).includes('박언호 대표님이 확인해요'), '대표님 확인 안내');
+  workEarly = false;
   await page.click('#presBtn'); await page.click('#presMenu [data-loc="본원"]');
   await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근');
   await page.setViewportSize({ width: 390, height: 844 });
@@ -857,6 +914,24 @@ function filterRows(rows, u){
   ok((await myCard.textContent()).includes('삭제이미 주문됨'), '삭제 + 사유는 끝난 일로');
   await page.keyboard.press('Escape');
   if (process.env.SHOT){ await page.click('[data-st="' + ts2.id + '"]'); await page.click('#stpills [data-v="위임"]'); await page.screenshot({ path: path.join(process.env.SHOT, 'state-dialog.png') }); }
+  // 새로고침 버튼 (2026-10-20) — ?v=시각으로 다시 열고, 열린 뒤 주소에서 v를 지움 · 쓰던 글이 있으면 먼저 물음
+  ({ ctx, page } = await open({ width: 390, height: 844 }));
+  await page.waitForSelector('#m' + m3.id);
+  ok(await page.locator('#reloadBtn').isVisible() && await page.evaluate(() => document.documentElement.scrollWidth <= 392), '휴대폰 머리에 새로고침 버튼(가로 넘침 없음)');
+  let asked = '';
+  ctx.removeAllListeners('dialog'); ctx.on('dialog', d => { asked = d.message(); d.dismiss(); });
+  await page.fill('#inp', '쓰던 글');
+  await page.click('#reloadBtn');
+  await sleep(300);
+  ok(asked.includes('쓰던 메시지가 사라집니다') && (await page.inputValue('#inp')) === '쓰던 글', '쓰던 글이 있으면 묻고, [취소]면 그대로');
+  await page.fill('#inp', '');
+  const navs = [];
+  page.on('framenavigated', f => { if (f === page.mainFrame()) navs.push(f.url()); });
+  await page.click('#reloadBtn');
+  await page.waitForSelector('#m' + m3.id);
+  await sleep(500);
+  ok(navs.some(u => /[?&]v=\d+/.test(u)), '새로고침 → ?v=시각으로 다시 열림');
+  ok(!/[?&]v=/.test(page.url()), '열린 뒤 주소에서 v를 지움 (' + page.url() + ')');
   await ctx.close();
 
   await browser.close(); server.close();

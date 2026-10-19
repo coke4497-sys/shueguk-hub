@@ -44,8 +44,9 @@ P -f supabase/migrations/202610190005_messenger_seen_all.sql >/dev/null || { ech
 P -f supabase/migrations/202610190005_messenger_seen_all.sql >/dev/null && ok y y "확인·모두 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610190006_messenger_reply.sql >/dev/null || { echo "답장 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610190006_messenger_reply.sql >/dev/null && ok y y "답장 마이그레이션 다시 실행해도 오류 없음"
-P -f supabase/migrations/202610200001_staff_manage.sql >/dev/null || { echo "강사 관리 마이그레이션 실패"; exit 1; }
-P -f supabase/migrations/202610200001_staff_manage.sql >/dev/null && ok y y "강사 관리 마이그레이션 다시 실행해도 오류 없음"
+for w in 202610200001_work_log 202610200002_work_overtime_approval 202610200003_work_early_out 202610200004_work_early_confirm; do P -f supabase/migrations/$w.sql >/dev/null || { echo "근무 일지 마이그레이션 실패 $w"; exit 1; }; done
+P -f supabase/migrations/202610200005_staff_manage.sql >/dev/null || { echo "강사 관리 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200005_staff_manage.sql >/dev/null && ok y y "강사 관리 마이그레이션 다시 실행해도 오류 없음"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
 B=bbbbbbbb-0000-0000-0000-000000000002   # 이은지 선생님

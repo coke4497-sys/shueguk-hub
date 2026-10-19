@@ -50,6 +50,16 @@
   .plbtn[hidden]{display:none;}
   .plback{position:fixed;inset:0;background:rgba(42,51,47,.35);display:flex;align-items:flex-start;justify-content:flex-end;z-index:46;padding:58px 14px 14px;}
   .plback[hidden]{display:none;}
+  /* 근무 시작 안내 (2026-10-20 원장님 "출근을 일찍 켜더라도 4시부터 근무시간으로 기록. 메시지 창이 뜨고 확인버튼") */
+  .wnback{position:fixed;inset:0;background:rgba(42,51,47,.38);display:flex;align-items:center;justify-content:center;z-index:60;padding:16px;}
+  .wnback[hidden]{display:none;}
+  .wnbox{background:#fff;border-radius:18px;padding:22px 22px 18px;width:min(340px,100%);display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 30px rgba(42,51,47,.2);text-align:center;}
+  .wnbox b{font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:24px;color:var(--lavInk);}
+  .wnbox p{margin:0;font-size:14.5px;line-height:1.6;}
+  .wnbox button{border:0;border-radius:12px;background:var(--lav);color:var(--lavInk);font-weight:700;font-size:15px;padding:12px;min-height:46px;}
+  .wnbox button.plain{background:var(--soft);color:var(--ink);font-weight:400;}
+  .wnbox .wnbtns{display:flex;flex-direction:column;gap:8px;}
+  .wnbox input{border:1px solid #DCE4DF;border-radius:10px;padding:10px 12px;font:inherit;font-size:14.5px;min-height:44px;}
   .plpanel{background:#fff;border-radius:18px;padding:16px 18px;width:min(380px,100%);max-height:calc(100vh - 80px);overflow:auto;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 28px rgba(42,51,47,.18);}
   .plhead{display:flex;align-items:center;gap:8px;}
   .plhead .btitle{flex:1;}
@@ -300,6 +310,7 @@
       <span class="cnt" id="cnt"></span>
       <span class="grow"></span>
       <button class="ibtn sm" id="findBtn" type="button" aria-label="메시지 찾기" title="메시지 찾기 · 꼬리표로 모아 보기"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#4C6E66" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button>
+      <button class="ibtn sm" id="reloadBtn" type="button" aria-label="새로고침" title="새로고침 — 최신 화면으로 다시 열기"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#4C6E66" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg></button>
       <button class="plbtn" id="presListBtn" type="button" hidden aria-haspopup="dialog" title="오늘 출근 현황 보기">출근 0명</button>
       <button class="pbtn" id="presBtn" type="button" hidden aria-haspopup="true">출근하기</button>
       <span class="live off" id="live">연결 중</span>
@@ -396,6 +407,17 @@
   <button type="button" data-loc="정리정독">정리정독</button>
   <button type="button" class="out" data-out="1">퇴근</button>
 </div>
+<div class="wnback" id="wnback" hidden role="alertdialog" aria-modal="true" aria-labelledby="wnTitle" aria-describedby="wnText">
+  <div class="wnbox">
+    <b id="wnTitle">16:00부터 근무</b>
+    <p id="wnText"></p>
+    <input type="text" id="wnNote" maxlength="100" placeholder="사유 (선택) — 예: 병원 진료" aria-label="조기퇴근 사유" hidden />
+    <div class="wnbtns">
+      <button type="button" id="wnYes" hidden></button>
+      <button type="button" id="wnOk">확인</button>
+    </div>
+  </div>
+</div>
 <div id="status" role="status"></div>
 
 <script>
@@ -455,6 +477,23 @@
   function roleLabel(r){ return r === 'assistant' ? '조교' : (r === 'admin' ? '관리자' : '선생님'); }
   var TONES = [['#E9EDF8','#3E4E78'],['#F7E2DE','#83413A'],['#DCE8E5','#2F5148'],['#F9EFD0','#6E5718'],['#EDE4F4','#5A4A6A']];
   function tone(name){ var h = 0; for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0; return TONES[h % TONES.length]; }
+
+  // ── 새로고침 (2026-10-20 원장님 "슈톡 새로고침 메뉴") ─────────
+  // 홈 화면 앱에는 브라우저 새로고침이 없다. 주소에 ?v=시각을 붙여 다시 열어 저장된 옛 화면(브라우저 캐시) 대신 최신 화면을 받고,
+  // 열린 뒤에는 주소에서 v를 지운다. 쓰던 글이 있으면 먼저 묻는다.
+  (function(){
+    try { var u = new URL(location.href); if (u.searchParams.has('v')){ u.searchParams.delete('v'); history.replaceState(null, '', u.pathname + (u.search || '') + u.hash); } } catch (e) {}
+  })();
+  function reloadApp(){
+    var t = $('inp') && $('inp').value.trim();
+    if (t && !confirm('쓰던 메시지가 사라집니다. 새로고침할까요?')) return;
+    status('최신 화면을 불러오는 중입니다…');
+    var go = function(){ var u = new URL(location.href); u.searchParams.set('v', Date.now()); location.replace(u.toString()); };
+    var sw = navigator.serviceWorker && navigator.serviceWorker.getRegistrations ? navigator.serviceWorker.getRegistrations() : null;
+    if (!sw){ go(); return; }
+    Promise.race([sw.then(function(rs){ return Promise.all(rs.map(function(r){ return r.update ? r.update().catch(function(){}) : null; })); }), new Promise(function(res){ setTimeout(res, 1500); })]).then(go, go);
+  }
+  $('reloadBtn').onclick = reloadApp;
 
   // ── 시작 ─────────────────────────────────────────
   TeacherAuth.ready.then(function(ctx){
@@ -695,7 +734,7 @@
   }
   // 할 일 표시: 아직 · 확인 hh:mm(알았다고 누름) · 완료 hh:mm. 여럿(@모두 등 5명 넘게)이면 '확인 n / m' 한 줄로 접고 누르면 펼친다.
   var openChips = {};
-  // 상태: 대기·진행중·미룸 = 남은 일, 완료·위임·삭제 = 끝난 일 (마이그레이션 202610200001)
+  // 상태: 대기·진행중·미룸 = 남은 일, 완료·위임·삭제 = 끝난 일 (마이그레이션 202610200005)
   var CLOSED = { '완료': 1, '위임': 1, '삭제': 1 };
   function closed(t){ return !!CLOSED[t.status]; }
   function seenOf(t){ return closed(t) || !!t.seen_at; }
@@ -1110,8 +1149,8 @@
   }
 
   // ── 업무 카드 ─────────────────────────────────────
-  function canCheck(t){ if (t.status === '위임') return false; if (t.ack_only) return t.assignee === ME.id && t.status !== '완료'; return t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'; }
-  function canState(t){ return 'state_at' in t && !t.ack_only && canCheck(t); }   // 상태 바꾸기 — 마이그레이션 202610200001 뒤, @모두 할 일 제외   // @모두 할 일은 본인만, 확인한 뒤엔 되돌리지 않음
+  function canCheck(t){ if (t.status === '위임') return false; if (t.ack_only) return t.assignee === ME.id && t.status !== '완료'; return t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'; }   // @모두 할 일은 본인만, 확인한 뒤엔 되돌리지 않음 · 위임한 일은 잠금
+  function canState(t){ return 'state_at' in t && !t.ack_only && canCheck(t); }   // 상태 바꾸기 — 마이그레이션 202610200005 뒤, @모두 할 일 제외
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
   // 모든 사람에게 카드 — 출근하지 않은 사람은 흐리게(내용은 그대로 보임), 오늘 수업이 있으면 반마다 수업 기록 줄 (2026-10-20 원장님)
   function people(){
@@ -1234,7 +1273,7 @@
     }).catch(function(e){
       $('stsave').disabled = false;
       var m = String(e.message) + JSON.stringify(e.data || '');
-      status(/msg_task_state|PGRST202/.test(m) ? '상태 기능 준비가 아직 끝나지 않았습니다(마이그레이션 202610200001).'
+      status(/msg_task_state|PGRST202/.test(m) ? '상태 기능 준비가 아직 끝나지 않았습니다(마이그레이션 202610200005).'
         : /need_reason/.test(m) ? '사유를 적어 주십시오.' : /delegated/.test(m) ? '이미 다른 사람에게 넘긴 할 일입니다.' : errText(e), 5000);
     });
   };
@@ -1340,10 +1379,74 @@
     var on = !b.dataset.out, loc = on ? b.dataset.loc : '';
     presMenu(false);
     rpc('msg_presence_set', { p_loc: loc, p_on: on }).then(function(row){
+      var work = row && row.work; if (row) delete row.work;
       PRES[ME.id] = row; renderPres(); renderBoard();
-      status(on ? loc + '에 출근했습니다.' : '퇴근했습니다. 수고하셨어요.', 3000);
+      status(on ? loc + '에 출근했습니다.' : '퇴근했습니다. 수고하셨어요.' + (work && work.event === 'out' ? ' 오늘 근무 ' + Math.floor(work.minutes / 60) + '시간' + (work.minutes % 60 ? ' ' + work.minutes % 60 + '분' : '') + '.' : ''), 4000);
+      if (work && work.message_id) pushAfterSend(work.message_id);   // 조기퇴근 확인 요청 글(202610200004)
+      if (work && work.ask) workAsk(work);
+      else if (!on && work && work.early) workEarly(work);
+      else if (on && work && work.clipped) workNotice(work.start);
     }).catch(function(err){ status(errText(err)); });
   });
+  // 근무표 시작보다 일찍 [출근]하면 근무 시간은 시작 시각부터 — 서버(msg_presence_set)가 정하고, 여기서는 알려 주기만 한다
+  var WN = null;
+  function workNotice(start){
+    WN = null; $('wnNote').hidden = true;
+    $('wnTitle').textContent = start + '부터 근무';
+    $('wnText').textContent = '출근을 기록했습니다. 오늘 근무표 시작이 ' + start + '이라 근무 시간은 ' + start + '부터 기록됩니다.';
+    $('wnYes').hidden = true; $('wnOk').textContent = '확인'; $('wnOk').classList.remove('plain');
+    $('wnback').hidden = false; $('wnOk').focus();
+  }
+  // 근무표보다 30분 넘게 이른 출근·늦은 퇴근 — '초과근무인가요?' (2026-10-20 원장님 "버튼을 통해 근무 시간을 수정할 수 있도록")
+  //   [네] = 누른 시각 그대로(work_overtime), [아니요] = 근무표 시각까지(서버 기본값 그대로)
+  // 근무표 끝보다 30분 넘게 일찍 [퇴근] — '조기퇴근인가요?' (2026-10-20 원장님 "조기퇴근인가요? 버튼 추가", 202610200003)
+  //   [네] = 조기퇴근 표시(work_early 참 — 근무 시간은 실제 퇴근까지), [아니요, 잘못 눌렀어요] = 퇴근 취소(기록·출근 상태 되돌림)
+  function workEarly(w){
+    WN = w; WN.mode = 'early';
+    var d = w.early_diff, gap = d >= 60 ? Math.floor(d / 60) + '시간' + (d % 60 ? ' ' + d % 60 + '분' : '') : d + '분';
+    $('wnTitle').textContent = '조기퇴근인가요?';
+    $('wnText').textContent = '오늘 근무 끝은 ' + w.sched + '입니다. 지금 퇴근(' + w.actual + ')이 ' + gap + ' 이릅니다.' + (w.early_status === '대기' ? ' 박언호 대표님께 조기퇴근 확인 요청이 갔어요.' : '');
+    $('wnNote').value = ''; $('wnNote').hidden = false;
+    $('wnYes').textContent = '네, 조기퇴근이에요 — ' + w.actual + '까지 기록';
+    $('wnOk').textContent = '아니요, 잘못 눌렀어요 — 퇴근 취소';
+    $('wnYes').hidden = false; $('wnOk').classList.add('plain');
+    $('wnback').hidden = false; $('wnYes').focus();
+  }
+  function workAsk(w){
+    WN = w; $('wnNote').hidden = true;
+    var gap = w.diff >= 60 ? Math.floor(w.diff / 60) + '시간' + (w.diff % 60 ? ' ' + w.diff % 60 + '분' : '') : w.diff + '분';
+    $('wnTitle').textContent = '초과근무인가요?';
+    $('wnText').textContent = w.event === 'in'
+      ? '오늘 근무 시작은 ' + w.sched + '입니다. 지금 출근(' + w.actual + ')이 ' + gap + ' 이릅니다.'
+      : '오늘 근무 끝은 ' + w.sched + '입니다. 지금 퇴근(' + w.actual + ')이 ' + gap + ' 늦습니다.';
+    $('wnYes').textContent = w.event === 'in' ? '네, 초과근무예요 — ' + w.actual + '부터' : '네, 초과근무예요 — ' + w.actual + '까지';
+    $('wnOk').textContent = w.event === 'in' ? '아니요 — ' + w.sched + '부터 기록' : '아니요 — ' + w.sched + '까지 기록';
+    $('wnYes').hidden = false; $('wnOk').classList.add('plain');
+    $('wnback').hidden = false; $('wnYes').focus();
+  }
+  $('wnYes').onclick = function(){
+    var w = WN; $('wnback').hidden = true; WN = null; if (!w) return;
+    if (w.mode === 'early'){
+      rpc('work_early', { p_id: w.id, p_yes: true, p_note: $('wnNote').value.trim() }).then(function(){ status(w.early_status === '대기' ? '조기퇴근으로 기록했습니다. 박언호 대표님이 확인해요.' : '조기퇴근으로 기록했습니다. 수고하셨어요.', 5000); })
+        .catch(function(err){ status(errText(err) + ' 근무 일지에서 고칠 수 있어요.', 6000); });
+      return;
+    }
+    rpc('work_overtime', { p_id: w.id, p_kind: w.event, p_yes: true }).then(function(r){
+      // 조교는 승인 요청(박언호 대표님 업무 카드에 할 일 — 202610200002), 대표님·원장님은 바로 승인
+      if (r && r.message_id) pushAfterSend(r.message_id);
+      status(r && r.ot_status === '대기' ? '초과근무 승인을 요청했습니다. 박언호 대표님이 승인하면 근무 시간에 반영돼요.' : '초과근무로 기록했습니다.', 6000);
+    }).catch(function(err){ status(errText(err) + ' 근무 일지에서 고칠 수 있어요.', 6000); });
+  };
+  $('wnOk').onclick = function(){
+    if (WN && WN.mode === 'early'){
+      var w = WN; $('wnback').hidden = true; WN = null;
+      rpc('work_early', { p_id: w.id, p_yes: false, p_note: '' }).then(function(r){
+        if (r && r.presence){ PRES[ME.id] = r.presence; renderPres(); renderBoard(); }
+        status('퇴근을 취소했습니다. 계속 근무 중으로 기록돼요.', 4000);
+      }).catch(function(err){ status(/too_late/.test(String(err && err.message)) ? '이미 다시 출근한 뒤라 취소할 수 없습니다. 근무 일지에서 고쳐 주세요.' : errText(err), 6000); });
+      return;
+    }
+    $('wnback').hidden = true; if (WN) status('근무표 시각(' + WN.sched + ')' + (WN.event === 'in' ? '부터' : '까지') + ' 기록했습니다.', 3000); WN = null; };
 
   function setTab(t){
     document.body.dataset.tab = t;

@@ -7,7 +7,7 @@
 --   msg_task_state(p_id, p_status, p_reason, p_to) : 상태 바꾸기 — 맡은 사람·맡긴 사람·관리자, @모두 할 일은 맡은 사람의 완료만
 --   teacher_usage : 사람·날짜(한국)·페이지마다 본 분 수 / usage_tick(p_page) : 화면이 1분마다 부른다(같은 묶음은 45초 안에 한 번만)
 --   staff_usage(p_from, p_to) : 강사 관리 화면용 — 관리자·대표님(STAFF 보는 사람)만
--- 202610190006 다음에 적용한다. 다시 실행해도 안전하다.
+-- 202610190006·202610200004(조교 근무 일지) 다음에 적용한다. 다시 실행해도 안전하다.
 
 -- ── 1. 할 일 상태 ─────────────────────────────────────
 alter table public.msg_tasks drop constraint if exists msg_tasks_status_check;

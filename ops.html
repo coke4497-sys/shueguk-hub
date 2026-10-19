@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>슈국 운영 · 슈국 티쳐스</title>
 <script src="assets/teacher-auth.js" data-mode="protected"></script>
-<meta name="description" content="이수경국어 슈국 운영 — 공지 보내기 · 월별 수업 회차" />
+<meta name="description" content="이수경국어 슈국 운영 — 공지 보내기 · 월별 수업 회차 · 조교 근무 일지" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet" />
@@ -87,6 +87,7 @@
     copy:'<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
     chat:'<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 11h7M8.5 14h4"/>',
     people:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 4.5a3 3 0 0 1 0 6M18 14c2 .6 3 2.6 3 6"/>',
+    clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
     tally:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M7 14h3M14 14h3M7 18h3M14 18h3"/>'
   };
   const REPORT = "https://coke4497-sys.github.io/shueguk-report/";
@@ -98,6 +99,8 @@
     { title:"월별 수업 회차",    icon:"tally", tone:"sky", url:"sessions.html", desc:"학생별 한 달 수업 횟수 — 정규·내신 나눠 세고 주1회 5회·주2회 9회부터 강조" },
     // 강사 관리 (2026-10-19 원장님 — 근무·수업·업무·사용 시간) — 원장님(관리자)·대표님만 보인다
     { title:"강사 관리",    icon:"people", tone:"mnt", url:"staff.html", viewer:true, desc:"근무 시간·장소 · 수업 시간 · 업무 진행 · 티쳐스·슈톡 사용 시간" },
+    // 조교 근무 일지 (2026-10-20 원장님 — 시트 「★자습감독 근무일지」를 대신, 11월부터) — 슈톡 출근·퇴근으로 기록
+    { title:"조교 근무 일지",    icon:"clock", tone:"mnt", url:"worklog.html", desc:"슈톡 출근·퇴근으로 쌓이는 근무 시간 · 주간 근무표와 근무자 교체 · 월별 급여" },
   ];
   const STAFF_VIEWERS = ['parkeh'];   // staff.html·DB private.staff_viewer() 와 같은 목록
   const svg = inner => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
