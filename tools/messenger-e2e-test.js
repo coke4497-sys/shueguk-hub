@@ -33,7 +33,7 @@ const MEMBERS = [
   { user_id: '44444444-4444-4444-4444-444444444444', name: '김지원', role: 'teacher' },
 ];
 const NAME = { [ME]: '고희주', [EUNJI]: '이은지', [BOSS]: '이수경' };
-let missing = false;
+let missing = false, failSendOnce = false;
 let mid = 0, tid = 0, clock = 0;
 const ts = () => new Date(Date.now() + (clock++)).toISOString();
 const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {};
@@ -140,6 +140,7 @@ function filterRows(rows, u){
         const b = JSON.parse(req.postData()); calls.push(['fn', b]);
         if (b.action === 'key') return json({ key: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U' });
         if (b.action === 'test') return json({ devices: 1, sent: 1, gone: 0, failed: 0 });
+        if (b.action === 'send' && failSendOnce){ failSendOnce = false; return json({ error: 'lookup_failed' }, 503); }
         return json({ targets: 2, sent: 2 });
       }
       if (p === '/rest/v1/msg_messages') return json(filterRows(MSGS, u));
@@ -311,6 +312,12 @@ function filterRows(rows, u){
   await sleep(300);
   const lastId = MSGS[MSGS.length - 1].id;
   ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === lastId), '보낸 뒤 msg-push send(message_id)');
+  failSendOnce = true;
+  await page.click('#inp'); await page.keyboard.type('서버가 잠깐 실패'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  const failId = MSGS[MSGS.length - 1].id;
+  await sleep(6500);
+  ok(calls.filter(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === failId).length === 2, '알림 서버가 실패하면 5초 뒤 한 번 더');
   await page.click('#notiBtn'); await page.click('#poff');
   await page.waitForFunction(() => document.querySelector('#notiBtn').textContent === '알림 꺼짐');
   ok(calls.some(c => c[0] === 'premove' && c[1].p_endpoint.includes('fake-1')), '끄기 → msg_push_remove');

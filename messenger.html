@@ -500,7 +500,12 @@
   document.querySelectorAll('input[name="pm"]').forEach(function(r){
     r.onchange = function(){ PUSH.mode = r.value; if (PUSH.sub) savePush().then(function(){ status(r.value === 'all' ? '모든 메시지에 알림을 받습니다.' : '나를 부른 메시지만 알림을 받습니다.'); }).catch(function(){ status('바꾸지 못했습니다.'); }); };
   });
-  function pushAfterSend(id){ fn({ action: 'send', message_id: id }, true).catch(function(){}); }
+  // 알림 보내기 — 서버가 잠깐 실패하면(503) 5초 뒤 한 번 더 (서버가 그때는 잡은 자리를 풀어 둔다)
+  function pushAfterSend(id){
+    fn({ action: 'send', message_id: id }, true).catch(function(){
+      setTimeout(function(){ fn({ action: 'send', message_id: id }, true).catch(function(){}); }, 5000);
+    });
+  }
 
   // ── 대화 그리기 ───────────────────────────────────
   function sortedMsgs(){ return Array.from(MSGS.values()).sort(function(a, b){ return a.id - b.id; }); }

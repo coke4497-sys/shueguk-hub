@@ -123,11 +123,18 @@ const handler = withSupabase({ auth: 'user' }, async (request, context) => {
       .select('id,author,author_name,body,files,deleted_at')
     const msg = claimed && claimed[0]
     if (!msg) return reply(200, { skipped: true })
-    const [{ data: tasks }, { data: subs }, { data: act }] = await Promise.all([
+    const [t, s, a] = await Promise.all([
       admin.from('msg_tasks').select('assignee,text').eq('message_id', id),
       admin.from('msg_push_subs').select('*'),
       admin.from('teacher_accounts').select('user_id').eq('active', true),
     ])
+    // 조회가 하나라도 실패하면 잡은 자리(pushed_at)를 풀고 실패로 돌려준다 — 화면이 다시 부르면 그때 보낸다
+    // (빈 명단으로 보고 '성공'하면 알림이 영영 사라진다 — Codex 검토 P1)
+    if (t.error || s.error || a.error) {
+      await admin.from('msg_messages').update({ pushed_at: null }).eq('id', id)
+      return reply(503, { error: 'lookup_failed' })
+    }
+    const tasks = t.data, subs = s.data, act = a.data
     const active = new Set<string>((act || []).map((r: { user_id: string }) => r.user_id))
     const items = plan(msg, tasks || [], subs || [], active)
     return reply(200, { targets: items.length, ...(await deliver(admin, items)) })
