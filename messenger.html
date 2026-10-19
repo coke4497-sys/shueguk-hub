@@ -118,6 +118,21 @@
   #send{width:auto;padding:0 18px;background:var(--lavInk);color:#fff;font-size:14px;}
   #send:disabled{background:#B7B0BF;}
   .hint{font-size:12.5px;color:var(--ink2);}
+  /* 꼬리표 알약 (2026-10-19 원장님) — 본문 앞 '[결석] '으로 저장, 화면은 색 알약으로 */
+  .tags{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:1px 0;}
+  .tags::-webkit-scrollbar{display:none;}
+  .tags.has .tg:not(.on){opacity:.42;}
+  .tg{border:0;border-radius:999px;font-size:12.5px;padding:5px 11px;white-space:nowrap;flex:none;font-family:inherit;line-height:1.3;}
+  button.tg.on{font-weight:700;}
+  span.tg{display:inline-block;padding:2px 9px;margin-right:6px;font-size:12.5px;vertical-align:1px;}
+  .tg.c1{background:#DCE8E5;color:#2F5148;}
+  .tg.c2{background:#F7E2DE;color:#83413A;}
+  .tg.c3{background:#F9EFD0;color:#6E5718;}
+  .tg.c4{background:#EDE4F4;color:#5A4A6A;}
+  .tg.c5{background:#E9EDF8;color:#475A86;}
+  .tg.c6{background:#FBE3CF;color:#8A5320;}
+  .tg.c7{background:#E6EAE8;color:#4F5C56;}
+  .tg.c8{background:#D9EEF0;color:#2E6168;}
   .hint b{color:var(--lavInk);}
   #pend{display:flex;flex-wrap:wrap;gap:6px;}
   #pend:empty{display:none;}
@@ -220,6 +235,7 @@
       <div id="composer">
         <div id="mention" role="listbox" aria-label="부를 사람"></div>
         <div id="pend"></div>
+        <div class="tags" id="tags" role="group" aria-label="꼬리표"></div>
         <div class="crow">
           <textarea id="inp" rows="1" aria-label="메시지 쓰기" placeholder="메시지 쓰기"></textarea>
           <input type="file" id="file" multiple hidden />
@@ -522,12 +538,34 @@
     MENTION_CACHE = names.length ? new RegExp('@(' + names.map(function(n){ return n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|') + ')(T|선생님|쌤|조교|님)?', 'g') : null;
     return MENTION_CACHE;
   }
+  // ── 꼬리표 (입학상담·결석·지각·이동·상담요청·공지·기타요청·질문) ─────────
+  var TAGS = [['입학상담', 'c1'], ['결석', 'c2'], ['지각', 'c3'], ['이동', 'c4'], ['상담요청', 'c5'], ['공지', 'c6'], ['기타요청', 'c7'], ['질문', 'c8']];
+  var TAG_CLS = {}; TAGS.forEach(function(x){ TAG_CLS[x[0]] = x[1]; });
+  var curTag = '';
+  function tagSplit(text){
+    var m = String(text || '').match(/^\[([^\]]{1,8})\]\s?/);
+    return m && TAG_CLS[m[1]] ? { tag: m[1], rest: String(text).slice(m[0].length) } : { tag: '', rest: String(text || '') };
+  }
+  function tagPill(tag){ return tag ? '<span class="tg ' + TAG_CLS[tag] + '">' + esc(tag) + '</span>' : ''; }
+  function drawTags(){
+    $('tags').innerHTML = TAGS.map(function(x){ return '<button type="button" class="tg ' + x[1] + (curTag === x[0] ? ' on' : '') + '" data-tag="' + x[0] + '" aria-pressed="' + (curTag === x[0]) + '">' + x[0] + '</button>'; }).join('');
+    $('tags').classList.toggle('has', !!curTag);
+  }
+  $('tags').addEventListener('mousedown', function(e){ if (e.target.closest('[data-tag]')) e.preventDefault(); });   // 입력칸 초점 유지
+  $('tags').addEventListener('click', function(e){
+    var b = e.target.closest('[data-tag]'); if (!b) return;
+    curTag = curTag === b.dataset.tag ? '' : b.dataset.tag;   // 같은 알약을 다시 누르면 뺀다
+    drawTags();
+  });
+  drawTags();
+
   function bodyHtml(body){
-    var h = esc(body);
+    var sp = tagSplit(body);
+    var h = esc(sp.rest);
     h = h.replace(/https?:\/\/[^\s<]+/g, function(u){ return '<a href="' + u + '" target="_blank" rel="noopener">' + u + '</a>'; });
     var re = mentionRe();
     if (re) h = h.replace(re, function(s){ return '<span class="at">' + s + '</span>'; });
-    return h;
+    return tagPill(sp.tag) + h;
   }
   var FILE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="#4C6E66" stroke-width="1.6" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
   function size(n){ n = Number(n) || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB'; }
@@ -781,13 +819,14 @@
     if (sending || !ready) return;
     var body = inp.value.trim();
     if (!body && !pending.length) return;
+    if (curTag && tagSplit(body).tag !== curTag) body = '[' + curTag + '] ' + body;
     sending = true; $('send').disabled = true;
     var files = pending.slice(), up = [];
     status(files.length ? '파일을 올리는 중…' : '', 30000);
     files.reduce(function(p, f){ return p.then(function(){ return upload(f).then(function(x){ up.push(x); }); }); }, Promise.resolve())
       .then(function(){ return rpc('msg_send', { p_body: body, p_files: up, p_mentions: mentionsIn(body) }); })
       .then(function(res){
-        inp.value = ''; grow(); pending = []; drawPending();
+        inp.value = ''; grow(); pending = []; drawPending(); curTag = ''; drawTags();
         if (!lastAmbig) status('');
         addMsgs([res.message]); addTasks(res.tasks);
         renderMsgs('bottom'); renderBoard();
@@ -835,10 +874,10 @@
       var items = p.todo.sort(function(a, b){ return a.id - b.id; }).map(function(t){
         var c = Date.parse(t.created_at), late = c < start ? md(t.created_at) + '부터 남음' : (now - c > LATE_MS ? Math.floor((now - c) / 3600e3) + '시간 지남' : '');
         return '<div class="ci"><button class="bx" type="button" data-tk="' + t.id + '" aria-label="완료로 표시"' + (canCheck(t) ? '' : ' disabled title="맡은 사람·맡긴 사람만 체크할 수 있어요"') + '></button>'
-          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + esc(t.text) + '<span class="meta' + (late ? ' lt' : '') + '">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + (late ? ' · ' + late : '') + '</span></button></div>';
+          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta' + (late ? ' lt' : '') + '">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + (late ? ' · ' + late : '') + '</span></button></div>';
       }).concat(p.done.sort(function(a, b){ return Date.parse(b.done_at) - Date.parse(a.done_at); }).map(function(t){
         return '<div class="ci d"><button class="bx on" type="button" data-tk="' + t.id + '" data-done="1" aria-label="완료 취소"' + (canCheck(t) ? '' : ' disabled') + '>' + CHECK + '</button>'
-          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + esc(t.text) + '<span class="meta">' + esc(t.requester_name) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</span></button></div>';
+          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</span></button></div>';
       })).join('');
       return '<section class="pc" data-person="' + esc(p.key) + '"><div class="ph1"><span class="pn">' + esc(p.name) + '</span><span class="prl">' + (p.key === ME.id ? '나 · ' : '') + esc(p.role ? roleLabel(p.role) : '') + '</span>' + presTag(p.key)
         + '<span class="pcnt' + (full ? ' full' : '') + '">' + p.done.length + ' / ' + tot + (full ? ' 완료' : '') + '</span></div>'

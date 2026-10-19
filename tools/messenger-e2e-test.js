@@ -461,6 +461,30 @@ function filterRows(rows, u){
   ok(await page.locator('#msgBadge').isHidden(), '다 읽었으면 숫자 없음');
   await ctx.close();
 
+  console.log('⑰ 꼬리표 알약');
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id);
+  ok(await page.locator('#tags .tg').count() === 8 && (await page.locator('#tags').textContent()) === '입학상담결석지각이동상담요청공지기타요청질문', '알약 8개');
+  await page.click('#tags [data-tag="지각"]'); await page.click('#tags [data-tag="지각"]');
+  ok(await page.locator('#tags .tg.on').count() === 0, '같은 알약을 다시 누르면 빠짐');
+  await page.click('#tags [data-tag="결석"]');
+  ok(await page.locator('#tags .tg.on').textContent() === '결석' && await page.evaluate(() => document.querySelector('#tags').classList.contains('has')), '고른 알약만 진하게');
+  await page.click('#inp'); await page.keyboard.type('중3 박하늘 병결입니다 @이은지'); await page.keyboard.press('Escape'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  const tsend = calls.filter(c => c[0] === 'send').pop();
+  if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'tags.png') });
+    const pg = await ctx.newPage(); await pg.setViewportSize({ width: 390, height: 844 }); await pg.goto('http://127.0.0.1:' + PORT + '/messenger.html'); await pg.waitForSelector('#msgs .m'); await pg.click('#tags [data-tag="상담요청"]'); await pg.screenshot({ path: path.join(process.env.SHOT, 'tags-phone.png') }); await pg.close(); }
+  ok(tsend[1].p_body === '[결석] 중3 박하늘 병결입니다 @이은지', '본문 앞에 [결석] (' + tsend[1].p_body + ')');
+  const lastM = MSGS[MSGS.length - 1];
+  const bb = page.locator('#m' + lastM.id + ' .bb');
+  ok(await bb.locator('span.tg.c2').textContent() === '결석' && !(await bb.textContent()).includes('['), '대화에는 대괄호 없이 연핑크 알약');
+  ok(await page.locator('#tags .tg.on').count() === 0, '보낸 뒤 알약은 풀림');
+  ok(await page.locator('.pc[data-person="' + EUNJI + '"] .ctx span.tg.c2').count() >= 1, '업무 카드 할 일에도 알약');
+  await page.click('#inp'); await page.keyboard.type('[모르는말] 그대로'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  ok((await page.locator('#m' + MSGS[MSGS.length - 1].id + ' .bb').textContent()).includes('[모르는말]'), '목록에 없는 대괄호는 글 그대로');
+  await ctx.close();
+
   console.log('⑯ 출근·퇴근');
   PRESENCE[BOSS] = { user_id: BOSS, name: '이수경', loc: '본원', is_on: true, changed_at: ago(1) };
   PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '화정센터', is_on: true, changed_at: ago(30) };   // 어제 출근 — 오늘은 OFF
