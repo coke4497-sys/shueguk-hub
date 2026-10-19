@@ -1,7 +1,7 @@
 {
-  "name": "슈국 대화방",
-  "short_name": "슈국 대화방",
-  "description": "이수경국어 선생님·조교 대화방",
+  "name": "슈톡 Shuetalk",
+  "short_name": "슈톡",
+  "description": "이수경국어 선생님·조교 대화방 슈톡",
   "lang": "ko",
   "id": "./messenger.html",
   "start_url": "./messenger.html",

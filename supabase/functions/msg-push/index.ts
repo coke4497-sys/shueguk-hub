@@ -1,4 +1,4 @@
-// 슈국 대화방 휴대폰 푸시 알림 (2026-10-19)
+// 슈톡(Shuetalk) 휴대폰 푸시 알림 (2026-10-19)
 // POST { action: 'key' }                 → { key }  VAPID 공개 키 (구독할 때 쓴다)
 // POST { action: 'send', message_id }    → 그 메시지 알림을 보낸다 (한 메시지에 한 번만 — msg_messages.pushed_at 으로 잡음)
 // POST { action: 'test' }                → 내 기기들에 시험 알림
@@ -108,7 +108,7 @@ const handler = withSupabase({ auth: 'user' }, async (request, context) => {
 
   if (input.action === 'test') {
     const { data: subs } = await admin.from('msg_push_subs').select('*').eq('user_id', uid)
-    const items = (subs || []).map((s: Sub) => ({ sub: s, payload: { title: '슈국 대화방', body: me.display_name + '님, 알림이 잘 옵니다.', url: PAGE, tag: 'msgtest', task: false } }))
+    const items = (subs || []).map((s: Sub) => ({ sub: s, payload: { title: '슈톡', body: me.display_name + '님, 알림이 잘 옵니다.', url: PAGE, tag: 'msgtest', task: false } }))
     return reply(200, { devices: items.length, ...(await deliver(admin, items)) })
   }
 

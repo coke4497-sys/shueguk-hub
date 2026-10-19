@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>슈국 대화방 · 슈국 티쳐스</title>
+<title>슈톡 · Shuetalk</title>
 <script src="assets/teacher-auth.js" data-mode="protected"></script>
-<meta name="description" content="이수경국어 슈국 대화방 — 한 대화방에서 이야기하고 @이름으로 할 일을 맡깁니다" />
+<meta name="description" content="이수경국어 슈톡(Shuetalk) — 한 대화방에서 이야기하고 @이름으로 할 일을 맡깁니다" />
 <link rel="manifest" href="messenger.webmanifest" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-title" content="슈국 대화방" />
+<meta name="apple-mobile-web-app-title" content="슈톡" />
 <meta name="theme-color" content="#F6F8F7" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -183,8 +183,8 @@
 <div class="app">
   <div class="tabwrap">
     <header class="top">
-      <a href="index.html" class="script" style="text-decoration:none" aria-label="티쳐스 첫 화면">Shueguk</a>
-      <span class="title">슈국 대화방</span>
+      <a href="index.html" class="script" style="text-decoration:none" aria-label="티쳐스 첫 화면">Shuetalk</a>
+      <span class="title">슈톡</span>
       <span class="cnt" id="cnt"></span>
       <span class="grow"></span>
       <span class="live off" id="live">연결 중</span>
@@ -242,7 +242,7 @@
     <p class="pstate" id="pstate">확인하는 중…</p>
     <div id="pios" class="pguide" hidden>
       <b>아이폰·아이패드는 먼저 홈 화면에 추가해야 알림을 받을 수 있습니다.</b>
-      <ol><li>사파리에서 이 화면을 연 채로 아래 <b>공유</b> 버튼을 누릅니다.</li><li><b>홈 화면에 추가</b>를 누릅니다.</li><li>홈 화면에 생긴 <b>슈국 대화방</b> 아이콘으로 열고, 여기서 [알림 켜기]를 누릅니다.</li></ol>
+      <ol><li>사파리에서 이 화면을 연 채로 아래 <b>공유</b> 버튼을 누릅니다.</li><li><b>홈 화면에 추가</b>를 누릅니다.</li><li>홈 화면에 생긴 <b>슈톡</b> 아이콘으로 열고, 여기서 [알림 켜기]를 누릅니다.</li></ol>
       <span class="pnote">iOS 16.4 이상에서 됩니다. 카카오톡 안에서 열었다면 사파리로 다시 열어 주세요.</span>
     </div>
     <div class="prow" id="pbtns">
@@ -349,9 +349,9 @@
     }).catch(function(e){
       setLive(false);
       if (missingTable(e)){
-        $('msgs').innerHTML = '<div class="notice"><b>대화방 준비가 아직 끝나지 않았습니다.</b><br>데이터베이스에 대화방 표를 만드는 작업(허브 마이그레이션 202610190001_messenger)을 적용해야 합니다. 클로슈에게 적용을 요청해 주세요.</div>';
+        $('msgs').innerHTML = '<div class="notice"><b>슈톡 준비가 아직 끝나지 않았습니다.</b><br>데이터베이스에 슈톡 표를 만드는 작업(허브 마이그레이션 202610190001_messenger)을 적용해야 합니다. 클로슈에게 적용을 요청해 주세요.</div>';
       } else {
-        $('msgs').innerHTML = '<div class="notice">대화방을 불러오지 못했습니다. ' + esc(errText(e)) + '<br><button class="hbtn" type="button" onclick="location.reload()">다시 불러오기</button></div>';
+        $('msgs').innerHTML = '<div class="notice">슈톡을 불러오지 못했습니다. ' + esc(errText(e)) + '<br><button class="hbtn" type="button" onclick="location.reload()">다시 불러오기</button></div>';
       }
     });
   }
@@ -404,13 +404,13 @@
       notifyNew(newMsgs.filter(function(m){ return m.id > lastBefore && m.author !== ME.id && !m.deleted_at; }));
     }).catch(function(){ setLive(false); }).then(function(){ polling = false; schedule(); });
   }
-  document.addEventListener('visibilitychange', function(){ if (!document.hidden){ unseen = 0; document.title = '슈국 대화방 · 슈국 티쳐스'; if (navigator.clearAppBadge) navigator.clearAppBadge().catch(function(){}); markRead(); poll(); } });
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden){ unseen = 0; document.title = '슈톡 · Shuetalk'; if (navigator.clearAppBadge) navigator.clearAppBadge().catch(function(){}); markRead(); poll(); } });
 
   // ── 화면이 열려 있는 동안: 창 제목에 새 메시지 수 ─────────
   var unseen = 0;
   function notifyNew(msgs){
     if (!msgs.length || !document.hidden) return;
-    unseen += msgs.length; document.title = '(' + unseen + ') 슈국 대화방';
+    unseen += msgs.length; document.title = '(' + unseen + ') 슈톡';
   }
 
   // ── 휴대폰 푸시 알림 (msg-sw.js + 엣지 함수 msg-push) ─────────

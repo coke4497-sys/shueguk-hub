@@ -1,4 +1,4 @@
-/* 슈국 대화방(messenger.html) 브라우저 E2E (2026-10-19)
+/* 슈톡 Shuetalk(messenger.html) 브라우저 E2E (2026-10-19)
  * 가짜 수파베이스(표·함수·저장소)로 실제 페이지를 띄워
  *   대화 그리기 · @부르기 목록 · 보내기(p_mentions) · 업무 카드(내 카드 먼저·진행률·지남 표시·체크 권한) ·
  *   체크 → msg_task_set · 다른 사람 메시지 새로 받기(폴링) · 파일 올리기/내려받기 · 지우기 · 할 일 → 메시지로 이동 ·
@@ -350,7 +350,7 @@ function filterRows(rows, u){
   ok(notes[0] && notes[0].o.data.url === 'messenger.html#m3' && notes[0].o.tag === 'msg3' && notes[0].o.renotify === true, '알림에 메시지 주소·묶음 이름');
   handlers.push(ev({ data: { json(){ throw new Error('x'); }, text(){ return '글자만'; } } }));
   await Promise.all(waits);
-  ok(notes[1] && notes[1].t === '슈국 대화방' && notes[1].o.body === '글자만', '내용이 깨져도 알림은 뜬다(아이폰 구독 유지)');
+  ok(notes[1] && notes[1].t === '슈톡' && notes[1].o.body === '글자만', '내용이 깨져도 알림은 뜬다(아이폰 구독 유지)');
   waits = [];
   let closed = 0;
   handlers.notificationclick(ev({ notification: { data: { url: 'messenger.html#m9' }, close(){ closed++; } } }));
@@ -367,7 +367,7 @@ function filterRows(rows, u){
   ({ ctx, page } = await open());
   await page.goto(`http://127.0.0.1:${PORT}/index.html`);
   await page.waitForSelector('a.card');
-  ok((await page.locator('a.card').first().getAttribute('href')) === 'messenger.html', '첫 카드 = 슈국 대화방');
+  ok((await page.locator('a.card').first().getAttribute('href')) === 'messenger.html', '첫 카드 = 슈톡');
   await ctx.close();
 
   await browser.close(); server.close();
