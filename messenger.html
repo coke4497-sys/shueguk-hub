@@ -671,10 +671,13 @@
     box.innerHTML = mList.map(function(m, i){ return '<button type="button" role="option" data-mi="' + i + '" class="' + (i === mIdx ? 'on' : '') + '">' + esc(m.name) + ' <small>' + roleLabel(m.role) + '</small></button>'; }).join('');
     box.classList.add('on');
   }
-  var picked = {};   // 목록에서 고른 사람 id — 같은 이름이 둘일 때 누구인지 가린다
+  // 목록에서 고른 순서 — 이름마다 [id…]. 같은 이름이 둘일 때 누구인지 가린다.
+  // 보낼 때는 본문에 그 @이름이 남아 있는 개수만큼 마지막에 고른 사람만 쓴다
+  // (잘못 고른 뒤 지우고 다시 고르면 앞의 선택은 빠진다 — Codex 검토)
+  var picked = {};
   function pickMention(i){
     var q = mentionQuery(), m = mList[i]; if (!q || !m) return;
-    picked[m.id] = true;
+    (picked[m.name] = picked[m.name] || []).push(m.id);
     inp.value = inp.value.slice(0, q.start) + '@' + m.name + ' ' + inp.value.slice(q.end);
     var p = q.start + m.name.length + 2; inp.setSelectionRange(p, p);
     $('mention').classList.remove('on'); mList = []; inp.focus(); grow();
@@ -702,9 +705,11 @@
     MEMBERS.forEach(function(m){ (names[m.name] = names[m.name] || []).push(m); });
     Object.keys(names).sort(function(a, b){ return b.length - a.length; }).forEach(function(name){
       var tag = '@' + name;
-      if (left.indexOf(tag) < 0) return;
+      var occ = left.split(tag).length - 1;
+      if (!occ) return;
       left = left.split(tag).join(' ');
-      var group = names[name], chosen = group.filter(function(m){ return picked[m.id]; });
+      var recent = (picked[name] || []).slice(-occ);
+      var group = names[name], chosen = group.filter(function(m){ return recent.indexOf(m.id) >= 0; });
       if (group.length > 1 && !chosen.length) ambiguous.push(name);
       (group.length > 1 && chosen.length ? chosen : group).forEach(function(m){ ids.push(m.id); });
     });

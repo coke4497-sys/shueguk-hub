@@ -337,6 +337,17 @@ function filterRows(rows, u){
   let ds = calls.filter(c => c[0] === 'send').pop();
   const wantId = second.includes('조교') ? DUP : '44444444-4444-4444-4444-444444444444';
   ok(ds[1].p_mentions.length === 1 && ds[1].p_mentions[0] === wantId, '목록에서 고른 사람만 받음');
+  // 잘못 고른 뒤 지우고 다시 고르기 → 마지막에 고른 사람만
+  await page.click('#inp'); await page.keyboard.type('다시 @김지');
+  await page.waitForSelector('#mention.on');
+  await page.keyboard.press('Enter');                       // 첫째 사람을 골랐다가
+  for (let i = 0; i < 5; i++) await page.keyboard.press('Backspace');   // '김지원 ' 과 '@' 지움
+  await page.keyboard.type('@김지');
+  await page.waitForSelector('#mention.on');
+  await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter'); await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  ds = calls.filter(c => c[0] === 'send').pop();
+  ok(ds[1].p_mentions.length === 1 && ds[1].p_mentions[0] === wantId, '잘못 고른 사람은 빠지고 다시 고른 사람만');
   await page.click('#inp'); await page.keyboard.type('직접 친 이름 @김지원'); await page.keyboard.press('Escape'); await page.keyboard.press('Enter');
   await page.waitForFunction(() => document.querySelector('#inp').value === '');
   ds = calls.filter(c => c[0] === 'send').pop();
