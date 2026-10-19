@@ -37,7 +37,7 @@ let missing = false, failSendOnce = false;
 let mid = 0, tid = 0, clock = 0;
 const ts = () => new Date(Date.now() + (clock++)).toISOString();
 const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [];
-let noPres = false;
+let noPres = false, workClip = false;
 function addMsg(author, body, files, createdIso){
   const t = createdIso || ts();
   const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null, reply_to: null };
@@ -129,7 +129,7 @@ function filterRows(rows, u){
         const old = PRESENCE[ME] || {};
         PRESENCE[ME] = { user_id: ME, name: '고희주', loc: b.p_on ? b.p_loc : (old.loc || ''), is_on: b.p_on, changed_at: NOWISO() };
         PLOGS.push({ id: PLOGS.length + 1, user_id: ME, is_on: b.p_on, at: NOWISO() });
-        return json(PRESENCE[ME]);
+        return json(Object.assign({}, PRESENCE[ME], { work: workClip && b.p_on ? { id: 1, event: 'in', sched: '16:00', start: '16:00', clipped: true } : (b.p_on ? null : { id: 1, event: 'out', start: '16:00', minutes: 362 }) }));
       }
       if (p === '/rest/v1/rpc/msg_send'){
         const b = JSON.parse(req.postData()); calls.push(['send', b]);
@@ -681,8 +681,15 @@ function filterRows(rows, u){
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'pres-list.png') });
   // 휴대폰에서도 내 줄이 보여야 한다(예전엔 '.me' 클래스라 휴대폰에서 숨겨졌다)
   await page.click('#plclose');
+  workClip = true;
   await page.click('#presBtn'); await page.click('#presMenu [data-loc="본원"]');
   await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근');
+  await page.waitForSelector('#wnback:not([hidden])');
+  ok((await page.locator('#wnTitle').textContent()) === '16:00부터 근무' && (await page.locator('#wnText').textContent()).includes('16:00부터 기록됩니다'), '근무표 시작보다 일찍 출근 → \'16:00부터 근무\' 안내 창');
+  ok(await page.evaluate(() => document.activeElement && document.activeElement.id === 'wnOk'), '안내 창의 [확인]에 초점');
+  await page.click('#wnOk');
+  ok(await page.locator('#wnback').isHidden(), '[확인]을 누르면 닫힘');
+  workClip = false;
   await page.setViewportSize({ width: 390, height: 844 });
   if ((await page.locator('#plback').isHidden())) await page.click('#presListBtn');
   await page.waitForFunction(() => [...document.querySelectorAll('#plbody .plrow')].some(r => r.textContent.includes('고희주') && r.offsetHeight > 0), null, { timeout: 5000 }).catch(() => {});

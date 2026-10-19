@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>조교 근무 일지 · 슈국 티쳐스</title>
+<script src="assets/teacher-auth.js" data-mode="protected"></script>
+<meta name="description" content="이수경국어 조교 근무 일지 — 슈톡 출근·퇴근으로 쌓이는 근무 시간, 주간 근무표와 근무자 교체, 월별 급여" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg:#C6D5D2; --ink:#2A332F; --ink2:#4F5C56; --cap:#5C6A64;
+    --line:#E5EDE8; --line2:#DCE4DF; --soft:#F2F5F3;
+    --lav:#EDE4F4; --lavInk:#5A4A6A; --lavDeep:#3E3150;
+    --ok:#E2F0E8; --okInk:#2F5D4A; --swap:#F9EFD0; --swapInk:#5F4E14; --miss:#F7E2DE; --missInk:#7E2B3D;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{background:var(--bg);color:var(--ink);font-family:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;}
+  button,input,select{font-family:inherit;font-size:inherit;color:inherit;}
+  button{cursor:pointer;}
+  a{color:#3F5F57;}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px 16px 60px;display:flex;flex-direction:column;gap:16px;}
+  .card{background:#fff;border-radius:18px;padding:18px 20px;box-shadow:0 2px 10px rgba(42,51,47,.06);}
+  .head{display:flex;flex-direction:column;gap:12px;}
+  .back{font-size:13px;text-decoration:none;color:var(--ink2);}
+  h1{margin:0;font-family:"Gowun Batang",serif;font-size:26px;font-weight:700;}
+  h2{margin:0;font-family:"Gowun Batang",serif;font-size:18px;font-weight:700;}
+  .row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;}
+  .row.sp{justify-content:space-between;}
+  .tabs{display:flex;flex-wrap:wrap;gap:6px;}
+  .tab{border:0;border-radius:999px;padding:9px 16px;background:transparent;color:var(--ink2);min-height:40px;}
+  .tab.on{background:var(--lav);color:var(--lavInk);font-weight:700;}
+  .tab[hidden]{display:none;}
+  .nav{display:flex;align-items:center;gap:6px;}
+  .nav .big{font-family:"Do Hyeon",sans-serif;font-size:23px;padding:0 8px;}
+  .nb{border:0;background:var(--soft);border-radius:10px;width:40px;height:40px;font-size:17px;color:var(--ink2);}
+  .btn{border:1px solid var(--line2);background:#fff;border-radius:10px;padding:8px 14px;color:var(--ink2);min-height:40px;}
+  .btn.lav{border:0;background:var(--lav);color:var(--lavInk);font-weight:700;}
+  .btn.sm{min-height:34px;padding:5px 10px;font-size:13px;}
+  .btn:disabled{opacity:.5;cursor:default;}
+  .note{font-size:13px;color:var(--cap);line-height:1.7;margin:0;}
+  .warn{background:var(--swap);color:var(--swapInk);border-radius:12px;padding:10px 14px;font-size:13.5px;line-height:1.6;}
+  .tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+  .tile{background:#fff;border-radius:16px;padding:14px 18px;display:flex;flex-direction:column;gap:4px;}
+  .tile .k{font-size:13px;color:var(--cap);}
+  .tile .v{font-family:"Do Hyeon",sans-serif;font-size:28px;}
+  .tile .v small{font-size:15px;margin-left:2px;}
+  .tile.lav{background:var(--lav);} .tile.lav .k{color:var(--lavInk);} .tile.lav .v{color:var(--lavDeep);}
+  .tile.miss{background:var(--miss);} .tile.miss .k,.tile.miss .v{color:var(--missInk);}
+  .scroll{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;}
+  th{font-weight:400;color:var(--cap);font-size:12.5px;text-align:left;padding:9px 8px;}
+  td{padding:11px 8px;border-top:1px solid var(--line);}
+  td.n,th.n{text-align:right;white-space:nowrap;}
+  tr.sum td{border-top:2px solid var(--line2);font-weight:700;}
+  tr.person{cursor:pointer;}
+  tr.person:hover td{background:#FAFBFA;}
+  tr.person.open td{background:#FAF7FC;}
+  tr.detail td{background:#FAF7FC;border-top:0;padding:0 8px 14px 20px;}
+  .pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12px;white-space:nowrap;}
+  .pill.ok{background:var(--ok);color:var(--okInk);} .pill.miss{background:var(--miss);color:var(--missInk);} .pill.swap{background:var(--swap);color:var(--swapInk);} .pill.soft{background:var(--soft);color:var(--ink2);}
+  .days{background:#fff;border-radius:12px;padding:4px 12px;}
+  .day{display:grid;grid-template-columns:110px 90px 150px 72px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #F0F3F1;font-size:13.5px;}
+  .day:last-child{border-bottom:0;}
+  .day .tag{font-size:12.5px;color:var(--swapInk);}
+  .day .tag.miss{color:var(--missInk);}
+  .day .acts{display:flex;gap:6px;justify-content:flex-end;}
+  /* 주간 근무표 */
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12.5px;color:var(--ink2);}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:6px;vertical-align:-1px;}
+  .wk{display:grid;gap:8px;min-width:820px;}
+  .wk .dh{padding:6px 6px 10px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;}
+  .wk .dh b{font-family:"Do Hyeon",sans-serif;font-size:19px;font-weight:400;}
+  .wk .dh.today b{color:var(--lavInk);}
+  .wk .dh span{font-size:12px;color:var(--cap);}
+  .wk .ctr{padding:12px 4px;font-family:"Gowun Batang",serif;font-weight:700;}
+  .wk .cell{display:flex;flex-direction:column;gap:6px;padding:4px 0;}
+  .slot{border:0;text-align:left;border-radius:12px;padding:9px 11px;display:flex;flex-direction:column;gap:2px;background:var(--soft);min-height:52px;width:100%;}
+  .slot b{font-size:15px;}
+  .slot span{font-size:12px;}
+  .slot.ok{background:var(--ok);} .slot.ok span{color:var(--okInk);}
+  .slot.swap{background:var(--swap);} .slot.swap span{color:var(--swapInk);}
+  .slot.miss{background:var(--miss);} .slot.miss span{color:var(--missInk);}
+  .slot.none{background:#fff;border:1px dashed var(--line2);} .slot.none b{color:var(--cap);font-weight:400;}
+  .slot.mine{box-shadow:inset 0 0 0 2px #B9A5CC;}
+  .slot:hover{filter:brightness(.98);}
+  .log{display:grid;grid-template-columns:110px 90px minmax(0,1fr) auto;gap:10px;padding:9px 0;border-top:1px solid #F0F3F1;font-size:14px;align-items:center;}
+  .log .who{font-size:12.5px;color:var(--cap);}
+  /* 휴대폰: 근무표를 날짜별 목록으로 */
+  .wl{display:flex;flex-direction:column;gap:14px;}
+  .wl .wd{display:flex;flex-direction:column;gap:8px;}
+  .wl .wd > b{font-family:"Do Hyeon",sans-serif;font-size:20px;font-weight:400;}
+  .wl .wd.today > b{color:var(--lavInk);}
+  .wl .wd > b small{font-family:"Gowun Dodum",sans-serif;font-size:12.5px;color:var(--cap);margin-left:6px;}
+  .wl .wc{display:grid;grid-template-columns:72px minmax(0,1fr);gap:8px;align-items:start;}
+  .wl .wc > span{font-family:"Gowun Batang",serif;font-weight:700;font-size:14px;padding-top:10px;}
+  .wl .wc > div{display:flex;flex-direction:column;gap:6px;}
+  /* 연도 합계 */
+  .yt td,.yt th{text-align:right;white-space:nowrap;}
+  .yt td:first-child,.yt th:first-child{text-align:left;}
+  /* 설정 */
+  .st td{vertical-align:middle;}
+  .st input[type=number]{width:110px;border:1px solid var(--line2);border-radius:10px;padding:7px 10px;min-height:38px;}
+  .rs{display:grid;gap:8px;min-width:820px;}
+  .rsc{display:flex;flex-direction:column;gap:6px;padding:4px 0;}
+  .rss{display:flex;flex-direction:column;gap:4px;background:var(--soft);border-radius:10px;padding:8px;}
+  .rss select,.rss input{border:1px solid var(--line2);border-radius:8px;padding:5px 6px;background:#fff;min-height:34px;width:100%;}
+  .rss .tm{display:flex;gap:4px;align-items:center;font-size:12px;}
+  .rss .tm input{width:auto;flex:1;min-width:0;}
+  .addslot{border:1px dashed var(--line2);background:#fff;border-radius:10px;padding:6px;color:var(--cap);font-size:12.5px;}
+  /* 창 */
+  .dlg{position:fixed;inset:0;background:rgba(42,51,47,.38);display:flex;align-items:center;justify-content:center;padding:16px;z-index:50;}
+  .dlg[hidden]{display:none;}
+  .box{background:#fff;border-radius:18px;padding:22px;width:min(460px,100%);max-height:calc(100vh - 32px);overflow:auto;display:flex;flex-direction:column;gap:12px;box-shadow:0 10px 30px rgba(42,51,47,.2);}
+  .box .ctx{background:var(--soft);border-radius:12px;padding:11px 14px;display:flex;flex-direction:column;gap:2px;}
+  .box .ctx b{font-family:"Do Hyeon",sans-serif;font-size:19px;font-weight:400;}
+  .box .ctx span{font-size:13px;color:var(--ink2);}
+  .box label{font-size:13px;color:var(--ink2);}
+  .box select,.box input[type=text],.box input[type=time],.box input[type=date]{border:1px solid var(--line2);border-radius:10px;padding:9px 12px;min-height:44px;width:100%;background:#fff;}
+  .box .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+  .box .two > div{display:flex;flex-direction:column;gap:6px;}
+  .box .chk{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--ink);}
+  .box .chk input{width:18px;height:18px;}
+  .box .acts{display:flex;justify-content:flex-end;gap:8px;}
+  .box .err{color:var(--missInk);font-size:13px;min-height:1em;}
+  #status{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#2A332F;color:#fff;border-radius:999px;padding:9px 16px;font-size:13.5px;z-index:60;max-width:calc(100% - 32px);}
+  #status:empty{display:none;}
+  .empty{color:var(--cap);font-size:14px;padding:16px 4px;}
+  [hidden]{display:none !important;}
+  @media (max-width:760px){
+    .tiles{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .day{grid-template-columns:1fr auto;}
+    .day > span:nth-child(n+2):not(.acts){grid-column:1;}
+    .wrap{padding-top:58px;}
+    .log{grid-template-columns:1fr;gap:2px;}
+  }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section class="card head">
+    <div class="row sp">
+      <div>
+        <a class="back" href="ops.html">← 슈국 운영</a>
+        <h1>조교 근무 일지</h1>
+      </div>
+      <div class="tabs" role="tablist">
+        <button class="tab" type="button" data-tab="month" role="tab">월별 근무</button>
+        <button class="tab" type="button" data-tab="week" role="tab">주간 근무표</button>
+        <button class="tab" type="button" data-tab="year" role="tab">연도 합계</button>
+        <button class="tab" type="button" data-tab="set" role="tab" hidden>사람·근무표 설정</button>
+      </div>
+    </div>
+    <div class="warn" id="setupNote" hidden></div>
+  </section>
+
+  <!-- 월별 근무 -->
+  <section id="v-month" hidden>
+    <div class="card" style="display:flex;flex-direction:column;gap:12px;">
+      <div class="row sp">
+        <div class="nav"><button class="nb" type="button" id="mPrev" aria-label="이전 달">‹</button><span class="big" id="mLabel"></span><button class="nb" type="button" id="mNext" aria-label="다음 달">›</button></div>
+        <div class="row" id="mTools"><button class="btn" type="button" id="mCopy">표 복사</button><button class="btn" type="button" id="mCsv">CSV 내려받기</button></div>
+      </div>
+      <p class="note" id="mNote"></p>
+    </div>
+    <div class="tiles" id="mTiles" style="margin-top:16px;"></div>
+    <div class="card" style="margin-top:16px;">
+      <div class="row sp" style="padding-bottom:6px;"><h2 id="mTitle">조교별 근무 · 급여</h2><span class="note" id="mWho"></span></div>
+      <div class="scroll" id="mBody"></div>
+      <p class="note" style="margin-top:10px;">근무시간은 슈톡 [출근]부터 [퇴근]까지입니다. 근무표 시작보다 일찍 출근하면 시작 시각부터 셉니다. 총 급여 = 근무시간 × 시급, 실수령 = 총 급여 × 0.967(시트와 같은 계산).</p>
+    </div>
+  </section>
+
+  <!-- 주간 근무표 -->
+  <section id="v-week" hidden>
+    <div class="card" style="display:flex;flex-direction:column;gap:12px;">
+      <div class="row sp">
+        <div class="nav"><button class="nb" type="button" id="wPrev" aria-label="지난주">‹</button><span class="big" id="wLabel"></span><button class="nb" type="button" id="wNext" aria-label="다음 주">›</button><button class="btn sm" type="button" id="wToday">이번 주</button></div>
+        <span class="note">칸을 누르면 근무자를 바꿀 수 있습니다.</span>
+      </div>
+      <div class="legend"><span><i style="background:var(--ok)"></i>슈톡 출근·퇴근 확인</span><span><i style="background:var(--swap)"></i>근무자 교체</span><span><i style="background:var(--miss)"></i>출근 기록 없음</span><span><i style="background:var(--soft)"></i>예정</span></div>
+    </div>
+    <div class="card scroll" style="margin-top:16px;" id="wGrid"></div>
+    <div class="card" style="margin-top:16px;display:flex;flex-direction:column;gap:4px;">
+      <h2>이 주 교체 기록</h2>
+      <div id="wLog"></div>
+      <p class="note" style="margin-top:6px;">근무표는 주마다 기본 근무표로 채워지고, 바뀐 칸만 교체로 남습니다.</p>
+    </div>
+  </section>
+
+  <!-- 연도 합계 -->
+  <section id="v-year" hidden>
+    <div class="card" style="display:flex;flex-direction:column;gap:12px;">
+      <div class="row sp">
+        <div class="nav"><button class="nb" type="button" id="yPrev" aria-label="이전 해">‹</button><span class="big" id="yLabel"></span><button class="nb" type="button" id="yNext" aria-label="다음 해">›</button></div>
+        <button class="btn" type="button" id="yCopy">표 복사</button>
+      </div>
+      <div class="scroll" id="yBody"></div>
+      <p class="note">달마다 근무시간 합계입니다. 2026년 10월까지의 기록은 시트 year 탭에 있습니다.</p>
+    </div>
+  </section>
+
+  <!-- 설정 (원장님·대표님) -->
+  <section id="v-set" hidden>
+    <div class="card" style="display:flex;flex-direction:column;gap:10px;">
+      <h2>근무 일지에 드는 사람 · 시급</h2>
+      <p class="note">체크한 사람만 슈톡 [출근]·[퇴근]이 근무 기록으로 쌓이고, 근무표에 넣을 수 있습니다. 시급은 본인과 원장님·대표님에게만 보입니다.</p>
+      <div class="scroll" id="sStaff"></div>
+    </div>
+    <div class="card" style="margin-top:16px;display:flex;flex-direction:column;gap:10px;">
+      <div class="row sp"><h2>기본 근무표</h2>
+        <div class="row"><label for="rFrom" class="note">적용 시작일</label><input type="date" id="rFrom" style="border:1px solid var(--line2);border-radius:10px;padding:7px 10px;min-height:40px;" /><button class="btn lav" type="button" id="rSave">기본 근무표 저장</button></div>
+      </div>
+      <p class="note">매주 이 근무표로 칸이 채워집니다. 저장하면 적용 시작일부터의 근무표가 새로 만들어지고, 이미 교체한 칸은 그대로 둡니다. 본원처럼 두 명이 함께 근무하는 곳은 [+ 자리 추가]로 칸을 더합니다.</p>
+      <div class="scroll" id="rGrid"></div>
+    </div>
+  </section>
+</main>
+
+<!-- 근무자 교체 창 -->
+<div class="dlg" id="swapDlg" hidden role="dialog" aria-modal="true" aria-labelledby="swapTitle">
+  <div class="box">
+    <h2 id="swapTitle">근무자 교체</h2>
+    <div class="ctx"><b id="swCtx"></b><span id="swSub"></span></div>
+    <label for="swWho">근무할 사람</label>
+    <select id="swWho"></select>
+    <label for="swWhy">사유</label>
+    <input type="text" id="swWhy" maxlength="100" placeholder="예: 병원 진료" />
+    <label class="chk"><input type="checkbox" id="swTalk" checked />슈톡에 [이동] 글로 알리기</label>
+    <p class="note">이 날 하루만 바뀝니다. 매주 바뀌는 근무는 원장님이 기본 근무표에서 고칩니다.</p>
+    <div class="err" id="swErr"></div>
+    <div class="acts"><button class="btn" type="button" data-close>취소</button><button class="btn lav" type="button" id="swSave">교체 저장</button></div>
+  </div>
+</div>
+
+<!-- 시각 고치기 창 -->
+<div class="dlg" id="fixDlg" hidden role="dialog" aria-modal="true" aria-labelledby="fixTitle">
+  <div class="box">
+    <h2 id="fixTitle">근무 시각 고치기</h2>
+    <div class="ctx"><b id="fxCtx"></b><span id="fxSub"></span></div>
+    <div class="two">
+      <div><label for="fxLoc">센터</label><select id="fxLoc"></select></div>
+      <div><label for="fxDate">날짜</label><input type="date" id="fxDate" /></div>
+    </div>
+    <div class="two">
+      <div><label for="fxIn">출근</label><input type="time" id="fxIn" /></div>
+      <div><label for="fxOut">퇴근</label><input type="time" id="fxOut" /></div>
+    </div>
+    <label for="fxWhy">고친 이유 (필수)</label>
+    <input type="text" id="fxWhy" maxlength="100" placeholder="예: 퇴근 버튼을 못 눌렀어요" />
+    <p class="note">원래 기록과 고친 사람·시각이 함께 남습니다. 근무표 시작보다 이른 출근은 시작 시각부터 셉니다.</p>
+    <div class="err" id="fxErr"></div>
+    <div class="acts"><button class="btn" type="button" id="fxDel" hidden>기록 지우기</button><button class="btn" type="button" data-close>취소</button><button class="btn lav" type="button" id="fxSave">저장</button></div>
+  </div>
+</div>
+
+<div id="status" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  'use strict';
+  // 조교 근무 일지 (2026-10-20 원장님) — 데이터: supabase/migrations/202610200001_work_log.sql
+  var SB = 'https://bangdbhqpphqqdwcledg.supabase.co', REST = SB + '/rest/v1';
+  var LOCS = ['본원', '정리정독', '화정센터', '민초센터'];
+  var DOWS = ['', '월', '화', '수', '목', '금', '토', '일'];
+  var $ = function(id){ return document.getElementById(id); };
+  var ME = null, ROLE = { viewer: false, staff: false }, STAFF = [], SBY = {}, WAGE = {}, MEMBERS = [];
+  var TAB = 'month', MONTH = '', WEEK = '', YEAR = 0, ready = false, missing = false;
+  var M = { recs: [], shifts: [], open: {} }, W = { shifts: [], recs: [] }, ROSTER = [];
+
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  var stT = null;
+  function status(msg, ms){ $('status').textContent = msg || ''; clearTimeout(stT); if (msg) stT = setTimeout(function(){ $('status').textContent = ''; }, ms || 4000); }
+  function api(path, opt){
+    opt = opt || {};
+    return fetch(REST + path, { method: opt.method || 'GET', headers: { 'Content-Type': 'application/json' }, body: opt.body }).then(function(r){
+      return r.text().then(function(t){
+        var d = null; try { d = t ? JSON.parse(t) : null; } catch (e) { d = t; }
+        if (!r.ok){ var e = new Error((d && d.message) || ('HTTP ' + r.status)); e.status = r.status; e.data = d; throw e; }
+        return d;
+      });
+    });
+  }
+  function rpc(name, body){ return api('/rpc/' + name, { method: 'POST', body: JSON.stringify(body || {}) }); }
+  function isMissing(e){ return e && (e.status === 404 || /PGRST20[25]|does not exist|Could not find/.test(String(e.message) + JSON.stringify(e.data || ''))); }
+  function errText(e){
+    var m = String((e && e.message) || e || '');
+    if (/not_allowed/.test(m)) return '이 기록을 고칠 권한이 없습니다.';
+    if (/need_reason/.test(m)) return '고친 이유를 적어 주세요.';
+    if (/bad_order/.test(m)) return '퇴근 시각이 출근(근무 시작)보다 늦어야 합니다.';
+    if (/bad_time/.test(m)) return '시각을 다시 확인해 주세요.';
+    if (/future/.test(m)) return '앞날의 기록은 넣을 수 없습니다.';
+    if (/bad_user/.test(m)) return '근무 일지에 든 사람만 고를 수 있습니다.';
+    if (/bad_from/.test(m)) return '적용 시작일은 오늘 이후여야 합니다.';
+    if (/too_long/.test(m)) return '글이 너무 깁니다(100자까지).';
+    if (/Failed to fetch|NetworkError/.test(m)) return '인터넷 연결을 확인해 주세요.';
+    return '저장하지 못했습니다. (' + m.slice(0, 80) + ')';
+  }
+
+  // ── 날짜·시간(한국) ──────────────────────────
+  function pad(n){ return (n < 10 ? '0' : '') + n; }
+  function todayYmd(){ return new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); }
+  function addDays(y, n){ var d = new Date(y + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+  function isoDow(y){ var g = new Date(y + 'T00:00:00Z').getUTCDay(); return g === 0 ? 7 : g; }
+  function mondayOf(y){ return addDays(y, 1 - isoDow(y)); }
+  function dLabel(y){ var d = new Date(y + 'T00:00:00Z'); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + ' (' + DOWS[isoDow(y)] + ')'; }
+  function hm(ts){ if (!ts) return ''; var d = new Date(Date.parse(ts) + 9 * 3600e3); return pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); }
+  function mins(r){ return r.out_at ? Math.max(0, Math.floor((Date.parse(r.out_at) - Date.parse(r.start_at)) / 60000)) : 0; }
+  function dur(m){ var h = Math.floor(m / 60), r = m % 60; return h + '시간' + (r ? ' ' + r + '분' : ''); }
+  function durShort(m){ return Math.floor(m / 60) + ':' + pad(m % 60); }
+  function won(n){ return Math.round(n).toLocaleString('ko-KR'); }
+  function pay(m, wage){ return Math.floor(m * wage / 60); }
+  function net(p){ return Math.floor(p * 0.967); }
+  function monthEnd(mo){ var d = new Date(mo + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() + 1); d.setUTCDate(0); return d.toISOString().slice(0, 10); }
+  function nameOf(id){ return id ? (SBY[id] ? SBY[id].name : (MEMBERS.filter(function(m){ return m.id === id; })[0] || {}).name || '(이름 없음)') : ''; }
+  function canEdit(uid){ return ROLE.viewer || (ME && uid === ME.id); }
+
+  // ── 시작 ─────────────────────────────────────
+  TeacherAuth.ready.then(function(ctx){
+    ME = { id: ctx.profile.user_id, name: ctx.profile.display_name || ctx.profile.login_id, role: ctx.profile.role };
+    var t = todayYmd();
+    MONTH = t.slice(0, 7); WEEK = mondayOf(t); YEAR = +t.slice(0, 4);
+    if (MONTH < '2026-11') MONTH = '2026-11';
+    var h = (location.hash || '').slice(1);
+    if (['month', 'week', 'year', 'set'].indexOf(h) >= 0) TAB = h;
+    boot();
+  });
+
+  function boot(){
+    Promise.all([rpc('work_me'), rpc('work_staff_list'), api('/work_staff?select=user_id,wage,active'), rpc('msg_members').catch(function(){ return []; })]).then(function(res){
+      ROLE = res[0] || ROLE;
+      STAFF = (res[1] || []).map(function(r){ return { id: r.user_id, name: r.name, role: r.role, active: r.active }; });
+      SBY = {}; STAFF.forEach(function(s){ SBY[s.id] = s; });
+      WAGE = {}; (res[2] || []).forEach(function(w){ WAGE[w.user_id] = w.wage; });
+      MEMBERS = (res[3] || []).map(function(r){ return { id: r.user_id, name: r.name, role: r.role }; });
+      ready = true;
+      document.querySelector('.tab[data-tab="set"]').hidden = !ROLE.viewer;
+      if (TAB === 'set' && !ROLE.viewer) TAB = 'month';
+      if (!ROLE.viewer && !ROLE.staff){ $('setupNote').hidden = false; $('setupNote').textContent = '근무 일지에 들어 있지 않은 계정입니다. 근무표는 볼 수 있고, 근무 기록·급여는 원장님이 근무 일지에 넣어 드린 뒤부터 보입니다.'; }
+      if (ROLE.viewer && !STAFF.length){ $('setupNote').hidden = false; $('setupNote').textContent = '아직 근무 일지에 든 사람이 없습니다. [사람·근무표 설정]에서 조교와 시급을 넣어 주세요.'; }
+      show(TAB);
+    }).catch(function(e){
+      if (isMissing(e)){ missing = true; $('setupNote').hidden = false; $('setupNote').textContent = '근무 일지 데이터베이스가 아직 준비되지 않았습니다(마이그레이션 202610200001). 적용되면 이 화면이 열립니다.'; return; }
+      status(errText(e), 8000);
+    });
+  }
+
+  function show(t){
+    TAB = t;
+    document.querySelectorAll('.tab').forEach(function(b){ b.classList.toggle('on', b.dataset.tab === t); b.setAttribute('aria-selected', b.dataset.tab === t); });
+    ['month', 'week', 'year', 'set'].forEach(function(k){ $('v-' + k).hidden = k !== t; });
+    try { history.replaceState(null, '', '#' + t); } catch (e) {}
+    if (t === 'month') loadMonth(); else if (t === 'week') loadWeek(); else if (t === 'year') loadYear(); else loadSet();
+  }
+  document.querySelectorAll('.tab').forEach(function(b){ b.onclick = function(){ if (ready) show(b.dataset.tab); }; });
+
+  // ── 월별 근무 ────────────────────────────────
+  function loadMonth(){
+    var from = MONTH + '-01', to = monthEnd(MONTH);
+    $('mLabel').textContent = MONTH.slice(0, 4) + '년 ' + (+MONTH.slice(5)) + '월';
+    var who = ROLE.viewer ? '' : '&user_id=eq.' + ME.id;
+    Promise.all([
+      api('/work_records?select=*&ymd=gte.' + from + '&ymd=lte.' + to + who + '&order=ymd.asc,in_at.asc&limit=5000'),
+      api('/work_shifts?select=*&ymd=gte.' + from + '&ymd=lte.' + to + '&order=ymd.asc,loc.asc,slot.asc&limit=5000')
+    ]).then(function(r){ M.recs = r[0] || []; M.shifts = r[1] || []; renderMonth(); })
+      .catch(function(e){ status(errText(e)); });
+  }
+  // 사람마다 그 달 묶음: 기록·근무 분·확인할 일(퇴근 없음·출근 기록 없음)
+  function monthPeople(){
+    var t = todayYmd(), by = {};
+    function P(id){ return by[id] || (by[id] = { id: id, name: nameOf(id), recs: [], mins: 0, days: {}, issues: [] }); }
+    M.recs.forEach(function(r){
+      var p = P(r.user_id); if (!SBY[r.user_id] && r.name) p.name = r.name;
+      p.recs.push(r); p.mins += mins(r); p.days[r.ymd] = 1;
+      if (!r.out_at && r.ymd < t) p.issues.push({ kind: 'out', rec: r });
+    });
+    M.shifts.forEach(function(s){
+      if (!s.user_id || s.ymd >= t) return;
+      if (!ROLE.viewer && s.user_id !== ME.id) return;
+      if (!M.recs.some(function(r){ return r.user_id === s.user_id && r.ymd === s.ymd; })) P(s.user_id).issues.push({ kind: 'none', shift: s });
+    });
+    if (ROLE.viewer) STAFF.forEach(function(s){ if (s.active) P(s.id); });
+    else if (ROLE.staff) P(ME.id);
+    return Object.keys(by).map(function(k){ return by[k]; }).sort(function(a, b){ return a.name < b.name ? -1 : a.name > b.name ? 1 : 0; });
+  }
+  function shiftOf(uid, y){ return M.shifts.filter(function(s){ return s.user_id === uid && s.ymd === y; })[0]; }
+  function renderMonth(){
+    var ps = monthPeople(), totM = 0, totP = 0, totN = 0, iss = 0, nd = 0;
+    ps.forEach(function(p){ var w = WAGE[p.id] || 0; p.pay = pay(p.mins, w); p.net = net(p.pay); totM += p.mins; totP += p.pay; totN += p.net; iss += p.issues.length; nd += Object.keys(p.days).length; });
+    $('mNote').textContent = MONTH === '2026-11' ? '11월부터 슈톡 [출근]·[퇴근]으로 기록합니다. 10월까지는 시트에 있습니다.' : '';
+    $('mWho').textContent = ROLE.viewer ? '급여 칸은 원장님 · 대표님 · 본인에게만 보입니다' : '내 근무만 보입니다 · 급여는 나와 원장님 · 대표님에게만 보여요';
+    $('mTitle').textContent = ROLE.viewer ? '조교별 근무 · 급여' : '내 근무';
+    var hrs = dur(totM).replace('시간', '<small>시간</small> ').replace('분', '<small>분</small>');
+    var tiles = ROLE.viewer
+      ? [['근무한 사람', ps.filter(function(p){ return p.mins > 0; }).length + '<small>명</small>'], ['총 근무시간', hrs], ['총 급여 (공제 전)', won(totP) + '<small>원</small>', 'lav']]
+      : [['근무', nd + '<small>일</small> · ' + hrs], ['총 급여', won(totP) + '<small>원</small>', 'lav'], ['실수령 (3.3% 공제)', won(totN) + '<small>원</small>', 'lav']];
+    tiles.push(['확인이 필요한 기록', iss + '<small>건</small>', iss ? 'miss' : '']);
+    $('mTiles').innerHTML = tiles.map(function(t){ return '<div class="tile ' + (t[2] || '') + '"><span class="k">' + t[0] + '</span><span class="v">' + t[1] + '</span></div>'; }).join('');
+    if (!ps.length){ $('mBody').innerHTML = '<p class="empty">이 달 근무 기록이 없습니다.</p>'; return; }
+    var h = '<table><thead><tr><th>이름</th><th class="n">근무일</th><th class="n">총 근무시간</th><th class="n">시급</th><th class="n">총 급여</th><th class="n">실수령 (3.3% 공제)</th><th class="n">기록</th></tr></thead><tbody>';
+    ps.forEach(function(p){
+      var w = WAGE[p.id], open = !!M.open[p.id] || !ROLE.viewer;
+      h += '<tr class="person' + (open ? ' open' : '') + '" data-p="' + p.id + '"><td><b>' + esc(p.name) + '</b> <span class="note">' + (open ? '접기 ▴' : '펼치기 ▾') + '</span></td>' +
+        '<td class="n">' + Object.keys(p.days).length + '일</td><td class="n">' + dur(p.mins) + '</td>' +
+        '<td class="n">' + (w != null ? won(w) : '—') + '</td><td class="n">' + (w != null ? won(p.pay) : '—') + '</td><td class="n"><b>' + (w != null ? won(p.net) : '—') + '</b></td>' +
+        '<td class="n">' + (p.issues.length ? '<span class="pill miss">확인 ' + p.issues.length + '건</span>' : '<span class="pill ok">확인됨</span>') + '</td></tr>';
+      if (open) h += '<tr class="detail"><td colspan="7">' + daysHtml(p) + '</td></tr>';
+    });
+    if (ROLE.viewer) h += '<tr class="sum"><td>합계</td><td class="n">' + nd + '일</td><td class="n">' + dur(totM) + '</td><td></td><td class="n">' + won(totP) + '</td><td class="n">' + won(totN) + '</td><td></td></tr>';
+    $('mBody').innerHTML = h + '</tbody></table>';
+  }
+  function daysHtml(p){
+    var rows = p.recs.map(function(r){ return { y: r.ymd, r: r }; });
+    p.issues.forEach(function(i){ if (i.kind === 'none') rows.push({ y: i.shift.ymd, s: i.shift }); });
+    rows.sort(function(a, b){ return a.y < b.y ? -1 : a.y > b.y ? 1 : 0; });
+    if (!rows.length) return '<div class="days"><p class="empty">이 달 근무 기록이 없습니다.</p></div>';
+    return '<div class="days">' + rows.map(function(x){
+      if (x.s){
+        return '<div class="day"><span>' + dLabel(x.y) + '</span><span>' + esc(x.s.loc) + '</span><span>' + x.s.start_hm + ' ~ ' + x.s.end_hm + ' 근무표</span><span></span><span class="tag miss">출근 기록 없음</span>' +
+          '<span class="acts">' + (canEdit(p.id) ? '<button class="btn sm" type="button" data-add="' + p.id + '|' + x.y + '|' + esc(x.s.loc) + '|' + x.s.start_hm + '|' + x.s.end_hm + '">기록 넣기</button>' : '') + '</span></div>';
+      }
+      var r = x.r, sh = shiftOf(r.user_id, r.ymd), tags = [];
+      if (sh && sh.orig_user_id && sh.orig_user_id !== r.user_id) tags.push(esc(nameOf(sh.orig_user_id)) + ' 대신 근무');
+      if (Date.parse(r.start_at) > Date.parse(r.in_at)) tags.push('출근 ' + hm(r.in_at) + ' → ' + hm(r.start_at) + '부터');
+      if (r.fixed) tags.push('고친 기록 · ' + esc(r.fix_reason));
+      var outTxt = r.out_at ? hm(r.out_at) : (r.ymd < todayYmd() ? '<span class="tag miss">퇴근 기록 없음</span>' : '근무 중');
+      return '<div class="day"><span>' + dLabel(r.ymd) + '</span><span>' + esc(r.loc) + '</span><span>' + hm(r.start_at) + ' ~ ' + outTxt + '</span><span>' + (r.out_at ? durShort(mins(r)) : '') + '</span>' +
+        '<span class="tag">' + tags.join(' · ') + '</span><span class="acts">' + (canEdit(r.user_id) ? '<button class="btn sm" type="button" data-fix="' + r.id + '">시각 고치기</button>' : '') + '</span></div>';
+    }).join('') + '</div>';
+  }
+  $('mBody').addEventListener('click', function(e){
+    var b = e.target.closest('button');
+    if (b && b.dataset.fix){ var r = M.recs.filter(function(x){ return String(x.id) === b.dataset.fix; })[0]; if (r) openFix(r); return; }
+    if (b && b.dataset.add){ var a = b.dataset.add.split('|'); openFix(null, { user_id: a[0], ymd: a[1], loc: a[2], start: a[3], end: a[4] }); return; }
+    var tr = e.target.closest('tr.person');
+    if (tr && ROLE.viewer){ M.open[tr.dataset.p] = !M.open[tr.dataset.p]; renderMonth(); }
+  });
+  $('mPrev').onclick = function(){ var d = new Date(MONTH + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 1); MONTH = d.toISOString().slice(0, 7); loadMonth(); };
+  $('mNext').onclick = function(){ var d = new Date(MONTH + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() + 1); MONTH = d.toISOString().slice(0, 7); loadMonth(); };
+  function monthTable(){
+    var rows = [['이름', '근무일', '총 근무시간', '근무 분', '시급', '총 급여', '실수령(3.3% 공제)']];
+    monthPeople().forEach(function(p){ var w = WAGE[p.id] || 0, py = pay(p.mins, w); rows.push([p.name, Object.keys(p.days).length, durShort(p.mins), p.mins, w, py, net(py)]); });
+    return rows;
+  }
+  function copyText(t){ (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function(){ status('표를 복사했습니다. 시트에 붙여 넣으세요.'); }).catch(function(){ status('복사하지 못했습니다.'); }); }
+  $('mCopy').onclick = function(){ copyText(monthTable().map(function(r){ return r.join('\t'); }).join('\n')); };
+  $('mCsv').onclick = function(){
+    var csv = '\ufeff' + monthTable().map(function(r){ return r.map(function(c){ c = String(c); return /[",\n]/.test(c) ? '"' + c.replace(/"/g, '""') + '"' : c; }).join(','); }).join('\n');
+    var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = '조교근무일지-' + MONTH + '.csv'; a.click();
+  };
+
+  // ── 주간 근무표 ──────────────────────────────
+  function loadWeek(){
+    var from = WEEK, to = addDays(WEEK, 6);
+    $('wLabel').textContent = dLabel(from).replace(/ \(.\)/, '') + ' ~ ' + dLabel(to).replace(/ \(.\)/, '');
+    rpc('work_ensure', { p_from: from, p_to: to }).catch(function(){}).then(function(){
+      return Promise.all([
+        api('/work_shifts?select=*&ymd=gte.' + from + '&ymd=lte.' + to + '&order=ymd.asc,slot.asc&limit=1000'),
+        api('/work_records?select=id,ymd,user_id,loc,in_at,start_at,out_at&ymd=gte.' + from + '&ymd=lte.' + to + '&limit=2000')
+      ]);
+    }).then(function(r){ W.shifts = r[0] || []; W.recs = r[1] || []; renderWeek(); }).catch(function(e){ status(errText(e)); });
+  }
+  function slotState(s){
+    var t = todayYmd();
+    if (!s.user_id) return { cls: 'none', name: '근무 없음', sub: s.swap_reason || (s.orig_user_id ? nameOf(s.orig_user_id) + ' 근무 빠짐' : '') };
+    var sub = s.start_hm + ' ~ ' + s.end_hm, cls = '';
+    var recs = W.recs.filter(function(r){ return r.user_id === s.user_id && r.ymd === s.ymd; });
+    if (recs.length){
+      var r = recs[0], last = recs[recs.length - 1];
+      cls = 'ok'; sub = '✓ ' + hm(r.start_at) + ' – ' + (last.out_at ? hm(last.out_at) : (s.ymd < t ? '퇴근 없음' : '근무 중'));
+    } else if (s.ymd < t || (s.ymd === t && Date.now() > Date.parse(s.ymd + 'T' + s.start_hm + ':00+09:00') + 30 * 60000)) { cls = 'miss'; sub = '출근 기록 없음'; }
+    if (s.orig_user_id && s.orig_user_id !== s.user_id){ sub = nameOf(s.orig_user_id) + ' 대신 · ' + sub; if (cls !== 'miss') cls = 'swap'; }
+    return { cls: cls, name: nameOf(s.user_id), sub: sub };
+  }
+  function renderWeek(){
+    var t = todayYmd(), days = [];
+    for (var i = 0; i < 7; i++){ var y = addDays(WEEK, i); if (i >= 2 || W.shifts.some(function(s){ return s.ymd === y; })) days.push(y); }
+    var h = '<div class="wk" style="grid-template-columns:90px repeat(' + days.length + ',minmax(130px,1fr));"><div></div>';
+    days.forEach(function(y){
+      var ss = W.shifts.filter(function(s){ return s.ymd === y; })[0];
+      h += '<div class="dh' + (y === t ? ' today' : '') + '"><b>' + dLabel(y).replace(' (', ' ').replace(')', '') + (y === t ? ' · 오늘' : '') + '</b><span>' + (ss ? ss.start_hm + ' ~ ' + ss.end_hm : '근무 없음') + '</span></div>';
+    });
+    LOCS.forEach(function(loc){
+      if (!W.shifts.some(function(s){ return s.loc === loc; })) return;
+      h += '<div class="ctr">' + loc + '</div>';
+      days.forEach(function(y){
+        h += '<div class="cell">';
+        h += W.shifts.filter(function(s){ return s.ymd === y && s.loc === loc; }).sort(function(a, b){ return a.slot - b.slot; }).map(slotBtn).join('');
+        h += '</div>';
+      });
+    });
+    h += '</div>';
+    if (narrow()) h = weekList(days, t);
+    if (!W.shifts.length) h = '<p class="empty">' + (WEEK < mondayOf(t) ? '이 주 근무표 기록이 없습니다.' : '기본 근무표가 아직 없습니다. 원장님이 [사람·근무표 설정]에서 넣으면 채워집니다.') + '</p>';
+    $('wGrid').innerHTML = h;
+    var logs = W.shifts.filter(function(s){ return s.swapped_at; });
+    $('wLog').innerHTML = logs.length ? logs.map(function(s){
+      return '<div class="log"><span>' + dLabel(s.ymd) + '</span><span>' + esc(s.loc) + '</span><span>' + esc(nameOf(s.orig_user_id) || '(빈 자리)') + ' → <b>' + esc(s.user_id ? nameOf(s.user_id) : '근무 없음') + '</b>' + (s.swap_reason ? ' · ' + esc(s.swap_reason) : '') + '</span><span class="who">' + esc(s.swapped_by_name) + ' · ' + dLabel(s.swapped_at.slice(0, 10)).replace(/ \(.\)/, '') + ' ' + hm(s.swapped_at) + '</span></div>';
+    }).join('') : '<p class="empty">이 주에는 교체가 없습니다.</p>';
+  }
+  function narrow(){ return window.matchMedia && matchMedia('(max-width:760px)').matches; }
+  function slotBtn(s){ var st = slotState(s); return '<button type="button" class="slot ' + st.cls + (s.user_id === ME.id ? ' mine' : '') + '" data-shift="' + s.id + '"><b>' + esc(st.name) + '</b>' + (st.sub ? '<span>' + esc(st.sub) + '</span>' : '') + '</button>'; }
+  function weekList(days, t){
+    var h = '<div class="wl">';
+    days.forEach(function(y){
+      var ds = W.shifts.filter(function(s){ return s.ymd === y; });
+      if (!ds.length) return;
+      h += '<div class="wd' + (y === t ? ' today' : '') + '"><b>' + dLabel(y) + (y === t ? ' · 오늘' : '') + '<small>' + ds[0].start_hm + ' ~ ' + ds[0].end_hm + '</small></b>';
+      LOCS.forEach(function(loc){
+        var ls = ds.filter(function(s){ return s.loc === loc; }).sort(function(a, b){ return a.slot - b.slot; });
+        if (ls.length) h += '<div class="wc"><span>' + loc + '</span><div>' + ls.map(slotBtn).join('') + '</div></div>';
+      });
+      h += '</div>';
+    });
+    return h + '</div>';
+  }
+  var lastNarrow = null;
+  window.addEventListener('resize', function(){ var nw = narrow(); if (lastNarrow !== null && nw !== lastNarrow && TAB === 'week' && W.shifts.length) renderWeek(); lastNarrow = nw; });
+  $('wGrid').addEventListener('click', function(e){ var b = e.target.closest('[data-shift]'); if (!b) return; var s = W.shifts.filter(function(x){ return String(x.id) === b.dataset.shift; })[0]; if (s) openSwap(s); });
+  $('wPrev').onclick = function(){ WEEK = addDays(WEEK, -7); loadWeek(); };
+  $('wNext').onclick = function(){ WEEK = addDays(WEEK, 7); loadWeek(); };
+  $('wToday').onclick = function(){ WEEK = mondayOf(todayYmd()); loadWeek(); };
+
+  var SW = null;
+  function openSwap(s){
+    SW = s;
+    var orig = s.orig_user_id || s.user_id;
+    $('swCtx').textContent = dLabel(s.ymd) + ' · ' + s.loc;
+    $('swSub').textContent = s.start_hm + ' ~ ' + s.end_hm + ' · 근무표 근무자 ' + (orig ? nameOf(orig) : '없음') + (s.user_id && s.user_id !== orig ? ' (지금 ' + nameOf(s.user_id) + ')' : '');
+    var busy = {}; W.shifts.forEach(function(x){ if (x.ymd === s.ymd && x.id !== s.id && x.user_id) busy[x.user_id] = x.loc; });
+    var opts = STAFF.filter(function(p){ return p.active; }).map(function(p){
+      return '<option value="' + p.id + '"' + (p.id === s.user_id ? ' selected' : '') + '>' + esc(p.name) + (p.id === orig ? ' (근무표 근무자)' : '') + (busy[p.id] ? ' — 이 날 ' + busy[p.id] + ' 근무' : '') + '</option>';
+    });
+    opts.push('<option value=""' + (!s.user_id ? ' selected' : '') + '>이 날 근무 없음</option>');
+    $('swWho').innerHTML = opts.join('');
+    $('swWhy').value = s.swap_reason || ''; $('swErr').textContent = ''; $('swTalk').checked = true;
+    $('swapDlg').hidden = false; $('swWho').focus();
+  }
+  $('swSave').onclick = function(){
+    var s = SW; if (!s) return;
+    var to = $('swWho').value || null, why = $('swWhy').value.trim(), orig = s.orig_user_id || s.user_id;
+    if (to === s.user_id && why === (s.swap_reason || '')){ closeDlg(); return; }
+    $('swSave').disabled = true;
+    rpc('work_swap', { p_id: s.id, p_user: to, p_reason: why }).then(function(){
+      closeDlg(); status(to === orig ? '근무표대로 되돌렸습니다.' : '근무자를 바꿨습니다.');
+      if ($('swTalk').checked && to !== s.user_id) talk(s, to, why, orig);
+      loadWeek();
+    }).catch(function(e){ $('swErr').textContent = errText(e); }).then(function(){ $('swSave').disabled = false; });
+  };
+  // 슈톡에 [이동] 글 — 새로 근무하는 사람을 @로 불러 알림이 가게 한다
+  function talk(s, to, why, orig){
+    var from = s.user_id ? nameOf(s.user_id) : '빈 자리';
+    var body = '[이동] ' + dLabel(s.ymd) + ' ' + s.loc + ' 근무 교체: ' + from + ' → ' + (to ? '@' + nameOf(to) : '근무 없음') + (to === orig ? ' (근무표대로)' : '') + (why ? ' · ' + why : '');
+    rpc('msg_send', { p_body: body, p_files: [], p_mentions: to ? [to] : [] }).then(function(res){
+      if (res && res.message) fetch(SB + '/functions/v1/msg-push', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', message_id: res.message.id }), keepalive: true }).catch(function(){});
+    }).catch(function(){ status('교체는 저장했지만 슈톡에 알리지 못했습니다.', 6000); });
+  }
+
+  // ── 시각 고치기 ──────────────────────────────
+  var FX = null;
+  function openFix(r, add){
+    FX = r ? { id: r.id, user: r.user_id } : { id: null, user: add.user_id };
+    var y = r ? r.ymd : add.ymd;
+    $('fxCtx').textContent = nameOf(FX.user) + ' · ' + dLabel(y);
+    $('fxSub').textContent = r ? (r.out_at ? '지금 기록 ' + hm(r.in_at) + ' ~ ' + hm(r.out_at) + (r.fixed ? ' (고친 기록)' : '') : '퇴근 기록이 없어요 (출근 ' + hm(r.in_at) + ')') : '출근 기록이 없어요 — 근무 기록을 새로 넣습니다';
+    $('fxLoc').innerHTML = LOCS.map(function(l){ return '<option' + (l === (r ? r.loc : add.loc) ? ' selected' : '') + '>' + l + '</option>'; }).join('');
+    $('fxDate').value = y; $('fxDate').disabled = !!r;
+    $('fxIn').value = r ? hm(r.in_at) : add.start; $('fxOut').value = r && r.out_at ? hm(r.out_at) : (r ? '' : add.end);
+    $('fxWhy').value = ''; $('fxErr').textContent = '';
+    $('fxDel').hidden = !(r && ROLE.viewer);
+    $('fixDlg').hidden = false; $('fxIn').focus();
+  }
+  $('fxSave').onclick = function(){
+    if (!FX) return;
+    var why = $('fxWhy').value.trim();
+    if (!why){ $('fxErr').textContent = '고친 이유를 적어 주세요.'; return; }
+    if (!$('fxIn').value || !$('fxOut').value){ $('fxErr').textContent = '출근·퇴근 시각을 모두 넣어 주세요.'; return; }
+    $('fxSave').disabled = true;
+    rpc('work_fix', { p_id: FX.id, p_user: FX.user, p_ymd: $('fxDate').value, p_loc: $('fxLoc').value, p_in: $('fxIn').value, p_out: $('fxOut').value, p_reason: why })
+      .then(function(){ closeDlg(); status('근무 시각을 고쳤습니다.'); refresh(); })
+      .catch(function(e){ $('fxErr').textContent = errText(e); }).then(function(){ $('fxSave').disabled = false; });
+  };
+  $('fxDel').onclick = function(){
+    if (!FX || !FX.id || !confirm('이 근무 기록을 지울까요? 되돌릴 수 없습니다.')) return;
+    rpc('work_record_delete', { p_id: FX.id }).then(function(){ closeDlg(); status('기록을 지웠습니다.'); refresh(); }).catch(function(e){ $('fxErr').textContent = errText(e); });
+  };
+  function refresh(){ if (TAB === 'month') loadMonth(); else if (TAB === 'week') loadWeek(); else if (TAB === 'year') loadYear(); }
+
+  function closeDlg(){ $('swapDlg').hidden = true; $('fixDlg').hidden = true; SW = null; FX = null; }
+  document.querySelectorAll('[data-close]').forEach(function(b){ b.onclick = closeDlg; });
+  document.querySelectorAll('.dlg').forEach(function(d){ d.addEventListener('click', function(e){ if (e.target === d) closeDlg(); }); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeDlg(); });
+
+  // ── 연도 합계 ────────────────────────────────
+  var Y = [];
+  function loadYear(){
+    $('yLabel').textContent = YEAR + '년';
+    var who = ROLE.viewer ? '' : '&user_id=eq.' + ME.id;
+    api('/work_records?select=ymd,user_id,name,start_at,out_at&ymd=gte.' + YEAR + '-01-01&ymd=lte.' + YEAR + '-12-31' + who + '&limit=20000')
+      .then(function(r){ Y = r || []; renderYear(); }).catch(function(e){ status(errText(e)); });
+  }
+  function yearRows(){
+    var by = {};
+    Y.forEach(function(r){ var p = by[r.user_id] || (by[r.user_id] = { name: SBY[r.user_id] ? SBY[r.user_id].name : r.name, m: {} }); var k = +r.ymd.slice(5, 7); p.m[k] = (p.m[k] || 0) + mins(r); });
+    return Object.keys(by).map(function(k){ return by[k]; }).sort(function(a, b){ return a.name < b.name ? -1 : 1; });
+  }
+  function renderYear(){
+    var ps = yearRows();
+    if (!ps.length){ $('yBody').innerHTML = '<p class="empty">이 해 근무 기록이 없습니다.</p>'; return; }
+    var h = '<table class="yt"><thead><tr><th>이름</th>';
+    for (var m = 1; m <= 12; m++) h += '<th>' + m + '월</th>';
+    h += '<th>합계</th></tr></thead><tbody>';
+    ps.forEach(function(p){ var s = 0; h += '<tr><td>' + esc(p.name) + '</td>'; for (var m = 1; m <= 12; m++){ s += p.m[m] || 0; h += '<td>' + (p.m[m] ? durShort(p.m[m]) : '') + '</td>'; } h += '<td><b>' + durShort(s) + '</b></td></tr>'; });
+    $('yBody').innerHTML = h + '</tbody></table>';
+  }
+  $('yPrev').onclick = function(){ YEAR--; loadYear(); };
+  $('yNext').onclick = function(){ YEAR++; loadYear(); };
+  $('yCopy').onclick = function(){
+    var rows = [['이름'].concat([1,2,3,4,5,6,7,8,9,10,11,12].map(function(m){ return m + '월'; })).concat(['합계'])];
+    yearRows().forEach(function(p){ var s = 0, r = [p.name]; for (var m = 1; m <= 12; m++){ s += p.m[m] || 0; r.push(p.m[m] ? durShort(p.m[m]) : ''); } r.push(durShort(s)); rows.push(r); });
+    copyText(rows.map(function(r){ return r.join('\t'); }).join('\n'));
+  };
+
+  // ── 설정 (원장님·대표님) ─────────────────────
+  var RDAYS = [3, 4, 5, 6, 7];
+  function defTimes(d){ return d >= 6 ? ['10:30', '20:00'] : (d === 3 ? ['16:00', '22:30'] : ['16:00', '22:00']); }
+  function loadSet(){
+    if (!ROLE.viewer) return;
+    var t = addDays(todayYmd(), 1); if (!$('rFrom').value || $('rFrom').value < t) $('rFrom').value = t;
+    $('rFrom').min = t;
+    renderStaff();
+    api('/work_roster?select=*&order=dow.asc,loc.asc,slot.asc').then(function(r){
+      ROSTER = (r || []).map(function(x){ return { dow: x.dow, loc: x.loc, slot: x.slot, user_id: x.user_id, start_hm: x.start_hm, end_hm: x.end_hm, note: x.note || '' }; });
+      if (ROSTER.some(function(x){ return x.dow <= 2; })) RDAYS = [1, 2, 3, 4, 5, 6, 7];
+      renderRoster();
+    }).catch(function(e){ status(errText(e)); });
+  }
+  function renderStaff(){
+    var list = MEMBERS.slice().sort(function(a, b){ var ra = a.role === 'assistant' ? 0 : 1, rb = b.role === 'assistant' ? 0 : 1; return ra - rb || (a.name < b.name ? -1 : 1); });
+    var h = '<table class="st"><thead><tr><th>이름</th><th>역할</th><th>근무 일지</th><th>시급(원)</th><th></th></tr></thead><tbody>';
+    list.forEach(function(m){
+      var s = SBY[m.id], on = !!(s && s.active);
+      h += '<tr data-u="' + m.id + '"><td><b>' + esc(m.name) + '</b></td><td>' + (m.role === 'assistant' ? '조교' : m.role === 'admin' ? '관리자' : '선생님') + '</td>' +
+        '<td><label class="note"><input type="checkbox" class="sOn"' + (on ? ' checked' : '') + ' /> 포함</label></td>' +
+        '<td><input type="number" class="sWage" min="0" step="100" value="' + (WAGE[m.id] != null ? WAGE[m.id] : '') + '" aria-label="' + esc(m.name) + ' 시급" /></td>' +
+        '<td><button class="btn sm" type="button" data-ssave>저장</button></td></tr>';
+    });
+    $('sStaff').innerHTML = h + '</tbody></table>';
+  }
+  $('sStaff').addEventListener('click', function(e){
+    var b = e.target.closest('[data-ssave]'); if (!b) return;
+    var tr = b.closest('tr'), u = tr.dataset.u, on = tr.querySelector('.sOn').checked, w = parseInt(tr.querySelector('.sWage').value, 10) || 0;
+    b.disabled = true;
+    rpc('work_staff_set', { p_user: u, p_wage: w, p_active: on }).then(function(){
+      WAGE[u] = w;
+      return rpc('work_staff_list');
+    }).then(function(rows){
+      STAFF = (rows || []).map(function(r){ return { id: r.user_id, name: r.name, role: r.role, active: r.active }; });
+      SBY = {}; STAFF.forEach(function(s){ SBY[s.id] = s; });
+      status('저장했습니다.'); renderStaff(); renderRoster();
+    }).catch(function(e){ status(errText(e)); b.disabled = false; });
+  });
+  function renderRoster(){
+    var people = STAFF.filter(function(p){ return p.active; });
+    var h = '<div class="rs" style="grid-template-columns:90px repeat(' + RDAYS.length + ',minmax(140px,1fr));"><div></div>';
+    RDAYS.forEach(function(d){ var tm = defTimes(d); h += '<div class="dh"><b style="font-family:\'Do Hyeon\',sans-serif;font-size:19px;font-weight:400;">' + DOWS[d] + '요일</b><span class="note">' + tm[0] + ' ~ ' + tm[1] + '</span></div>'; });
+    LOCS.forEach(function(loc){
+      h += '<div class="ctr" style="padding:12px 4px;font-family:\'Gowun Batang\',serif;font-weight:700;">' + loc + '</div>';
+      RDAYS.forEach(function(d){
+        h += '<div class="rsc">';
+        ROSTER.forEach(function(x, i){
+          if (x.dow !== d || x.loc !== loc) return;
+          h += '<div class="rss" data-i="' + i + '"><select class="rU" aria-label="' + DOWS[d] + ' ' + loc + ' 근무자"><option value="">(비움)</option>' + people.map(function(p){ return '<option value="' + p.id + '"' + (p.id === x.user_id ? ' selected' : '') + '>' + esc(p.name) + '</option>'; }).join('') + '</select>' +
+            '<div class="tm"><input type="time" class="rS" value="' + x.start_hm + '" aria-label="시작" /><span>~</span><input type="time" class="rE" value="' + x.end_hm + '" aria-label="끝" /></div></div>';
+        });
+        h += '<button class="addslot" type="button" data-add-slot="' + d + '|' + loc + '">+ 자리 추가</button></div>';
+      });
+    });
+    $('rGrid').innerHTML = h + '</div>' + (RDAYS.length < 7 ? '<button class="btn sm" type="button" id="rMonTue" style="margin-top:10px;">월·화도 보이기</button>' : '');
+  }
+  $('rGrid').addEventListener('click', function(e){
+    if (e.target.id === 'rMonTue'){ RDAYS = [1, 2, 3, 4, 5, 6, 7]; renderRoster(); return; }
+    var b = e.target.closest('[data-add-slot]'); if (!b) return;
+    var a = b.dataset.addSlot.split('|'), d = +a[0], used = ROSTER.filter(function(x){ return x.dow === d && x.loc === a[1]; }).map(function(x){ return x.slot; });
+    var slot = 1; while (used.indexOf(slot) >= 0) slot++;
+    if (slot > 4){ status('한 칸에 네 명까지 넣을 수 있습니다.'); return; }
+    var tm = defTimes(d); ROSTER.push({ dow: d, loc: a[1], slot: slot, user_id: '', start_hm: tm[0], end_hm: tm[1], note: '' });
+    renderRoster();
+  });
+  $('rGrid').addEventListener('change', function(e){
+    var box = e.target.closest('.rss'); if (!box) return;
+    var x = ROSTER[+box.dataset.i];
+    if (e.target.classList.contains('rU')) x.user_id = e.target.value;
+    if (e.target.classList.contains('rS')) x.start_hm = e.target.value;
+    if (e.target.classList.contains('rE')) x.end_hm = e.target.value;
+  });
+  $('rSave').onclick = function(){
+    var from = $('rFrom').value, rows = ROSTER.filter(function(x){ return x.user_id; });
+    if (!from){ status('적용 시작일을 골라 주세요.'); return; }
+    if (rows.some(function(x){ return !/^\d\d:\d\d$/.test(x.start_hm) || !/^\d\d:\d\d$/.test(x.end_hm); })){ status('시각을 모두 넣어 주세요.'); return; }
+    // 자리 번호를 1부터 다시 매긴다(비운 칸을 뺀 뒤)
+    var n = {}; rows = rows.map(function(x){ var k = x.dow + '|' + x.loc; n[k] = (n[k] || 0) + 1; return { dow: x.dow, loc: x.loc, slot: n[k], user_id: x.user_id, start_hm: x.start_hm, end_hm: x.end_hm, note: x.note }; });
+    if (!confirm(dLabel(from) + '부터 이 근무표로 근무 칸을 다시 만듭니다. 이미 교체한 칸은 그대로 둡니다. 저장할까요?')) return;
+    $('rSave').disabled = true;
+    rpc('work_roster_save', { p_rows: rows, p_from: from }).then(function(cnt){ status('기본 근무표를 저장했습니다(' + cnt + '칸).'); loadSet(); })
+      .catch(function(e){ status(errText(e), 6000); }).then(function(){ $('rSave').disabled = false; });
+  };
+})();
+</script>
+</body>
+</html>
