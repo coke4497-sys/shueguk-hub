@@ -45,7 +45,7 @@ function addMsg(author, body, files, createdIso){
 }
 function addTask(m, assignee, text, createdIso){
   const t = createdIso || m.created_at;
-  const k = { id: ++tid, message_id: m.id, assignee, assignee_name: NAME[assignee], requester: m.author, requester_name: m.author_name, text, status: '대기', done_by_name: null, done_at: null, created_at: t, updated_at: t };
+  const k = { id: ++tid, message_id: m.id, assignee, assignee_name: NAME[assignee], requester: m.author, requester_name: m.author_name, text, status: '대기', done_by_name: null, done_at: null, seen_at: null, ack_only: false, created_at: t, updated_at: t };
   TASKS.push(k); return k;
 }
 // 어제 남은 일 · 4시간 지난 일 · 오늘 일
@@ -132,9 +132,16 @@ function filterRows(rows, u){
         const b = JSON.parse(req.postData()); calls.push(['send', b]);
         const m = addMsg(ME, b.p_body, b.p_files);
         let text = b.p_body; (b.p_mentions || []).forEach(id => { text = text.split('@' + NAME[id]).join(''); });
-        text = text.replace(/\s+/g, ' ').trim() || '메시지 확인';
-        const tasks = (b.p_mentions || []).map(id => addTask(m, id, text));
+        const all = /@(모두|전체)/.test(b.p_body);
+        text = text.replace(/@(모두|전체)/g, '').replace(/\s+/g, ' ').trim() || '메시지 확인';
+        const tasks = [...new Set(b.p_mentions || [])].map(id => { const k = addTask(m, id, text); k.ack_only = all; return k; });
         return json({ message: m, tasks });
+      }
+      if (p === '/rest/v1/rpc/msg_task_seen'){
+        const b = JSON.parse(req.postData()); calls.push(['seen', b]);
+        const t = TASKS.find(x => x.id === b.p_id);
+        t.seen_at = t.seen_at || ts(); if (t.ack_only && t.status !== '완료'){ t.status = '완료'; t.done_at = ts(); t.done_by_name = '고희주'; } t.updated_at = ts();
+        return json(t);
       }
       if (p === '/rest/v1/rpc/msg_task_set'){
         const b = JSON.parse(req.postData()); calls.push(['task', b]);
@@ -483,6 +490,49 @@ function filterRows(rows, u){
   await page.click('#inp'); await page.keyboard.type('[모르는말] 그대로'); await page.click('#send');
   await page.waitForFunction(() => document.querySelector('#inp').value === '');
   ok((await page.locator('#m' + MSGS[MSGS.length - 1].id + ' .bb').textContent()).includes('[모르는말]'), '목록에 없는 대괄호는 글 그대로');
+  await ctx.close();
+
+  console.log('⑱ 확인했습니다 · @모두');
+  const mA = addMsg(BOSS, '상담 일정 잡아 주세요 @고희주', [], ts()); addTask(mA, ME, '상담 일정 잡아 주세요');
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + mA.id);
+  const ackBtn = page.locator('#m' + mA.id + ' [data-ack]');
+  ok(await ackBtn.count() === 1 && (await ackBtn.textContent()) === '확인했습니다', '나를 부른 메시지 아래 [확인했습니다]');
+  ok(await page.locator('#m' + m4.id + ' [data-ack]').count() === 0, '남을 부른 메시지엔 버튼 없음');
+  const m1Ack = page.locator('.pc[data-person="' + ME + '"] [data-ack="' + TASKS.find(x => x.message_id === m1.id).id + '"]');
+  ok(await m1Ack.count() === 1, '내 업무 카드 할 일에도 [확인]');
+  await ackBtn.click();
+  await page.waitForFunction(id => !document.querySelector('#m' + id + ' [data-ack]'), mA.id);
+  const sc = calls.filter(c => c[0] === 'seen').pop();
+  ok(sc && sc[1].p_id === TASKS.find(x => x.message_id === mA.id).id, 'msg_task_seen 호출');
+  const tkTxt = await page.locator('#m' + mA.id + ' .tks').textContent();
+  ok(tkTxt.includes('확인 '), '표시가 \'확인 hh:mm\'로 (' + tkTxt + ')');
+  await m1Ack.click();
+  await page.waitForFunction(id => !document.querySelector('.pc [data-ack="' + id + '"]'), TASKS.find(x => x.message_id === m1.id).id);
+  ok((await page.locator('.pc[data-person="' + ME + '"]').textContent()).includes('확인함'), '카드에서 확인 → \'확인함\'');
+  // @모두
+  await page.click('#inp'); await page.keyboard.type('@모');
+  await page.waitForSelector('#mention.on');
+  ok((await page.locator('#mention button').first().textContent()).startsWith('모두'), '@ 목록 맨 위에 \'모두\'');
+  await page.keyboard.press('Enter'); await page.keyboard.type('내일 시험지 배부합니다'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  const as = calls.filter(c => c[0] === 'send').pop();
+  ok(as[1].p_body === '@모두 내일 시험지 배부합니다' && as[1].p_mentions.length === MEMBERS.length - 1 && !as[1].p_mentions.includes(ME), '@모두 → 나 빼고 모두 (' + as[1].p_mentions.length + '명)');
+  const allId = MSGS[MSGS.length - 1].id;
+  ok(await page.locator('#m' + allId + ' .bb .at').textContent() === '@모두', '@모두 강조');
+  ok(await page.locator('#m' + allId + ' .tk').count() === 3, '3명이면 사람마다 표시');
+  // 6명 넘는 @모두 — 접어서 '확인 n / m'
+  const many = addMsg(BOSS, '@모두 회의합니다', [], ts());
+  const extra = ['55555555-5555-5555-5555-55555555555', '66666666-6666-6666-6666-66666666666'];
+  [ME, EUNJI, '44444444-4444-4444-4444-444444444444'].concat([1,2,3].map(i => 'x' + i)).forEach((id, i) => { NAME[id] = NAME[id] || ('선생' + i); const k = addTask(many, id, '회의합니다'); k.ack_only = true; if (i === 1){ k.status = '완료'; k.seen_at = ts(); k.done_at = ts(); } });
+  await page.waitForSelector('#m' + many.id + ' .tk.sum', { timeout: 7000 });
+  ok((await page.locator('#m' + many.id + ' .tk.sum').textContent()).includes('모두 · 확인 1 / 6'), '여러 명은 \'모두 · 확인 1 / 6\' 한 줄');
+  await page.click('#m' + many.id + ' .tk.sum');
+  ok(await page.locator('#m' + many.id + ' .tk').count() === 7, '누르면 사람마다 펼침');
+  if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'ack.png') });
+  await page.click('#m' + many.id + ' [data-ack]');
+  await page.waitForFunction(id => (document.querySelector('#m' + id + ' .tk.sum') || {}).textContent.includes('확인 2 / 6'), many.id);
+  ok(TASKS.filter(k => k.message_id === many.id && k.assignee === ME)[0].status === '완료', '@모두는 확인하면 완료');
   await ctx.close();
 
   console.log('⑯ 출근·퇴근');

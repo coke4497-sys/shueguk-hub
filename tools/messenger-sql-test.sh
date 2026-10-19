@@ -40,6 +40,8 @@ P -f supabase/migrations/202610190002_messenger_push.sql >/dev/null && ok y y "�
 P -f supabase/migrations/202610190003_teacher_unique_name.sql >/dev/null || { echo "이름 중복 금지 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610190004_messenger_presence.sql >/dev/null || { echo "출근 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610190004_messenger_presence.sql >/dev/null && ok y y "출근 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610190005_messenger_seen_all.sql >/dev/null || { echo "확인·모두 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610190005_messenger_seen_all.sql >/dev/null && ok y y "확인·모두 마이그레이션 다시 실행해도 오류 없음"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
 B=bbbbbbbb-0000-0000-0000-000000000002   # 이은지 선생님
@@ -132,6 +134,22 @@ ok "$(as $E "select public.msg_presence_set('본원', true)" | grep -c not_teach
 ok "$(as $B "insert into public.msg_presence(user_id,name,loc,is_on) values ('$B','x','본원',true)" | grep -c 'permission denied')" 1 "표에 직접 쓰기 불가"
 ok "$(as $E "select count(*) from public.msg_presence")" 0 "계정 없는 로그인은 읽어도 0줄"
 ok "$(anon "select count(*) from public.msg_presence" | grep -c 'permission denied')" 1 "공개 키는 표를 못 읽음"
+
+echo "── 확인했습니다 · @모두"
+MA=$(as $B "select (public.msg_send('내일 시험지 배부합니다 @모두', '[]', '{}')->'message'->>'id')")
+ok "$(as $B "select count(*)||'|'||bool_and(ack_only)||'|'||min(text) from public.msg_tasks where message_id=$MA")" "2|true|내일 시험지 배부합니다" "@모두 = 나 빼고 활성 교사 모두(비활성 제외) · 확인만 · 글에서 @모두 뺌"
+TA=$(as $B "select id from public.msg_tasks where message_id=$MA and assignee='$C'")
+ok "$(as $A "select public.msg_task_seen($TA)" | grep -c not_allowed)" 1 "남의 할 일은 확인 못 함(관리자도)"
+ok "$(as $C "select (public.msg_task_seen($TA)->>'status')||'|'||(public.msg_task_seen($TA)->>'seen_at' is not null)")" "완료|true" "@모두는 확인을 누르면 완료"
+ok "$(as $C "select done_by_name from public.msg_tasks where id=$TA")" "고희주" "완료한 사람 = 확인한 사람"
+MN=$(as $A "select (public.msg_send('상담 일정 잡아 주세요 @고희주', '[]', array['$C']::uuid[])->'message'->>'id')")
+TN=$(as $A "select id from public.msg_tasks where message_id=$MN")
+ok "$(as $C "select (public.msg_task_seen($TN)->>'status')||'|'||(public.msg_task_seen($TN)->>'seen_at' is not null)")" "대기|true" "보통 할 일은 확인해도 대기 그대로(알았다는 표시만)"
+MN2=$(as $A "select (public.msg_send('출석부 정리 @고희주', '[]', array['$C']::uuid[])->'message'->>'id')")
+TN2=$(as $A "select id from public.msg_tasks where message_id=$MN2")
+ok "$(as $C "select (public.msg_task_set($TN2, true)->>'seen_at') is not null")" "t" "확인 없이 완료해도 확인으로 침"
+ok "$(as $A "select ack_only from public.msg_tasks where id=$TN")" "f" "보통 할 일은 ack_only 아님"
+ok "$(anon "select public.msg_task_seen($TN)" | grep -c 'permission denied')" 1 "공개 키는 확인 함수 실행 불가"
 
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null

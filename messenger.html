@@ -108,6 +108,10 @@
   .tk{border:0;font-size:12px;padding:3px 10px;border-radius:999px;}
   .tk.wait{background:var(--wait);color:var(--waitInk);}
   .tk.ok{background:var(--ok);color:var(--okInk);}
+  .tk.seen{background:var(--lav);color:var(--lavInk);}
+  .tk.sum{font-weight:700;}
+  .ack{border:0;border-radius:999px;background:var(--lavInk);color:#fff;font-size:13px;padding:6px 14px;margin-top:6px;font-weight:700;}
+  .ack.sm{font-size:12px;padding:3px 10px;margin:0 0 0 auto;flex:none;align-self:center;}
   .jump{position:absolute;right:22px;bottom:118px;border:0;border-radius:999px;background:var(--lavInk);color:#fff;font-size:13px;padding:8px 14px;box-shadow:0 4px 14px rgba(0,0,0,.15);}
 
   #composer{flex:none;background:var(--top);padding:8px 18px calc(12px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:6px;position:relative;}
@@ -406,7 +410,7 @@
     var changed = false;
     (rows || []).forEach(function(t){
       var old = TASKS.get(t.id);
-      if (!old || old.updated_at !== t.updated_at){ TASKS.set(t.id, t); changed = true; }
+      if (!old || t.updated_at > old.updated_at){ TASKS.set(t.id, t); changed = true; }   // 늦게 온 옛 줄이 방금 바꾼 것을 덮지 않게
       if (!maxTaskTs || t.updated_at > maxTaskTs) maxTaskTs = t.updated_at;
     });
     return changed;
@@ -535,7 +539,8 @@
   function mentionRe(){
     if (MENTION_CACHE) return MENTION_CACHE;
     var names = MEMBERS.map(function(m){ return m.name; }).filter(Boolean).sort(function(a, b){ return b.length - a.length; });
-    MENTION_CACHE = names.length ? new RegExp('@(' + names.map(function(n){ return n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|') + ')(T|선생님|쌤|조교|님)?', 'g') : null;
+    names = names.map(function(n){ return n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).concat(['모두', '전체']);
+    MENTION_CACHE = new RegExp('@(' + names.join('|') + ')(T|선생님|쌤|조교|님)?', 'g');
     return MENTION_CACHE;
   }
   // ── 꼬리표 (입학상담·결석·지각·이동·상담요청·공지·기타요청·질문) ─────────
@@ -580,14 +585,25 @@
       return '<button class="file" type="button" data-file="' + esc(f.path) + '" data-name="' + esc(f.name) + '">' + FILE_SVG + '<span>' + esc(f.name) + ' <small>· ' + size(f.size) + '</small></span></button>';
     }).join('') + '</div>';
   }
+  // 할 일 표시: 아직 · 확인 hh:mm(알았다고 누름) · 완료 hh:mm. 여럿(@모두 등 5명 넘게)이면 '확인 n / m' 한 줄로 접고 누르면 펼친다.
+  var openChips = {};
+  function seenOf(t){ return t.status === '완료' || !!t.seen_at; }
+  function chipOne(t){
+    var done = t.status === '완료', seen = !done && !!t.seen_at;
+    return '<button class="tk ' + (done ? 'ok' : seen ? 'seen' : 'wait') + '" type="button" data-card="' + esc(t.assignee || t.assignee_name) + '">'
+      + (t.ack_only ? '' : '할 일 → ') + esc(t.assignee_name) + ' · ' + (done ? (t.ack_only ? '확인 ' : '완료 ') + hm(t.done_at) : seen ? '확인 ' + hm(t.seen_at) : '아직') + '</button>';
+  }
   function chipsHtml(id){
     var ts = tasksOf(id);
     if (!ts.length) return '';
-    return '<div class="tks">' + ts.map(function(t){
-      var done = t.status === '완료';
-      return '<button class="tk ' + (done ? 'ok' : 'wait') + '" type="button" data-card="' + esc(t.assignee || t.assignee_name) + '">할 일 → ' + esc(t.assignee_name) + ' · ' + (done ? '완료 ' + hm(t.done_at) : '아직') + '</button>';
-    }).join('') + '</div>';
+    var mine = ts.filter(function(t){ return t.assignee === ME.id && !seenOf(t) && 'seen_at' in t; })[0];
+    var ack = mine ? '<button class="ack" type="button" data-ack="' + mine.id + '">확인했습니다</button>' : '';
+    if (ts.length <= 5) return '<div class="tks">' + ts.map(chipOne).join('') + '</div>' + ack;
+    var n = ts.filter(seenOf).length, open = openChips[id];
+    return '<div class="tks"><button class="tk sum ' + (n === ts.length ? 'ok' : 'wait') + '" type="button" data-expand="' + id + '">' + (ts[0].ack_only ? '모두' : ts.length + '명') + ' · 확인 ' + n + ' / ' + ts.length + (open ? ' ▴' : ' ▾') + '</button>'
+      + (open ? ts.map(chipOne).join('') : '') + '</div>' + ack;
   }
+
   function msgHtml(m, prev){
     var mine = m.author === ME.id;
     var cont = prev && prev.author === m.author && !prev.deleted_at && ymd(prev.created_at) === ymd(m.created_at)
@@ -717,9 +733,18 @@
     var b = e.target.closest('button'); if (!b) return;
     if (b.id === 'older'){ b.disabled = true; b.textContent = '불러오는 중…'; loadOlder().then(function(){ renderMsgs('older'); }).catch(function(){ status('이전 대화를 불러오지 못했습니다.'); renderMsgs('keep'); }); return; }
     if (b.dataset.file){ download(b.dataset.file, b.dataset.name); return; }
+    if (b.dataset.expand){ var k = Number(b.dataset.expand); openChips[k] = !openChips[k]; renderMsgs('keep'); return; }
+    if (b.dataset.ack){ ackTask(Number(b.dataset.ack), b); return; }
     if (b.dataset.card){ showCard(b.dataset.card); return; }
     if (b.dataset.del){ delMsg(Number(b.dataset.del)); return; }
   });
+  // [확인했습니다] — 맡은 사람만. @모두로 받은 것은 확인하면 완료 (202610190005)
+  function ackTask(id, btn){
+    if (btn) btn.disabled = true;
+    rpc('msg_task_seen', { p_id: id }).then(function(row){
+      TASKS.delete(id); addTasks([row]); renderMsgs('keep'); renderBoard();
+    }).catch(function(e){ if (btn) btn.disabled = false; status(/msg_task_seen|PGRST202/.test(String(e.message) + JSON.stringify(e.data || '')) ? '확인 기능 준비가 아직 끝나지 않았습니다(마이그레이션 202610190005).' : errText(e)); });
+  }
   function delMsg(id){
     var m = MSGS.get(id); if (!m) return;
     if (!confirm('이 메시지를 지울까요?' + (tasksOf(id).length ? '\n이 메시지로 맡긴 할 일도 함께 지워집니다.' : ''))) return;
@@ -739,14 +764,16 @@
     var mm = before.match(/(^|\s)@([^\s@]{0,10})$/);
     return mm ? { q: mm[2], start: pos - mm[2].length - 1, end: pos } : null;
   }
+  var ALL_PICK = { id: '*all', name: '모두', role: 'all' };
   function updateMention(){
     var q = mentionQuery(), box = $('mention');
     if (!q){ box.classList.remove('on'); mList = []; return; }
     mList = MEMBERS.filter(function(m){ return m.name.indexOf(q.q) >= 0; })
       .sort(function(a, b){ return (b.name.indexOf(q.q) === 0) - (a.name.indexOf(q.q) === 0) || a.name.localeCompare(b.name, 'ko'); }).slice(0, 8);
+    if ('모두'.indexOf(q.q) === 0 || '전체'.indexOf(q.q) === 0) mList.unshift(ALL_PICK);   // @모두 — 나를 뺀 모두
     if (!mList.length){ box.classList.remove('on'); return; }
     mIdx = Math.min(mIdx, mList.length - 1);
-    box.innerHTML = mList.map(function(m, i){ return '<button type="button" role="option" data-mi="' + i + '" class="' + (i === mIdx ? 'on' : '') + '">' + esc(m.name) + ' <small>' + roleLabel(m.role) + (presOk ? ' · ' + (presLoc(m.id) ? esc(presLoc(m.id)) + ' ON' : 'OFF') : '') + '</small></button>'; }).join('');
+    box.innerHTML = mList.map(function(m, i){ return '<button type="button" role="option" data-mi="' + i + '" class="' + (i === mIdx ? 'on' : '') + '">' + esc(m.name) + ' <small>' + (m === ALL_PICK ? '나 빼고 ' + (MEMBERS.length - 1) + '명 · 확인만 받으면 끝' : roleLabel(m.role) + (presOk ? ' · ' + (presLoc(m.id) ? esc(presLoc(m.id)) + ' ON' : 'OFF') : '')) + '</small></button>'; }).join('');
     box.classList.add('on');
   }
   function pickMention(i){
@@ -783,6 +810,7 @@
       if (names[name].length > 1) ambiguous.push(name);
       names[name].forEach(function(m){ ids.push(m.id); });
     });
+    if (/@(모두|전체)/.test(body)) MEMBERS.forEach(function(m){ if (m.id !== ME.id && ids.indexOf(m.id) < 0) ids.push(m.id); });   // 서버도 같은 일을 한다(0005)
     lastAmbig = ambiguous.length > 0;
     if (ambiguous.length) status('같은 이름이 여럿이라 모두에게 보냈습니다: ' + ambiguous.join(', ') + ' — 계정 이름 뒤에 A·B를 붙여 구분해 주세요.', 6000);
     return ids;
@@ -874,7 +902,8 @@
       var items = p.todo.sort(function(a, b){ return a.id - b.id; }).map(function(t){
         var c = Date.parse(t.created_at), late = c < start ? md(t.created_at) + '부터 남음' : (now - c > LATE_MS ? Math.floor((now - c) / 3600e3) + '시간 지남' : '');
         return '<div class="ci"><button class="bx" type="button" data-tk="' + t.id + '" aria-label="완료로 표시"' + (canCheck(t) ? '' : ' disabled title="맡은 사람·맡긴 사람만 체크할 수 있어요"') + '></button>'
-          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta' + (late ? ' lt' : '') + '">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + (late ? ' · ' + late : '') + '</span></button></div>';
+          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta' + (late ? ' lt' : '') + '">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + (late ? ' · ' + late : '') + (t.seen_at ? ' · 확인함' : '') + '</span></button>'
+          + (t.assignee === ME.id && !t.seen_at && 'seen_at' in t ? '<button class="ack sm" type="button" data-ack="' + t.id + '">확인</button>' : '') + '</div>';
       }).concat(p.done.sort(function(a, b){ return Date.parse(b.done_at) - Date.parse(a.done_at); }).map(function(t){
         return '<div class="ci d"><button class="bx on" type="button" data-tk="' + t.id + '" data-done="1" aria-label="완료 취소"' + (canCheck(t) ? '' : ' disabled') + '>' + CHECK + '</button>'
           + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</span></button></div>';
@@ -902,6 +931,7 @@
         .catch(function(err){ TASKS.set(id, old); renderBoard(); renderMsgs('keep'); status(errText(err)); });
       return;
     }
+    if (b.dataset.ack){ ackTask(Number(b.dataset.ack), b); return; }
     if (b.dataset.go) goTo(Number(b.dataset.go));
   });
   // ── 출근·퇴근 (2026-10-19 원장님 "구성원이 어느 센터 on, off 상태를 표시") ─────────
