@@ -109,6 +109,10 @@ begin
   if v_t.ack_only and v_t.assignee is distinct from v_me.user_id then
     raise exception 'not_allowed' using errcode = '42501';
   end if;
+  -- @모두 할 일은 확인이 곧 완료라 되돌리지 않는다(확인·완료가 어긋나지 않게 — Codex 검토)
+  if v_t.ack_only and not p_done then
+    raise exception 'ack_locked';
+  end if;
   update public.msg_tasks set
     status = case when p_done then '완료' else '대기' end,
     done_by_name = case when p_done then v_me.display_name else null end,

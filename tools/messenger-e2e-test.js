@@ -606,6 +606,9 @@ function filterRows(rows, u){
   await page.waitForSelector('#m' + rep2.id + ' .quote', { timeout: 7000 });
   await page.waitForFunction(id => !document.querySelector('#m' + id + ' .quote').textContent.includes('이전 메시지'), rep2.id, { timeout: 5000 }).catch(() => {});
   ok((await page.locator('#m' + rep2.id + ' .quote').textContent()).includes(far.author_name), '원글이 화면에 없어도 받아 와 인용 (' + (await page.locator('#m' + rep2.id + ' .quote').textContent()) + ')');
+  far.body = ''; far.deleted_at = ts(); far.updated_at = ts();   // 다른 창에서 원글을 지움
+  await page.waitForFunction(id => document.querySelector('#m' + id + ' .quote').textContent.includes('삭제된 메시지'), rep2.id, { timeout: 7000 }).catch(() => {});
+  ok((await page.locator('#m' + rep2.id + ' .quote').textContent()).includes('삭제된 메시지'), '화면 밖 원글을 지우면 인용도 \'삭제된 메시지\'로');
   if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'reply.png') }); await page.click('#findBtn'); await page.click('#ftags [data-ftag="결석"]'); await page.waitForSelector('#results .ritem'); await page.screenshot({ path: path.join(process.env.SHOT, 'find.png') });
     const pg = await ctx.newPage(); await pg.setViewportSize({ width: 390, height: 844 }); await pg.goto('http://127.0.0.1:' + PORT + '/messenger.html'); await pg.waitForSelector('#msgs .m'); await pg.click('#findBtn'); await pg.fill('#fq', '하늘'); await pg.waitForSelector('#results .ritem'); await pg.screenshot({ path: path.join(process.env.SHOT, 'find-phone.png') }); await pg.close(); }
   await ctx.close();

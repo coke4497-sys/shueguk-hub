@@ -466,12 +466,15 @@
       api('/msg_tasks?select=*&updated_at=gt.' + encodeURIComponent(back30(maxTaskTs)) + '&order=id.asc&limit=1000')
     ]).then(function(res){
       setLive(true);
+      // 화면 밖(불러오지 않은 구간)의 인용 원글이 바뀌었으면(지움 등) 인용도 고친다 — Codex 검토
+      var qch = false;
+      (res[0] || []).forEach(function(m){ if (QCACHE[m.id] && (firstId == null || m.id < firstId)){ QCACHE[m.id] = m; qch = true; } });
       var newMsgs = (res[0] || []).filter(function(m){ return firstId == null || m.id >= firstId; });
       var deleted = newMsgs.filter(function(m){ return m.deleted_at; });
       var mc = addMsgs(newMsgs);
       deleted.forEach(function(m){ dropTasksOf(m.id); });
       var tc = addTasks(res[1]);
-      if (mc || tc || deleted.length){ renderMsgs(lastMsgId() > lastBefore ? 'new' : 'keep'); renderBoard(); }
+      if (mc || tc || deleted.length || qch){ renderMsgs(lastMsgId() > lastBefore ? 'new' : 'keep'); renderBoard(); }
       notifyNew(newMsgs.filter(function(m){ return m.id > lastBefore && m.author !== ME.id && !m.deleted_at; }));
     }).catch(function(){ setLive(false); }).then(function(){ polling = false; schedule(); });
     loadPres();
@@ -954,7 +957,7 @@
   $('send').onclick = send;
 
   // ── 업무 카드 ─────────────────────────────────────
-  function canCheck(t){ return t.assignee === ME.id || (!t.ack_only && (t.requester === ME.id || ME.role === 'admin')); }   // @모두 할 일은 본인만
+  function canCheck(t){ if (t.ack_only) return t.assignee === ME.id && t.status !== '완료'; return t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'; }   // @모두 할 일은 본인만, 확인한 뒤엔 되돌리지 않음
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
   function people(){
     var start = dayStartMs(), map = {};
@@ -1106,7 +1109,7 @@
     $('ftags').innerHTML = TAGS.map(function(x){ return '<button type="button" class="tg ' + x[1] + (fTag === x[0] ? ' on' : '') + '" data-ftag="' + x[0] + '" aria-pressed="' + (fTag === x[0]) + '">' + x[0] + '</button>'; }).join('');
     $('ftags').classList.toggle('has', !!fTag);
   }
-  function showResults(on){ $('results').hidden = !on; $('msgs').hidden = on; $('jump').hidden = true; }
+  function showResults(on){ $('results').hidden = !on; $('msgs').hidden = on; $('jump').hidden = true; if (on) tellReading(false); else markRead(); }
   function hl(text, q){
     var h = esc(text);
     if (!q) return h;
