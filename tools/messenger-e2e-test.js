@@ -167,7 +167,7 @@ function filterRows(rows, u){
         const b = JSON.parse(req.postData()); calls.push(['del', b]);
         const m = MSGS.find(x => x.id === b.p_id);
         m.body = ''; m.files = []; m.deleted_at = ts(); m.updated_at = m.deleted_at;
-        for (let i = TASKS.length - 1; i >= 0; i--) if (TASKS[i].message_id === m.id) TASKS.splice(i, 1);
+        for (let i = TASKS.length - 1; i >= 0; i--) if (TASKS[i].message_id === m.id && TASKS[i].status !== '취소') TASKS.splice(i, 1);
         return json(m);
       }
       if (p === '/rest/v1/rpc/msg_push_state'){ const b = JSON.parse(req.postData()); const x = PUSHSUBS[b.p_endpoint]; return json({ saved: !!x, mode: x ? x.mode : 'all', devices: Object.keys(PUSHSUBS).length }); }
@@ -728,7 +728,7 @@ function filterRows(rows, u){
   console.log('㉑ 할 일 취소 + 사유 (2026-10-20 원장님)');
   ({ ctx, page } = await open());
   await page.waitForSelector('#m' + m3.id);
-  const tq = TASKS.find(x => x.message_id === m1.id);   // 이수경 → 나
+  const tq = TASKS.find(x => x.message_id === m5.id);   // 이수경 → 나 (m1은 앞 검사에서 지워짐)
   const myCard = page.locator('.pc[data-person="' + ME + '"]');
   ok(await myCard.locator('[data-cx="' + tq.id + '"]').count() === 1, '내가 맡은 할 일에 [취소]');
   const jwTask = TASKS.find(x => x.message_id === m4.id);
@@ -736,7 +736,7 @@ function filterRows(rows, u){
   const allMine = TASKS.find(x => x.ack_only && x.assignee === ME && x.requester !== ME);
   if (allMine) ok(await page.locator('[data-cx="' + allMine.id + '"]').count() === 0, '@모두로 받은 할 일은 스스로 취소 못 함');
   await myCard.locator('[data-cx="' + tq.id + '"]').click();
-  ok(await page.locator('#cxback').isVisible() && (await page.locator('#cxtask').textContent()).includes('허은재'), '취소 창에 그 할 일');
+  ok(await page.locator('#cxback').isVisible() && (await page.locator('#cxtask').textContent()).includes('시험지'), '취소 창에 그 할 일');
   await page.click('#cxok');
   ok(!calls.some(c => c[0] === 'cancel') && await page.locator('#cxback').isVisible(), '사유 없이는 보내지 않음');
   await page.locator('#cxq button', { hasText: '상황이 바뀌어' }).click();
@@ -750,10 +750,22 @@ function filterRows(rows, u){
   const xr = myCard.locator('.ci.x');
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'cancel.png') });
   ok(await xr.count() === 1 && (await xr.textContent()).includes('사유: 퇴원 철회'), '카드에 취소 줄과 사유');
-  ok((await page.locator('#m' + m1.id + ' .tk.cx').textContent()).includes('취소'), '메시지 아래 표시도 취소');
+  ok((await page.locator('#m' + m5.id + ' .tk.cx').textContent()).includes('취소'), '메시지 아래 표시도 취소');
   await xr.locator('[data-uncx]').click();
   await page.waitForFunction(id => !document.querySelector('.ci.x') && document.querySelector('[data-cx="' + id + '"]'), tq.id);
   ok(calls.filter(c => c[0] === 'cancel').pop()[1].p_undo === true, '[되돌리기] → 다시 할 일');
+  // 메시지를 지워도 취소 기록은 남고 되돌리기는 없다 (Codex 검토)
+  const t2 = TASKS.find(x => x.message_id === m2.id);
+  await page.locator('[data-cx="' + t2.id + '"]').click();
+  await page.fill('#cxin', '학부모님이 등원 문의 철회');
+  await page.click('#cxok');
+  await page.waitForFunction(() => document.querySelector('#cxback').hidden);
+  await page.hover('#m' + m2.id);
+  await page.click('#m' + m2.id + ' [data-del]');
+  await page.waitForSelector('#m' + m2.id + ' .bb.del');
+  const ex = page.locator('.pc[data-person="' + EUNJI + '"] .ci.x');
+  ok(await ex.count() === 1 && (await ex.textContent()).includes('등원 문의 철회'), '메시지를 지워도 취소 기록은 카드에 남음');
+  ok(await ex.locator('[data-uncx]').count() === 0, '지운 메시지의 취소는 되돌리기 없음');
   await ctx.close();
 
   console.log('⑫ 출근 전 카드는 흐리게 · 오늘 수업 기록 줄 (2026-10-20 원장님)');

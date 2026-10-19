@@ -431,6 +431,7 @@
     if (/need_reason/.test(m)) return '취소 사유를 적어 주십시오.';
     if (/not_pending/.test(m)) return '이미 완료되었거나 취소된 할 일입니다.';
     if (/not_canceled/.test(m)) return '이미 다시 할 일로 돌아와 있습니다.';
+    if (/msg_deleted/.test(m)) return '메시지를 지운 할 일은 되돌릴 수 없습니다.';
     if (/\bcanceled\b/.test(m)) return '취소한 할 일입니다. [되돌리기]를 먼저 눌러 주십시오.';
     if (/msg_task_cancel/.test(m)) return '취소 기능 준비가 아직 끝나지 않았습니다(마이그레이션 202610200001).';
     if (/bad_files/.test(m)) return '파일 정보가 올바르지 않습니다.';
@@ -516,7 +517,7 @@
     return changed;
   }
   function dropTasksOf(messageId){
-    TASKS.forEach(function(t, id){ if (t.message_id === messageId) TASKS.delete(id); });
+    TASKS.forEach(function(t, id){ if (t.message_id === messageId && t.status !== '취소') TASKS.delete(id); });   // 취소 기록은 남는다(202610200001)
   }
 
   // ── 새로 받기 (3초마다, 화면을 안 보면 15초) ─────────
@@ -1142,7 +1143,7 @@
       }).concat(p.done.sort(function(a, b){ return Date.parse(b.done_at) - Date.parse(a.done_at); }).map(function(t){
         if (t.status === '취소') return '<div class="ci d x"><span class="bx x" title="취소한 할 일">×</span>'
           + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · 취소 ' + hm(t.done_at) + (t.done_by_name ? ' (' + esc(t.done_by_name) + ')' : '') + '<br><span class="why">사유: ' + esc(t.cancel_reason || '') + '</span></span></button>'
-          + (canCancel(t) ? '<button class="cxb" type="button" data-uncx="' + t.id + '" title="취소를 풀고 다시 할 일로">되돌리기</button>' : '') + '</div>';
+          + (canCancel(t) && !(MSGS.get(t.message_id) || {}).deleted_at ? '<button class="cxb" type="button" data-uncx="' + t.id + '" title="취소를 풀고 다시 할 일로">되돌리기</button>' : '') + '</div>';
         return '<div class="ci d"><button class="bx on" type="button" data-tk="' + t.id + '" data-done="1" aria-label="완료 취소"' + (canCheck(t) ? '' : ' disabled') + '>' + CHECK + '</button>'
           + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</span></button></div>';
       })).join('');

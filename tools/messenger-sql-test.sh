@@ -190,6 +190,12 @@ ok "$(as $B "select (public.msg_task_cancel($TY, '회의 취소')->>'status')")"
 ok "$(as $C "select (public.msg_task_seen($TY)->>'status')")" "취소" "@모두 확인이 취소를 완료로 덮지 않음"
 ok "$(as $C "update public.msg_tasks set status='취소' where id=$TN" 2>&1 | grep -c 'permission denied')" 1 "표에 직접 쓰기 불가"
 ok "$(anon "select public.msg_task_cancel($TX, 'x')" | grep -c 'permission denied')" 1 "공개 키는 취소 함수 실행 불가"
+MZ=$(as $A "select (public.msg_send('두 가지 부탁 @고희주 @이은지', '[]', array['$C','$B']::uuid[])->'message'->>'id')")
+TZ=$(as $A "select id from public.msg_tasks where message_id=$MZ and assignee='$C'")
+as $A "select public.msg_task_cancel($TZ, '필요 없어짐')" >/dev/null
+as $A "select public.msg_delete($MZ)" >/dev/null
+ok "$(as $A "select count(*)||'|'||min(status)||'|'||min(cancel_reason) from public.msg_tasks where message_id=$MZ")" "1|취소|필요 없어짐" "메시지를 지워도 취소 기록은 남고 대기 할 일만 지움"
+ok "$(as $A "select public.msg_task_cancel($TZ, '', true)" | grep -c msg_deleted)" 1 "지운 메시지의 취소는 되돌리지 않음"
 
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null

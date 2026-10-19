@@ -2,7 +2,7 @@
 --   msg_tasks.status 에 '취소'를 더하고 cancel_reason(사유)을 남긴다. 줄을 지우지 않는다 — 누가 언제 왜 그만뒀는지 기록이 남게.
 --   취소한 사람·시각은 done_by_name·done_at 에 적는다(오늘 완료처럼 그 날 카드에 보이고 다음 날 사라진다).
 --   msg_task_cancel(p_id, p_reason, p_undo) — 맡긴 사람·맡은 사람·관리자(@모두 할 일은 맡긴 사람·관리자만). p_undo 면 '대기'로 되돌림.
---   202610190005·0006 다음에 적용한다. 다시 실행해도 안전하다.
+--   msg_delete 는 취소한 할 일을 지우지 않는다(사유 기록 보존). 202610190005·0006 다음에 적용한다. 다시 실행해도 안전하다.
 
 alter table public.msg_tasks drop constraint if exists msg_tasks_status_check;
 alter table public.msg_tasks add constraint msg_tasks_status_check check (status in ('대기', '완료', '취소'));
@@ -33,6 +33,10 @@ begin
   if p_undo then
     if v_t.status <> '취소' then
       raise exception 'not_canceled';
+    end if;
+    -- 메시지를 지운 뒤에는 되돌리지 않는다(지운 메시지에 할 일이 다시 생기지 않게)
+    if exists (select 1 from public.msg_messages where id = v_t.message_id and deleted_at is not null) then
+      raise exception 'msg_deleted';
     end if;
     update public.msg_tasks set status = '대기', cancel_reason = '', done_by_name = null, done_at = null, updated_at = now()
     where id = p_id returning * into v_t;
@@ -128,6 +132,35 @@ begin
 end;
 $$;
 
+-- 메시지를 지워도 취소한 할 일(사유 기록)은 남긴다 — 대기·완료 할 일만 지운다 (Codex 검토)
+create or replace function public.msg_delete(p_id bigint)
+returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_me public.teacher_accounts := private.msg_me();
+  v_m public.msg_messages;
+begin
+  if v_me.user_id is null then
+    raise exception 'not_teacher' using errcode = '42501';
+  end if;
+  select * into v_m from public.msg_messages where id = p_id for update;
+  if v_m.id is null then
+    raise exception 'not_found';
+  end if;
+  if v_m.author is distinct from v_me.user_id and v_me.role <> 'admin' then
+    raise exception 'not_allowed' using errcode = '42501';
+  end if;
+  delete from public.msg_tasks where message_id = p_id and status <> '취소';
+  update public.msg_messages set body = '', files = '[]'::jsonb, deleted_at = now(), updated_at = now()
+  where id = p_id
+  returning * into v_m;
+  return to_jsonb(v_m);
+end;
+$$;
+
+revoke all on function public.msg_delete(bigint) from public, anon;
+grant execute on function public.msg_delete(bigint) to authenticated;
 revoke all on function public.msg_task_cancel(bigint, text, boolean) from public, anon;
 grant execute on function public.msg_task_cancel(bigint, text, boolean) to authenticated;
 revoke all on function public.msg_task_set(bigint, boolean) from public, anon;
