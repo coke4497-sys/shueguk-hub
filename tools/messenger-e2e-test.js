@@ -334,12 +334,10 @@ function filterRows(rows, u){
   const failId = MSGS[MSGS.length - 1].id;
   await sleep(6500);
   ok(calls.filter(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === failId).length === 2, '알림 서버가 실패하면 5초 뒤 한 번 더');
-  await page.click('#notiBtn'); await page.click('#poff');
-  await page.waitForFunction(() => document.querySelector('#notiBtn').textContent === '알림 꺼짐');
-  ok(calls.some(c => c[0] === 'premove' && c[1].p_endpoint.includes('fake-1')), '끄기 → msg_push_remove');
+  await page.click('#notiBtn');
+  ok(await page.locator('#poff').count() === 0 && await page.locator('#ptest').isVisible(), '알림 끄기 버튼 없음(시험 알림만)');
+  await page.click('#pclose');
   // 로그아웃하면 이 기기 구독도 지운다 (Codex 검토 P1)
-  await page.click('#pon');
-  await page.waitForFunction(() => document.querySelector('#notiBtn').textContent === '알림 켜짐');
   const rmBefore = calls.filter(c => c[0] === 'premove').length;
   await page.evaluate(() => { window.TeacherAuth.logout(); });
   await page.waitForURL(/login\.html/);

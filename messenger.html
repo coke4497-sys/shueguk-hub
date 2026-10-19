@@ -250,7 +250,6 @@
     </div>
     <div class="prow" id="pbtns">
       <button class="hbtn big" type="button" id="pon">이 기기에서 알림 켜기</button>
-      <button class="hbtn plain big" type="button" id="poff" hidden>이 기기 알림 끄기</button>
       <button class="hbtn plain big" type="button" id="ptest" hidden>시험 알림 보내기</button>
     </div>
     <fieldset class="pmode" id="pmode" hidden>
@@ -441,7 +440,7 @@
     $('pstate').textContent = st;
     var can = pushSupported() && !iosNeed;
     $('pbtns').hidden = !can;
-    $('pon').hidden = on; $('poff').hidden = !on; $('ptest').hidden = !on;
+    $('pon').hidden = on; $('ptest').hidden = !on;   // 알림 끄기 버튼은 없다(2026-10-19 원장님) — 로그아웃하면 그 기기 알림이 꺼진다
     $('pmode').hidden = !on;
     document.querySelectorAll('input[name="pm"]').forEach(function(r){ r.checked = r.value === PUSH.mode; });
   }
@@ -484,17 +483,11 @@
         status(m === 'denied' ? '알림을 허용해야 받을 수 있습니다.' : /no_vapid|503/.test(m) ? '알림 서버 준비가 아직 끝나지 않았습니다. 클로슈에게 알려 주세요.' : '알림을 켜지 못했습니다. (' + m.slice(0, 60) + ')', 6000);
       }).then(function(){ PUSH.busy = false; pushUi(); });
   }
-  function disablePush(){
-    var sub = PUSH.sub; if (!sub) return;
-    rpc('msg_push_remove', { p_endpoint: sub.endpoint }).catch(function(){}).then(function(){ return sub.unsubscribe().catch(function(){}); })
-      .then(function(){ PUSH.sub = null; PUSH.saved = false; status('이 기기 알림을 껐습니다.'); pushUi(); });
-  }
   $('notiBtn').onclick = function(){ $('pback').hidden = false; pushUi(); };
   $('pbannerBtn').onclick = function(){ $('pback').hidden = false; pushUi(); };
   $('pclose').onclick = function(){ $('pback').hidden = true; };
   $('pback').addEventListener('click', function(e){ if (e.target === $('pback')) $('pback').hidden = true; });
   $('pon').onclick = enablePush;
-  $('poff').onclick = disablePush;
   $('ptest').onclick = function(){
     status('시험 알림을 보내는 중…', 10000);
     fn({ action: 'test' }).then(function(r){ status(r.sent ? '기기 ' + r.sent + '곳으로 보냈습니다. 알림이 오는지 확인해 주세요.' : '보낼 기기가 없습니다. 알림을 다시 켜 주세요.', 6000); })
