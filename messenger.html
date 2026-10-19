@@ -148,6 +148,8 @@
   .tk.seen{background:var(--lav);color:var(--lavInk);}
   .tk.sum{font-weight:700;}
   .tk.cx{background:#ECEEED;color:#6A716C;}
+  .tk.pg{background:#E9EDF8;color:#3F4E78;}
+  .meta .pg{color:#3F4E78;font-weight:700;}
   /* 결석·지각·이동 확인 요청 안내 (202610200003) */
   .ahint{font-size:12.5px;color:var(--lavInk);background:var(--lav);border-radius:10px;padding:6px 10px;margin:0 0 6px;}
   .ahint.warn{color:var(--lateInk);background:#F7E2DE;}
@@ -404,7 +406,11 @@
   <div class="ppanel cxpanel" role="dialog" aria-modal="true" aria-labelledby="cxtitle">
     <span class="btitle" id="cxtitle">할 일 관리</span>
     <div class="cxt" id="cxtask"></div>
-    <div class="cxm" id="cxmodes"><button type="button" data-mode="defer">미루기</button><button type="button" data-mode="deleg">넘기기</button><button type="button" data-mode="cancel">취소</button></div>
+    <div class="cxm" id="cxmodes"><button type="button" data-mode="prog">진행 중</button><button type="button" data-mode="defer">미루기</button><button type="button" data-mode="deleg">넘기기</button><button type="button" data-mode="cancel">취소</button></div>
+    <div class="cxs" data-sec="prog">
+      <p class="pnote" id="pgnote">지금 이 일을 하고 있다고 표시합니다. 업무 카드와 메시지 아래에 '진행 중'으로 보여요.</p>
+      <div class="prow"><button class="hbtn big" type="button" id="pgok">진행 중으로 표시</button></div>
+    </div>
     <div class="cxs" data-sec="defer">
       <p class="pnote">언제까지 하겠다고 적어 두면 업무 카드에 '○○까지'로 보입니다. 그 시각이 지나면 빨갛게 표시돼요.</p>
       <div class="cxq" id="dfq"><button type="button" data-q="tonight">오늘 밤 9시</button><button type="button" data-q="tmr">내일 오후 3시</button><button type="button" data-q="d2">모레 오후 3시</button></div>
@@ -825,8 +831,9 @@
   function seenOf(t){ return t.status !== '대기' || !!t.seen_at; }   // 완료·취소도 끝난 것으로 센다
   function chipOne(t){
     var cx = t.status === '취소', done = t.status === '완료', seen = !done && !cx && !!t.seen_at;
-    return '<button class="tk ' + (cx ? 'cx' : done ? 'ok' : seen ? 'seen' : 'wait') + '" type="button" data-card="' + esc(t.assignee || t.assignee_name) + '"' + (cx ? ' title="취소 사유: ' + esc(t.cancel_reason || '') + '"' : '') + '>'
-      + (t.ack_only ? '' : '할 일 → ') + esc(t.assignee_name) + ' · ' + (cx ? '취소 ' + hm(t.done_at) : done ? (t.ack_only ? '확인 ' : '완료 ') + hm(t.done_at) : seen ? '확인 ' + hm(t.seen_at) : '아직') + '</button>';
+    var pg = isProg(t);
+    return '<button class="tk ' + (cx ? 'cx' : done ? 'ok' : pg ? 'pg' : seen ? 'seen' : 'wait') + '" type="button" data-card="' + esc(t.assignee || t.assignee_name) + '"' + (cx ? ' title="취소 사유: ' + esc(t.cancel_reason || '') + '"' : '') + '>'
+      + (t.ack_only ? '' : '할 일 → ') + esc(t.assignee_name) + ' · ' + (cx ? '취소 ' + hm(t.done_at) : done ? (t.ack_only ? '확인 ' : '완료 ') + hm(t.done_at) : pg ? '진행 중' : seen ? '확인 ' + hm(t.seen_at) : '아직') + '</button>';
   }
   function chipsHtml(id){
     var ts = tasksOf(id);
@@ -1238,7 +1245,10 @@
   // 미루기(언제까지 하겠다) — 맡은 사람만 / 넘기기 — 맡은 사람·맡긴 사람·관리자, @모두 할 일 제외 (202610200002). 열이 없으면 버튼 없음
   function canDefer(t){ return 'due_at' in t && t.status === '대기' && t.assignee === ME.id; }
   function canDeleg(t){ return 'hand_push' in t && t.status === '대기' && !t.ack_only && (t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'); }
-  function canManage(t){ return t.status === '대기' && (canCancel(t) || canDefer(t) || canDeleg(t)); }
+  // 진행 중(202610200006) — 상태는 대기 그대로, 지금 맡은 사람이 표시한 것만
+  function isProg(t){ return t.status === '대기' && !!t.progress_at && t.progress_by === t.assignee_name; }
+  function canProg(t){ return 'progress_at' in t && t.status === '대기' && !t.ack_only && t.assignee === ME.id; }
+  function canManage(t){ return t.status === '대기' && (canCancel(t) || canDefer(t) || canDeleg(t) || canProg(t)); }
   // 그 메시지가 지워지지 않았다고 알 때만 true — 불러오지 않은 메시지는 받아 온 뒤 다시 그린다(Codex 검토)
   function msgAlive(id){
     var m = MSGS.get(id) || QCACHE[id];
@@ -1284,9 +1294,9 @@
         if (due) late = '';   // '언제까지 하겠다'고 미룬 일은 그 약속 시각으로 본다
         var dueHtml = due ? ' · <span class="due' + (over ? ' over' : '') + '">' + (over ? '약속 지남 · ' : '미룸 · ') + esc(whenLabel(t.due_at)) + '까지' + (t.due_note ? ' — ' + esc(t.due_note) : '') + '</span>' : '';
         return '<div class="ci"><button class="bx" type="button" data-tk="' + t.id + '" aria-label="완료로 표시"' + (canCheck(t) ? '' : ' disabled title="맡은 사람·맡긴 사람만 체크할 수 있어요"') + '></button>'
-          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta' + (late ? ' lt' : '') + '">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + (late ? ' · ' + late : '') + (t.seen_at ? ' · 확인함' : '') + dueHtml + histHtml(t) + '</span></button>'
+          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta' + (late ? ' lt' : '') + '">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + (late ? ' · ' + late : '') + (t.seen_at ? ' · 확인함' : '') + (isProg(t) ? ' · <span class="pg">진행 중</span>' : '') + dueHtml + histHtml(t) + '</span></button>'
           + (t.assignee === ME.id && !t.seen_at && 'seen_at' in t ? '<button class="ack sm" type="button" data-ack="' + t.id + '">확인</button>' : '')
-          + (canManage(t) ? '<button class="cxb" type="button" data-cx="' + t.id + '" title="미루기 · 넘기기 · 취소">관리</button>' : '') + '</div>';
+          + (canManage(t) ? '<button class="cxb" type="button" data-cx="' + t.id + '" title="진행 중 · 미루기 · 넘기기 · 취소">관리</button>' : '') + '</div>';
       }).concat(p.done.sort(function(a, b){ return Date.parse(b.done_at) - Date.parse(a.done_at); }).map(function(t){
         if (t.status === '취소') return '<div class="ci d x"><span class="bx x" title="취소한 할 일">×</span>'
           + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · 취소 ' + hm(t.done_at) + (t.done_by_name ? ' (' + esc(t.done_by_name) + ')' : '') + '<br><span class="why">사유: ' + esc(t.cancel_reason || '') + '</span>' + histHtml(t) + '</span></button>'
@@ -1334,6 +1344,7 @@
     return h.slice(-3).map(function(x){
       var s = x.kind === '넘김' ? esc(x.by) + ' · ' + esc(x.from) + ' → ' + esc(x.to) + ' 넘김'
         : x.kind === '미룸' ? esc(x.by) + ' · ' + esc(whenLabel(x.until)) + '까지 미룸'
+        : x.kind === '진행 중' ? esc(x.by) + ' · 진행 중' : x.kind === '진행 해제' ? esc(x.by) + ' · 진행 중 풀기'
         : esc(x.by) + ' · 미룸 풀기';
       return '<span class="hist">' + (x.at ? esc(md(x.at) + ' ' + hm(x.at)) + ' ' : '') + s + (x.note ? ' — ' + esc(x.note) : '') + '</span>';
     }).join('');
@@ -1342,7 +1353,7 @@
     cxMode = mode;
     document.querySelectorAll('#cxmodes button').forEach(function(b){ b.classList.toggle('on', b.dataset.mode === mode); });
     document.querySelectorAll('#cxback .cxs').forEach(function(x){ x.hidden = x.dataset.sec !== mode; });
-    var f = mode === 'cancel' ? $('cxin') : mode === 'deleg' ? $('dgTo') : $('dfDate');
+    var f = mode === 'cancel' ? $('cxin') : mode === 'deleg' ? $('dgTo') : mode === 'prog' ? $('pgok') : $('dfDate');
     if (f) f.focus();
   }
   var DF_TIMES = []; for (var dh = 7; dh <= 23; dh++){ DF_TIMES.push((dh < 10 ? '0' : '') + dh + ':00'); DF_TIMES.push((dh < 10 ? '0' : '') + dh + ':30'); }
@@ -1361,10 +1372,11 @@
       var l = presOk ? presLoc(m.id) : '';
       return '<option value="' + esc(m.id) + '">' + esc(m.name) + ' · ' + esc(roleLabel(m.role)) + (presOk ? (l ? ' · ' + esc(l) + ' ON' : ' · OFF') : '') + '</option>';
     }).join('');
-    var ok = { defer: canDefer(t), deleg: canDeleg(t), cancel: canCancel(t) };
+    var ok = { prog: canProg(t), defer: canDefer(t), deleg: canDeleg(t), cancel: canCancel(t) };
     document.querySelectorAll('#cxmodes button').forEach(function(b){ b.hidden = !ok[b.dataset.mode]; });
+    $('pgok').disabled = false; $('pgok').textContent = isProg(t) ? '진행 중 풀기' : '진행 중으로 표시';
     $('cxback').hidden = false;
-    cxSetMode(ok.defer ? 'defer' : ok.deleg ? 'deleg' : 'cancel');
+    cxSetMode(ok.prog ? 'prog' : ok.defer ? 'defer' : ok.deleg ? 'deleg' : 'cancel');
   }
   function cxClose(){ $('cxback').hidden = true; cxId = null; }
   function cxDone(id, row){ cxClose(); TASKS.delete(id); addTasks([row]); renderBoard(); renderMsgs('keep'); }
@@ -1394,6 +1406,12 @@
     $('dfok').disabled = true;
     rpc('msg_task_defer', { p_id: id, p_until: until.toISOString(), p_note: $('dfNote').value.trim() }).then(function(row){ cxDone(id, row); })
       .catch(function(e){ $('dfok').disabled = false; status(errText(e), 6000); });
+  };
+  $('pgok').onclick = function(){
+    var id = cxId, t = TASKS.get(id); if (!t) return;
+    $('pgok').disabled = true;
+    rpc('msg_task_progress', { p_id: id, p_on: !isProg(t) }).then(function(row){ cxDone(id, row); })
+      .catch(function(e){ $('pgok').disabled = false; status(errText(e), 6000); });
   };
   $('dfclear').onclick = function(){
     var id = cxId;

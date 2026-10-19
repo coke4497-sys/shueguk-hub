@@ -56,6 +56,8 @@ const TASKS = [
   { id: 3, message_id: 3, assignee: EUNJI, assignee_name: '이은지', requester: BOSS, requester_name: '이수경', text: '교재 주문', status: '대기', done_at: null, created_at: K('2026-10-21', '15:50'),
     history: [{ kind: '넘김', from: '고희주', to: '이은지', by: '고희주', at: K('2026-10-21', '18:00'), note: '내일 쉬어요' }] },
   { id: 4, message_id: 4, assignee: HEEJU, assignee_name: '고희주', requester: BOSS, requester_name: '이수경', text: '시험지 복사', status: '취소', done_at: K('2026-10-21', '18:30'), done_by_name: '이수경', cancel_reason: '상황이 바뀌어 필요 없음', created_at: K('2026-10-21', '16:00'), history: [] },
+  { id: 6, message_id: 6, assignee: EUNJI, assignee_name: '이은지', requester: BOSS, requester_name: '이수경', text: '상담 일지 정리', status: '대기', done_at: null, progress_at: K('2026-10-21', '19:00'), progress_by: '이은지', created_at: K('2026-10-21', '18:40'),
+    history: [{ kind: '진행 중', by: '이은지', at: K('2026-10-21', '19:00') }] },
   { id: 5, message_id: 5, assignee: HEEJU, assignee_name: '고희주', requester: BOSS, requester_name: '이수경', text: '옛날 일', status: '완료', done_at: K('2026-10-01', '10:00'), created_at: K('2026-10-01', '09:00'), updated_at: K('2026-10-01', '10:00'), history: [] },
 ];
 const USAGE = [
@@ -140,7 +142,7 @@ const calls = [];
   const ej = await rowOf(page, EUNJI).textContent();
   ok(ej.includes('4시간 0분') || ej.includes('4시간'), '이은지 근무 = 오늘 16:00~지금(20:00) 4시간 (' + ej + ')');
   ok(ej.includes('4시간 30분') && ej.includes('3회'), '이은지 수업 4시간 30분 · 3회 (정규 2 + 이 주만 1, 내신·휴강·빈 반·다음날 제외)');
-  ok(ej.includes('0 / 1 완료') && ej.includes('대기 1'), '이은지 넘겨받은 일 대기');
+  ok(ej.includes('0 / 2 완료') && ej.includes('대기 1') && ej.includes('진행 중 1'), '이은지 넘겨받은 일 대기 · 진행 중 1');
   const bs = await rowOf(page, BOSS).textContent();
   ok(bs.includes('2시간') && bs.includes('1회'), "'슈' 수업 = 이수경 2시간");
   ok(bs.includes('출근 기록 없음') && bs.includes('맡은 일 없음'), '기록 없는 사람도 줄');
@@ -158,6 +160,7 @@ const calls = [];
   await rowOf(page, EUNJI).click();
   const dt2 = await page.locator('#detail').textContent();
   ok(dt2.includes('16:00 ~ 20:00 (근무 중)'), '오늘 근무 중 = 지금까지');
+  ok(dt2.includes('진행 중 상담 일지 정리') && dt2.includes('10/21 (수) 19:00부터 진행 중'), '진행 중 = 언제부터');
   ok(dt2.includes('오전9:30~11:00 고2 직보') && dt2.includes('(이 주만)'), '이 주만 반 표시');
   ok(!dt2.includes('중2 가') && !dt2.includes('고2 진도'), '휴강·다른 기간 반은 없음');
   if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'staff-pc.png'), fullPage: true }); }

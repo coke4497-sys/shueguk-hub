@@ -49,6 +49,7 @@
   .s-완료{background:var(--ok);color:var(--okInk);}
   .s-대기{background:var(--wait);color:var(--waitInk);}
   .s-미룸{background:var(--late);color:var(--lateInk);}
+  .s-진행중{background:var(--lav);color:var(--lavInk);}
   .s-위임{background:var(--sky);color:var(--skyInk);}
   .s-취소{background:#EEF1EF;color:#4F5C56;}
   .dim{color:var(--cap);}
@@ -115,9 +116,10 @@
     'shueguk-gramma/shueguk-teacher-dashboard.html': '문법 결과', 'shueguk-h-work/hwork_teacher.html': 'H WORK 제출 확인', 'shueguk-h-work/hwork_assign.html': 'H WORK 배정', 'shueguk-h-work/homework_key.html': 'H WORK 출제'
   };
   var SHUETALK = 'shueguk-hub/messenger.html';
-  // 업무 상태 — 슈톡 할 일(msg_tasks): 대기·완료·취소(cancel_reason), 미룸 = 대기 + due_at(언제까지), 위임 = history 의 '넘김'
-  var OPEN = { '대기': 1 }, ST_ORDER = ['완료', '대기', '미룸', '위임', '취소'];
-  var ST_LABEL = {};
+  // 업무 상태 — 슈톡 할 일(msg_tasks): 대기·완료·취소(cancel_reason), 진행 중 = 대기 + progress_at(맡은 사람이 표시),
+  // 미룸 = 대기 + due_at(언제까지), 위임 = history 의 '넘김'
+  var OPEN = { '대기': 1 }, ST_ORDER = ['완료', '진행중', '대기', '미룸', '위임', '취소'];
+  var ST_LABEL = { '진행중': '진행 중' };
   var $ = function(id){ return document.getElementById(id); };
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function api(path, opt){
@@ -303,7 +305,7 @@
 
   // ── 그리기 ───────────────────────────────────────
   function roleLabel(r){ return r === 'assistant' ? '조교' : (r === 'admin' ? '관리자' : r ? '선생님' : ''); }
-  function stOf(t){ return t.status === '대기' && t.due_at ? '미룸' : t.status; }
+  function stOf(t){ if (t.status !== '대기') return t.status; if (t.progress_at && t.progress_by === t.assignee_name) return '진행중'; return t.due_at ? '미룸' : '대기'; }
   function counts(p){ var c = {}; p.tasks.forEach(function(t){ var s = stOf(t); c[s] = (c[s] || 0) + 1; }); if (p.gave.length) c['위임'] = p.gave.length; return c; }
   function fmtAt(v){ var ms = Date.parse(v); return isNaN(ms) ? '' : dlabel(ymdOf(ms)) + ' ' + hm(ms); }
   function stPill(s, n){ return '<span class="st s-' + esc(s) + '">' + esc(ST_LABEL[s] || s) + (n != null ? ' ' + n : '') + '</span>'; }
@@ -366,10 +368,10 @@
     h += '<div class="sec"><h3>3. 업무 진행 <small>' + ST_ORDER.filter(function(s){ return c[s]; }).map(function(s){ return stPill(s, c[s]); }).join('') + '</small></h3><div class="rows">';
     var items = p.tasks.slice().sort(function(a, b){ return (OPEN[b.status] ? 1 : 0) - (OPEN[a.status] ? 1 : 0) || Date.parse(b.created_at) - Date.parse(a.created_at); }).map(function(t){
       var st = stOf(t), ms = Date.parse(t.created_at), hist = Array.isArray(t.history) ? t.history : [];
-      var info = esc(t.requester_name) + '님이 맡김' + (t.done_at && !OPEN[t.status] ? ' · ' + esc(t.status) + ' ' + fmtAt(t.done_at) + (t.done_by_name ? ' (' + esc(t.done_by_name) + ')' : '') : '');
+      var info = esc(t.requester_name) + '님이 맡김' + (st === '진행중' ? ' · ' + fmtAt(t.progress_at) + '부터 진행 중' : '') + (t.done_at && !OPEN[t.status] ? ' · ' + esc(t.status) + ' ' + fmtAt(t.done_at) + (t.done_by_name ? ' (' + esc(t.done_by_name) + ')' : '') : '');
       var why = t.status === '취소' && t.cancel_reason ? '취소 사유: ' + esc(t.cancel_reason)
         : st === '미룸' ? fmtAt(t.due_at) + '까지 하겠다고 미룸' + (t.due_note ? ' — ' + esc(t.due_note) : '') + (Date.parse(t.due_at) < nowMs ? ' · <span class="open">약속 지남</span>' : '') : '';
-      var hl = hist.map(function(x){ return fmtAt(x.at) + ' ' + esc(x.by || '') + ' · ' + (x.kind === '넘김' ? esc(x.from) + ' → ' + esc(x.to) + ' 넘김' : x.kind === '미룸' ? fmtAt(x.until) + '까지 미룸' : esc(x.kind)) + (x.note ? ' — ' + esc(x.note) : ''); }).join('<br>');
+      var hl = hist.map(function(x){ return fmtAt(x.at) + ' ' + esc(x.by || '') + ' · ' + (x.kind === '넘김' ? esc(x.from) + ' → ' + esc(x.to) + ' 넘김' : x.kind === '미룸' ? fmtAt(x.until) + '까지 미룸' : x.kind === '진행 해제' ? '진행 중 풀기' : esc(x.kind)) + (x.note ? ' — ' + esc(x.note) : ''); }).join('<br>');
       return '<div class="row"><span class="d">' + dlabel(ymdOf(ms)) + '<br>' + hm(ms) + '</span><span class="x">' + stPill(st) + ' ' + esc(t.text) + '<span class="hist">' + info + '</span>' + (why ? '<span class="hist">' + why + '</span>' : '') + (hl ? '<span class="hist">' + hl + '</span>' : '') + '</span></div>';
     }).concat(p.gave.map(function(g){
       var ms = Date.parse(g.h.at);

@@ -50,6 +50,8 @@ P -f supabase/migrations/202610200002_messenger_handover.sql >/dev/null || { ech
 P -f supabase/migrations/202610200002_messenger_handover.sql >/dev/null && ok y y "넘기기·미루기 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610200003_messenger_attend_ack.sql >/dev/null || { echo "결석 확인 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200003_messenger_attend_ack.sql >/dev/null && ok y y "결석 확인 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610200006_task_progress.sql >/dev/null || { echo "진행 중 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200006_task_progress.sql >/dev/null && ok y y "진행 중 마이그레이션 다시 실행해도 오류 없음"
 for w in 202610200001_work_log 202610200002_work_overtime_approval 202610200003_work_early_out 202610200004_work_early_confirm; do P -f supabase/migrations/$w.sql >/dev/null || { echo "근무 일지 마이그레이션 실패 $w"; exit 1; }; done
 P -f supabase/migrations/202610200005_staff_manage.sql >/dev/null || { echo "강사 관리 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200005_staff_manage.sql >/dev/null && ok y y "강사 관리 마이그레이션 다시 실행해도 오류 없음"
@@ -240,6 +242,19 @@ MK4=$(as $C "select (public.msg_send('[공지] 내일 휴강 @이은지', '[]', 
 ok "$(as $C "select bool_and(ack_only) from public.msg_tasks where message_id=$MK4")" "f" "다른 꼬리표는 보통 할 일"
 MK5=$(as $C "select (public.msg_send('결석 처리 부탁 [결석] @이은지', '[]', array['$B']::uuid[])->'message'->>'id')")
 ok "$(as $C "select bool_and(ack_only) from public.msg_tasks where message_id=$MK5")" "f" "꼬리표는 맨 앞일 때만"
+echo "── 진행 중"
+MP=$(as $B "select (public.msg_send('출석부 스캔 @고희주', '[]', array['$C']::uuid[])->'message'->>'id')")
+TP=$(as $B "select id from public.msg_tasks where message_id=$MP")
+ok "$(as $B "select public.msg_task_progress($TP, true)" | grep -c not_allowed)" 1 "맡긴 사람은 진행 중 표시 못 함(맡은 사람만)"
+ok "$(as $C "select (public.msg_task_progress($TP, true)->>'progress_by')||'|'||(select status from public.msg_tasks where id=$TP)")" "고희주|대기" "진행 중 — 상태는 대기 그대로"
+ok "$(as $C "select (public.msg_task_progress($TP, true)->'history')::text" | grep -o '진행 중' | wc -l | tr -d ' ')" 1 "같은 값이면 기록을 다시 쌓지 않음"
+ok "$(as $C "select (public.msg_task_progress($TP, false)->>'progress_at') is null")" "t" "진행 해제"
+ok "$(as $C "select jsonb_array_length(history) from public.msg_tasks where id=$TP")" 2 "기록 두 줄(진행 중·진행 해제)"
+as $C "select public.msg_task_progress($TP, true)" >/dev/null
+as $C "select public.msg_task_set($TP, true)" >/dev/null
+ok "$(as $C "select public.msg_task_progress($TP, false)" | grep -c not_pending)" 1 "끝난 일은 진행 표시를 바꾸지 않음"
+ok "$(anon "select public.msg_task_progress($TP, true)" | grep -c 'permission denied')" 1 "공개 키는 진행 중 함수 실행 불가"
+
 echo "── 사용 시간"
 psql -X -q -d $DB -c "insert into auth.users values ('99999999-0000-0000-0000-000000000009')" -c "insert into public.teacher_accounts (user_id, login_id, display_name, role, active) values ('99999999-0000-0000-0000-000000000009','parkeh','박언호','teacher',true)" >/dev/null
 PK=99999999-0000-0000-0000-000000000009
