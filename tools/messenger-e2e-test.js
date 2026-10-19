@@ -68,7 +68,7 @@ function filterRows(rows, u){
       out = out.filter(r => parts.some(([f, op, val]) => op === 'is' ? r[f] == null : op === 'neq' ? String(r[f]) !== val : op === 'eq' ? String(r[f]) === val : false));
       return;
     }
-    const m = v.match(/^(eq|neq|gt|gte|lt|in|is)\.(.*)$/); if (!m) return;
+    const m = v.match(/^(eq|neq|gt|gte|lt|in|is|ilike|like)\.(.*)$/); if (!m) return;
     const [, op, val] = m;
     if (op === 'eq') out = out.filter(r => String(r[k]) === val);
     if (op === 'neq') out = out.filter(r => String(r[k]) !== val);
@@ -76,6 +76,7 @@ function filterRows(rows, u){
     if (op === 'gt') out = out.filter(r => r[k] != null && (k === 'id' ? r[k] > Number(val) : r[k] > val));
     if (op === 'gte') out = out.filter(r => r[k] != null && (k === 'id' ? r[k] >= Number(val) : Date.parse(r[k]) >= Date.parse(val)));
     if (op === 'lt') out = out.filter(r => r[k] != null && (k === 'id' ? r[k] < Number(val) : r[k] < val));
+    if (op === 'ilike' || op === 'like'){ const re = new RegExp('^' + val.split('*').map(x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$', op === 'ilike' ? 'is' : 's'); out = out.filter(r => re.test(String(r[k] || ''))); }
     if (op === 'in') { const set = val.replace(/[()]/g, '').split(',').map(Number); out = out.filter(r => set.includes(r[k])); }
   });
   const ord = u.searchParams.get('order');
@@ -131,6 +132,7 @@ function filterRows(rows, u){
       if (p === '/rest/v1/rpc/msg_send'){
         const b = JSON.parse(req.postData()); calls.push(['send', b]);
         const m = addMsg(ME, b.p_body, b.p_files);
+        if (b.p_reply) m.reply_to = b.p_reply;
         let text = b.p_body; (b.p_mentions || []).forEach(id => { text = text.split('@' + NAME[id]).join(''); });
         const all = /@(모두|전체)/.test(b.p_body);
         text = text.replace(/@(모두|전체)/g, '').replace(/\s+/g, ' ').trim() || '메시지 확인';
@@ -543,6 +545,64 @@ function filterRows(rows, u){
   await page.click('#m' + many.id + ' [data-ack]');
   await page.waitForFunction(id => (document.querySelector('#m' + id + ' .tk.sum') || {}).textContent.includes('확인 2 / 6'), many.id);
   ok(TASKS.filter(k => k.message_id === many.id && k.assignee === ME)[0].status === '완료', '@모두는 확인하면 완료');
+  await ctx.close();
+
+  console.log('⑲ 찾기 · 꼬리표로 모아 보기');
+  addMsg(BOSS, '[결석] 중3 이하늘 병결', [], ts()); addMsg(EUNJI, '[지각] 고1 박하늘 10분 지각', [], ts()); addMsg(BOSS, '하늘반 시간표 바뀜', [], ts());
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id);
+  ok(await page.locator('#find').isHidden(), '처음엔 찾기 줄 숨김');
+  await page.click('#findBtn');
+  ok(await page.locator('#find').isVisible() && await page.evaluate(() => document.activeElement.id === 'fq'), '돋보기 → 찾기 줄·입력칸에 초점');
+  await page.fill('#fq', '하늘');
+  await page.waitForSelector('#results .ritem');
+  ok(await page.locator('#msgs').isHidden(), '결과를 보는 동안 대화는 숨김');
+  ok(await page.locator('#results .ritem').count() === 4 && (await page.locator('#results .ritem mark').first().textContent()) === '하늘', '\'하늘\' 4개 · 글자 강조');
+  await page.click('#ftags [data-ftag="결석"]');
+  await page.waitForFunction(() => document.querySelectorAll('#results .ritem').length === 2);
+  ok((await page.locator('#results .rsum').textContent()).includes('[결석]'), '꼬리표 + 검색어 함께 (결석·하늘 → 2개)');
+  await page.fill('#fq', '');
+  await page.waitForFunction(() => /\[결석\] —/.test(document.querySelector('#results .rsum').textContent));
+  const absN = MSGS.filter(m => !m.deleted_at && /^\[결석\]/.test(m.body)).length;
+  ok(await page.locator('#results .ritem').count() === absN && await page.locator('#results .ritem span.tg.c2').count() === absN, '[결석]만 모아 보기 (' + absN + '개)');
+  const hit = MSGS.filter(m => /^\[결석\] 중3 이하늘/.test(m.body))[0];
+  await page.click('#results [data-hit="' + hit.id + '"]');
+  await page.waitForFunction(id => document.querySelector('#m' + id + '.flash'), hit.id);
+  ok(await page.locator('#find').isHidden() && await page.locator('#msgs').isVisible(), '결과를 누르면 찾기를 닫고 그 메시지로');
+  await page.click('#findBtn'); await page.fill('#fq', '없는말없는말');
+  await page.waitForFunction(() => (document.querySelector('#results .rsum') || {}).textContent && document.querySelector('#results .rsum').textContent.includes('없습니다'));
+  ok(true, '없으면 \'찾은 메시지가 없습니다\'');
+  await page.keyboard.press('Escape');
+  ok(await page.locator('#find').isHidden() && await page.locator('#msgs').isVisible(), 'Esc로 닫으면 대화로');
+
+  console.log('⑳ 답장');
+  await page.locator('#m' + hit.id).hover();
+  await page.click('#m' + hit.id + ' [data-reply]');
+  ok(await page.locator('#rbar').isVisible() && (await page.locator('#rtext').textContent()).includes('이수경에게 답장') && (await page.locator('#rtext').textContent()).includes('결석중3 이하늘') && await page.locator('#rtext span.tg.c2').count() === 1, '[답장] → 입력칸 위 \'이수경에게 답장 · 원문\'');
+  await page.keyboard.type('보충 일정 잡았습니다'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  const rsd = calls.filter(c => c[0] === 'send').pop();
+  ok(rsd[1].p_reply === hit.id, 'msg_send p_reply = 원글');
+  ok(await page.locator('#rbar').isHidden(), '보내면 답장 줄 사라짐');
+  const rid = MSGS[MSGS.length - 1].id;
+  ok((await page.locator('#m' + rid + ' .quote').textContent()).includes('이수경') && (await page.locator('#m' + rid + ' .quote').textContent()).includes('중3 이하늘'), '답장 위에 원글 인용');
+  await page.click('#m' + rid + ' .quote');
+  await page.waitForFunction(id => document.querySelector('#m' + id + '.flash'), hit.id);
+  ok(true, '인용을 누르면 원글로');
+  await page.locator('#m' + m3.id).hover(); await page.click('#m' + m3.id + ' [data-reply]'); await page.click('#rcancel');
+  ok(await page.locator('#rbar').isHidden(), '[취소]로 답장 그만두기');
+  const sends = calls.filter(c => c[0] === 'send').length;
+  await page.click('#inp'); await page.keyboard.type('그냥 글'); await page.click('#send');
+  await page.waitForFunction(n => true, sends); await sleep(300);
+  ok(!('p_reply' in calls.filter(c => c[0] === 'send').pop()[1]), '답장이 아니면 p_reply 안 보냄(0006 전 DB와 호환)');
+  // 불러오지 않은 원글
+  const far = MSGS[0];
+  const rep2 = addMsg(BOSS, '예전 글에 답합니다', [], ts()); rep2.reply_to = far.id;
+  await page.waitForSelector('#m' + rep2.id + ' .quote', { timeout: 7000 });
+  await page.waitForFunction(id => !document.querySelector('#m' + id + ' .quote').textContent.includes('이전 메시지'), rep2.id, { timeout: 5000 }).catch(() => {});
+  ok((await page.locator('#m' + rep2.id + ' .quote').textContent()).includes(far.author_name), '원글이 화면에 없어도 받아 와 인용 (' + (await page.locator('#m' + rep2.id + ' .quote').textContent()) + ')');
+  if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'reply.png') }); await page.click('#findBtn'); await page.click('#ftags [data-ftag="결석"]'); await page.waitForSelector('#results .ritem'); await page.screenshot({ path: path.join(process.env.SHOT, 'find.png') });
+    const pg = await ctx.newPage(); await pg.setViewportSize({ width: 390, height: 844 }); await pg.goto('http://127.0.0.1:' + PORT + '/messenger.html'); await pg.waitForSelector('#msgs .m'); await pg.click('#findBtn'); await pg.fill('#fq', '하늘'); await pg.waitForSelector('#results .ritem'); await pg.screenshot({ path: path.join(process.env.SHOT, 'find-phone.png') }); await pg.close(); }
   await ctx.close();
 
   console.log('⑯ 출근·퇴근');
