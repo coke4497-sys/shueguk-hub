@@ -131,7 +131,7 @@ function filterRows(rows, u){
         PLOGS.push({ id: PLOGS.length + 1, user_id: ME, is_on: b.p_on, at: NOWISO() });
         return json(Object.assign({}, PRESENCE[ME], { work: workAsk && b.p_on ? { id: 5, event: 'in', sched: '16:00', actual: '15:10', start: '16:00', clipped: true, ask: true, diff: 50 } : workAsk ? { id: 5, event: 'out', sched: '22:00', actual: '23:20', end: '22:00', ask: true, diff: 80, minutes: 360 } : workClip && b.p_on ? { id: 1, event: 'in', sched: '16:00', start: '16:00', clipped: true } : (b.p_on ? null : { id: 1, event: 'out', start: '16:00', minutes: 362 }) }));
       }
-      if (p === '/rest/v1/rpc/work_overtime'){ const b = JSON.parse(req.postData()); calls.push(['ot', b]); return json({ id: b.p_id, minutes: 440 }); }
+      if (p === '/rest/v1/rpc/work_overtime'){ const b = JSON.parse(req.postData()); calls.push(['ot', b]); return json({ id: b.p_id, minutes: 440, ot_status: '대기', message_id: 91 }); }
       if (p === '/rest/v1/rpc/msg_send'){
         const b = JSON.parse(req.postData()); calls.push(['send', b]);
         const m = addMsg(ME, b.p_body, b.p_files);
@@ -701,6 +701,10 @@ function filterRows(rows, u){
   await sleep(200);
   const ot1 = calls.filter(c => c[0] === 'ot').pop();
   ok(ot1 && ot1[1].p_id === 5 && ot1[1].p_kind === 'in' && ot1[1].p_yes === true, '[네] → work_overtime(이른 출근, 네)');
+  await page.waitForFunction(() => document.querySelector('#status').textContent.includes('승인'));
+  ok((await page.locator('#status').textContent()).includes('박언호 대표님이 승인하면'), '조교는 승인 요청 안내');
+  await page.waitForFunction(() => true); await sleep(300);
+  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === 91), '승인 요청 글 휴대폰 알림(msg-push)');
   // 80분 늦은 퇴근 → [아니요]는 근무표 끝까지(서버 기본값) — 요청 없이 닫힘
   const nOt = calls.filter(c => c[0] === 'ot').length;
   await page.click('#presBtn'); await page.click('#presMenu [data-out]');

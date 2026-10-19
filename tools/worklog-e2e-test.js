@@ -35,7 +35,7 @@ const SH = (ymd, loc, slot, user, s, e, extra) => Object.assign({ id: ++sid, ymd
 const SHIFTS = [
   SH('2026-11-05', '본원', 1, KIM, '16:00', '22:00'), SH('2026-11-05', '본원', 2, HEE, '16:00', '22:00'),
   SH('2026-11-06', '본원', 2, HEE, '16:00', '22:00', { orig_user_id: SUM, swap_reason: '병원', swapped_by_name: '조수민', swapped_at: K('2026-11-04', '20:00') }),
-  SH('2026-11-07', '민초센터', 1, SUM, '10:30', '20:00'), SH('2026-11-11', '화정센터', 1, SUM, '16:00', '22:30'),
+  SH('2026-11-07', '민초센터', 1, SUM, '10:30', '20:00'), SH('2026-11-11', '화정센터', 1, SUM, '16:00', '22:30'), SH('2026-11-04', '정리정독', 1, KIM, '16:00', '22:30'),
   SH('2026-11-12', '본원', 1, KIM, '16:00', '22:00'), SH('2026-11-12', '본원', 2, HEE, '16:00', '22:00'),
   SH('2026-11-13', '본원', 2, SUM, '16:00', '22:00'), SH('2026-11-14', '민초센터', 1, SUM, '10:30', '20:00')];
 const SW13 = SHIFTS.find(x => x.ymd === '2026-11-13');
@@ -43,7 +43,8 @@ const RC = (ymd, user, loc, inn, start, out, end, x) => Object.assign({ id: ++ri
 const RECS = [
   RC('2026-11-05', KIM, '본원', '15:40', '16:00', '22:00'), RC('2026-11-05', HEE, '본원', '16:05', '16:05', '22:00'),
   RC('2026-11-06', HEE, '본원', '16:00', '16:00', '22:00'), RC('2026-11-08', SUM, '화정센터', '10:30', '10:30', null),
-  RC('2026-11-11', SUM, '화정센터', '15:00', '15:00', '23:00', '22:30', { ot_start: true })];   // 이른 출근은 초과근무, 늦은 퇴근은 22:30까지
+  RC('2026-11-11', SUM, '화정센터', '15:00', '15:00', '23:00', '22:30', { ot_start: true, ot_status: '승인', ot_by_name: '박언호' }),
+  RC('2026-11-04', KIM, '정리정독', '16:00', '16:00', '23:30', '22:30', { ot_end: true, ot_status: '대기' })];   // 승인 대기   // 이른 출근은 초과근무, 늦은 퇴근은 22:30까지
 const ROSTER = [{ id: 1, dow: 4, loc: '본원', slot: 1, user_id: KIM, start_hm: '16:00', end_hm: '22:00', note: '' }, { id: 2, dow: 4, loc: '본원', slot: 2, user_id: HEE, start_hm: '16:00', end_hm: '22:00', note: '' }];
 const calls = [];
 let missing = false;
@@ -52,7 +53,8 @@ function filt(rows, u){
   let out = rows.slice();
   u.searchParams.forEach((v, k) => {
     if (['select', 'order', 'limit'].includes(k)) return;
-    const m = v.match(/^(eq|gte|lte)\.(.*)$/); if (!m) return;
+    const m = v.match(/^(eq|gte|lte|in)\.(.*)$/); if (!m) return;
+    if (m[1] === 'in'){ const set = m[2].replace(/[()]/g, '').split(','); out = out.filter(r => set.includes(String(r[k]))); return; }
     if (m[1] === 'eq') out = out.filter(r => String(r[k]) === m[2]);
     if (m[1] === 'gte') out = out.filter(r => String(r[k]) >= m[2]);
     if (m[1] === 'lte') out = out.filter(r => String(r[k]) <= m[2]);
@@ -98,7 +100,8 @@ function filt(rows, u){
         if (fn === 'work_swap'){ const s = SHIFTS.find(x => x.id === body.p_id); s.orig_user_id = s.orig_user_id || s.user_id; s.user_id = body.p_user; s.swap_reason = body.p_reason; s.swapped_by_name = '이수경'; s.swapped_at = NOW; return json(s); }
         if (fn === 'msg_send') return json({ message: { id: 77 }, tasks: [] });
         if (fn === 'work_fix') return json({ id: body.p_id, fixed: true });
-        if (fn === 'work_overtime'){ const r = RECS.find(x => x.id === body.p_id); if (body.p_kind === 'out'){ r.ot_end = body.p_yes; r.end_at = body.p_yes ? r.out_at : K(r.ymd, '22:30'); } else { r.ot_start = body.p_yes; r.start_at = body.p_yes ? r.in_at : K(r.ymd, '16:00'); } return json(Object.assign({ minutes: 0 }, r)); }
+        if (fn === 'work_overtime'){ const r = RECS.find(x => x.id === body.p_id); if (body.p_kind === 'out') r.ot_end = body.p_yes; else r.ot_start = body.p_yes; r.ot_status = !(r.ot_start || r.ot_end) ? '' : viewer ? '승인' : '대기'; const ok = r.ot_status === '승인'; r.end_at = r.ot_end && ok ? r.out_at : K(r.ymd, '22:30'); r.start_at = r.ot_start && ok ? r.in_at : K(r.ymd, '16:00'); return json(Object.assign({ minutes: 0, message_id: viewer ? null : 88 }, r)); }
+        if (fn === 'work_ot_decide'){ const r = RECS.find(x => x.id === body.p_id); r.ot_status = body.p_ok ? '승인' : '반려'; r.ot_by_name = '이수경'; if (body.p_ok && r.ot_end) r.end_at = r.out_at; return json(r); }
         if (fn === 'work_staff_set'){ const s = STAFF.find(x => x.user_id === body.p_user); if (s){ s.wage = body.p_wage; s.active = body.p_active; } else STAFF.push({ user_id: body.p_user, wage: body.p_wage, active: body.p_active }); return json(null, 204); }
         if (fn === 'work_roster_save') return json(body.p_rows.length);
         return json({ message: 'unknown ' + fn }, 404);
@@ -120,32 +123,51 @@ function filt(rows, u){
   ok(!(await page.locator('.tab[data-tab="set"]').isHidden()), '원장님에게는 [사람·근무표 설정] 탭');
   const rows = await page.$$eval('tr.person', trs => trs.map(t => [...t.querySelectorAll('td')].map(td => td.textContent.trim())));
   const kim = rows.find(r => r[0].startsWith('김영훈')), hee = rows.find(r => r[0].startsWith('고희주')), sum = rows.find(r => r[0].startsWith('조수민'));
-  ok(kim && kim[2] === '6시간' && kim[3] === '—' && kim[4] === '13,000' && kim[5] === '78,000' && kim[6] === '75,426', '김영훈: 15:40 출근이라도 16:00부터 6시간 · 78,000 · 실수령 75,426 (' + (kim || []).join('|') + ')');
+  ok(kim && kim[1] === '2일' && kim[2] === '12시간 30분' && kim[3] === '—' && kim[4] === '13,000' && kim[5] === '162,500' && kim[6] === '157,137', '김영훈: 15:40 출근은 16:00부터·승인 대기 초과근무는 빼고 12시간 30분 · 162,500 (' + (kim || []).join('|') + ')');
+  ok(kim && kim[7].includes('승인 대기 1'), '기록 칸에 \'승인 대기 1\'');
+  await page.waitForSelector('#mWait:not([hidden])');
+  const wt = await page.locator('#mWait').textContent();
+  ok(wt.includes('1건') && wt.includes('김영훈') && wt.includes('퇴근 23:30 (근무표 22:30)') && wt.includes('1시간'), '맨 위 \'초과근무 승인 대기\' 카드 (' + wt.replace(/\s+/g, ' ').slice(0, 120) + ')');
   ok(hee && hee[1] === '2일' && hee[2] === '11시간 55분' && hee[5] === '143,000' && hee[6] === '138,281', '고희주: 2일 · 11시간 55분 · 143,000 · 138,281');
   ok(sum && sum[7] === '확인 2건', '조수민: 출근 기록 없음 + 퇴근 기록 없음 = 확인 2건');
   ok(sum && sum[2] === '7시간 30분' && sum[3] === '1시간' && sum[5] === '90,000', '조수민 11/11: 15:00 초과근무 출근 ~ 22:30(23:00 퇴근은 근무표 끝까지) = 7시간 30분, 그중 초과근무 1시간 (' + (sum || []).join('|') + ')');
-  ok((await page.locator('tr.sum').textContent()).includes('311,000'), '합계 총 급여 311,000');
+  ok((await page.locator('tr.sum').textContent()).includes('395,500'), '합계 총 급여 395,500');
   const tiles = await page.locator('#mTiles').textContent();
-  ok(tiles.includes('확인이 필요한 기록2건') && tiles.includes('311,000'), '위 칸: 총 급여·확인할 기록 (' + tiles + ')');
+  ok(tiles.includes('확인이 필요한 기록2건') && tiles.includes('395,500'), '위 칸: 총 급여·확인할 기록 (' + tiles + ')');
+  await page.click('#mWait [data-ok$="|1"]');
+  await sleep(300);
+  const dc = calls.filter(c => c[0] === 'work_ot_decide').pop();
+  ok(dc && dc[1].p_id === RECS[5].id && dc[1].p_ok === true, '[승인] → work_ot_decide(승인)');
+  await page.waitForFunction(() => document.querySelector('#mWait').hidden);
+  const kim2 = await page.$$eval('tr.person', trs => trs.map(t => [...t.querySelectorAll('td')].map(td => td.textContent.trim())).find(r => r[0].startsWith('김영훈')));
+  ok(kim2[2] === '13시간 30분' && kim2[3] === '1시간' && kim2[5] === '175,500', '승인하면 근무시간·초과근무·급여에 들어감 (' + kim2.join('|') + ')');
   await page.click('tr.person:has-text("김영훈")');
   ok((await page.locator('tr.detail').first().textContent()).includes('출근 15:40 → 16:00부터'), '펼치면 일찍 출근한 날 \'16:00부터\' 표시');
+  ok((await page.locator('tr.detail').first().textContent()).includes('초과근무 1시간 · 퇴근 23:30까지 · 승인 이수경'), '승인한 초과근무와 승인한 사람');
   await page.click('tr.person:has-text("고희주")');
   ok((await page.locator('#mBody').textContent()).includes('조수민 대신 근무'), '대신 근무한 날 표시');
   await page.click('tr.person:has-text("조수민")');
   const sd = await page.locator('#mBody').textContent();
   ok(sd.includes('출근 기록 없음') && sd.includes('퇴근 기록 없음'), '조수민: 출근 기록 없음·퇴근 기록 없음 줄');
   ok(await page.locator('[data-add]').count() === 1, '출근 기록 없는 날에 [기록 넣기]');
-  ok(sd.includes('초과근무 1시간 · 출근 15:00부터') && sd.includes('퇴근 23:00 → 22:30까지'), '초과근무·근무표 끝까지 표시');
+  ok(sd.includes('초과근무 1시간 · 출근 15:00부터 · 승인 박언호') && sd.includes('퇴근 23:00 → 22:30까지'), '초과근무·근무표 끝까지 표시');
+  ok(await page.locator('[data-ot="' + RECS[4].id + '|1"]').count() === 0 && await page.locator('[data-ot="' + RECS[4].id + '|0"]').count() === 1, '이미 초과근무가 있는 줄은 [근무표 시각으로]만');
+  RECS[4].ot_start = false; RECS[4].ot_status = ''; RECS[4].start_at = K('2026-11-11', '16:00');
+  await page.click('#mNext'); await page.click('#mPrev');
+  await page.waitForSelector('[data-ot="' + RECS[4].id + '|1"]').catch(() => {});
+  if (!(await page.locator('tr.person.open:has-text("조수민")').count())) await page.click('tr.person:has-text("조수민")');
+  ok((await page.locator('[data-ot="' + RECS[4].id + '|1"]').textContent()) === '초과근무로 인정', '원장님 화면 버튼 \'초과근무로 인정\'');
   await page.click('[data-ot="' + RECS[4].id + '|1"]');
   await sleep(300);
   const ov = calls.filter(c => c[0] === 'work_overtime').pop();
   ok(ov && ov[1].p_id === RECS[4].id && ov[1].p_kind === 'out' && ov[1].p_yes === true, '[초과근무로 인정] → work_overtime(늦은 퇴근, 네)');
   await page.waitForFunction(() => document.querySelector('#mBody').textContent.includes('초과근무 1시간 30분'));
-  ok((await page.locator('#mBody').textContent()).includes('초과근무 1시간 30분'), '인정하면 초과근무 1시간 30분');
+  ok((await page.locator('#mBody').textContent()).includes('초과근무 1시간 30분'), '원장님이 인정하면 바로 승인 — 이른 출근·늦은 퇴근 1시간 30분');
+  ok(!calls.some(c => c[0] === 'push' && c[1].message_id === 88), '원장님이 바로 인정하면 승인 요청 글 없음');
   ok(await page.locator('[data-ot="' + RECS[4].id + '|0"]').count() === 1, '이제 [근무표 시각으로] 버튼');
   await page.click('#mCopy');
   const clip = await page.evaluate(() => navigator.clipboard.readText());
-  ok(clip.split('\n')[0].split('\t').length === 8 && clip.includes('김영훈\t1\t6:00\t360\t0\t13000\t78000\t75426'), '표 복사(탭 구분)');
+  ok(clip.split('\n')[0].split('\t').length === 8 && clip.includes('김영훈\t2\t13:30\t810\t60\t13000\t175500\t169708'), '표 복사(탭 구분)');
   await shot(page, 'month-boss');
 
   console.log('· 원장님 — 주간 근무표·교체');

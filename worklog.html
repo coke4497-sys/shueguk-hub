@@ -61,7 +61,11 @@
   tr.person.open td{background:#FAF7FC;}
   tr.detail td{background:#FAF7FC;border-top:0;padding:0 8px 14px 20px;}
   .pill{display:inline-block;border-radius:999px;padding:2px 10px;font-size:12px;white-space:nowrap;}
-  .pill.ok{background:var(--ok);color:var(--okInk);} .pill.miss{background:var(--miss);color:var(--missInk);} .pill.swap{background:var(--swap);color:var(--swapInk);} .pill.soft{background:var(--soft);color:var(--ink2);}
+  .pill.ok{background:var(--ok);color:var(--okInk);} .pill.miss{background:var(--miss);color:var(--missInk);} .pill.swap{background:var(--swap);color:var(--swapInk);} .pill.soft{background:var(--soft);color:var(--ink2);} .pill.lav{background:var(--lav);color:var(--lavInk);}
+  .wait{display:flex;flex-direction:column;gap:2px;}
+  .wrow{display:grid;grid-template-columns:90px 110px 90px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid #F0F3F1;font-size:14px;}
+  .wrow .acts{display:flex;gap:6px;justify-content:flex-end;}
+  @media (max-width:760px){ .wrow{grid-template-columns:1fr auto;} .wrow > span:not(.acts){grid-column:1;} }
   .days{background:#fff;border-radius:12px;padding:4px 12px;}
   .day{display:grid;grid-template-columns:110px 90px 150px 72px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid #F0F3F1;font-size:13.5px;}
   .day:last-child{border-bottom:0;}
@@ -166,11 +170,15 @@
       </div>
       <p class="note" id="mNote"></p>
     </div>
+    <div class="card wait" id="mWait" hidden style="margin-top:16px;">
+      <div class="row sp"><h2>초과근무 승인 대기 <span class="pill lav" id="mWaitN"></span></h2><span class="note">승인하면 근무 시간·급여에 들어갑니다. 슈톡 업무 카드의 할 일도 함께 완료돼요.</span></div>
+      <div id="mWaitList"></div>
+    </div>
     <div class="tiles" id="mTiles" style="margin-top:16px;"></div>
     <div class="card" style="margin-top:16px;">
       <div class="row sp" style="padding-bottom:6px;"><h2 id="mTitle">조교별 근무 · 급여</h2><span class="note" id="mWho"></span></div>
       <div class="scroll" id="mBody"></div>
-      <p class="note" style="margin-top:10px;">근무시간은 슈톡 [출근]부터 [퇴근]까지이고, 근무표보다 이른 출근·늦은 퇴근은 근무표 시각까지만 셉니다. 30분 넘게 차이 나면 슈톡이 '초과근무인가요?'를 묻고, 초과근무면 누른 시각 그대로 셉니다. 총 급여 = 근무시간 × 시급, 실수령 = 총 급여 × 0.967(시트와 같은 계산).</p>
+      <p class="note" style="margin-top:10px;">근무시간은 슈톡 [출근]부터 [퇴근]까지이고, 근무표보다 이른 출근·늦은 퇴근은 근무표 시각까지만 셉니다. 30분 넘게 차이 나면 슈톡이 '초과근무인가요?'를 묻고, 초과근무는 박언호 대표님이 승인하면 누른 시각 그대로 셉니다(같은 시급). 총 급여 = 근무시간 × 시급, 실수령 = 총 급여 × 0.967(시트와 같은 계산).</p>
     </div>
   </section>
 
@@ -249,7 +257,7 @@
       <div><label for="fxIn">출근</label><input type="time" id="fxIn" /></div>
       <div><label for="fxOut">퇴근</label><input type="time" id="fxOut" /></div>
     </div>
-    <label class="chk"><input type="checkbox" id="fxOt" />초과근무로 인정 — 근무표보다 이른 출근·늦은 퇴근을 적은 시각 그대로 셉니다</label>
+    <label class="chk"><input type="checkbox" id="fxOt" />초과근무 — 근무표보다 이른 출근·늦은 퇴근 시간도 셉니다(조교는 대표님 승인 뒤 반영)</label>
     <label for="fxWhy">고친 이유 (필수)</label>
     <input type="text" id="fxWhy" maxlength="100" placeholder="예: 퇴근 버튼을 못 눌렀어요" />
     <p class="note">원래 기록과 고친 사람·시각이 함께 남습니다. 초과근무가 아니면 근무표 시작·끝 시각까지만 셉니다.</p>
@@ -367,8 +375,28 @@
     Promise.all([
       api('/work_records?select=*&ymd=gte.' + from + '&ymd=lte.' + to + who + '&order=ymd.asc,in_at.asc&limit=5000'),
       api('/work_shifts?select=*&ymd=gte.' + from + '&ymd=lte.' + to + '&order=ymd.asc,loc.asc,slot.asc&limit=5000')
-    ]).then(function(r){ M.recs = r[0] || []; M.shifts = r[1] || []; renderMonth(); })
+    ]).then(function(r){ M.recs = r[0] || []; M.shifts = r[1] || []; renderMonth(); loadWait(); })
       .catch(function(e){ status(errText(e)); });
+  }
+  // 초과근무 승인 대기 — 대표님·원장님 화면 맨 위(달과 상관없이 전부)
+  function loadWait(){
+    if (!ROLE.viewer){ $('mWait').hidden = true; return; }
+    api('/work_records?select=*&ot_status=eq.' + encodeURIComponent('대기') + '&order=ymd.asc&limit=200').then(function(rows){
+      rows = rows || [];
+      if (!rows.length){ $('mWait').hidden = true; return; }
+      var ys = rows.map(function(r){ return r.ymd; }).filter(function(y, i, a){ return a.indexOf(y) === i; });
+      return api('/work_shifts?select=user_id,ymd,start_hm,end_hm&ymd=in.(' + ys.join(',') + ')&limit=1000').then(function(sh){
+        $('mWait').hidden = false;
+        $('mWaitN').textContent = rows.length + '건';
+        $('mWaitList').innerHTML = rows.map(function(r){
+          var sc = schedOf(r.user_id, r.ymd, sh || []), parts = [];
+          if (r.ot_start) parts.push('출근 ' + hm(r.in_at) + (sc ? ' (근무표 ' + sc.start + ')' : ''));
+          if (r.ot_end) parts.push('퇴근 ' + hm(r.out_at) + (sc ? ' (근무표 ' + sc.end + ')' : ''));
+          return '<div class="wrow"><span><b>' + esc(nameOf(r.user_id) || r.name) + '</b></span><span>' + dLabel(r.ymd) + '</span><span>' + esc(r.loc) + '</span><span>' + parts.join(' · ') + ' · <b>' + dur(reqMin(r, sh || [])) + '</b></span>' +
+            '<span class="acts"><button class="btn sm lav" type="button" data-ok="' + r.id + '|1">승인</button><button class="btn sm" type="button" data-ok="' + r.id + '|0">반려</button></span></div>';
+        }).join('');
+      });
+    }).catch(function(){ $('mWait').hidden = true; });
   }
   // 사람마다 그 달 묶음: 기록·근무 분·확인할 일(퇴근 없음·출근 기록 없음)
   function monthPeople(){
@@ -376,7 +404,7 @@
     function P(id){ return by[id] || (by[id] = { id: id, name: nameOf(id), recs: [], mins: 0, days: {}, issues: [] }); }
     M.recs.forEach(function(r){
       var p = P(r.user_id); if (!SBY[r.user_id] && r.name) p.name = r.name;
-      p.recs.push(r); p.mins += mins(r); p.ot = (p.ot || 0) + otMin(r); p.days[r.ymd] = 1;
+      p.recs.push(r); p.mins += mins(r); p.ot = (p.ot || 0) + otMin(r); if (r.ot_status === '대기') p.wait = (p.wait || 0) + 1; p.days[r.ymd] = 1;
       if (!r.out_at && r.ymd < t) p.issues.push({ kind: 'out', rec: r });
     });
     M.shifts.forEach(function(s){
@@ -390,15 +418,16 @@
   }
   function shiftOf(uid, y){ return M.shifts.filter(function(s){ return s.user_id === uid && s.ymd === y; })[0]; }
   // 근무표 시작·끝(그 날 여러 칸이면 가장 이른 시작·가장 늦은 끝)
-  function schedOf(uid, y){
-    var ss = M.shifts.filter(function(s){ return s.user_id === uid && s.ymd === y; });
+  function schedOf(uid, y, list){
+    var ss = (list || M.shifts).filter(function(s){ return s.user_id === uid && s.ymd === y; });
     if (!ss.length) return null;
     var st = ss.map(function(s){ return s.start_hm; }).sort()[0], en = ss.map(function(s){ return s.end_hm; }).sort().pop();
     return { start: st, end: en, s: Date.parse(y + 'T' + st + ':00+09:00'), e: Date.parse(y + 'T' + en + ':00+09:00') };
   }
-  // 초과근무로 센 분(근무표보다 이른 출근 + 늦은 퇴근)
-  function otMin(r){
-    var sc = schedOf(r.user_id, r.ymd), m = 0; if (!sc) return 0;
+  // 초과근무 분(근무표보다 이른 출근 + 늦은 퇴근) — otMin은 승인된 것만(급여에 드는 것), reqMin은 신청한 것 전부
+  function otMin(r){ return r.ot_status === '승인' ? reqMin(r) : 0; }
+  function reqMin(r, list){
+    var sc = schedOf(r.user_id, r.ymd, list), m = 0; if (!sc) return 0;
     if (r.ot_start) m += Math.max(0, Math.floor((sc.s - Date.parse(r.in_at)) / 60000));
     if (r.ot_end && r.out_at) m += Math.max(0, Math.floor((Date.parse(r.out_at) - sc.e) / 60000));
     return m;
@@ -416,13 +445,13 @@
     tiles.push(['확인이 필요한 기록', iss + '<small>건</small>', iss ? 'miss' : '']);
     $('mTiles').innerHTML = tiles.map(function(t){ return '<div class="tile ' + (t[2] || '') + '"><span class="k">' + t[0] + '</span><span class="v">' + t[1] + '</span></div>'; }).join('');
     if (!ps.length){ $('mBody').innerHTML = '<p class="empty">이 달 근무 기록이 없습니다.</p>'; return; }
-    var h = '<table><thead><tr><th>이름</th><th class="n">근무일</th><th class="n">총 근무시간</th><th class="n">그중 초과근무</th><th class="n">시급</th><th class="n">총 급여</th><th class="n">실수령 (3.3% 공제)</th><th class="n">기록</th></tr></thead><tbody>';
+    var h = '<table><thead><tr><th>이름</th><th class="n">근무일</th><th class="n">총 근무시간</th><th class="n">그중 초과근무(승인)</th><th class="n">시급</th><th class="n">총 급여</th><th class="n">실수령 (3.3% 공제)</th><th class="n">기록</th></tr></thead><tbody>';
     ps.forEach(function(p){
       var w = WAGE[p.id], open = !!M.open[p.id] || !ROLE.viewer;
       h += '<tr class="person' + (open ? ' open' : '') + '" data-p="' + p.id + '"><td><b>' + esc(p.name) + '</b> <span class="note">' + (open ? '접기 ▴' : '펼치기 ▾') + '</span></td>' +
         '<td class="n">' + Object.keys(p.days).length + '일</td><td class="n">' + dur(p.mins) + '</td><td class="n">' + (p.ot ? dur(p.ot) : '—') + '</td>' +
         '<td class="n">' + (w != null ? won(w) : '—') + '</td><td class="n">' + (w != null ? won(p.pay) : '—') + '</td><td class="n"><b>' + (w != null ? won(p.net) : '—') + '</b></td>' +
-        '<td class="n">' + (p.issues.length ? '<span class="pill miss">확인 ' + p.issues.length + '건</span>' : '<span class="pill ok">확인됨</span>') + '</td></tr>';
+        '<td class="n">' + (p.wait ? '<span class="pill lav">승인 대기 ' + p.wait + '</span> ' : '') + (p.issues.length ? '<span class="pill miss">확인 ' + p.issues.length + '건</span>' : '<span class="pill ok">확인됨</span>') + '</td></tr>';
       if (open) h += '<tr class="detail"><td colspan="8">' + daysHtml(p) + '</td></tr>';
     });
     var totOt = ps.reduce(function(a, p){ return a + (p.ot || 0); }, 0);
@@ -444,18 +473,24 @@
       var cutIn = Date.parse(r.start_at) > Date.parse(r.in_at), cutOut = r.out_at && r.end_at && Date.parse(r.end_at) < Date.parse(r.out_at), ot = otMin(r), btn = '';
       if (cutIn) tags.push('출근 ' + hm(r.in_at) + ' → ' + hm(r.start_at) + '부터');
       if (cutOut) tags.push('퇴근 ' + hm(r.out_at) + ' → ' + hm(r.end_at) + '까지');
-      if (ot) tags.push('<b>초과근무 ' + dur(ot) + '</b>' + (r.ot_start ? ' · 출근 ' + hm(r.in_at) + '부터' : '') + (r.ot_end ? ' · 퇴근 ' + hm(r.out_at) + '까지' : ''));
+      var when = (r.ot_start ? ' · 출근 ' + hm(r.in_at) + '부터' : '') + (r.ot_end ? ' · 퇴근 ' + hm(r.out_at) + '까지' : '');
+      if (ot) tags.push('<b>초과근무 ' + dur(ot) + '</b>' + when + ' · 승인 ' + esc(r.ot_by_name));
+      if (r.ot_status === '대기') tags.push('<b>초과근무 승인 대기 ' + dur(reqMin(r)) + '</b>' + when);
+      if (r.ot_status === '반려') tags.push('초과근무 반려' + (r.ot_note ? ' · ' + esc(r.ot_note) : '') + ' · ' + esc(r.ot_by_name));
       if (r.fixed) tags.push('고친 기록 · ' + esc(r.fix_reason));
-      if (canEdit(r.user_id) && (cutIn || (cutOut && r.out_at))) btn += '<button class="btn sm lav" type="button" data-ot="' + r.id + '|1">초과근무로 인정</button>';
-      else if (canEdit(r.user_id) && (r.ot_start || r.ot_end)) btn += '<button class="btn sm" type="button" data-ot="' + r.id + '|0">근무표 시각으로</button>';
+      if (ROLE.viewer && r.ot_status === '대기') btn += '<button class="btn sm lav" type="button" data-ok="' + r.id + '|1">승인</button><button class="btn sm" type="button" data-ok="' + r.id + '|0">반려</button>';
+      else if (canEdit(r.user_id) && !r.ot_start && !r.ot_end && (cutIn || (cutOut && r.out_at))) btn += '<button class="btn sm lav" type="button" data-ot="' + r.id + '|1">' + (ROLE.viewer ? '초과근무로 인정' : '초과근무 신청') + '</button>';
+      else if (canEdit(r.user_id) && (r.ot_start || r.ot_end)) btn += '<button class="btn sm" type="button" data-ot="' + r.id + '|0">' + (r.ot_status === '대기' ? '신청 취소' : '근무표 시각으로') + '</button>';
       var outTxt = r.out_at ? hm(endOf(r)) : (r.ymd < todayYmd() ? '<span class="tag miss">퇴근 기록 없음</span>' : '근무 중');
       return '<div class="day"><span>' + dLabel(r.ymd) + '</span><span>' + esc(r.loc) + '</span><span>' + hm(r.start_at) + ' ~ ' + outTxt + '</span><span>' + (r.out_at ? durShort(mins(r)) : '') + '</span>' +
         '<span class="tag">' + tags.join(' · ') + '</span><span class="acts">' + btn + (canEdit(r.user_id) ? '<button class="btn sm" type="button" data-fix="' + r.id + '">시각 고치기</button>' : '') + '</span></div>';
     }).join('') + '</div>';
   }
+  $('mWait').addEventListener('click', function(e){ var b = e.target.closest('[data-ok]'); if (b) decide(b.dataset.ok.split('|')[0], b.dataset.ok.split('|')[1] === '1', b); });
   $('mBody').addEventListener('click', function(e){
     var b = e.target.closest('button');
     if (b && b.dataset.fix){ var r = M.recs.filter(function(x){ return String(x.id) === b.dataset.fix; })[0]; if (r) openFix(r); return; }
+    if (b && b.dataset.ok){ decide(b.dataset.ok.split('|')[0], b.dataset.ok.split('|')[1] === '1', b); return; }
     if (b && b.dataset.ot){ setOvertime(b.dataset.ot.split('|')[0], b.dataset.ot.split('|')[1] === '1', b); return; }
     if (b && b.dataset.add){ var a = b.dataset.add.split('|'); openFix(null, { user_id: a[0], ymd: a[1], loc: a[2], start: a[3], end: a[4] }); return; }
     var tr = e.target.closest('tr.person');
@@ -464,15 +499,28 @@
   // 초과근무로 인정 / 근무표 시각으로 — 이른 출근·늦은 퇴근 둘 다 있으면 둘 다 바꾼다
   function setOvertime(id, yes, b){
     var r = M.recs.filter(function(x){ return String(x.id) === String(id); })[0]; if (!r) return;
-    var kinds = [];
+    var kinds = [], last = null;
     if (yes){ if (Date.parse(r.start_at) > Date.parse(r.in_at)) kinds.push('in'); if (r.out_at && r.end_at && Date.parse(r.end_at) < Date.parse(r.out_at)) kinds.push('out'); }
     else { if (r.ot_start) kinds.push('in'); if (r.ot_end) kinds.push('out'); }
     if (!kinds.length) return;
     b.disabled = true;
-    kinds.reduce(function(pr, k){ return pr.then(function(){ return rpc('work_overtime', { p_id: r.id, p_kind: k, p_yes: yes }); }); }, Promise.resolve())
-      .then(function(){ status(yes ? '초과근무로 기록했습니다.' : '근무표 시각으로 되돌렸습니다.'); loadMonth(); })
+    kinds.reduce(function(pr, k){ return pr.then(function(){ return rpc('work_overtime', { p_id: r.id, p_kind: k, p_yes: yes }).then(function(x){ last = x; }); }); }, Promise.resolve())
+      .then(function(){
+        if (last && last.message_id) push(last.message_id);
+        status(!yes ? '근무표 시각으로 되돌렸습니다.' : last && last.ot_status === '대기' ? '초과근무 승인을 요청했습니다. 박언호 대표님이 승인하면 반영돼요.' : '초과근무로 기록했습니다.', 5000);
+        loadMonth();
+      })
       .catch(function(e){ status(errText(e)); b.disabled = false; });
   }
+  // 승인·반려 (대표님·원장님) — 반려는 이유를 받는다
+  function decide(id, ok, b){
+    var note = '';
+    if (!ok){ note = prompt('반려 이유를 적어 주세요(조교에게 보입니다).', '') ; if (note === null) return; note = note.trim(); }
+    b.disabled = true;
+    rpc('work_ot_decide', { p_id: +id, p_ok: ok, p_note: note }).then(function(){ status(ok ? '초과근무를 승인했습니다.' : '초과근무를 반려했습니다.'); loadMonth(); })
+      .catch(function(e){ status(/not_waiting/.test(String(e.message)) ? '이미 처리된 요청입니다.' : errText(e)); loadMonth(); });
+  }
+  function push(id){ fetch(SB + '/functions/v1/msg-push', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', message_id: id }), keepalive: true }).catch(function(){}); }
   $('mPrev').onclick = function(){ var d = new Date(MONTH + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 1); MONTH = d.toISOString().slice(0, 7); loadMonth(); };
   $('mNext').onclick = function(){ var d = new Date(MONTH + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() + 1); MONTH = d.toISOString().slice(0, 7); loadMonth(); };
   function monthTable(){
@@ -590,7 +638,7 @@
     var from = s.user_id ? nameOf(s.user_id) : '빈 자리';
     var body = '[이동] ' + dLabel(s.ymd) + ' ' + s.loc + ' 근무 교체: ' + from + ' → ' + (to ? '@' + nameOf(to) : '근무 없음') + (to === orig ? ' (근무표대로)' : '') + (why ? ' · ' + why : '');
     rpc('msg_send', { p_body: body, p_files: [], p_mentions: to ? [to] : [] }).then(function(res){
-      if (res && res.message) fetch(SB + '/functions/v1/msg-push', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', message_id: res.message.id }), keepalive: true }).catch(function(){});
+      if (res && res.message) push(res.message.id);
     }).catch(function(){ status('교체는 저장했지만 슈톡에 알리지 못했습니다.', 6000); });
   }
 
@@ -615,7 +663,7 @@
     if (!$('fxIn').value || !$('fxOut').value){ $('fxErr').textContent = '출근·퇴근 시각을 모두 넣어 주세요.'; return; }
     $('fxSave').disabled = true;
     rpc('work_fix', { p_id: FX.id, p_user: FX.user, p_ymd: $('fxDate').value, p_loc: $('fxLoc').value, p_in: $('fxIn').value, p_out: $('fxOut').value, p_reason: why, p_ot: $('fxOt').checked })
-      .then(function(){ closeDlg(); status('근무 시각을 고쳤습니다.'); refresh(); })
+      .then(function(x){ closeDlg(); if (x && x.message_id) push(x.message_id); status(x && x.ot_status === '대기' ? '근무 시각을 고치고 초과근무 승인을 요청했습니다.' : '근무 시각을 고쳤습니다.', 5000); refresh(); })
       .catch(function(e){ $('fxErr').textContent = errText(e); }).then(function(){ $('fxSave').disabled = false; });
   };
   $('fxDel').onclick = function(){

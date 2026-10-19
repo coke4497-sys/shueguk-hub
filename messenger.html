@@ -1212,7 +1212,9 @@
   $('wnYes').onclick = function(){
     var w = WN; $('wnback').hidden = true; WN = null; if (!w) return;
     rpc('work_overtime', { p_id: w.id, p_kind: w.event, p_yes: true }).then(function(r){
-      status('초과근무로 기록했습니다.' + (r && r.minutes != null && w.event === 'out' ? ' 오늘 근무 ' + Math.floor(r.minutes / 60) + '시간' + (r.minutes % 60 ? ' ' + r.minutes % 60 + '분' : '') + '.' : ''), 4000);
+      // 조교는 승인 요청(박언호 대표님 업무 카드에 할 일 — 202610200002), 대표님·원장님은 바로 승인
+      if (r && r.message_id) pushAfterSend(r.message_id);
+      status(r && r.ot_status === '대기' ? '초과근무 승인을 요청했습니다. 박언호 대표님이 승인하면 근무 시간에 반영돼요.' : '초과근무로 기록했습니다.', 6000);
     }).catch(function(err){ status(errText(err) + ' 근무 일지에서 고칠 수 있어요.', 6000); });
   };
   $('wnOk').onclick = function(){ $('wnback').hidden = true; if (WN) status('근무표 시각(' + WN.sched + ')' + (WN.event === 'in' ? '부터' : '까지') + ' 기록했습니다.', 3000); WN = null; };

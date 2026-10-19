@@ -29,11 +29,13 @@ grant all on storage.objects to authenticated;
 grant usage on all sequences in schema storage to authenticated;
 grant usage on schema public to anon, authenticated;
 SQL
-for f in 202609290001_teacher_accounts 202609290003_teacher_admin 202609290004_teacher_assistant_role 202610190001_messenger 202610190002_messenger_push 202610190003_teacher_unique_name 202610190004_messenger_presence; do
+for f in 202609290001_teacher_accounts 202609290003_teacher_admin 202609290004_teacher_assistant_role 202610190001_messenger 202610190002_messenger_push 202610190003_teacher_unique_name 202610190004_messenger_presence 202610190005_messenger_seen_all 202610190006_messenger_reply; do
   P -f supabase/migrations/$f.sql >/dev/null || { echo "$f 실패"; exit 1; }
 done
 P -f supabase/migrations/202610200001_work_log.sql >/dev/null || { echo "근무 일지 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200001_work_log.sql >/dev/null && ok y y "다시 실행해도 오류 없음"
+P -f supabase/migrations/202610200002_work_overtime_approval.sql >/dev/null || { echo "초과근무 승인 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200002_work_overtime_approval.sql >/dev/null && ok y y "초과근무 승인 마이그레이션 다시 실행해도 오류 없음"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin) 이수경
 K=aaaaaaaa-0000-0000-0000-00000000000b   # 박언호 대표님(parkeh, teacher)
@@ -115,10 +117,20 @@ if [ "$HM" = "t" ]; then
   ok "$(echo "$W" | grep -c '"ask": true')" "1" "30분 넘게 이르면 '초과근무인가요?'(ask)"
   OID=$(P -tAc "select id from public.work_records where user_id='$D' and ymd='$T'")
   ok "$(as $C "select public.work_overtime($OID, 'in', true)" | grep -c not_allowed)" "1" "남의 초과근무는 못 정함"
-  ok "$(as $D "select (public.work_overtime($OID, 'in', true))->>'ot_start'")" "true" "[네] → 초과근무"
-  ok "$(P -tAc "select (start_at = in_at)::text from public.work_records where id=$OID")" "true" "초과근무면 누른 시각부터"
-  ok "$(as $D "select (public.work_overtime($OID, 'in', false))->>'ot_start'")" "false" "[아니요]로 바꾸면 다시 근무표 시작부터"
+  ok "$(as $D "select (public.work_overtime($OID, 'in', true))->>'ot_status'")" "대기" "조교의 [네] → 승인 대기"
+  ok "$(P -tAc "select to_char(start_at at time zone 'Asia/Seoul','HH24:MI') from public.work_records where id=$OID")" "$LATER" "승인 전에는 근무표 시작부터"
+  ok "$(P -tAc "select t.assignee_name||'|'||(t.text like '[기타요청] 초과근무 승인 요청 — 조수민 %')::text||'|'||(m.body like '[기타요청] @박언호 초과근무 승인 요청%')::text from public.work_records r join public.msg_tasks t on t.id=r.ot_task_id join public.msg_messages m on m.id=t.message_id where r.id=$OID")" "박언호|true|true" "슈톡 글 + 박언호 대표님 업무 카드에 할 일"
+  ok "$(as $C "select public.work_ot_decide($OID, true, '')" | grep -c not_allowed)" "1" "조교는 승인 못 함"
+  ok "$(as $K "select (public.work_ot_decide($OID, true, '확인'))->>'ot_status'")" "승인" "대표님 승인"
+  ok "$(P -tAc "select (start_at = in_at)::text from public.work_records where id=$OID")" "true" "승인하면 누른 시각부터"
+  ok "$(P -tAc "select t.status||t.done_by_name from public.work_records r join public.msg_tasks t on t.id=r.ot_task_id where r.id=$OID")" "완료박언호" "할 일이 완료로"
+  ok "$(as $K "select public.work_ot_decide($OID, true, '')" | grep -c not_waiting)" "1" "대기 아닌 것은 다시 승인 못 함"
+  ok "$(as $D "select (public.work_overtime($OID, 'in', false))->>'ot_status' = ''")" "t" "[근무표 시각으로] → 초과근무 없음"
   ok "$(P -tAc "select to_char(start_at at time zone 'Asia/Seoul','HH24:MI') from public.work_records where id=$OID")" "$LATER" "start_at이 다시 근무표 시작"
+  as $D "select public.work_overtime($OID, 'in', true)" >/dev/null
+  ok "$(as $A "select (public.work_ot_decide($OID, false, '사전 협의 없음'))->>'ot_status'")" "반려" "원장님 반려"
+  ok "$(P -tAc "select ot_start::text||ot_note||to_char(start_at at time zone 'Asia/Seoul','HH24:MI') from public.work_records where id=$OID")" "false사전 협의 없음$LATER" "반려하면 근무표 시작부터 · 사유 남음"
+  ok "$(P -tAc "select count(*) from public.msg_tasks where status='대기' and assignee='$K'")" "0" "걸린 할 일 없음"
 else
   echo "  - 한국 23시 이후라 '일찍 출근' 검사는 건너뜀"
 fi
@@ -138,9 +150,12 @@ if [ "$HM2" = "t" ]; then
   ok "$(echo "$W2" | grep -c "\"end\": \"$EARLIER\"")" "1" "기본은 근무표 끝($EARLIER)까지"
   ok "$(echo "$W2" | grep -o '"minutes": [0-9]*')" '"minutes": 120' "근무 120분(퇴근 시각 아님)"
   EID=$(P -tAc "select id from public.work_records where user_id='$E'")
-  ok "$(as $E "select (public.work_overtime($EID, 'out', true))->>'minutes'")" "180" "[네] → 퇴근 시각까지 180분"
-  ok "$(P -tAc "select ot_end::text from public.work_records where id=$EID")" "true" "ot_end 표시"
-  ok "$(as $A "select (public.work_overtime($EID, 'out', false))->>'minutes'")" "120" "원장님이 [아니요]로 바꿀 수 있음"
+  ok "$(as $E "select (public.work_overtime($EID, 'out', true))->>'minutes'")" "120" "조교 [네] → 승인 전에는 120분"
+  ok "$(as $E "select (public.work_overtime($EID, 'out', true))->>'message_id' is not null")" "t" "승인 요청 글 id를 돌려줌(휴대폰 알림용)"
+  ok "$(P -tAc "select count(*) from public.msg_tasks where status='대기' and assignee='$K'")" "1" "다시 눌러도 대표님 할 일은 하나(앞 요청은 완료)"
+  ok "$(as $K "select (public.work_ot_decide($EID, true, ''))->>'minutes'")" "180" "대표님 승인 → 180분"
+  ok "$(as $A "select (public.work_overtime($EID, 'out', false))->>'minutes'")" "120" "원장님이 [근무표 시각으로] 되돌릴 수 있음"
+  ok "$(as $A "select (public.work_overtime($EID, 'out', true))->>'ot_status'")" "승인" "원장님이 직접 [초과근무로 인정]하면 바로 승인"
 else
   echo "  - 한국 03:10 전이라 늦은 퇴근 검사는 건너뜀"
 fi
@@ -157,8 +172,12 @@ ok "$(as $D "select public.work_fix(null, '$D', '$T'::date + 1, '본원', '16:00
 P >/dev/null -c "insert into public.work_shifts (ymd, loc, slot, user_id, start_hm, end_hm) values ('$T'::date - 3, '본원', 1, '$D', '16:00', '22:00')"
 ok "$(as $D "select to_char((public.work_fix(null, '$D', '$T'::date - 3, '본원', '15:40', '22:00', '출근 못 누름')->>'start_at')::timestamptz at time zone 'Asia/Seoul', 'HH24:MI')")" "16:00" "고친 기록도 근무표 시작부터 셈"
 ok "$(as $D "select to_char((public.work_fix(null, '$D', '$T'::date - 3, '본원', '16:00', '23:00', '늦게 퇴근')->>'end_at')::timestamptz at time zone 'Asia/Seoul', 'HH24:MI')")" "22:00" "늦은 퇴근도 근무표 끝까지만"
-ok "$(as $D "select (public.work_fix(null, '$D', '$T'::date - 3, '본원', '15:00', '23:00', '행사 준비', true))->>'ot_end'")" "true" "초과근무로 고치면 적은 시각 그대로(ot_end)"
-ok "$(P -tAc "select to_char(start_at at time zone 'Asia/Seoul','HH24:MI')||'-'||to_char(end_at at time zone 'Asia/Seoul','HH24:MI')||ot_start from public.work_records where user_id='$D' and ymd='$T'::date - 3 and fix_reason='행사 준비'")" "15:00-23:00true" "초과근무 15:00~23:00"
+ok "$(as $D "select (public.work_fix(null, '$D', '$T'::date - 3, '본원', '15:00', '23:00', '행사 준비', true))->>'ot_status'")" "대기" "조교가 초과근무로 고치면 승인 대기"
+FID=$(P -tAc "select id from public.work_records where user_id='$D' and fix_reason='행사 준비'")
+ok "$(P -tAc "select to_char(start_at at time zone 'Asia/Seoul','HH24:MI')||'-'||to_char(end_at at time zone 'Asia/Seoul','HH24:MI') from public.work_records where id=$FID")" "16:00-22:00" "승인 전에는 16:00~22:00"
+ok "$(as $K "select (public.work_ot_decide($FID, true, ''))->>'ot_end'")" "true" "대표님 승인"
+ok "$(P -tAc "select to_char(start_at at time zone 'Asia/Seoul','HH24:MI')||'-'||to_char(end_at at time zone 'Asia/Seoul','HH24:MI') from public.work_records where id=$FID")" "15:00-23:00" "승인 뒤 15:00~23:00"
+ok "$(as $A "select (public.work_fix(null, '$D', '$T'::date - 4, '본원', '09:00', '12:00', '행사', true))->>'ot_status' = ''")" "t" "근무표 없는 날은 초과근무 아님(그대로 셈)"
 ok "$(as $C "select public.work_record_delete($RID)" | grep -c not_allowed)" "1" "조교는 기록을 못 지움"
 ok "$(as $K "select public.work_record_delete($RID); select count(*) from public.work_records where id=$RID")" "0" "대표님은 지울 수 있음"
 ok "$(psql -q -X -tA -d $DB -c "set role anon; select public.work_me()" 2>&1 | grep -c 'permission denied')" "1" "공개 키로는 함수 실행 불가"
