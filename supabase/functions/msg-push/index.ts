@@ -173,7 +173,13 @@ const handler = withSupabase({ auth: 'user' }, async (request, context) => {
     if (!claimed || !claimed.length) return reply(200, { skipped: true })
     const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
     const items = handPlan({ ...claimed[0], to }, me.display_name, s.data || [], active)
-    return reply(200, { targets: items.length, ...(await deliver(admin, items)) })
+    const r = await deliver(admin, items)
+    // 한 기기에도 못 보냈고 일시적 실패가 있으면 자리를 되돌려 화면이 5초 뒤 다시 부르게 한다 (Codex 검토)
+    if (!r.sent && r.failed) {
+      await admin.from('msg_tasks').update({ hand_push: to }).eq('id', id).is('hand_push', null)
+      return reply(503, { error: 'deliver_failed', targets: items.length, ...r })
+    }
+    return reply(200, { targets: items.length, ...r })
   }
   return reply(400, { error: 'bad_action' })
 })

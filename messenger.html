@@ -1136,8 +1136,8 @@
 
   // ── 업무 카드 ─────────────────────────────────────
   // 취소(사유 필수) — 맡긴 사람·맡은 사람·관리자, @모두 할 일은 맡긴 사람·관리자만 (202610200001). 열이 없으면(마이그레이션 전) 버튼 없음
-  // 미루기(언제까지 하겠다) — 맡은 사람·관리자 / 넘기기 — 맡은 사람·맡긴 사람·관리자, @모두 할 일 제외 (202610200002). 열이 없으면 버튼 없음
-  function canDefer(t){ return 'due_at' in t && t.status === '대기' && (t.assignee === ME.id || ME.role === 'admin'); }
+  // 미루기(언제까지 하겠다) — 맡은 사람만 / 넘기기 — 맡은 사람·맡긴 사람·관리자, @모두 할 일 제외 (202610200002). 열이 없으면 버튼 없음
+  function canDefer(t){ return 'due_at' in t && t.status === '대기' && t.assignee === ME.id; }
   function canDeleg(t){ return 'hand_push' in t && t.status === '대기' && !t.ack_only && (t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'); }
   function canManage(t){ return t.status === '대기' && (canCancel(t) || canDefer(t) || canDeleg(t)); }
   // 그 메시지가 지워지지 않았다고 알 때만 true — 불러오지 않은 메시지는 받아 온 뒤 다시 그린다(Codex 검토)

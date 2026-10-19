@@ -209,6 +209,7 @@ as $C "select public.msg_task_seen($TH)" >/dev/null
 ok "$(as $C "select (public.msg_task_delegate($TH, '$B', ' 오늘 센터 못 가요 ')->>'assignee_name')")" "이은지" "맡은 사람이 다른 사람에게 넘김"
 ok "$(as $C "select (seen_at is null)||'|'||hand_push||'|'||hand_by||'|'||(history->-1->>'kind')||'|'||(history->-1->>'from')||'|'||(history->-1->>'to')||'|'||(history->-1->>'note') from public.msg_tasks where id=$TH")" "true|$B|$C|넘김|고희주|이은지|오늘 센터 못 가요" "넘김 기록·확인 초기화·알림 자리"
 ok "$(as $C "select public.msg_task_defer($TH, now() + interval '1 day', '')" | grep -c not_allowed)" 1 "넘긴 뒤에는 옛 담당자가 미루지 못함"
+ok "$(as $A "select public.msg_task_defer($TH, now() + interval '1 day', '')" | grep -c not_allowed)" 1 "관리자도 남의 약속은 대신 못 정함"
 ok "$(as $B "select public.msg_task_defer($TH, now() - interval '1 hour', '')" | grep -c bad_until)" 1 "지난 시각으로는 못 미룸"
 ok "$(as $B "select public.msg_task_defer($TH, now() + interval '90 days', '')" | grep -c bad_until)" 1 "60일 넘게는 못 미룸"
 ok "$(as $B "select (public.msg_task_defer($TH, now() + interval '1 day', '내일 수업 끝나고')->>'due_note')")" "내일 수업 끝나고" "맡은 사람이 언제까지 하겠다고 미룸"
