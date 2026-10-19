@@ -231,6 +231,9 @@
   // 이 기기에 계속 뜨지 않게 (Codex 검토 P1). 브라우저 해제가 8초 안에 안 끝나면(먹통) 로그아웃은 진행한다.
   function dropPush(token) {
     var nav = global.navigator;
+    // 앱 아이콘 숫자와 서비스 워커가 세던 수도 0으로 — 다음 사람에게 앞 사람 숫자가 남지 않게 (Codex 검토)
+    if (nav && nav.clearAppBadge) nav.clearAppBadge().catch(function () {});
+    if (global.caches) global.caches.open('msg-badge').then(function (c) { return c.put('badge-n', new Response('0')); }).catch(function () {});
     if (!nav || !nav.serviceWorker || !nav.serviceWorker.getRegistrations) return Promise.resolve();
     var work = nav.serviceWorker.getRegistrations().then(function (regs) {
       return Promise.all(regs.map(function (reg) {

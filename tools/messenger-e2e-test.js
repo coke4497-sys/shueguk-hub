@@ -292,6 +292,22 @@ function filterRows(rows, u){
   ok(sw <= 390, '가로 넘침 없음 (' + sw + ')');
   await ctx.close();
 
+  console.log('⑩-2 빨간 숫자 — 불러오지 않은 메시지·앱 아이콘 (Codex 검토)');
+  const before80 = MSGS.length ? MSGS[MSGS.length - 1].id : 0;
+  for (let i = 0; i < 85; i++) addMsg(BOSS, '쌓인 메시지 ' + i, [], ts());
+  ({ ctx, page } = await open({ width: 390, height: 844 }));
+  await page.waitForSelector('#msgs .m');
+  await page.click('#tabBoard');
+  await page.evaluate(([me, mk]) => { localStorage.setItem('msg_read_' + me, String(mk)); window.__cleared = 0; navigator.clearAppBadge = () => { window.__cleared++; return Promise.resolve(); }; }, [ME, before80]);
+  addMsg(BOSS, '하나 더', [], ts());
+  await page.waitForFunction(() => document.querySelector('#chatBadge').textContent === '86', null, { timeout: 9000 }).catch(() => {});
+  ok((await page.locator('#chatBadge').textContent()) === '86', '80개 넘게 쌓여도 대화 탭 숫자는 전부 (86)');
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await sleep(200);
+  ok(await page.evaluate(() => window.__cleared) === 0, '업무 카드 탭으로 돌아오면 앱 아이콘 숫자를 지우지 않음');
+  await ctx.close();
+  MSGS.splice(MSGS.length - 86, 86);
+
   console.log('⑪ 표 없음');
   missing = true;
   ({ ctx, page } = await open());
@@ -332,9 +348,12 @@ function filterRows(rows, u){
   ok(calls.filter(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === failId).length === 2, '알림 서버가 실패하면 5초 뒤 한 번 더');
   // 로그아웃하면 이 기기 구독도 지운다 (Codex 검토 P1)
   const rmBefore = calls.filter(c => c[0] === 'premove').length;
+  await page.exposeFunction('__badgeCleared', () => calls.push(['badgeclr']));
+  await page.evaluate(() => { navigator.clearAppBadge = () => { window.__badgeCleared(); return Promise.resolve(); }; });
   await page.evaluate(() => { window.TeacherAuth.logout(); });
   await page.waitForURL(/login\.html/);
   ok(calls.filter(c => c[0] === 'premove').length === rmBefore + 1, '로그아웃 → 서버 구독 삭제');
+  ok(calls.some(c => c[0] === 'badgeclr'), '로그아웃 → 앱 아이콘 숫자도 0');
   await ctx.close();
 
   // 예전에 '나를 부른 메시지만'으로 저장한 기기는 열 때 '모든 메시지'로 다시 저장

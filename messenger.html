@@ -391,7 +391,7 @@
       notifyNew(newMsgs.filter(function(m){ return m.id > lastBefore && m.author !== ME.id && !m.deleted_at; }));
     }).catch(function(){ setLive(false); }).then(function(){ polling = false; schedule(); });
   }
-  document.addEventListener('visibilitychange', function(){ if (!document.hidden){ unseen = 0; document.title = '슈톡 · Shuetalk'; if (navigator.clearAppBadge) navigator.clearAppBadge().catch(function(){}); markRead(); poll(); } });
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden){ unseen = 0; document.title = '슈톡 · Shuetalk'; markRead(); poll(); } });
 
   // ── 화면이 열려 있는 동안: 창 제목에 새 메시지 수 ─────────
   var unseen = 0;
@@ -564,9 +564,21 @@
     markRead();
   }
   function boardOnly(){ return window.matchMedia && matchMedia('(max-width:900px)').matches && document.body.dataset.tab === 'board'; }
+  // 안 읽은 수 = 불러온 메시지 중 읽은 자리 뒤 + (읽은 자리가 불러온 첫 메시지보다 앞이면) 그 사이를 서버에서 센 수 — Codex 검토
+  var gap = { key: '', n: 0 };
   function unreadCount(){
     var mark = Number(localStorage.getItem('msg_read_' + (ME && ME.id)) || 0), n = 0;
     MSGS.forEach(function(m){ if (m.id > mark && m.author !== ME.id && !m.deleted_at) n++; });
+    if (firstId != null && mark < firstId - 1){
+      var key = mark + '|' + firstId;
+      if (gap.key !== key){
+        gap = { key: key, n: 0 };
+        fetch(REST + '/msg_messages?select=id&id=gt.' + mark + '&id=lt.' + firstId + '&author=neq.' + ME.id + '&deleted_at=is.null', { headers: { Prefer: 'count=exact', Range: '0-0' } })
+          .then(function(r){ var m = String(r.headers.get('content-range') || '').match(/\/(\d+)$/); if (gap.key === key && m){ gap.n = Number(m[1]); updateBadges(); } })
+          .catch(function(){});
+      }
+      n += gap.n;
+    }
     return n;
   }
   function nlabel(n){ return n > 99 ? '99+' : String(n); }
