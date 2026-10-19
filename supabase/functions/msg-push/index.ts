@@ -129,12 +129,15 @@ const handler = withSupabase({ auth: 'user' }, async (request, context) => {
     if (!m.data) return reply(200, { skipped: true })
     // ② 다 읽은 뒤에만 '보냄' 자리를 잡는다 — 비어 있을 때만 채우므로 두 번 불려도 한 번만 보낸다.
     //    잡기 자체가 실패하면 그대로 503(아무것도 안 바뀜 — 다시 부르면 처음부터).
+    //    잡을 때도 '안 지움·내가 씀'을 다시 확인하고, 보낼 내용은 잡는 순간의 줄로 쓴다
+    //    (읽은 뒤 그 사이에 지운 메시지의 원문이 나가지 않게 — Codex 검토)
     const { data: claimed, error: ce } = await admin.from('msg_messages')
       .update({ pushed_at: new Date().toISOString() })
-      .eq('id', id).is('pushed_at', null).select('id')
+      .eq('id', id).is('pushed_at', null).is('deleted_at', null).eq('author', uid)
+      .select('id,author,author_name,body,files,deleted_at')
     if (ce) return reply(503, { error: 'claim_failed' })
     if (!claimed || !claimed.length) return reply(200, { skipped: true })
-    const msg = m.data
+    const msg = claimed[0]
     const tasks = t.data, subs = s.data, act = a.data
     const active = new Set<string>((act || []).map((r: { user_id: string }) => r.user_id))
     const items = plan(msg, tasks || [], subs || [], active)
