@@ -95,7 +95,7 @@ function filterRows(rows, u){
       const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/fake-1', toJSON(){ return { endpoint: this.endpoint, keys: { p256dh: 'B'.repeat(87), auth: 'a'.repeat(22) } }; }, unsubscribe(){ window.__subscribed = null; return Promise.resolve(true); } };
       const reg = { pushManager: { getSubscription(){ return Promise.resolve(window.__subscribed); }, subscribe(o){ window.__subOpts = { uv: o.userVisibleOnly, keyLen: o.applicationServerKey.length }; window.__subscribed = sub; return Promise.resolve(sub); } } };
       if (!window.PushManager) window.PushManager = function(){};
-      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { register(){ return Promise.resolve(reg); }, addEventListener(){} } });
+      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { register(){ return Promise.resolve(reg); }, getRegistrations(){ return Promise.resolve([reg]); }, addEventListener(){} } });
     });
     await ctx.addInitScript(id => localStorage.setItem('shueguk_teacher_session_v2', JSON.stringify({
       access_token: 'tok', refresh_token: 'refresh-tok', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id } })), ME);
@@ -314,7 +314,36 @@ function filterRows(rows, u){
   await page.click('#notiBtn'); await page.click('#poff');
   await page.waitForFunction(() => document.querySelector('#notiBtn').textContent === '알림 꺼짐');
   ok(calls.some(c => c[0] === 'premove' && c[1].p_endpoint.includes('fake-1')), '끄기 → msg_push_remove');
+  // 로그아웃하면 이 기기 구독도 지운다 (Codex 검토 P1)
+  await page.click('#pon');
+  await page.waitForFunction(() => document.querySelector('#notiBtn').textContent === '알림 켜짐');
+  const rmBefore = calls.filter(c => c[0] === 'premove').length;
+  await page.evaluate(() => { window.TeacherAuth.logout(); });
+  await page.waitForURL(/login\.html/);
+  ok(calls.filter(c => c[0] === 'premove').length === rmBefore + 1, '로그아웃 → 서버 구독 삭제');
   await ctx.close();
+
+  console.log('⑫-2 같은 이름 두 사람');
+  const DUP = '55555555-5555-5555-5555-555555555555';
+  MEMBERS.push({ user_id: DUP, name: '김지원', role: 'assistant' }); NAME[DUP] = '김지원';
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id);
+  await page.click('#inp'); await page.keyboard.type('확인 부탁 @김지');
+  await page.waitForSelector('#mention.on');
+  ok(await page.locator('#mention button').count() === 2, '목록에 둘 다 (역할로 구분)');
+  const second = await page.locator('#mention button').nth(1).textContent();
+  await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter'); await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  let ds = calls.filter(c => c[0] === 'send').pop();
+  const wantId = second.includes('조교') ? DUP : '44444444-4444-4444-4444-444444444444';
+  ok(ds[1].p_mentions.length === 1 && ds[1].p_mentions[0] === wantId, '목록에서 고른 사람만 받음');
+  await page.click('#inp'); await page.keyboard.type('직접 친 이름 @김지원'); await page.keyboard.press('Escape'); await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  ds = calls.filter(c => c[0] === 'send').pop();
+  ok(ds[1].p_mentions.length === 2, '손으로 친 같은 이름은 둘 다에게');
+  ok((await page.locator('#status').textContent()).includes('같은 이름이 여럿'), '같은 이름 안내');
+  await ctx.close();
+  MEMBERS.pop();
 
   console.log('⑬ 아이폰 사파리(홈 화면 추가 전)');
   ({ ctx, page } = await open({ width: 390, height: 844 }, { ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1' }));

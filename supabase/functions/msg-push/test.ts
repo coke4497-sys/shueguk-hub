@@ -12,7 +12,7 @@ const sub = (id: number, user: string, mode = 'all') => ({ id, user_id: user, en
 
 Deno.test('작성자 빼고 모두, mention 기기는 자기 할 일만', () => {
   const msg = { id: 7, author: A, author_name: '이수경', body: '고1 시험지 확인 @고희주', files: [], deleted_at: null }
-  const items = plan(msg, [{ assignee: B, text: '고1 시험지 확인' }], [sub(1, A), sub(2, B), sub(3, C), sub(4, C, 'mention'), sub(5, B, 'mention')])
+  const items = plan(msg, [{ assignee: B, text: '고1 시험지 확인' }], [sub(1, A), sub(2, B), sub(3, C), sub(4, C, 'mention'), sub(5, B, 'mention')], new Set([A, B, C]))
   assertEquals(items.map((i) => i.sub.id), [2, 3, 5])
   const b = items.find((i) => i.sub.id === 2)!.payload
   assertEquals(b.title, '이수경 → 나에게 할 일')
@@ -24,9 +24,15 @@ Deno.test('작성자 빼고 모두, mention 기기는 자기 할 일만', () => 
 })
 
 Deno.test('파일만 보낸 메시지·긴 글', () => {
-  const items = plan({ id: 1, author: A, author_name: '이수경', body: '', files: [{ name: 'a.pdf' }, { name: 'b.pdf' }], deleted_at: null }, [], [sub(1, B)])
+  const items = plan({ id: 1, author: A, author_name: '이수경', body: '', files: [{ name: 'a.pdf' }, { name: 'b.pdf' }], deleted_at: null }, [], [sub(1, B)], new Set([A, B]))
   assertEquals(items[0].payload.body, '파일 2개를 보냈습니다.')
   assertEquals(cut('가'.repeat(200), 140).length, 140)
+})
+
+Deno.test('비활성(퇴사) 교사의 기기는 받지 않는다', () => {
+  const msg = { id: 3, author: A, author_name: '이수경', body: '공지 @고희주', files: [], deleted_at: null }
+  const items = plan(msg, [{ assignee: C, text: '공지' }], [sub(1, B), sub(2, C)], new Set([A, B]))
+  assertEquals(items.map((i) => i.sub.id), [1])
 })
 
 Deno.test('Deno에서 web-push 암호화가 되고 받는 기기가 풀 수 있다', () => {

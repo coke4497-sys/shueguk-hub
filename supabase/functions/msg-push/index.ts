@@ -29,13 +29,14 @@ type Task = { assignee: string | null; text: string }
 type Sub = { id: number; user_id: string; endpoint: string; p256dh: string; auth: string; mode: string; fail_count: number }
 
 // 받는 기기마다 보낼 내용 — 순수 함수(시험용으로 따로 내보냄)
-export function plan(msg: Msg, tasks: Task[], subs: Sub[]) {
+// active = 지금 활성 교사 user_id — 퇴사 등으로 비활성이 된 사람의 기기는 받지 않는다(Codex 검토 P1)
+export function plan(msg: Msg, tasks: Task[], subs: Sub[], active: Set<string>) {
   const mine = new Map<string, Task>()
   tasks.forEach((t) => { if (t.assignee) mine.set(t.assignee, t) })
   const files = (msg.files || []).length
   const text = cut(msg.body, 140) || (files ? '파일 ' + files + '개를 보냈습니다.' : '')
   return subs
-    .filter((s) => s.user_id !== msg.author)
+    .filter((s) => s.user_id !== msg.author && active.has(s.user_id))
     .filter((s) => s.mode !== 'mention' || mine.has(s.user_id))
     .map((s) => {
       const t = mine.get(s.user_id)
@@ -122,11 +123,13 @@ const handler = withSupabase({ auth: 'user' }, async (request, context) => {
       .select('id,author,author_name,body,files,deleted_at')
     const msg = claimed && claimed[0]
     if (!msg) return reply(200, { skipped: true })
-    const [{ data: tasks }, { data: subs }] = await Promise.all([
+    const [{ data: tasks }, { data: subs }, { data: act }] = await Promise.all([
       admin.from('msg_tasks').select('assignee,text').eq('message_id', id),
       admin.from('msg_push_subs').select('*'),
+      admin.from('teacher_accounts').select('user_id').eq('active', true),
     ])
-    const items = plan(msg, tasks || [], subs || [])
+    const active = new Set<string>((act || []).map((r: { user_id: string }) => r.user_id))
+    const items = plan(msg, tasks || [], subs || [], active)
     return reply(200, { targets: items.length, ...(await deliver(admin, items)) })
   }
   return reply(400, { error: 'bad_action' })

@@ -183,11 +183,17 @@
   function login(loginId, password) {
     var id = normalizeLoginId(loginId);
     if (!password) return Promise.reject(new Error('비밀번호를 입력하십시오.'));
-    clearSession();
+    var prev = readSession();
+    var prevUser = prev && prev.user && prev.user.id;
     return authRequest('password', {
       email: id + '@' + LOGIN_DOMAIN,
       password: String(password)
+    }).then(function (session) {
+      // 다른 사람이 이 기기로 로그인하면 앞 사람의 슈톡 알림 구독을 지운다
+      if (prev && prevUser && session.user && session.user.id !== prevUser) return dropPush(prev.access_token);
     }).then(function () {
+      teacherTask = null;
+      sessionTask = null;
       return requireTeacher();
     }).catch(function (error) {
       clearSession();
@@ -221,6 +227,28 @@
     return url;
   }
 
+  // 이 기기의 슈톡 푸시 구독을 지운다 — 로그아웃·다른 사람 로그인 때 앞 사람 앞으로 온 알림이
+  // 이 기기에 계속 뜨지 않게 (Codex 검토 P1). 3초 안에 끝나지 않아도 로그아웃은 진행한다.
+  function dropPush(token) {
+    var nav = global.navigator;
+    if (!nav || !nav.serviceWorker || !nav.serviceWorker.getRegistrations) return Promise.resolve();
+    var work = nav.serviceWorker.getRegistrations().then(function (regs) {
+      return Promise.all(regs.map(function (reg) {
+        if (!reg.pushManager) return null;
+        return reg.pushManager.getSubscription().then(function (sub) {
+          if (!sub) return null;
+          var rm = token ? rawFetch(SUPABASE_URL + '/rest/v1/rpc/msg_push_remove', {
+            method: 'POST',
+            headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ p_endpoint: sub.endpoint })
+          }).catch(function () {}) : Promise.resolve();
+          return rm.then(function () { return sub.unsubscribe(); }).catch(function () {});
+        });
+      }));
+    }).catch(function () {});
+    return Promise.race([work, new Promise(function (r) { setTimeout(r, 3000); })]);
+  }
+
   function logout() {
     var current = readSession();
     var task = current && current.access_token
@@ -229,8 +257,10 @@
           headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + current.access_token }
         }).catch(function () {})
       : Promise.resolve();
-    clearSession();
-    return task.then(function () { location.replace(LOGIN_PAGE); });
+    return dropPush(current && current.access_token).then(function () {
+      clearSession();
+      return task;
+    }).then(function () { location.replace(LOGIN_PAGE); });
   }
 
   function addToolbar(profile) {
