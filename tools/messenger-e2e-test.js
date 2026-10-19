@@ -90,15 +90,16 @@ function filterRows(rows, u){
   async function open(viewport, opts){
     opts = opts || {};
     const ctx = await browser.newContext({ viewport: viewport || { width: 1400, height: 900 }, acceptDownloads: true, userAgent: opts.ua });
-    if (opts.fakePush) await ctx.addInitScript(() => {
+    // 알림 허용 전에는 관문 창이 화면을 덮으므로 기본은 '이미 허용한 기기'로 연다(perm: 'default'면 처음 여는 기기)
+    if (!opts.realPush) await ctx.addInitScript(perm => {
       // 헤드리스 크로미엄에는 실제 푸시 서비스가 없어 구독을 흉내 낸다
       window.__subscribed = null;
-      Object.defineProperty(window, 'Notification', { configurable: true, value: { permission: 'default', requestPermission(){ window.Notification.permission = 'granted'; return Promise.resolve('granted'); } } });
+      Object.defineProperty(window, 'Notification', { configurable: true, value: { permission: perm, requestPermission(){ window.Notification.permission = 'granted'; return Promise.resolve('granted'); } } });
       const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/fake-1', toJSON(){ return { endpoint: this.endpoint, keys: { p256dh: 'B'.repeat(87), auth: 'a'.repeat(22) } }; }, unsubscribe(){ window.__subscribed = null; return Promise.resolve(true); } };
       const reg = { pushManager: { getSubscription(){ return Promise.resolve(window.__subscribed); }, subscribe(o){ window.__subOpts = { uv: o.userVisibleOnly, keyLen: o.applicationServerKey.length }; window.__subscribed = sub; return Promise.resolve(sub); } } };
       if (!window.PushManager) window.PushManager = function(){};
       Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { register(){ return Promise.resolve(reg); }, getRegistrations(){ return Promise.resolve([reg]); }, addEventListener(){} } });
-    });
+    }, opts.perm || 'granted');
     await ctx.addInitScript(id => localStorage.setItem('shueguk_teacher_session_v2', JSON.stringify({
       access_token: 'tok', refresh_token: 'refresh-tok', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id } })), ME);
     ctx.setDefaultTimeout(8000);
@@ -299,30 +300,25 @@ function filterRows(rows, u){
   await ctx.close();
   missing = false;
 
-  console.log('⑫ 휴대폰 알림');
-  ({ ctx, page } = await open(null, { fakePush: true }));
+  console.log('⑫ 휴대폰 알림 — 켜기·끄기 없이 기본으로 켜짐');
+  ({ ctx, page } = await open(null, { perm: 'default' }));
   await page.waitForSelector('#m' + m3.id);
-  await page.waitForFunction(() => !document.querySelector('#pbanner').hidden);
-  ok((await page.locator('#notiBtn').textContent()) === '알림 꺼짐', '머리 버튼: 알림 꺼짐');
-  ok(await page.locator('#pbanner').isVisible(), '꺼져 있으면 위에 안내 띠');
-  await page.click('#pbannerBtn');
-  ok(await page.locator('#pback').isVisible(), '알림 창 열림');
+  await page.waitForFunction(() => !document.querySelector('#pback').hidden);
+  ok(await page.locator('#pback').isVisible(), '허용 전에는 관문 창이 화면을 덮음');
+  if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'gate.png') });
+  ok(await page.evaluate(() => document.querySelector('.app').hasAttribute('inert')), '관문 창 뒤 대화는 누를 수 없음(inert)');
+  ok(await page.locator('#notiBtn').count() === 0 && await page.locator('#pclose').count() === 0 && await page.locator('#pbanner').count() === 0, '알림 버튼·닫기·안내 띠 없음');
+  ok(await page.locator('input[name="pm"]').count() === 0 && await page.locator('#ptest').count() === 0, '받을 범위 선택·시험 알림 없음');
+  await page.keyboard.press('Escape'); await page.mouse.click(5, 5);
+  ok(await page.locator('#pback').isVisible(), 'Esc·바깥을 눌러도 안 닫힘');
   await page.click('#pon');
-  await page.waitForFunction(() => document.querySelector('#notiBtn').textContent === '알림 켜짐');
+  await page.waitForFunction(() => document.querySelector('#pback').hidden);
+  ok(!(await page.evaluate(() => document.querySelector('.app').hasAttribute('inert'))), '허용하면 관문이 사라지고 대화를 씀');
   ok(calls.some(c => c[0] === 'fn' && c[1].action === 'key'), '공개 키 받기');
   const so = await page.evaluate(() => window.__subOpts);
   ok(so && so.uv === true && so.keyLen === 65, '구독 — userVisibleOnly · 65바이트 키');
   const ps = calls.filter(c => c[0] === 'psave').pop();
   ok(ps && ps[1].p_sub.endpoint.includes('fake-1') && ps[1].p_mode === 'all' && ps[1].p_sub.keys.auth, 'msg_push_save — 구독·모든 메시지');
-  ok(!(await page.locator('#pbanner').isVisible()), '켜면 안내 띠 사라짐');
-  await page.check('input[name="pm"][value="mention"]');
-  await page.waitForFunction(() => true);
-  await sleep(300);
-  ok(calls.filter(c => c[0] === 'psave').pop()[1].p_mode === 'mention', '범위 바꾸기 → mention 저장');
-  await page.click('#ptest');
-  await sleep(300);
-  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'test'), '시험 알림 요청');
-  await page.click('#pclose');
   await page.click('#inp'); await page.keyboard.type('푸시 시험 @이은지'); await page.click('#send');
   await page.waitForFunction(() => document.querySelector('#inp').value === '');
   await sleep(300);
@@ -334,14 +330,21 @@ function filterRows(rows, u){
   const failId = MSGS[MSGS.length - 1].id;
   await sleep(6500);
   ok(calls.filter(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === failId).length === 2, '알림 서버가 실패하면 5초 뒤 한 번 더');
-  await page.click('#notiBtn');
-  ok(await page.locator('#poff').count() === 0 && await page.locator('#ptest').isVisible(), '알림 끄기 버튼 없음(시험 알림만)');
-  await page.click('#pclose');
   // 로그아웃하면 이 기기 구독도 지운다 (Codex 검토 P1)
   const rmBefore = calls.filter(c => c[0] === 'premove').length;
   await page.evaluate(() => { window.TeacherAuth.logout(); });
   await page.waitForURL(/login\.html/);
   ok(calls.filter(c => c[0] === 'premove').length === rmBefore + 1, '로그아웃 → 서버 구독 삭제');
+  await ctx.close();
+
+  // 예전에 '나를 부른 메시지만'으로 저장한 기기는 열 때 '모든 메시지'로 다시 저장
+  PUSHSUBS['https://fcm.googleapis.com/fcm/send/fake-1'] = { mode: 'mention' };
+  const pb = calls.filter(c => c[0] === 'psave').length;
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id);
+  await page.waitForFunction(n => true, pb); await sleep(600);
+  const rs = calls.filter(c => c[0] === 'psave');
+  ok(rs.length > pb && rs[rs.length - 1][1].p_mode === 'all' && await page.locator('#pback').isHidden(), "옛 '나를 부른 것만' 기기 → 모든 메시지로 다시 저장");
   await ctx.close();
 
   console.log('⑫-2 같은 이름 두 사람(DB가 막지만 혹시 생기면)');
@@ -361,13 +364,12 @@ function filterRows(rows, u){
   console.log('⑬ 아이폰 사파리(홈 화면 추가 전)');
   ({ ctx, page } = await open({ width: 390, height: 844 }, { ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1' }));
   await page.waitForSelector('#m' + m3.id);
-  await page.click('#notiBtn');
-  ok(await page.locator('#pios').isVisible(), '홈 화면에 추가 안내');
+  ok(await page.locator('#pback').isVisible() && await page.locator('#pios').isVisible(), '홈 화면에 추가 안내가 화면을 덮음');
   ok(!(await page.locator('#pon').isVisible()), '켜기 버튼은 숨김');
   await ctx.close();
 
   console.log('⑭ 서비스 워커(msg-sw.js) — 알림 띄우기');
-  ({ ctx, page } = await open());
+  ({ ctx, page } = await open(null, { realPush: true }));
   await ctx.grantPermissions(['notifications'], { origin: `http://127.0.0.1:${PORT}` });
   await page.waitForSelector('#m' + m3.id);
   const shown = await page.evaluate(async () => {
