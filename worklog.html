@@ -171,7 +171,7 @@
       <p class="note" id="mNote"></p>
     </div>
     <div class="card wait" id="mWait" hidden style="margin-top:16px;">
-      <div class="row sp"><h2>초과근무 승인 대기 <span class="pill lav" id="mWaitN"></span></h2><span class="note">승인하면 근무 시간·급여에 들어갑니다. 슈톡 업무 카드의 할 일도 함께 완료돼요.</span></div>
+      <div class="row sp"><h2>초과근무·조기퇴근 확인 대기 <span class="pill lav" id="mWaitN"></span></h2><span class="note">초과근무는 승인하면 근무 시간·급여에 들어갑니다. 조기퇴근은 실제 퇴근까지 세고 확인만 남겨요. 슈톡 업무 카드의 할 일도 함께 완료됩니다.</span></div>
       <div id="mWaitList"></div>
     </div>
     <div class="tiles" id="mTiles" style="margin-top:16px;"></div>
@@ -381,19 +381,30 @@
   // 초과근무 승인 대기 — 대표님·원장님 화면 맨 위(달과 상관없이 전부)
   function loadWait(){
     if (!ROLE.viewer){ $('mWait').hidden = true; return; }
-    api('/work_records?select=*&ot_status=eq.' + encodeURIComponent('대기') + '&order=ymd.asc&limit=200').then(function(rows){
-      rows = rows || [];
-      if (!rows.length){ $('mWait').hidden = true; return; }
-      var ys = rows.map(function(r){ return r.ymd; }).filter(function(y, i, a){ return a.indexOf(y) === i; });
+    Promise.all([
+      api('/work_records?select=*&ot_status=eq.' + encodeURIComponent('대기') + '&order=ymd.asc&limit=200'),
+      api('/work_records?select=*&early_status=eq.' + encodeURIComponent('대기') + '&order=ymd.asc&limit=200')
+    ]).then(function(res){
+      var items = (res[0] || []).map(function(r){ return { k: 'ot', r: r }; }).concat((res[1] || []).map(function(r){ return { k: 'early', r: r }; }));
+      items.sort(function(a, b){ return a.r.ymd < b.r.ymd ? -1 : a.r.ymd > b.r.ymd ? 1 : 0; });
+      if (!items.length){ $('mWait').hidden = true; return; }
+      var ys = items.map(function(x){ return x.r.ymd; }).filter(function(y, i, a){ return a.indexOf(y) === i; });
       return api('/work_shifts?select=user_id,ymd,start_hm,end_hm&ymd=in.(' + ys.join(',') + ')&limit=1000').then(function(sh){
         $('mWait').hidden = false;
-        $('mWaitN').textContent = rows.length + '건';
-        $('mWaitList').innerHTML = rows.map(function(r){
-          var sc = schedOf(r.user_id, r.ymd, sh || []), parts = [];
-          if (r.ot_start) parts.push('출근 ' + hm(r.in_at) + (sc ? ' (근무표 ' + sc.start + ')' : ''));
-          if (r.ot_end) parts.push('퇴근 ' + hm(r.out_at) + (sc ? ' (근무표 ' + sc.end + ')' : ''));
-          return '<div class="wrow"><span><b>' + esc(nameOf(r.user_id) || r.name) + '</b></span><span>' + dLabel(r.ymd) + '</span><span>' + esc(r.loc) + '</span><span>' + parts.join(' · ') + ' · <b>' + dur(reqMin(r, sh || [])) + '</b></span>' +
-            '<span class="acts"><button class="btn sm lav" type="button" data-ok="' + r.id + '|1">승인</button><button class="btn sm" type="button" data-ok="' + r.id + '|0">반려</button></span></div>';
+        $('mWaitN').textContent = items.length + '건';
+        $('mWaitList').innerHTML = items.map(function(x){
+          var r = x.r, sc = schedOf(r.user_id, r.ymd, sh || []), parts = [], what, btns;
+          if (x.k === 'ot'){
+            if (r.ot_start) parts.push('출근 ' + hm(r.in_at) + (sc ? ' (근무표 ' + sc.start + ')' : ''));
+            if (r.ot_end) parts.push('퇴근 ' + hm(r.out_at) + (sc ? ' (근무표 ' + sc.end + ')' : ''));
+            what = '<span class="pill lav">초과근무</span> ' + parts.join(' · ') + ' · <b>' + dur(reqMin(r, sh || [])) + '</b>';
+            btns = '<button class="btn sm lav" type="button" data-ok="' + r.id + '|1">승인</button><button class="btn sm" type="button" data-ok="' + r.id + '|0">반려</button>';
+          } else {
+            var em = sc && r.out_at ? Math.max(0, Math.floor((sc.e - Date.parse(r.out_at)) / 60000)) : 0;
+            what = '<span class="pill miss">조기퇴근</span> 퇴근 ' + hm(r.out_at) + (sc ? ' (근무표 ' + sc.end + ')' : '') + ' · <b>' + dur(em) + ' 일찍</b>' + (r.early_note ? ' · 사유 ' + esc(r.early_note) : '');
+            btns = '<button class="btn sm lav" type="button" data-eok="' + r.id + '|1">확인</button><button class="btn sm" type="button" data-eok="' + r.id + '|0">반려</button>';
+          }
+          return '<div class="wrow"><span><b>' + esc(nameOf(r.user_id) || r.name) + '</b></span><span>' + dLabel(r.ymd) + '</span><span>' + esc(r.loc) + '</span><span>' + what + '</span><span class="acts">' + btns + '</span></div>';
         }).join('');
       });
     }).catch(function(){ $('mWait').hidden = true; });
@@ -404,7 +415,7 @@
     function P(id){ return by[id] || (by[id] = { id: id, name: nameOf(id), recs: [], mins: 0, days: {}, issues: [] }); }
     M.recs.forEach(function(r){
       var p = P(r.user_id); if (!SBY[r.user_id] && r.name) p.name = r.name;
-      p.recs.push(r); p.mins += mins(r); p.ot = (p.ot || 0) + otMin(r); if (r.ot_status === '대기') p.wait = (p.wait || 0) + 1; p.days[r.ymd] = 1;
+      p.recs.push(r); p.mins += mins(r); p.ot = (p.ot || 0) + otMin(r); if (r.ot_status === '대기') p.wait = (p.wait || 0) + 1; if (r.early_status === '대기') p.wait = (p.wait || 0) + 1; p.days[r.ymd] = 1;
       if (!r.out_at && r.ymd < t) p.issues.push({ kind: 'out', rec: r });
     });
     M.shifts.forEach(function(s){
@@ -474,7 +485,9 @@
       if (cutIn) tags.push('출근 ' + hm(r.in_at) + ' → ' + hm(r.start_at) + '부터');
       if (cutOut) tags.push('퇴근 ' + hm(r.out_at) + ' → ' + hm(r.end_at) + '까지');
       var sc0 = schedOf(r.user_id, r.ymd), early = sc0 && r.out_at ? Math.floor((sc0.e - Date.parse(r.out_at)) / 60000) : 0;
-      if (early > 0) tags.push('<b>조기퇴근 ' + dur(early) + '</b> (근무표 ' + sc0.end + '까지' + (r.early_out ? ' · 본인 확인' : '') + ')');
+      if (early > 0) tags.push('<b>조기퇴근 ' + dur(early) + '</b> (근무표 ' + sc0.end + '까지)' + (r.early_note ? ' · 사유 ' + esc(r.early_note) : '') +
+        (r.early_status === '대기' ? ' · <b>확인 대기</b>' : r.early_status === '확인' ? ' · 확인 ' + esc(r.early_by_name) : r.early_status === '반려' ? ' · 반려 ' + esc(r.early_by_name) : ''));
+      if (ROLE.viewer && r.early_status === '대기') btn += '<button class="btn sm lav" type="button" data-eok="' + r.id + '|1">조기퇴근 확인</button><button class="btn sm" type="button" data-eok="' + r.id + '|0">반려</button>';
       var when = (r.ot_start ? ' · 출근 ' + hm(r.in_at) + '부터' : '') + (r.ot_end ? ' · 퇴근 ' + hm(r.out_at) + '까지' : '');
       if (ot) tags.push('<b>초과근무 ' + dur(ot) + '</b>' + when + ' · 승인 ' + esc(r.ot_by_name));
       if (r.ot_status === '대기') tags.push('<b>초과근무 승인 대기 ' + dur(reqMin(r)) + '</b>' + when);
@@ -488,10 +501,15 @@
         '<span class="tag">' + tags.join(' · ') + '</span><span class="acts">' + btn + (canEdit(r.user_id) ? '<button class="btn sm" type="button" data-fix="' + r.id + '">시각 고치기</button>' : '') + '</span></div>';
     }).join('') + '</div>';
   }
-  $('mWait').addEventListener('click', function(e){ var b = e.target.closest('[data-ok]'); if (b) decide(b.dataset.ok.split('|')[0], b.dataset.ok.split('|')[1] === '1', b); });
+  $('mWait').addEventListener('click', function(e){
+    var b = e.target.closest('[data-ok],[data-eok]'); if (!b) return;
+    if (b.dataset.eok) decideEarly(b.dataset.eok.split('|')[0], b.dataset.eok.split('|')[1] === '1', b);
+    else decide(b.dataset.ok.split('|')[0], b.dataset.ok.split('|')[1] === '1', b);
+  });
   $('mBody').addEventListener('click', function(e){
     var b = e.target.closest('button');
     if (b && b.dataset.fix){ var r = M.recs.filter(function(x){ return String(x.id) === b.dataset.fix; })[0]; if (r) openFix(r); return; }
+    if (b && b.dataset.eok){ decideEarly(b.dataset.eok.split('|')[0], b.dataset.eok.split('|')[1] === '1', b); return; }
     if (b && b.dataset.ok){ decide(b.dataset.ok.split('|')[0], b.dataset.ok.split('|')[1] === '1', b); return; }
     if (b && b.dataset.ot){ setOvertime(b.dataset.ot.split('|')[0], b.dataset.ot.split('|')[1] === '1', b); return; }
     if (b && b.dataset.add){ var a = b.dataset.add.split('|'); openFix(null, { user_id: a[0], ymd: a[1], loc: a[2], start: a[3], end: a[4] }); return; }
@@ -520,6 +538,13 @@
     if (!ok){ note = prompt('반려 이유를 적어 주세요(조교에게 보입니다).', '') ; if (note === null) return; note = note.trim(); }
     b.disabled = true;
     rpc('work_ot_decide', { p_id: +id, p_ok: ok, p_note: note }).then(function(){ status(ok ? '초과근무를 승인했습니다.' : '초과근무를 반려했습니다.'); loadMonth(); })
+      .catch(function(e){ status(/not_waiting/.test(String(e.message)) ? '이미 처리된 요청입니다.' : errText(e)); loadMonth(); });
+  }
+  function decideEarly(id, ok, b){
+    var note = '';
+    if (!ok){ note = prompt('반려 이유를 적어 주세요(조교에게 보입니다).', ''); if (note === null) return; note = note.trim(); }
+    b.disabled = true;
+    rpc('work_early_decide', { p_id: +id, p_ok: ok, p_note: note }).then(function(){ status(ok ? '조기퇴근을 확인했습니다.' : '조기퇴근을 반려했습니다.'); loadMonth(); })
       .catch(function(e){ status(/not_waiting/.test(String(e.message)) ? '이미 처리된 요청입니다.' : errText(e)); loadMonth(); });
   }
   function push(id){ fetch(SB + '/functions/v1/msg-push', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'send', message_id: id }), keepalive: true }).catch(function(){}); }

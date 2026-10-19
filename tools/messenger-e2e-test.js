@@ -132,7 +132,7 @@ function filterRows(rows, u){
         const old = PRESENCE[ME] || {};
         PRESENCE[ME] = { user_id: ME, name: '고희주', loc: b.p_on ? b.p_loc : (old.loc || ''), is_on: b.p_on, changed_at: NOWISO() };
         PLOGS.push({ id: PLOGS.length + 1, user_id: ME, is_on: b.p_on, at: NOWISO() });
-        return json(Object.assign({}, PRESENCE[ME], { work: workEarly && !b.p_on ? { id: 7, event: 'out', sched: '22:00', actual: '21:00', end: '21:00', ask: false, diff: 0, early: true, early_diff: 60, minutes: 300 } : workAsk && b.p_on ? { id: 5, event: 'in', sched: '16:00', actual: '15:10', start: '16:00', clipped: true, ask: true, diff: 50 } : workAsk ? { id: 5, event: 'out', sched: '22:00', actual: '23:20', end: '22:00', ask: true, diff: 80, minutes: 360 } : workClip && b.p_on ? { id: 1, event: 'in', sched: '16:00', start: '16:00', clipped: true } : (b.p_on ? null : { id: 1, event: 'out', start: '16:00', minutes: 362 }) }));
+        return json(Object.assign({}, PRESENCE[ME], { work: workEarly && !b.p_on ? { id: 7, event: 'out', sched: '22:00', actual: '21:00', end: '21:00', ask: false, diff: 0, early: true, early_diff: 60, minutes: 300, early_status: '대기', message_id: 92 } : workAsk && b.p_on ? { id: 5, event: 'in', sched: '16:00', actual: '15:10', start: '16:00', clipped: true, ask: true, diff: 50 } : workAsk ? { id: 5, event: 'out', sched: '22:00', actual: '23:20', end: '22:00', ask: true, diff: 80, minutes: 360 } : workClip && b.p_on ? { id: 1, event: 'in', sched: '16:00', start: '16:00', clipped: true } : (b.p_on ? null : { id: 1, event: 'out', start: '16:00', minutes: 362 }) }));
       }
       if (p === '/rest/v1/rpc/work_early'){ const b = JSON.parse(req.postData()); calls.push(['early', b]); if (!b.p_yes){ PRESENCE[ME] = Object.assign({}, PRESENCE[ME], { is_on: true, changed_at: NOWISO() }); return json({ id: b.p_id, out_at: null, presence: PRESENCE[ME] }); } return json({ id: b.p_id, early_out: true }); }
       if (p === '/rest/v1/rpc/work_overtime'){ const b = JSON.parse(req.postData()); calls.push(['ot', b]); return json({ id: b.p_id, minutes: 440, ot_status: '대기', message_id: 91 }); }
@@ -735,16 +735,21 @@ function filterRows(rows, u){
   await page.waitForSelector('#wnback:not([hidden])');
   ok((await page.locator('#wnTitle').textContent()) === '조기퇴근인가요?' && (await page.locator('#wnText').textContent()).includes('지금 퇴근(21:00)이 1시간 이릅니다'), '60분 일찍 퇴근 → \'조기퇴근인가요?\'');
   ok((await page.locator('#wnYes').textContent()) === '네, 조기퇴근이에요 — 21:00까지 기록' && (await page.locator('#wnOk').textContent()) === '아니요, 잘못 눌렀어요 — 퇴근 취소', '버튼 두 개 — 조기퇴근·퇴근 취소');
+  ok((await page.locator('#wnText').textContent()).includes('박언호 대표님께 조기퇴근 확인 요청이 갔어요') && await page.locator('#wnNote').isVisible(), '확인 요청 안내 + 사유 칸');
+  await sleep(200);
+  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === 92), '조기퇴근 확인 요청 글 휴대폰 알림');
   await page.click('#wnOk');
   await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근');
   const e1 = calls.filter(c => c[0] === 'early').pop();
   ok(e1 && e1[1].p_id === 7 && e1[1].p_yes === false && (await page.locator('#status').textContent()).includes('퇴근을 취소했습니다'), '[아니요] → work_early(취소) · 다시 \'본원 출근\'');
   await page.click('#presBtn'); await page.click('#presMenu [data-out]');
   await page.waitForSelector('#wnback:not([hidden])');
+  await page.fill('#wnNote', '병원 진료');
   await page.click('#wnYes');
   await sleep(200);
   const e2 = calls.filter(c => c[0] === 'early').pop();
-  ok(e2 && e2[1].p_yes === true && await page.locator('#wnback').isHidden(), '[네] → work_early(조기퇴근 표시)');
+  ok(e2 && e2[1].p_yes === true && e2[1].p_note === '병원 진료' && await page.locator('#wnback').isHidden(), '[네] + 사유 → work_early(조기퇴근, 병원 진료)');
+  ok((await page.locator('#status').textContent()).includes('박언호 대표님이 확인해요'), '대표님 확인 안내');
   workEarly = false;
   await page.click('#presBtn'); await page.click('#presMenu [data-loc="본원"]');
   await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근');

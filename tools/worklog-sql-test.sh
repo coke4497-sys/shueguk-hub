@@ -38,6 +38,8 @@ P -f supabase/migrations/202610200002_work_overtime_approval.sql >/dev/null || {
 P -f supabase/migrations/202610200002_work_overtime_approval.sql >/dev/null && ok y y "초과근무 승인 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610200003_work_early_out.sql >/dev/null || { echo "조기퇴근 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200003_work_early_out.sql >/dev/null && ok y y "조기퇴근 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610200004_work_early_confirm.sql >/dev/null || { echo "조기퇴근 확인 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200004_work_early_confirm.sql >/dev/null && ok y y "조기퇴근 확인 마이그레이션 다시 실행해도 오류 없음"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin) 이수경
 K=aaaaaaaa-0000-0000-0000-00000000000b   # 박언호 대표님(parkeh, teacher)
@@ -132,7 +134,7 @@ if [ "$HM" = "t" ]; then
   as $D "select public.work_overtime($OID, 'in', true)" >/dev/null
   ok "$(as $A "select (public.work_ot_decide($OID, false, '사전 협의 없음'))->>'ot_status'")" "반려" "원장님 반려"
   ok "$(P -tAc "select ot_start::text||ot_note||to_char(start_at at time zone 'Asia/Seoul','HH24:MI') from public.work_records where id=$OID")" "false사전 협의 없음$LATER" "반려하면 근무표 시작부터 · 사유 남음"
-  ok "$(P -tAc "select count(*) from public.msg_tasks where status='대기' and assignee='$K'")" "0" "걸린 할 일 없음"
+  ok "$(P -tAc "select count(*) from public.msg_tasks where status='대기' and assignee='$K' and text like '%초과근무%'")" "0" "걸린 할 일 없음"
 else
   echo "  - 한국 23시 이후라 '일찍 출근' 검사는 건너뜀"
 fi
@@ -154,7 +156,7 @@ if [ "$HM2" = "t" ]; then
   EID=$(P -tAc "select id from public.work_records where user_id='$E'")
   ok "$(as $E "select (public.work_overtime($EID, 'out', true))->>'minutes'")" "120" "조교 [네] → 승인 전에는 120분"
   ok "$(as $E "select (public.work_overtime($EID, 'out', true))->>'message_id' is not null")" "t" "승인 요청 글 id를 돌려줌(휴대폰 알림용)"
-  ok "$(P -tAc "select count(*) from public.msg_tasks where status='대기' and assignee='$K'")" "1" "다시 눌러도 대표님 할 일은 하나(앞 요청은 완료)"
+  ok "$(P -tAc "select count(*) from public.msg_tasks where status='대기' and assignee='$K' and text like '%초과근무%'")" "1" "다시 눌러도 대표님 할 일은 하나(앞 요청은 완료)"
   ok "$(as $K "select (public.work_ot_decide($EID, true, ''))->>'minutes'")" "180" "대표님 승인 → 180분"
   ok "$(as $A "select (public.work_overtime($EID, 'out', false))->>'minutes'")" "120" "원장님이 [근무표 시각으로] 되돌릴 수 있음"
   ok "$(as $A "select (public.work_overtime($EID, 'out', true))->>'ot_status'")" "승인" "원장님이 직접 [초과근무로 인정]하면 바로 승인"
@@ -174,15 +176,26 @@ if [ "$HM3" = "t" ]; then
   W3=$(as $G "select (public.msg_presence_set('', false))->'work'")
   ok "$(echo "$W3" | grep -c '"early": true')" "1" "근무표 끝보다 30분 넘게 일찍 퇴근 → early"
   ok "$(echo "$W3" | grep -c '"ask": false')" "1" "초과근무 질문은 없음"
+  ok "$(echo "$W3" | grep -c '"early_status": "대기"')" "1" "퇴근하자마자 확인 대기(창에 답하지 않아도)"
+  ok "$(echo "$W3" | grep -c '"message_id": [0-9]')" "1" "확인 요청 글 id(휴대폰 알림용)"
   G1=$(P -tAc "select id from public.work_records where user_id='$G' order by id limit 1")
+  ok "$(P -tAc "select t.assignee_name||'|'||(m.body like '[기타요청] @박언호 조기퇴근 확인 요청 — 김민서 %')::text from public.work_records r join public.msg_tasks t on t.id=r.early_task_id join public.msg_messages m on m.id=t.message_id where r.id=$G1")" "박언호|true" "슈톡 글 + 박언호 대표님 업무 카드 할 일"
   ok "$(as $C "select public.work_early($G1, true)" | grep -c not_allowed)" "1" "남의 조기퇴근은 못 정함"
-  ok "$(as $G "select (public.work_early($G1, true))->>'early_out'")" "true" "[네] → 조기퇴근 표시"
+  ok "$(as $G "select (public.work_early($G1, true, '병원 진료'))->>'early_out'")" "true" "[네] + 사유 → 조기퇴근 표시"
+  ok "$(P -tAc "select (m.body like '%사유: 병원 진료%')::text||(t.text like '%사유: 병원 진료%')::text from public.work_records r join public.msg_tasks t on t.id=r.early_task_id join public.msg_messages m on m.id=t.message_id where r.id=$G1")" "truetrue" "사유가 요청 글·할 일에 붙음"
   ok "$(P -tAc "select (end_at = out_at)::text from public.work_records where id=$G1")" "true" "근무 시간은 실제 퇴근까지"
+  ok "$(as $G "select public.work_early_decide($G1, true, '')" | grep -c not_allowed)" "1" "조교는 확인 못 함"
+  ok "$(as $K "select (public.work_early_decide($G1, true, ''))->>'early_status'")" "확인" "대표님 확인"
+  ok "$(P -tAc "select t.status from public.work_records r join public.msg_tasks t on t.id=r.early_task_id where r.id=$G1")" "완료" "할 일 완료"
+  ok "$(as $K "select public.work_early_decide($G1, false, '')" | grep -c not_waiting)" "1" "다시 처리 못 함"
   as $G "select public.msg_presence_set('민초센터', true)" >/dev/null
   as $G "select public.msg_presence_set('', false)" >/dev/null
   G2=$(P -tAc "select id from public.work_records where user_id='$G' order by id desc limit 1")
   NLOG=$(P -tAc "select count(*) from public.msg_presence_log where user_id='$G'")
+  T2=$(P -tAc "select early_task_id from public.work_records where id=$G2")
   ok "$(as $G "select (public.work_early($G2, false))->>'out_at' is null")" "t" "[아니요, 잘못 눌렀어요] → 퇴근 취소(기록 다시 열림)"
+  ok "$(P -tAc "select t.status||'|'||(m.body like '%잘못 누른 퇴근이라 취소했습니다.')::text from public.msg_tasks t join public.msg_messages m on m.id=t.message_id where t.id=$T2")" "완료|true" "취소하면 대표님 할 일 완료 + 글에 취소 표시"
+  ok "$(P -tAc "select early_status = '' from public.work_records where id=$G2")" "t" "확인 상태도 지움"
   ok "$(P -tAc "select is_on::text from public.msg_presence where user_id='$G'")" "true" "슈톡 출근 상태로 되돌아감"
   ok "$(P -tAc "select count(*) from public.msg_presence_log where user_id='$G'")" "$((NLOG-1))" "방금 남긴 퇴근 기록 줄을 지움"
   ok "$(P -tAc "select is_on::text from public.msg_presence_log where user_id='$G' order by id desc limit 1")" "true" "마지막 기록은 출근"
