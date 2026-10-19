@@ -691,7 +691,7 @@
       + '<div class="mb"><div class="nm">' + esc(m.author_name) + '<span class="rl">' + esc(mem ? roleLabel(mem.role) : '') + '</span></div>'
       + quoteHtml(m)
       + '<div class="line">' + bb + '<span class="t">' + hm(m.created_at) + '</span>'
-      + (m.deleted_at ? '' : '<button class="mact" type="button" data-reply="' + m.id + '">답장</button>')
+      + (m.deleted_at || !('reply_to' in m) ? '' : '<button class="mact" type="button" data-reply="' + m.id + '">답장</button>')   // reply_to 열이 없으면(0006 전) 답장 버튼을 숨김
       + (canDel ? '<button class="mact" type="button" data-del="' + m.id + '">지우기</button>' : '') + '</div>'
       + (m.deleted_at ? '' : filesHtml(m.files)) + chipsHtml(m.id) + '</div></div>';
   }

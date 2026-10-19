@@ -40,7 +40,7 @@ const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE =
 let noPres = false;
 function addMsg(author, body, files, createdIso){
   const t = createdIso || ts();
-  const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null };
+  const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null, reply_to: null };
   MSGS.push(m); return m;
 }
 function addTask(m, assignee, text, createdIso){
@@ -615,6 +615,14 @@ function filterRows(rows, u){
   if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'reply.png') }); await page.click('#findBtn'); await page.click('#ftags [data-ftag="결석"]'); await page.waitForSelector('#results .ritem'); await page.screenshot({ path: path.join(process.env.SHOT, 'find.png') });
     const pg = await ctx.newPage(); await pg.setViewportSize({ width: 390, height: 844 }); await pg.goto('http://127.0.0.1:' + PORT + '/messenger.html'); await pg.waitForSelector('#msgs .m'); await pg.click('#findBtn'); await pg.fill('#fq', '하늘'); await pg.waitForSelector('#results .ritem'); await pg.screenshot({ path: path.join(process.env.SHOT, 'find-phone.png') }); await pg.close(); }
   await ctx.close();
+
+  console.log('⑳-2 답장 열이 없는 DB(0006 전)');
+  const keep = MSGS.map(m => { const r = m.reply_to; delete m.reply_to; return r; });
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id);
+  ok(await page.locator('[data-reply]').count() === 0, '답장 버튼을 숨김');
+  await ctx.close();
+  MSGS.forEach((m, i) => { m.reply_to = keep[i]; });
 
   console.log('⑯ 출근·퇴근');
   PRESENCE[BOSS] = { user_id: BOSS, name: '이수경', loc: '본원', is_on: true, changed_at: ago(1) };
