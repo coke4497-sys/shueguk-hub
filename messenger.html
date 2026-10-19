@@ -733,9 +733,9 @@
     if (firstId != null && mark < firstId - 1){
       var key = mark + '|' + firstId;
       if (gap.key !== key){
-        gap = { key: key, n: 0 };
+        var g = { key: key, n: 0 }; gap = g;   // 요청마다 새 객체 — 늦게 끝난 옛 요청이 새 값을 덮지 않게(gap === g 비교, Codex 검토)
         fetch(REST + '/msg_messages?select=id&id=gt.' + mark + '&id=lt.' + firstId + '&or=(author.is.null,author.neq.' + ME.id + ')&deleted_at=is.null', { headers: { Prefer: 'count=exact', Range: '0-0' } })
-          .then(function(r){ var m = String(r.headers.get('content-range') || '').match(/\/(\d+)$/); if (gap.key === key && m){ gap.n = Number(m[1]); updateBadges(); } })
+          .then(function(r){ var m = String(r.headers.get('content-range') || '').match(/\/(\d+)$/); if (gap === g && m){ g.n = Number(m[1]); updateBadges(); } })
           .catch(function(){});
       }
       n += gap.n;
