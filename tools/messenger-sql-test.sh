@@ -295,6 +295,7 @@ MA2=$(as $C "select (public.msg_send('@클로슈 김민준 담당이 누구야?'
 ok "$(as $B "select public.msg_bot_post('answer', '답', $MA2)" | grep -c not_allowed)" 1 "남의 질문엔 답을 올릴 수 없음"
 ok "$(as $C "select (public.msg_bot_post('answer', '김민준 · 담당 이은지 선생님', $MA2)->>'author_name')")" "클로슈" "내 질문에 클로슈 답"
 ok "$(as $C "select public.msg_bot_post('answer', '또', $MA2)" | grep -c exists)" 1 "질문마다 답 한 번"
+ok "$(as $C "select bot->>'by' from public.msg_messages where reply_to=$MA2 and bot is not null")" "고희주" "클로슈 답에 누구 화면에서 만들었는지 남음"
 MD=$(as $A "select (public.msg_send('교재 주문 @이은지', '[]', array['$B']::uuid[])->'message'->>'id')")
 TD=$(as $A "select id from public.msg_tasks where message_id=$MD")
 as $B "select public.msg_task_defer($TD, now() + interval '1 hour', '저녁에')" >/dev/null

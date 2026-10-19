@@ -72,7 +72,7 @@ begin
     raise exception 'exists';
   end if;
   -- 휴대폰 알림은 글쓴이와 보기에 있는 선생님에게만
-  v_m := private.msg_bot_insert(left(coalesce(p_text, ''), 300), jsonb_build_object('kind', 'ask', 'for', p_msg, 'options', v_opts,
+  v_m := private.msg_bot_insert(left(coalesce(p_text, ''), 300), jsonb_build_object('kind', 'ask', 'for', p_msg, 'options', v_opts, 'by', v_me.display_name,
     'to', (select jsonb_agg(distinct x) from (select v_me.user_id::text as x union select o2->>'uid' from jsonb_array_elements(v_opts) o2) q)), p_msg);
   update public.msg_bot_runs set message_id = v_m.id where key = 'ask:' || p_msg;
   return to_jsonb(v_m);
@@ -168,7 +168,8 @@ begin
     raise exception 'exists';
   end if;
   -- 답은 물어본 사람에게만 알림, 오늘 정리는 모두에게
-  v_m := private.msg_bot_insert(p_text, jsonb_build_object('kind', p_kind, 'day', v_day)
+  -- 글은 화면이 규칙으로 만든다 — 누구 화면에서 만들었는지(by)를 서버가 남겨 클로슈 이름으로 아무 글이나 올리지 못하게 한다(Codex 검토)
+  v_m := private.msg_bot_insert(p_text, jsonb_build_object('kind', p_kind, 'day', v_day, 'by', v_me.display_name)
     || case when p_kind = 'answer' then jsonb_build_object('to', jsonb_build_array(v_me.user_id)) else '{}'::jsonb end, p_reply);
   update public.msg_bot_runs set message_id = v_m.id where key = v_key;
   return to_jsonb(v_m);

@@ -901,7 +901,7 @@
       + '<div class="line">' + bb + '<span class="t">' + hm(m.created_at) + '</span>'
       + (m.deleted_at || !('reply_to' in m) ? '' : '<button class="mact" type="button" data-reply="' + m.id + '">답장</button>')   // reply_to 열이 없으면(0006 전) 답장 버튼을 숨김
       + (canDel ? '<button class="mact" type="button" data-del="' + m.id + '">지우기</button>' : '') + '</div>'
-      + (m.deleted_at ? '' : filesHtml(m.files)) + (m.bot ? botAskHtml(m) : '') + chipsHtml(m.id) + '</div></div>';
+      + (m.deleted_at ? '' : filesHtml(m.files)) + (m.bot ? botAskHtml(m) + botByHtml(m) : '') + chipsHtml(m.id) + '</div></div>';
   }
   function atBottom(){ var el = $('msgs'); return el.scrollHeight - el.scrollTop - el.clientHeight < 80; }
   function renderMsgs(mode){
@@ -1473,6 +1473,7 @@
   // ① 배정 질문 — [결석]·[지각]·[이동] 글에 @도 없고 담당 선생님도 못 찾았으면 클로슈가 보기를 주고 묻는다
   function botAfterSend(msg, tasks){
     if (!botOk || !msg || msg.bot) return;
+    botTried[msg.id] = botTried[msg.id] || 1;
     var body = msg.body || '';
     if (/@클로슈/.test(body)){ botAnswer(msg); return; }
     if (!attTagOf(body) || hasMention(body) || tasks.length) return;
@@ -1495,7 +1496,7 @@
       return rpc('msg_bot_ask', { p_msg: msg.id, p_text: text, p_options: opts.slice(0, 12) }).then(function(row){
         addMsgs([row]); renderMsgs('bottom'); botPush(row.id);
       });
-    }).catch(botFail);
+    }).catch(function(e){ if (/exists/.test(String(e && e.message))) botTried[msg.id] = 9; botFail(e); });
   }
   function botAskHtml(m){
     var b = m.bot || {};
@@ -1507,6 +1508,8 @@
     }).join('');
     return btns ? '<div class="bopts">' + btns + '</div>' : '<div class="bwait">글쓴 사람이나 보기의 선생님이 고를 수 있어요.</div>';
   }
+  // 클로슈 글은 누구 화면에서 만들어졌는지 함께 보인다(서버가 bot.by 를 정함 — 글을 화면이 만드는 대신 책임을 남김, Codex 검토)
+  function botByHtml(m){ var b = m.bot || {}; return b.by && (b.kind === 'answer' || b.kind === 'summary') && !m.deleted_at ? '<div class="bwait">' + esc(b.by) + (b.kind === 'answer' ? ' 님 질문에 답함' : ' 님 화면에서 정리') + '</div>' : ''; }
   function botPick(v, btn){
     var p = v.split('|'), ask = Number(p[0]), uid = p[1];
     if (btn) btn.disabled = true;
@@ -1520,13 +1523,33 @@
   function botTick(){
     if (!botOk || botBusy || Date.now() - botAt < BOT_TICK_MS) return;
     botBusy = true; botAt = Date.now();
+    botSweep();
     rpc('msg_bot_tick').then(function(r){
       ((r && r.msgs) || []).forEach(botPush);
       if (r && r.summary) return botSummary();
     }).catch(botFail).then(function(){ botBusy = false; });
   }
+  // 보낸 직후 탭이 닫히거나 클로슈 요청만 실패했으면 다음 tick에 다시 한다 — 최근 10분 내 내 글, 글마다 3번까지 (Codex 검토)
+  var botTried = {};
+  function botSweep(){
+    var since = Date.now() - 10 * 60e3, answered = {};
+    MSGS.forEach(function(m){ if (m.bot && m.reply_to) answered[m.reply_to] = 1; });
+    MSGS.forEach(function(m){
+      if (m.bot || m.deleted_at || m.author !== ME.id || Date.parse(m.created_at) < since || answered[m.id]) return;
+      var need = /@클로슈/.test(m.body || '') || (attTagOf(m.body || '') && !hasMention(m.body || '') && !tasksOf(m.id).length);
+      if (!need || (botTried[m.id] || 0) >= 3) return;
+      botTried[m.id] = (botTried[m.id] || 0) + 1;
+      botAfterSend(m, tasksOf(m.id));
+    });
+  }
+  // 오늘 정리는 하루 한 번이라, 쓰기 직전에 할 일·출근·수업을 새로 받아 최신으로 쓴다 (Codex 검토)
   function botSummary(){
-    return loadLessons(true).then(function(){
+    var start0 = new Date(dayStartMs()).toISOString();
+    return Promise.all([
+      loadLessons(true), loadPres(),
+      api('/msg_tasks?select=*&status=eq.' + encodeURIComponent('대기') + '&order=id.asc&limit=1000').then(addTasks),
+      api('/msg_tasks?select=*&done_at=gte.' + encodeURIComponent(start0) + '&order=id.asc&limit=1000').then(addTasks)
+    ]).then(function(){
       var now = new Date().toISOString(), start = dayStartMs(), lines = ['오늘 정리 · ' + dayLabel(now)];
       if (presOk){
         var by = {}, off = 0;
@@ -1604,7 +1627,7 @@
         if (!out.length) out.push('이렇게 물어보세요.\n  · 학생 이름 — 담당 선생님·이번 주 수업 (예: @클로슈 김민준)\n  · 오늘 수업 — 학년·선생님으로 좁히기 (예: @클로슈 오늘 고2 수업)\n  · 남은 일 — 나 또는 그 사람 (예: @클로슈 이은지 남은 일)\n  · 출근 — 지금 출근한 사람');
         return rpc('msg_bot_post', { p_kind: 'answer', p_text: out.join('\n').slice(0, 3900), p_reply: msg.id }).then(function(row){ addMsgs([row]); renderMsgs('bottom'); botPush(row.id); });
       });
-    }).catch(function(e){ botFail(e); status('클로슈가 답하지 못했습니다. 잠시 뒤 다시 물어봐 주세요.'); });
+    }).catch(function(e){ if (/exists/.test(String(e && e.message))){ botTried[msg.id] = 9; return; } botFail(e); status('클로슈가 답하지 못했습니다. 잠시 뒤 다시 해 볼게요.'); });
   }
 
   // ── 출근·퇴근 (2026-10-19 원장님 "구성원이 어느 센터 on, off 상태를 표시") ─────────

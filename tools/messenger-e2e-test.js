@@ -40,7 +40,7 @@ const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE =
 let noPres = false, workClip = false, workAsk = false, workEarly = false;
 const TT = [], TTP = [], TTLOG = [], NOTES = [];
 let failTT = false;
-const BOT = { tick: { msgs: [], summary: false } };
+const BOT = { tick: { msgs: [], summary: false }, failAsk: 0 };
 const STUDENTS = [
   { name: '김민준', school: '서정중', grade: '2026 중등 3학년', teacher: '이은지', enrolled: 'Y' }, { name: '박하늘', teacher: '김지원', enrolled: 'Y' },
   { name: '이준A', school: '화정고', grade: '2026 고등 1학년', teacher: '이은지', enrolled: 'Y' }, { name: '이준B', school: '백양고', grade: '2026 고등 1학년', teacher: '김지원', enrolled: 'Y' },
@@ -225,6 +225,7 @@ function filterRows(rows, u){
       if (p === '/rest/v1/rpc/msg_bot_tick'){ calls.push(['tick']); const r = BOT.tick; BOT.tick = { msgs: [], summary: false }; return json(r); }
       if (p === '/rest/v1/rpc/msg_bot_ask'){
         const b = JSON.parse(req.postData()); calls.push(['ask', b]);
+        if (BOT.failAsk > 0){ BOT.failAsk--; return json({ message: 'temporary' }, 503); }
         const m = addMsg(null, b.p_text, []); m.author_name = '클로슈'; m.reply_to = b.p_msg; m.bot = { kind: 'ask', for: b.p_msg, options: b.p_options };
         return json(m);
       }
@@ -237,7 +238,7 @@ function filterRows(rows, u){
       }
       if (p === '/rest/v1/rpc/msg_bot_post'){
         const b = JSON.parse(req.postData()); calls.push(['bpost', b]);
-        const m = addMsg(null, b.p_text, []); m.author_name = '클로슈'; m.reply_to = b.p_reply || null; m.bot = { kind: b.p_kind };
+        const m = addMsg(null, b.p_text, []); m.author_name = '클로슈'; m.reply_to = b.p_reply || null; m.bot = { kind: b.p_kind, by: '고희주' };
         return json(m);
       }
       if (p === '/rest/v1/students'){ calls.push(['stu']); return json(STUDENTS); }
@@ -1124,6 +1125,7 @@ function filterRows(rows, u){
   let bp = calls.filter(c => c[0] === 'bpost').pop();
   ok(bp && bp[1].p_kind === 'answer' && /김민준 · 서정중 중3 · 담당 이은지 선생님/.test(bp[1].p_text) && /이번 주 수업: .* 6:00 중3 진도\(은지T\)/.test(bp[1].p_text), '학생 이름 → 담당·이번 주 수업 (' + (bp && bp[1].p_text) + ')');
   ok(!calls.filter(c => c[0] === 'send').pop()[1].p_mentions.length, '@클로슈는 할 일을 만들지 않음');
+  ok((await page.locator('.botm').last().textContent()).includes('고희주 님 질문에 답함'), '클로슈 답에 누구 질문인지 표시');
   await page.fill('#inp', '@클로슈 오늘 수업'); await page.click('#send');
   await page.waitForFunction(n => document.querySelectorAll('.botm').length > n, await page.locator('.botm').count() - 1, { timeout: 6000 }).catch(() => {});
   await sleep(800); bp = calls.filter(c => c[0] === 'bpost').pop();
@@ -1134,13 +1136,25 @@ function filterRows(rows, u){
   await page.fill('#inp', '@클로슈 안녕'); await page.click('#send'); await sleep(1200);
   bp = calls.filter(c => c[0] === 'bpost').pop();
   ok(bp && /이렇게 물어보세요/.test(bp[1].p_text), '모르는 질문엔 쓰는 법 안내');
+  // 클로슈 요청이 한 번 실패하면 다음 tick에 다시 (Codex 검토)
+  BOT.failAsk = 1;
+  const asks0 = calls.filter(c => c[0] === 'ask').length;
+  await page.click('#tags [data-tag="결석"]'); await page.fill('#inp', '중2 친구 결석'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  await sleep(1500);
+  ok(calls.filter(c => c[0] === 'ask').length === asks0 + 1 && !BOT.failAsk, '첫 배정 질문 실패');
+  await page.evaluate(() => { const D = Date, off = 61000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
+  await page.waitForFunction(n => true, null); await sleep(4500);
+  ok(calls.filter(c => c[0] === 'ask').length === asks0 + 2, '다음 tick에 배정 질문을 다시 올림');
+  await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
   // ②·③ 약속 지남 알림 · 오늘 정리
   const dueMsg = addMsg(null, '@이은지 약속 시각(10/20 오후 3:00)이 지났어요 — 교재 주문', []); dueMsg.author_name = '클로슈'; dueMsg.bot = { kind: 'due', to: [EUNJI] };
   BOT.tick = { msgs: [dueMsg.id], summary: true };
-  await page.evaluate(() => { const D = Date, off = 61000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
+  await page.evaluate(() => { const D = Date, off = 130000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
   await page.waitForFunction(() => true); await sleep(5000);
   ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === dueMsg.id), '약속 지남 알림 → 휴대폰 알림 요청');
   bp = calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'summary').pop();
+  ok(calls.filter(c => c[0] === 'tick').length >= 1 && calls.some(c => c[0] === 'bpost' && c[1].p_kind === 'summary'), '오늘 정리 전 최신 할 일을 다시 받음');
   ok(bp && /^오늘 정리 · /.test(bp[1].p_text) && /할 일: 오늘 완료 \d+건 · 남은 일 \d+건/.test(bp[1].p_text) && /수업 기록: \d+ \/ \d+ 완료/.test(bp[1].p_text), '밤 9시 오늘 정리 (' + (bp && bp[1].p_text.replace(/\n/g, ' / ')) + ')');
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'bot.png') });
   await ctx.close();
