@@ -661,11 +661,27 @@ function filterRows(rows, u){
   await page.click('#inp'); await page.keyboard.type('@이은');
   await page.waitForSelector('#mention.on');
   ok((await page.locator('#mention').textContent()).includes('정리정독 ON'), '@ 목록에 출근 상태');
+  await page.keyboard.press('Escape'); await page.fill('#inp', '');
+  // 출근 현황 목록
+  ok((await page.locator('#presListBtn').textContent()) === '출근 2명', '머리에 \'출근 2명\' 버튼 (' + (await page.locator('#presListBtn').textContent()) + ')');
+  await page.click('#presListBtn');
+  await page.waitForSelector('#plback:not([hidden])');
+  const pl = await page.locator('#plbody').textContent();
+  ok(/본원.*1명.*이수경.*출근/.test(pl) && /정리정독.*1명.*이은지.*출근/.test(pl), '센터별 출근자와 출근 시각');
+  ok(/오늘 퇴근.*1명.*고희주.*화정센터 · 퇴근/.test(pl), '오늘 퇴근한 사람은 퇴근 시각과 함께');
+  ok(/오늘 출근 기록 없음.*1명.*김지원/.test(pl), '오늘 기록 없는 사람');
+  ok((await page.locator('#pltitle').textContent()).includes('2명'), '제목에 출근 인원');
+  if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'pres-list.png') });
+  await page.keyboard.press('Escape');
+  ok(await page.locator('#plback').isHidden(), 'Esc로 닫힘');
+  await page.click('#pres');
+  ok(await page.locator('#plback').isVisible(), '업무 카드 위 출근 줄을 눌러도 열림');
+  await page.click('#plclose');
   await ctx.close();
   noPres = true;
   ({ ctx, page } = await open());
   await page.waitForSelector('#m' + m3.id); await sleep(500);
-  ok(await page.locator('#presBtn').isHidden() && await page.locator('#pres').isHidden(), '표가 없으면(마이그레이션 전) 출근 기능만 숨김');
+  ok(await page.locator('#presBtn').isHidden() && await page.locator('#pres').isHidden() && await page.locator('#presListBtn').isHidden(), '표가 없으면(마이그레이션 전) 출근 기능만 숨김');
   await ctx.close();
   noPres = false;
 

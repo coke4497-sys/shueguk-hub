@@ -45,6 +45,33 @@
   .pbtn::before{content:"";width:8px;height:8px;border-radius:50%;background:#C98B72;}
   .pbtn.on::before{background:#5E9A84;}
   .pbtn[hidden]{display:none;}
+  /* 출근 현황 목록 (2026-10-20 원장님 "출근한 사람 리스트를 확인할 수 있어야") */
+  .plbtn{border:0;border-radius:999px;font-size:13px;padding:7px 12px;background:var(--ok);color:var(--okInk);display:inline-flex;align-items:center;gap:5px;font-weight:700;}
+  .plbtn[hidden]{display:none;}
+  .plback{position:fixed;inset:0;background:rgba(42,51,47,.35);display:flex;align-items:flex-start;justify-content:flex-end;z-index:46;padding:58px 14px 14px;}
+  .plback[hidden]{display:none;}
+  .plpanel{background:#fff;border-radius:18px;padding:16px 18px;width:min(380px,100%);max-height:calc(100vh - 80px);overflow:auto;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 28px rgba(42,51,47,.18);}
+  .plhead{display:flex;align-items:center;gap:8px;}
+  .plhead .btitle{flex:1;}
+  .plsec h4{margin:0 0 6px;font-size:13px;color:var(--okInk);display:flex;align-items:center;gap:6px;}
+  .plsec h4 .n{font-weight:400;color:var(--cap);}
+  .plsec.off h4{color:var(--cap);}
+  .plrow{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:10px;background:var(--soft);font-size:14px;margin-bottom:4px;}
+  .plrow .nm{font-weight:700;}
+  .plrow .rl{font-size:12px;color:var(--cap);}
+  .plrow .tm{margin-left:auto;font-size:12.5px;color:var(--ink2);white-space:nowrap;}
+  .plrow.me{background:var(--ok);}
+  .plnone{font-size:13px;color:var(--cap);line-height:1.6;}
+  #pres{cursor:pointer;}
+  .pbtn,.plbtn{white-space:nowrap;flex:none;}
+  @media (max-width:900px){ .plback{padding:56px 10px 10px;justify-content:center;} }
+  /* 휴대폰 머리: 워드마크·버튼만 한 줄로 ('슈톡' 글자와 '실시간' 글자는 숨기고 점만) */
+  @media (max-width:520px){
+    header.top .title{display:none;}
+    header.top .script{font-size:24px;}
+    header.top .live{font-size:0;gap:0;}
+    .pbtn,.plbtn{padding:6px 10px;font-size:12.5px;}
+  }
   .presmenu{position:fixed;top:58px;right:18px;z-index:45;background:#fff;border-radius:16px;box-shadow:0 8px 28px rgba(42,51,47,.18);padding:12px;display:flex;flex-direction:column;gap:6px;min-width:210px;}
   .presmenu[hidden]{display:none;}
   .presmenu .pmt{font-size:12.5px;color:var(--cap);padding:0 4px 2px;}
@@ -250,6 +277,7 @@
       <span class="cnt" id="cnt"></span>
       <span class="grow"></span>
       <button class="ibtn sm" id="findBtn" type="button" aria-label="메시지 찾기" title="메시지 찾기 · 꼬리표로 모아 보기"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#4C6E66" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button>
+      <button class="plbtn" id="presListBtn" type="button" hidden aria-haspopup="dialog" title="오늘 출근 현황 보기">출근 0명</button>
       <button class="pbtn" id="presBtn" type="button" hidden aria-haspopup="true">출근하기</button>
       <span class="live off" id="live">연결 중</span>
       <span class="me" id="me"></span>
@@ -318,6 +346,12 @@
     </div>
     <p class="pnote">모든 메시지와 나에게 온 할 일이 바로 알림으로 옵니다. 기기마다 한 번씩 허용해 주세요.</p>
     <a class="pnote" href="index.html">티쳐스 첫 화면으로</a>
+  </div>
+</div>
+<div class="plback" id="plback" hidden>
+  <div class="plpanel" role="dialog" aria-modal="true" aria-labelledby="pltitle">
+    <div class="plhead"><span class="btitle" id="pltitle">오늘 출근 현황</span><button class="hbtn plain" type="button" id="plclose">닫기</button></div>
+    <div id="plbody"></div>
   </div>
 </div>
 <div class="presmenu" id="presMenu" hidden role="menu" aria-label="출근·퇴근">
@@ -1052,7 +1086,7 @@
   function renderPres(){
     var btn = $('presBtn');
     btn.hidden = !presOk || !ME;
-    if (!presOk || !ME){ $('pres').hidden = true; return; }
+    if (!presOk || !ME){ $('pres').hidden = true; $('presListBtn').hidden = true; return; }
     var mine = presLoc(ME.id);
     btn.classList.toggle('on', !!mine);
     btn.textContent = mine ? mine + ' 출근' : '출근하기';
@@ -1067,7 +1101,38 @@
     $('pres').hidden = false;
     document.querySelectorAll('#presMenu [data-loc]').forEach(function(b){ b.classList.toggle('cur', b.dataset.loc === mine); });
     $('presMenu').querySelector('[data-out]').hidden = !mine;
+    var onN = MEMBERS.length - off.length;
+    $('presListBtn').hidden = false;
+    $('presListBtn').textContent = '출근 ' + onN + '명';
+    if (!$('plback').hidden) renderPresList();
   }
+  // 출근 현황 목록 — 센터별 출근(출근 시각) · 오늘 퇴근(퇴근 시각) · 오늘 기록 없음
+  function renderPresList(){
+    var today = ymd(new Date().toISOString()), by = {}, left = [], none = [];
+    MEMBERS.forEach(function(m){
+      var r = PRES[m.id], l = presLoc(m.id);
+      if (l) (by[l] = by[l] || []).push({ m: m, at: r.changed_at });
+      else if (r && !r.is_on && ymd(r.changed_at) === today) left.push({ m: m, at: r.changed_at, loc: r.loc });
+      else none.push(m);
+    });
+    var row = function(x, tm){ return '<div class="plrow' + (x.m.id === ME.id ? ' me' : '') + '"><span class="nm">' + esc(x.m.name) + '</span><span class="rl">' + esc(roleLabel(x.m.role)) + '</span><span class="tm">' + tm + '</span></div>'; };
+    var byTime = function(a, b){ return Date.parse(a.at) - Date.parse(b.at); };
+    var onN = 0, html = PRES_LOCS.filter(function(l){ return by[l]; }).map(function(l){
+      onN += by[l].length;
+      return '<div class="plsec"><h4>' + esc(l) + ' <span class="n">' + by[l].length + '명</span></h4>' + by[l].sort(byTime).map(function(x){ return row(x, '출근 ' + hm(x.at)); }).join('') + '</div>';
+    });
+    if (!onN) html.push('<div class="plnone">아직 출근한 사람이 없습니다.</div>');
+    if (left.length) html.push('<div class="plsec off"><h4>오늘 퇴근 <span class="n">' + left.length + '명</span></h4>' + left.sort(byTime).map(function(x){ return row(x, esc(x.loc || '') + ' · 퇴근 ' + hm(x.at)); }).join('') + '</div>');
+    if (none.length) html.push('<div class="plsec off"><h4>오늘 출근 기록 없음 <span class="n">' + none.length + '명</span></h4><div class="plnone">' + none.map(function(m){ return esc(m.name); }).join(', ') + '</div></div>');
+    $('pltitle').textContent = '오늘 출근 현황 · ' + md(new Date().toISOString()) + ' · ' + onN + '명';
+    $('plbody').innerHTML = html.join('');
+  }
+  function presList(open){ $('plback').hidden = !open; if (open){ renderPresList(); loadPres(); } }
+  $('presListBtn').onclick = function(){ presList(true); };
+  $('pres').addEventListener('click', function(){ presList(true); });
+  $('plclose').onclick = function(){ presList(false); };
+  $('plback').addEventListener('click', function(e){ if (e.target === $('plback')) presList(false); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('plback').hidden) presList(false); });
   function presMenu(open){
     var m = $('presMenu');
     if (open){ var r = $('presBtn').getBoundingClientRect(); m.style.top = (r.bottom + 6) + 'px'; m.style.right = Math.max(8, window.innerWidth - r.right) + 'px'; }
