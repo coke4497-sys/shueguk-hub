@@ -834,6 +834,18 @@ function filterRows(rows, u){
   ok(await page.locator('[data-cx="' + jw4.id + '"]').count() === 0, '상관없는 할 일엔 [관리] 없음');
   await ctx.close();
 
+  console.log('㉓ 불러오지 않은 메시지의 취소 줄 (Codex 검토)');
+  const old1 = addTask(m1, ME, '지운 옛 메시지 할 일', NOWISO()); Object.assign(old1, { status: '취소', cancel_reason: '옛 사유', done_by_name: '고희주', done_at: NOWISO(), updated_at: ts() });
+  const old3 = addTask(m3, ME, '살아 있는 옛 메시지 할 일', NOWISO()); Object.assign(old3, { status: '취소', cancel_reason: '옛 사유2', done_by_name: '고희주', done_at: NOWISO(), updated_at: ts() });
+  for (let i = 0; i < 85; i++) addMsg(EUNJI, '밀어내기 ' + i, [], ts());   // 원문이 처음 80개 밖으로
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#msgs .m');
+  ok(!(await page.locator('#m' + m1.id).count()) && !(await page.locator('#m' + m3.id).count()), '두 원문 모두 화면 밖(불러오지 않음) (' + (await page.locator('#m' + m1.id).count()) + (await page.locator('#m' + m3.id).count()) + '·' + MSGS.length + ')');
+  await page.waitForFunction(id => document.querySelector('[data-uncx="' + id + '"]'), old3.id, { timeout: 5000 }).catch(() => {});
+  ok(await page.locator('[data-uncx="' + old3.id + '"]').count() === 1, '지우지 않은 원문이면 받아 온 뒤 [되돌리기]');
+  ok(await page.locator('[data-uncx="' + old1.id + '"]').count() === 0 && (await page.locator('.pc[data-person="' + ME + '"]').textContent()).includes('옛 사유'), '지운 원문이면 취소 줄만, [되돌리기] 없음');
+  await ctx.close();
+
   console.log('⑫ 출근 전 카드는 흐리게 · 오늘 수업 기록 줄 (2026-10-20 원장님)');
   const kd = new Date(Date.now() + 9 * 3600e3), today = kd.toISOString().slice(0, 10), dn = '일월화수목금토'[kd.getUTCDay()];
   const wedOf = y => { const d = new Date(y + 'T00:00:00Z'), k = d.getUTCDay(); d.setUTCDate(d.getUTCDate() + (k === 1 || k === 2 ? 3 - k : -((k - 3 + 7) % 7))); return d.toISOString().slice(0, 10); };   // 월·화는 다가오는 수요일 주차
@@ -896,7 +908,7 @@ function filterRows(rows, u){
   // 시간표를 못 읽어도 3초마다 다시 부르지 않는다(1분 뒤에) (Codex 검토)
   failTT = true;
   ({ ctx, page } = await open());
-  await page.waitForSelector('#m' + m3.id); await sleep(7500);
+  await page.waitForSelector('#msgs .m'); await sleep(7500);
   const tries = calls.filter(c => c[0] === 'ttfail' && c[1] === '/rest/v1/tt_period').length;
   ok(tries === 1, '실패해도 1분 안에는 다시 안 부름 (' + tries + '번)');
   ok(await page.locator('.ls').count() === 0 && await page.locator('.pc').count() >= 4, '못 읽으면 수업 줄 없이 카드만 (' + await page.locator('.ls').count() + '·' + await page.locator('.pc').count() + ')');

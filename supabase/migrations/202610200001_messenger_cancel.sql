@@ -16,10 +16,14 @@ declare
   v_me public.teacher_accounts := private.msg_me();
   v_t public.msg_tasks;
   v_reason text := btrim(coalesce(p_reason, ''));
+  v_mid bigint;
 begin
   if v_me.user_id is null then
     raise exception 'not_teacher' using errcode = '42501';
   end if;
+  -- msg_delete 와 같은 순서(메시지 → 할 일)로 잠근다 — 지우는 중에 되돌리기가 끼어들지 않게 (Codex 검토)
+  select message_id into v_mid from public.msg_tasks where id = p_id;
+  perform 1 from public.msg_messages where id = v_mid for update;
   select * into v_t from public.msg_tasks where id = p_id for update;
   if v_t.id is null then
     raise exception 'not_found';

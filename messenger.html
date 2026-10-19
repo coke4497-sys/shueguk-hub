@@ -768,7 +768,7 @@
     api('/msg_messages?select=id,author_name,body,files,deleted_at,updated_at&id=in.(' + ids.join(',') + ')').then(function(rows){
       (rows || []).forEach(function(r){ QCACHE[r.id] = r; });
       ids.forEach(function(id){ if (!QCACHE[id]) QCACHE[id] = { author_name: '', body: '', deleted_at: '1' }; });
-      renderMsgs('keep');
+      renderMsgs('keep'); renderBoard();
     }).catch(function(){});
   }
   function setReply(id){
@@ -1140,6 +1140,12 @@
   function canDefer(t){ return 'due_at' in t && t.status === '대기' && (t.assignee === ME.id || ME.role === 'admin'); }
   function canDeleg(t){ return 'hand_push' in t && t.status === '대기' && !t.ack_only && (t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'); }
   function canManage(t){ return t.status === '대기' && (canCancel(t) || canDefer(t) || canDeleg(t)); }
+  // 그 메시지가 지워지지 않았다고 알 때만 true — 불러오지 않은 메시지는 받아 온 뒤 다시 그린다(Codex 검토)
+  function msgAlive(id){
+    var m = MSGS.get(id) || QCACHE[id];
+    if (!m){ qWant[id] = 1; return false; }
+    return !m.deleted_at;
+  }
   function canCancel(t){ if (!('cancel_reason' in t)) return false; if (t.ack_only) return t.requester === ME.id || ME.role === 'admin'; return t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'; }
   function canCheck(t){ if (t.ack_only) return t.assignee === ME.id && t.status !== '완료'; return t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'; }   // @모두 할 일은 본인만, 확인한 뒤엔 되돌리지 않음
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
@@ -1185,7 +1191,7 @@
       }).concat(p.done.sort(function(a, b){ return Date.parse(b.done_at) - Date.parse(a.done_at); }).map(function(t){
         if (t.status === '취소') return '<div class="ci d x"><span class="bx x" title="취소한 할 일">×</span>'
           + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · 취소 ' + hm(t.done_at) + (t.done_by_name ? ' (' + esc(t.done_by_name) + ')' : '') + '<br><span class="why">사유: ' + esc(t.cancel_reason || '') + '</span>' + histHtml(t) + '</span></button>'
-          + (canCancel(t) && !(MSGS.get(t.message_id) || {}).deleted_at ? '<button class="cxb" type="button" data-uncx="' + t.id + '" title="취소를 풀고 다시 할 일로">되돌리기</button>' : '') + '</div>';
+          + (canCancel(t) && msgAlive(t.message_id) ? '<button class="cxb" type="button" data-uncx="' + t.id + '" title="취소를 풀고 다시 할 일로">되돌리기</button>' : '') + '</div>';
         return '<div class="ci d"><button class="bx on" type="button" data-tk="' + t.id + '" data-done="1" aria-label="완료 취소"' + (canCheck(t) ? '' : ' disabled') + '>' + CHECK + '</button>'
           + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</span></button></div>';
       })).join('');
@@ -1196,6 +1202,7 @@
     });
     if (!html.length) html.push('<div class="none">해당하는 카드가 없습니다.</div>');
     $('cards').innerHTML = html.join('');
+    if (Object.keys(qWant).length) fillQuotes();   // 취소 줄의 원문(지웠는지)을 받아 온다
   }
   document.querySelectorAll('.fl').forEach(function(b){
     b.onclick = function(){ filter = b.dataset.f; document.querySelectorAll('.fl').forEach(function(x){ x.classList.toggle('on', x === b); }); renderBoard(); };
