@@ -2,6 +2,7 @@
 // POST { action: 'key' }                 → { key }  VAPID 공개 키 (구독할 때 쓴다)
 // POST { action: 'send', message_id }    → 그 메시지 알림을 보낸다 (한 메시지에 한 번만 — msg_messages.pushed_at 으로 잡음)
 // POST { action: 'test' }                → 내 기기들에 시험 알림
+// POST { action: 'hand', task_id }       → 내가 넘긴 할 일을 받은 사람 기기에 알림 (msg_tasks.hand_push 로 한 번만 — 202610200002)
 // 호출하는 사람은 활성 교사(teacher_accounts)여야 한다. 받는 사람: 작성자 빼고 구독한 모든 기기
 //   (mode='mention' 기기는 그 메시지에서 자기에게 할 일이 생겼을 때만).
 // 비밀값: VAPID_PUBLIC_KEY · VAPID_PRIVATE_KEY (supabase secrets set) — 저장소에 넣지 않는다.
@@ -51,6 +52,16 @@ export function plan(msg: Msg, tasks: Task[], subs: Sub[], active: Set<string>) 
         },
       }
     })
+}
+
+// 넘겨받은 사람에게 보낼 내용 — 순수 함수(시험용)
+type Hand = { id: number; message_id: number; text: string; to: string; status: string }
+export function handPlan(t: Hand, byName: string, subs: Sub[], active: Set<string>) {
+  if (t.status !== '대기' || !active.has(t.to)) return []
+  return subs.filter((s) => s.user_id === t.to).map((s) => ({
+    sub: s,
+    payload: { title: byName + ' → 나에게 넘긴 일', body: cut(t.text, 140), url: PAGE + '#m' + t.message_id, tag: 'tk' + t.id, task: true },
+  }))
 }
 
 let ready = false
@@ -142,6 +153,33 @@ const handler = withSupabase({ auth: 'user' }, async (request, context) => {
     const active = new Set<string>((act || []).map((r: { user_id: string }) => r.user_id))
     const items = plan(msg, tasks || [], subs || [], active)
     return reply(200, { targets: items.length, ...(await deliver(admin, items)) })
+  }
+  if (input.action === 'hand') {
+    const id = Number(input.task_id)
+    if (!Number.isInteger(id) || id <= 0) return reply(400, { error: 'bad_id' })
+    // send 와 같은 순서 — 다 읽고, 성공했을 때만 알림 자리(hand_push)를 비워 한 번만 보낸다
+    const [t, a] = await Promise.all([
+      admin.from('msg_tasks').select('id,message_id,text,status,hand_push').eq('id', id).eq('hand_by', uid).not('hand_push', 'is', null).maybeSingle(),
+      admin.from('teacher_accounts').select('user_id').eq('active', true),
+    ])
+    if (t.error || a.error) return reply(503, { error: 'lookup_failed' })
+    if (!t.data) return reply(200, { skipped: true })
+    const to = t.data.hand_push as string
+    const s = await admin.from('msg_push_subs').select('*').eq('user_id', to)
+    if (s.error) return reply(503, { error: 'lookup_failed' })
+    const { data: claimed, error: ce } = await admin.from('msg_tasks').update({ hand_push: null })
+      .eq('id', id).eq('hand_by', uid).eq('hand_push', to).select('id,message_id,text,status')
+    if (ce) return reply(503, { error: 'claim_failed' })
+    if (!claimed || !claimed.length) return reply(200, { skipped: true })
+    const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
+    const items = handPlan({ ...claimed[0], to }, me.display_name, s.data || [], active)
+    const r = await deliver(admin, items)
+    // 한 기기에도 못 보냈고 일시적 실패가 있으면 자리를 되돌려 화면이 5초 뒤 다시 부르게 한다 (Codex 검토)
+    if (!r.sent && r.failed) {
+      await admin.from('msg_tasks').update({ hand_push: to }).eq('id', id).is('hand_push', null)
+      return reply(503, { error: 'deliver_failed', targets: items.length, ...r })
+    }
+    return reply(200, { targets: items.length, ...r })
   }
   return reply(400, { error: 'bad_action' })
 })
