@@ -215,6 +215,11 @@
   #cards{flex:1;overflow-y:auto;padding:4px 18px 18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;align-content:start;}
   .pc{background:#fff;border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:9px;}
   .pc.flash{box-shadow:0 0 0 3px var(--lavBar);}
+  .pc.offd{background:#F1F4F2;}
+  .pc.offd .pn,.pc.offd .ctx{color:#7A8680;}
+  .pc.offd .bar i{opacity:.5;}
+  a.ctx{text-decoration:none;display:block;}
+  .tg.cl{background:#EEF2F0;color:#4C6E66;}
   .ph1{display:flex;align-items:baseline;gap:8px;}
   .pn{font-family:"Do Hyeon",sans-serif;font-size:19px;}
   .prl{font-size:12px;color:var(--cap);}
@@ -230,7 +235,6 @@
   .meta{display:block;font-size:11.5px;color:var(--cap);margin-top:1px;}
   .meta.lt{color:var(--lateInk);}
   .none{font-size:13px;color:var(--cap);}
-  .idle{grid-column:1/-1;font-size:12.5px;color:var(--ink2);}
   .notice{margin:30px auto;max-width:520px;background:#fff;border-radius:16px;padding:20px 22px;line-height:1.7;font-size:14.5px;}
   .hbtn.on{background:var(--ok);color:var(--okInk);}
   .hbtn.warn{background:#F7E2DE;color:var(--lateInk);}
@@ -449,7 +453,7 @@
       ready = true;
       renderMsgs('first'); renderBoard();
       var hm0 = location.hash.match(/^#m(\d+)$/); if (hm0) goTo(Number(hm0[1]));
-      pushInit(); loadPres();
+      pushInit(); loadPres(); loadLessons(true);
       setLive(true); schedule();
     }).catch(function(e){
       setLive(false);
@@ -513,7 +517,7 @@
       if (mc || tc || deleted.length || qch){ renderMsgs(lastMsgId() > lastBefore ? 'new' : 'keep'); renderBoard(); }
       notifyNew(newMsgs.filter(function(m){ return m.id > lastBefore && m.author !== ME.id && !m.deleted_at; }));
     }).catch(function(){ setLive(false); }).then(function(){ polling = false; schedule(); });
-    loadPres();
+    loadPres(); loadLessons();
   }
   document.addEventListener('visibilitychange', function(){ if (document.hidden) tellReading(false); if (!document.hidden){ unseen = 0; document.title = '슈톡 · Shuetalk'; markRead(); poll(); } });
 
@@ -992,16 +996,93 @@
   }
   $('send').onclick = send;
 
+  // ── 오늘 수업 기록 (2026-10-20 원장님 "수업이 있는 경우 각 반의 수업 기록을 리스트에 추가. 완료하면 자동으로 체크") ──
+  // 오늘 시간표(그 주 정규/내신 + 학년 예외, '이 주만' 반, 휴강·옮긴 수업 제외 — 리포트 classlog.html '기록 없는 수업'과 같은 규칙)를
+  // 담당T 이름으로 사람에게 붙이고, class_notes 에 [리포트 생성](requested_at)이 있으면 완료로 체크한다. 1분마다 다시 읽는다.
+  var LES = { ok: false, day: '', by: {}, at: 0, busy: false };
+  var LES_MS = 60000, TT_URL = 'https://coke4497-sys.github.io/shueguk-report/timetable.html';
+  var WDAY = '일월화수목금토';
+  function addDay(y, n){ var d = new Date(y + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+  function prevWed(y){ return addDay(y, -((new Date(y + 'T00:00:00Z').getUTCDay() - 3 + 7) % 7)); }
+  function gradeOfName(n){ var m = /([중고])\s*([1-3])/.exec(String(n || '')); return m ? m[1] + m[2] : ''; }
+  function minsOf(t){   // 시간표 표기('5:30'·'오전9:30'·'밤10:00') → 분 (timetable.html mins 와 같은 규칙)
+    var s = String(t || '').trim(), am = s.indexOf('오전') === 0, night = s.indexOf('밤') === 0;
+    var p = s.replace(/^(오전|밤)\s*/, '').split(':'), h = parseInt(p[0], 10) || 0, m = parseInt(p[1], 10) || 0;
+    if (am) return (h === 12 ? 0 : h) * 60 + m;
+    if (night) return (h === 12 ? 24 : h + 12) * 60 + m;
+    if (h < 10) h += 12;
+    return h * 60 + m;
+  }
+  // 시간표 담당T('은지'·'슈'·'김지원T') ↔ 슈톡 사람(표시 이름) — 끝 두 글자, '슈'는 이수경 (question.html teacherKey 와 같은 규칙)
+  function teacherKey(t){
+    t = String(t || '').replace(/\s+/g, '').replace(/T$/, '').replace(/(선생님|쌤)$/, '').replace(/[A-Z]$/, '');
+    if (t === '이수경' || t === '수경' || t === '슈') return '슈';
+    return t.length >= 3 ? t.slice(-2) : t;
+  }
+  function lessonUid(teacher){
+    var k = teacherKey(teacher); if (!k) return '';
+    var hit = MEMBERS.filter(function(m){ return teacherKey(m.name) === k; });
+    if (hit.length > 1) hit = hit.filter(function(m){ return m.role !== 'assistant'; });
+    return hit.length === 1 ? hit[0].id : '';   // 못 가리면 붙이지 않는다
+  }
+  function loadLessons(force){
+    var day = todayYmd();
+    if (LES.busy || (!force && LES.day === day && Date.now() - LES.at < LES_MS)) return;
+    LES.busy = true;
+    var wed = prevWed(day), wid = 'w' + day.slice(2).replace(/-/g, ''), dn = WDAY[new Date(day + 'T00:00:00Z').getUTCDay()];
+    var sel = '?select=book,class_id,name,day,start_time,end_time,teacher,roster';
+    Promise.all([
+      api('/tt_classes' + sel + '&day=eq.' + encodeURIComponent(dn) + '&class_id=not.like.w*&limit=1000'),
+      api('/tt_classes' + sel + '&class_id=like.' + wid + '*&limit=200'),
+      api('/tt_period?select=week_wednesday,book,overrides&week_wednesday=eq.' + wed)
+        .catch(function(e){ if (e && e.status === 400) return api('/tt_period?select=week_wednesday,book&week_wednesday=eq.' + wed); throw e; }),   // overrides 열 없는 DB(047 전)
+      api('/tt_log?select=kind,from_class_id,apply_date&kind=in.(' + encodeURIComponent('주간반휴강,주간반이동') + ')&apply_date=eq.' + day + '&limit=500'),
+      api('/class_notes?select=book,class_id,report_status,requested_at,updated_at&ymd=eq.' + day + '&limit=1000')
+    ]).then(function(r){
+      var p = (r[2] || [])[0] || {}, book0 = p.book || '정규', ov = (p.overrides && typeof p.overrides === 'object') ? p.overrides : {};
+      var off = {}; (r[3] || []).forEach(function(l){ off[l.from_class_id] = 1; });
+      var notes = {}; (r[4] || []).forEach(function(n){ notes[n.book + '|' + n.class_id] = n; });
+      var by = {};
+      (r[0] || []).concat(r[1] || []).forEach(function(c){
+        var isW = /^w/.test(c.class_id);
+        if (!isW){
+          var g = gradeOfName(c.name), book = (g && ov[g]) ? ov[g] : book0;   // 학년별 예외 주면 그 학년 반은 다른 시간표
+          if (c.book !== book || !String(c.roster || '').trim()) return;
+        }
+        if (off[c.class_id]) return;
+        var uid = lessonUid(c.teacher); if (!uid) return;
+        var n = notes[c.book + '|' + c.class_id];
+        var done = !!(n && (n.requested_at || /^(요청|공개|보류)$/.test(n.report_status || '')));
+        (by[uid] = by[uid] || []).push({ book: c.book, id: c.class_id, name: c.name, start: c.start_time, end: c.end_time, done: done, saved: !!n, at: n && (n.requested_at || n.updated_at) });
+      });
+      Object.keys(by).forEach(function(k){ by[k].sort(function(a, b){ return minsOf(a.start) - minsOf(b.start) || String(a.name).localeCompare(String(b.name), 'ko'); }); });
+      var changed = !LES.ok || LES.day !== day || JSON.stringify(by) !== JSON.stringify(LES.by);
+      LES.by = by; LES.ok = true; LES.day = day; LES.at = Date.now();
+      if (changed && ready) renderBoard();
+    }).catch(function(){ LES.at = Date.now(); })   // 시간표를 못 읽으면 수업 줄 없이 그대로(1분 뒤 다시)
+      .then(function(){ LES.busy = false; });
+  }
+  function lessonsOf(uid){ return (LES.ok && LES.day === todayYmd() && LES.by[uid]) || []; }
+  function lessonHtml(l){
+    var t = String(l.start || '') + (l.end ? '~' + l.end : '');
+    var st = l.done ? '기록 완료' + (l.at ? ' ' + hm(l.at) : '') : (l.saved ? '기록 중 · 리포트 생성 전' : '아직 기록 전');
+    return '<div class="ci ls' + (l.done ? ' d' : '') + '"><span class="bx' + (l.done ? ' on' : '') + '" title="수업 기록에서 [리포트 생성]을 누르면 자동으로 체크돼요">' + (l.done ? CHECK : '') + '</span>'
+      + '<a class="ctx" href="' + TT_URL + '?cr=' + encodeURIComponent(l.book + '|' + l.id + '|' + todayYmd()) + '" target="_blank" rel="noopener"><span class="tg cl">수업 기록</span>'
+      + esc(t + ' ' + l.name) + '<span class="meta">' + esc(st) + '</span></a></div>';
+  }
+
   // ── 업무 카드 ─────────────────────────────────────
   function canCheck(t){ if (t.ack_only) return t.assignee === ME.id && t.status !== '완료'; return t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'; }   // @모두 할 일은 본인만, 확인한 뒤엔 되돌리지 않음
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
+  // 모든 사람에게 카드 — 출근하지 않은 사람은 흐리게(내용은 그대로 보임), 오늘 수업이 있으면 반마다 수업 기록 줄 (2026-10-20 원장님)
   function people(){
     var start = dayStartMs(), map = {};
+    MEMBERS.forEach(function(m){ map[m.id] = { key: m.id, name: m.name, role: m.role, todo: [], done: [], les: lessonsOf(m.id) }; });
     TASKS.forEach(function(t){
       var done = t.status === '완료';
       if (done && !(t.done_at && Date.parse(t.done_at) >= start)) return;
       var key = t.assignee || ('n:' + t.assignee_name);
-      if (!map[key]){ var mem = MBY[t.assignee]; map[key] = { key: key, name: mem ? mem.name : t.assignee_name, role: mem ? mem.role : '', todo: [], done: [] }; }
+      if (!map[key]){ var mem = MBY[t.assignee]; map[key] = { key: key, name: mem ? mem.name : t.assignee_name, role: mem ? mem.role : '', todo: [], done: [], les: [] }; }
       map[key][done ? 'done' : 'todo'].push(t);
     });
     return map;
@@ -1009,21 +1090,21 @@
   function renderBoard(){
     var map = people(), list = Object.keys(map).map(function(k){ return map[k]; });
     var all = 0, fin = 0;
-    list.forEach(function(p){ all += p.todo.length + p.done.length; fin += p.done.length; });
+    list.forEach(function(p){ p.lesTodo = p.les.filter(function(l){ return !l.done; }).length; p.left = p.todo.length + p.lesTodo; p.fin = p.done.length + p.les.length - p.lesTodo; p.tot = p.left + p.fin; p.on = !presOk || !!presLoc(p.key); all += p.tot; fin += p.fin; });
     $('sum').textContent = all ? '전체 ' + fin + ' / ' + all + ' 완료' : '오늘 맡긴 일이 없습니다';
     $('sumbar').style.width = (all ? Math.round(fin * 100 / all) : 0) + '%';
-    var mineCnt = map[ME.id] ? map[ME.id].todo.length : 0;
+    var mineCnt = map[ME.id] ? map[ME.id].left : 0;
     $('tabBoard').textContent = '업무 카드' + (mineCnt ? ' · 내 할 일 ' + mineCnt : '');
     var shown = list.filter(function(p){
       if (filter === 'assistant') return p.role === 'assistant';
       if (filter === 'teacher') return p.role !== 'assistant';
-      if (filter === 'todo') return p.todo.length > 0;
+      if (filter === 'todo') return p.left > 0;
       return true;
-    }).sort(function(a, b){ return (b.key === ME.id) - (a.key === ME.id) || b.todo.length - a.todo.length || a.name.localeCompare(b.name, 'ko'); });
+    }).sort(function(a, b){ return (b.key === ME.id) - (a.key === ME.id) || b.on - a.on || b.left - a.left || a.name.localeCompare(b.name, 'ko'); });
     var now = Date.now(), start = dayStartMs();
     var html = shown.map(function(p){
-      var tot = p.todo.length + p.done.length, pct = tot ? Math.round(p.done.length * 100 / tot) : 0, full = tot && !p.todo.length;
-      var items = p.todo.sort(function(a, b){ return a.id - b.id; }).map(function(t){
+      var tot = p.tot, pct = tot ? Math.round(p.fin * 100 / tot) : 0, full = tot && !p.left;
+      var items = p.les.map(lessonHtml).join('') + p.todo.sort(function(a, b){ return a.id - b.id; }).map(function(t){
         var c = Date.parse(t.created_at), late = c < start ? md(t.created_at) + '부터 남음' : (now - c > LATE_MS ? Math.floor((now - c) / 3600e3) + '시간 지남' : '');
         return '<div class="ci"><button class="bx" type="button" data-tk="' + t.id + '" aria-label="완료로 표시"' + (canCheck(t) ? '' : ' disabled title="맡은 사람·맡긴 사람만 체크할 수 있어요"') + '></button>'
           + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta' + (late ? ' lt' : '') + '">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + (late ? ' · ' + late : '') + (t.seen_at ? ' · 확인함' : '') + '</span></button>'
@@ -1032,13 +1113,12 @@
         return '<div class="ci d"><button class="bx on" type="button" data-tk="' + t.id + '" data-done="1" aria-label="완료 취소"' + (canCheck(t) ? '' : ' disabled') + '>' + CHECK + '</button>'
           + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</span></button></div>';
       })).join('');
-      return '<section class="pc" data-person="' + esc(p.key) + '"><div class="ph1"><span class="pn">' + esc(p.name) + '</span><span class="prl">' + (p.key === ME.id ? '나 · ' : '') + esc(p.role ? roleLabel(p.role) : '') + '</span>' + presTag(p.key)
-        + '<span class="pcnt' + (full ? ' full' : '') + '">' + p.done.length + ' / ' + tot + (full ? ' 완료' : '') + '</span></div>'
+      if (!tot) items += '<div class="none">오늘 할 일이 없습니다.</div>';
+      return '<section class="pc' + (p.on ? '' : ' offd') + '" data-person="' + esc(p.key) + '"' + (p.on ? '' : ' title="출근 전 · 내용은 볼 수 있어요"') + '><div class="ph1"><span class="pn">' + esc(p.name) + '</span><span class="prl">' + (p.key === ME.id ? '나 · ' : '') + esc(p.role ? roleLabel(p.role) : '') + '</span>' + presTag(p.key)
+        + '<span class="pcnt' + (full ? ' full' : '') + '">' + p.fin + ' / ' + tot + (full ? ' 완료' : '') + '</span></div>'
         + '<div class="bar"><i class="' + (full ? 'full' : '') + '" style="width:' + pct + '%"></i></div>' + items + '</section>';
     });
-    var idle = MEMBERS.filter(function(m){ return !map[m.id]; }).map(function(m){ var l = presOk ? presLoc(m.id) : ''; return m.name + (l ? '(' + l + ')' : ''); });
-    if (!html.length) html.push('<div class="none">' + (filter === 'all' ? '오늘 맡긴 일이 없습니다. 대화에 @이름을 넣으면 여기 카드가 생깁니다.' : '해당하는 카드가 없습니다.') + '</div>');
-    if (idle.length && filter !== 'todo') html.push('<div class="idle">오늘 할 일 없음 · ' + idle.map(esc).join(', ') + '</div>');
+    if (!html.length) html.push('<div class="none">해당하는 카드가 없습니다.</div>');
     $('cards').innerHTML = html.join('');
   }
   document.querySelectorAll('.fl').forEach(function(b){

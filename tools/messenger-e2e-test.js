@@ -38,6 +38,7 @@ let mid = 0, tid = 0, clock = 0;
 const ts = () => new Date(Date.now() + (clock++)).toISOString();
 const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [];
 let noPres = false;
+const TT = [], TTP = [], TTLOG = [], NOTES = [];   // 시간표·기간·주간 기록·수업 기록 (오늘 수업 줄)
 function addMsg(author, body, files, createdIso){
   const t = createdIso || ts();
   const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null, reply_to: null };
@@ -178,6 +179,14 @@ function filterRows(rows, u){
         return json(filterRows(MSGS, u));
       }
       if (p === '/rest/v1/msg_tasks') return json(filterRows(TASKS, u));
+      if (p === '/rest/v1/tt_classes'){
+        calls.push(['tt', u.search]);
+        const cid = u.searchParams.get('class_id') || '', day = (u.searchParams.get('day') || '').replace(/^eq\./, '');
+        return json(TT.filter(c => cid.startsWith('not.like.w') ? !/^w/.test(c.class_id) && (!day || c.day === day) : cid.startsWith('like.') ? c.class_id.startsWith(cid.slice(5).replace('*', '')) : true));
+      }
+      if (p === '/rest/v1/tt_period') return json(TTP.filter(x => 'eq.' + x.week_wednesday === u.searchParams.get('week_wednesday')));
+      if (p === '/rest/v1/tt_log') return json(TTLOG.filter(x => 'eq.' + x.apply_date === u.searchParams.get('apply_date')));
+      if (p === '/rest/v1/class_notes') return json(NOTES.filter(x => 'eq.' + x.ymd === u.searchParams.get('ymd')));
       if (p.startsWith('/storage/v1/object/authenticated/msg-files/')){
         const key = decodeURIComponent(p.slice('/storage/v1/object/authenticated/msg-files/'.length));
         calls.push(['get', key]);
@@ -220,7 +229,8 @@ function filterRows(rows, u){
   const jiwon = page.locator('.pc[data-person="44444444-4444-4444-4444-444444444444"]');
   ok(await jiwon.locator('.bx').first().isDisabled(), '남끼리의 일은 체크 불가');
   ok((await page.locator('#sum').textContent()) === '전체 0 / 4 완료', '전체 진행');
-  ok((await page.locator('.idle').textContent()).includes('이수경'), '할 일 없는 사람 줄');
+  ok(await page.locator('.pc').count() === 4, '모든 사람에게 카드 (4장)');
+  ok((await page.locator('.pc[data-person="' + BOSS + '"]').textContent()).includes('오늘 할 일이 없습니다'), '할 일 없는 사람도 카드');
 
   console.log('③ 체크');
   await firstCard.locator('.bx').last().click();
@@ -288,7 +298,7 @@ function filterRows(rows, u){
   await page.click('.fl[data-f="assistant"]');
   ok(await page.locator('.pc').count() === 1, '조교만');
   await page.click('.fl[data-f="teacher"]');
-  ok(await page.locator('.pc').count() === 2, '선생님만');
+  ok(await page.locator('.pc').count() === 3, '선생님만(관리자 포함)');
   await page.click('.fl[data-f="all"]');
   await ctx.close();
 
@@ -704,6 +714,54 @@ function filterRows(rows, u){
   ok(await page.locator('#presBtn').isHidden() && await page.locator('#pres').isHidden() && await page.locator('#presListBtn').isHidden(), '표가 없으면(마이그레이션 전) 출근 기능만 숨김');
   await ctx.close();
   noPres = false;
+
+  console.log('⑫ 출근 전 카드는 흐리게 · 오늘 수업 기록 줄 (2026-10-20 원장님)');
+  const kd = new Date(Date.now() + 9 * 3600e3), today = kd.toISOString().slice(0, 10), dn = '일월화수목금토'[kd.getUTCDay()];
+  const wedOf = y => { const d = new Date(y + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - (d.getUTCDay() - 3 + 7) % 7); return d.toISOString().slice(0, 10); };
+  const wid = 'w' + today.slice(2).replace(/-/g, '');
+  TTP.push({ week_wednesday: wedOf(today), book: '내신', overrides: { '중2': '정규' } });
+  TT.push(
+    { book: '내신', class_id: 'n001', name: '고2 화정A', day: dn, start_time: '5:30', end_time: '7:00', teacher: '은지', roster: '가 나' },
+    { book: '내신', class_id: 'n002', name: '고2 확인', day: dn, start_time: '오전9:30', end_time: '11:00', teacher: '은지', roster: '다' },
+    { book: '정규', class_id: 'r001', name: '고2 가', day: dn, start_time: '2:00', end_time: '3:30', teacher: '은지', roster: '라' },        // 내신 주라 정규 반은 없음
+    { book: '정규', class_id: 'r002', name: '정리정독 중2', day: dn, start_time: '8:00', end_time: '9:30', teacher: '은지', roster: '마' }, // 학년 예외(중2 정규)라 있음
+    { book: '내신', class_id: 'n003', name: '중2 진도', day: dn, start_time: '4:00', end_time: '5:00', teacher: '은지', roster: '바' },     // 학년 예외라 없음
+    { book: '내신', class_id: 'n004', name: '고1 휴강반', day: dn, start_time: '3:00', end_time: '4:00', teacher: '은지', roster: '사' },
+    { book: '내신', class_id: 'n005', name: '고1 빈반', day: dn, start_time: '3:00', end_time: '4:00', teacher: '은지', roster: '' },
+    { book: '내신', class_id: wid + 'a', name: '고1 직보', day: dn, start_time: '1:00', end_time: '3:00', teacher: '지원', roster: '' },
+    { book: '내신', class_id: 'n006', name: '고3파이널A', day: dn, start_time: '7:00', end_time: '9:00', teacher: '슈', roster: '아' },
+    { book: '내신', class_id: 'n007', name: '고1 모르는T', day: dn, start_time: '7:00', end_time: '9:00', teacher: '현지', roster: '자' });
+  TTLOG.push({ kind: '주간반휴강', from_class_id: 'n004', apply_date: today });
+  NOTES.push({ book: '내신', class_id: 'n002', ymd: today, report_status: '요청', requested_at: ago(0.5), updated_at: ago(0.5) },
+             { book: '내신', class_id: 'n001', ymd: today, report_status: '', requested_at: null, updated_at: ago(0.2) });
+  PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, changed_at: NOWISO() };
+  delete PRESENCE[ME]; delete PRESENCE[BOSS];
+  ({ ctx, page } = await open());
+  await page.waitForSelector('.pc[data-person="' + EUNJI + '"] .ls');
+  const ec = page.locator('.pc[data-person="' + EUNJI + '"]');
+  const ls = await ec.locator('.ls').allTextContents();
+  ok(ls.length === 3, '이은지 오늘 수업 3개 (' + ls.length + ')');
+  ok(/9:30.*고2 확인/.test(ls[0]) && /5:30.*고2 화정A/.test(ls[1]) && /8:00.*정리정독 중2/.test(ls[2]), '시작 시각 순 · 정규 반 없음 · 학년 예외 반 포함 · 휴강·빈 반 없음');
+  ok(await ec.locator('.ls').nth(0).locator('.bx.on').count() === 1 && ls[0].includes('기록 완료'), '[리포트 생성]한 수업은 자동 체크');
+  ok(ls[1].includes('리포트 생성 전') && await ec.locator('.ls').nth(1).locator('.bx.on').count() === 0, '저장만 한 수업은 체크 안 됨');
+  ok(ls[2].includes('아직 기록 전'), '기록 없는 수업');
+  ok((await ec.locator('.ls a').nth(1).getAttribute('href')).endsWith('timetable.html?cr=' + encodeURIComponent('내신|n001|' + today)), '누르면 그 수업 기록 창 주소');
+  const pcnt = await ec.locator('.pcnt').textContent(), want = (await ec.locator('.ci.d').count()) + ' / ' + (await ec.locator('.ci').count());
+  ok(pcnt.startsWith(want), '수업 기록도 진행률에 (' + pcnt + ')');
+  ok((await page.locator('.pc[data-person="44444444-4444-4444-4444-444444444444"]').textContent()).includes('고1 직보'), '오늘 \'이 주만\' 반은 그 담당T 카드에');
+  ok((await page.locator('.pc[data-person="' + BOSS + '"]').textContent()).includes('고3파이널A'), '담당T \'슈\'는 이수경');
+  ok(!(await page.locator('#cards').textContent()).includes('모르는T'), '못 가린 담당T 수업은 붙이지 않음');
+  ok(!(await ec.evaluate(e => e.classList.contains('offd'))), '출근한 사람 카드는 그대로');
+  const jw = page.locator('.pc[data-person="44444444-4444-4444-4444-444444444444"]');
+  ok(await jw.evaluate(e => e.classList.contains('offd')) && (await jw.textContent()).includes('피드백 확인'), '출근 전 카드는 흐리게, 내용은 보임');
+  if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'lessons.png') });
+  const order = await page.locator('.pc .pn').allTextContents();
+  ok(order[0] === '고희주' && order[1] === '이은지', '나 → 출근한 사람 먼저 (' + order.join(',') + ')');
+  NOTES[1].report_status = '요청'; NOTES[1].requested_at = NOWISO();
+  await page.evaluate(() => { const D = Date, off = 61000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });   // 1분이 지난 것처럼
+  await page.waitForFunction(id => document.querySelectorAll('.pc[data-person="' + id + '"] .ls .bx.on').length === 2, EUNJI, { timeout: 8000 }).catch(() => {});
+  ok(await ec.locator('.ls .bx.on').count() === 2, '리포트를 생성하면 1분 안에 자동 체크');
+  await ctx.close();
 
   await browser.close(); server.close();
   console.log(`\n${n - bad} / ${n} 통과`);
