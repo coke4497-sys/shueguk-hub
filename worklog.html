@@ -473,6 +473,8 @@
       var cutIn = Date.parse(r.start_at) > Date.parse(r.in_at), cutOut = r.out_at && r.end_at && Date.parse(r.end_at) < Date.parse(r.out_at), ot = otMin(r), btn = '';
       if (cutIn) tags.push('출근 ' + hm(r.in_at) + ' → ' + hm(r.start_at) + '부터');
       if (cutOut) tags.push('퇴근 ' + hm(r.out_at) + ' → ' + hm(r.end_at) + '까지');
+      var sc0 = schedOf(r.user_id, r.ymd), early = sc0 && r.out_at ? Math.floor((sc0.e - Date.parse(r.out_at)) / 60000) : 0;
+      if (early > 0) tags.push('<b>조기퇴근 ' + dur(early) + '</b> (근무표 ' + sc0.end + '까지' + (r.early_out ? ' · 본인 확인' : '') + ')');
       var when = (r.ot_start ? ' · 출근 ' + hm(r.in_at) + '부터' : '') + (r.ot_end ? ' · 퇴근 ' + hm(r.out_at) + '까지' : '');
       if (ot) tags.push('<b>초과근무 ' + dur(ot) + '</b>' + when + ' · 승인 ' + esc(r.ot_by_name));
       if (r.ot_status === '대기') tags.push('<b>초과근무 승인 대기 ' + dur(reqMin(r)) + '</b>' + when);

@@ -42,7 +42,7 @@ const SW13 = SHIFTS.find(x => x.ymd === '2026-11-13');
 const RC = (ymd, user, loc, inn, start, out, end, x) => Object.assign({ id: ++rid, ymd, user_id: user, name: NAME[user], loc, in_at: K(ymd, inn), start_at: K(ymd, start), out_at: out ? K(ymd, out) : null, end_at: out ? K(ymd, end || out) : null, ot_start: false, ot_end: false, fixed: false, fix_reason: '', fixed_by_name: '', fixed_at: null }, x || {});
 const RECS = [
   RC('2026-11-05', KIM, '본원', '15:40', '16:00', '22:00'), RC('2026-11-05', HEE, '본원', '16:05', '16:05', '22:00'),
-  RC('2026-11-06', HEE, '본원', '16:00', '16:00', '22:00'), RC('2026-11-08', SUM, '화정센터', '10:30', '10:30', null),
+  RC('2026-11-06', HEE, '본원', '16:00', '16:00', '21:00', '21:00', { early_out: true }), RC('2026-11-08', SUM, '화정센터', '10:30', '10:30', null),
   RC('2026-11-11', SUM, '화정센터', '15:00', '15:00', '23:00', '22:30', { ot_start: true, ot_status: '승인', ot_by_name: '박언호' }),
   RC('2026-11-04', KIM, '정리정독', '16:00', '16:00', '23:30', '22:30', { ot_end: true, ot_status: '대기' })];   // 승인 대기   // 이른 출근은 초과근무, 늦은 퇴근은 22:30까지
 const ROSTER = [{ id: 1, dow: 4, loc: '본원', slot: 1, user_id: KIM, start_hm: '16:00', end_hm: '22:00', note: '' }, { id: 2, dow: 4, loc: '본원', slot: 2, user_id: HEE, start_hm: '16:00', end_hm: '22:00', note: '' }];
@@ -128,12 +128,12 @@ function filt(rows, u){
   await page.waitForSelector('#mWait:not([hidden])');
   const wt = await page.locator('#mWait').textContent();
   ok(wt.includes('1건') && wt.includes('김영훈') && wt.includes('퇴근 23:30 (근무표 22:30)') && wt.includes('1시간'), '맨 위 \'초과근무 승인 대기\' 카드 (' + wt.replace(/\s+/g, ' ').slice(0, 120) + ')');
-  ok(hee && hee[1] === '2일' && hee[2] === '11시간 55분' && hee[5] === '143,000' && hee[6] === '138,281', '고희주: 2일 · 11시간 55분 · 143,000 · 138,281');
+  ok(hee && hee[1] === '2일' && hee[2] === '10시간 55분' && hee[5] === '131,000' && hee[6] === '126,677', '고희주: 2일 · 10시간 55분(조기퇴근 1시간) · 131,000 · 126,677');
   ok(sum && sum[7] === '확인 2건', '조수민: 출근 기록 없음 + 퇴근 기록 없음 = 확인 2건');
   ok(sum && sum[2] === '7시간 30분' && sum[3] === '1시간' && sum[5] === '90,000', '조수민 11/11: 15:00 초과근무 출근 ~ 22:30(23:00 퇴근은 근무표 끝까지) = 7시간 30분, 그중 초과근무 1시간 (' + (sum || []).join('|') + ')');
-  ok((await page.locator('tr.sum').textContent()).includes('395,500'), '합계 총 급여 395,500');
+  ok((await page.locator('tr.sum').textContent()).includes('383,500'), '합계 총 급여 383,500');
   const tiles = await page.locator('#mTiles').textContent();
-  ok(tiles.includes('확인이 필요한 기록2건') && tiles.includes('395,500'), '위 칸: 총 급여·확인할 기록 (' + tiles + ')');
+  ok(tiles.includes('확인이 필요한 기록2건') && tiles.includes('383,500'), '위 칸: 총 급여·확인할 기록 (' + tiles + ')');
   await page.click('#mWait [data-ok$="|1"]');
   await sleep(300);
   const dc = calls.filter(c => c[0] === 'work_ot_decide').pop();
@@ -146,6 +146,7 @@ function filt(rows, u){
   ok((await page.locator('tr.detail').first().textContent()).includes('초과근무 1시간 · 퇴근 23:30까지 · 승인 이수경'), '승인한 초과근무와 승인한 사람');
   await page.click('tr.person:has-text("고희주")');
   ok((await page.locator('#mBody').textContent()).includes('조수민 대신 근무'), '대신 근무한 날 표시');
+  ok((await page.locator('#mBody').textContent()).includes('조기퇴근 1시간 (근무표 22:00까지 · 본인 확인)'), '조기퇴근 표시(본인 확인)');
   await page.click('tr.person:has-text("조수민")');
   const sd = await page.locator('#mBody').textContent();
   ok(sd.includes('출근 기록 없음') && sd.includes('퇴근 기록 없음'), '조수민: 출근 기록 없음·퇴근 기록 없음 줄');
@@ -229,7 +230,7 @@ function filt(rows, u){
   ok((await page.locator('#mTitle').textContent()) === '내 근무', '제목 \'내 근무\'');
   ok(await page.locator('tr.person').count() === 1, '내 줄만');
   const mt = await page.locator('#mTiles').textContent();
-  ok(mt.includes('143,000') && mt.includes('138,281') && mt.includes('2일'), '내 급여·실수령 (' + mt + ')');
+  ok(mt.includes('131,000') && mt.includes('126,677') && mt.includes('2일'), '내 급여·실수령 (' + mt + ')');
   ok(await page.evaluate(() => document.documentElement.scrollWidth <= 392), '휴대폰 폭에서 가로 스크롤 없음');
   const rq = calls.filter(c => c[0] === 'work_records');
   await page.locator('[data-fix]').first().click();
