@@ -1,2 +1,5 @@
 [functions.create-teacher]
 verify_jwt = true
+
+[functions.msg-push]
+verify_jwt = true
