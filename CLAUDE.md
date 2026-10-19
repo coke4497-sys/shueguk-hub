@@ -19,4 +19,7 @@
 - 티쳐스 첫 화면(index.html) 첫 카드 '슈톡'.
 - 검증: `PGHOST=/home/pgtest PGPORT=5499 PGUSER=postgres bash tools/messenger-sql-test.sh`(43건) + `LC_ALL=C.UTF-8 NODE_PATH=$(npm root -g) node tools/messenger-e2e-test.js`(65건 — 알림 켜기/끄기·범위·시험·보낸 뒤 send·아이폰 안내·msg-sw.js 알림/클릭, `SHOT=폴더`면 화면 캡처) + `deno test -A supabase/functions/msg-push/test.ts`(받을 기기 고르기·Deno에서 web-push 암호화를 가짜 기기 키로 풀어 대조). **고치면 셋 다.**
 
+## GitHub Pages 배포가 queued에서 멈추면
+- 2026-10-19 슈톡 머지(#179) 뒤 'pages build and deployment'가 queued에서 움직이지 않았다(문법 저장소 9/13과 같은 GitHub 쪽 문제). 기다리지 말고 **새 커밋을 main에 올려 배포를 새로 시작**한다. 상태는 `actions_list`(list_workflow_runs)로 본다 — 이 환경은 github.io 접속이 막혀 화면을 직접 열어 볼 수 없다.
+
 그 밖의 공통 지침(브랜드·폰트·색·데이터 원본·재배포 방법 등)은 `shueguk-report/CLAUDE.md`를 따른다.
