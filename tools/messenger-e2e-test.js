@@ -33,18 +33,19 @@ const MEMBERS = [
   { user_id: '44444444-4444-4444-4444-444444444444', name: '김지원', role: 'teacher' },
 ];
 const NAME = { [ME]: '고희주', [EUNJI]: '이은지', [BOSS]: '이수경' };
-let missing = false;
+let missing = false, failSendOnce = false;
 let mid = 0, tid = 0, clock = 0;
 const ts = () => new Date(Date.now() + (clock++)).toISOString();
-const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {};
+const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {};
+let noPres = false;
 function addMsg(author, body, files, createdIso){
   const t = createdIso || ts();
-  const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null };
+  const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null, reply_to: null };
   MSGS.push(m); return m;
 }
 function addTask(m, assignee, text, createdIso){
   const t = createdIso || m.created_at;
-  const k = { id: ++tid, message_id: m.id, assignee, assignee_name: NAME[assignee], requester: m.author, requester_name: m.author_name, text, status: '대기', done_by_name: null, done_at: null, created_at: t, updated_at: t };
+  const k = { id: ++tid, message_id: m.id, assignee, assignee_name: NAME[assignee], requester: m.author, requester_name: m.author_name, text, status: '대기', done_by_name: null, done_at: null, seen_at: null, ack_only: false, created_at: t, updated_at: t };
   TASKS.push(k); return k;
 }
 // 어제 남은 일 · 4시간 지난 일 · 오늘 일
@@ -62,12 +63,20 @@ function filterRows(rows, u){
   let out = rows.slice();
   u.searchParams.forEach((v, k) => {
     if (['select', 'order', 'limit'].includes(k)) return;
-    const m = v.match(/^(eq|gt|gte|lt|in)\.(.*)$/); if (!m) return;
+    if (k === 'or'){   // or=(author.is.null,author.neq.X) 꼴만
+      const parts = v.replace(/^\(|\)$/g, '').split(',').map(x => x.split('.'));
+      out = out.filter(r => parts.some(([f, op, val]) => op === 'is' ? r[f] == null : op === 'neq' ? String(r[f]) !== val : op === 'eq' ? String(r[f]) === val : false));
+      return;
+    }
+    const m = v.match(/^(eq|neq|gt|gte|lt|in|is|ilike|like)\.(.*)$/); if (!m) return;
     const [, op, val] = m;
     if (op === 'eq') out = out.filter(r => String(r[k]) === val);
+    if (op === 'neq') out = out.filter(r => String(r[k]) !== val);
+    if (op === 'is' && val === 'null') out = out.filter(r => r[k] == null);
     if (op === 'gt') out = out.filter(r => r[k] != null && (k === 'id' ? r[k] > Number(val) : r[k] > val));
     if (op === 'gte') out = out.filter(r => r[k] != null && (k === 'id' ? r[k] >= Number(val) : Date.parse(r[k]) >= Date.parse(val)));
     if (op === 'lt') out = out.filter(r => r[k] != null && (k === 'id' ? r[k] < Number(val) : r[k] < val));
+    if (op === 'ilike' || op === 'like'){ const re = new RegExp('^' + val.split('*').map(x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*') + '$', op === 'ilike' ? 'is' : 's'); out = out.filter(r => re.test(String(r[k] || ''))); }
     if (op === 'in') { const set = val.replace(/[()]/g, '').split(',').map(Number); out = out.filter(r => set.includes(r[k])); }
   });
   const ord = u.searchParams.get('order');
@@ -88,15 +97,16 @@ function filterRows(rows, u){
   async function open(viewport, opts){
     opts = opts || {};
     const ctx = await browser.newContext({ viewport: viewport || { width: 1400, height: 900 }, acceptDownloads: true, userAgent: opts.ua });
-    if (opts.fakePush) await ctx.addInitScript(() => {
+    // 알림 허용 전에는 관문 창이 화면을 덮으므로 기본은 '이미 허용한 기기'로 연다(perm: 'default'면 처음 여는 기기)
+    if (!opts.realPush) await ctx.addInitScript(perm => {
       // 헤드리스 크로미엄에는 실제 푸시 서비스가 없어 구독을 흉내 낸다
       window.__subscribed = null;
-      Object.defineProperty(window, 'Notification', { configurable: true, value: { permission: 'default', requestPermission(){ window.Notification.permission = 'granted'; return Promise.resolve('granted'); } } });
+      Object.defineProperty(window, 'Notification', { configurable: true, value: { permission: perm, requestPermission(){ window.Notification.permission = 'granted'; return Promise.resolve('granted'); } } });
       const sub = { endpoint: 'https://fcm.googleapis.com/fcm/send/fake-1', toJSON(){ return { endpoint: this.endpoint, keys: { p256dh: 'B'.repeat(87), auth: 'a'.repeat(22) } }; }, unsubscribe(){ window.__subscribed = null; return Promise.resolve(true); } };
       const reg = { pushManager: { getSubscription(){ return Promise.resolve(window.__subscribed); }, subscribe(o){ window.__subOpts = { uv: o.userVisibleOnly, keyLen: o.applicationServerKey.length }; window.__subscribed = sub; return Promise.resolve(sub); } } };
       if (!window.PushManager) window.PushManager = function(){};
-      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { register(){ return Promise.resolve(reg); }, addEventListener(){} } });
-    });
+      Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { register(){ return Promise.resolve(reg); }, getRegistrations(){ return Promise.resolve([reg]); }, addEventListener(){} } });
+    }, opts.perm || 'granted');
     await ctx.addInitScript(id => localStorage.setItem('shueguk_teacher_session_v2', JSON.stringify({
       access_token: 'tok', refresh_token: 'refresh-tok', expires_at: Math.floor(Date.now() / 1000) + 3600, user: { id } })), ME);
     ctx.setDefaultTimeout(8000);
@@ -112,13 +122,28 @@ function filterRows(rows, u){
       if (p === '/rest/v1/teacher_accounts') return json([{ user_id: ME, login_id: 'heeju', display_name: '고희주', active: true, role: 'assistant' }]);
       if (missing && p.startsWith('/rest/v1/rpc/msg')) return json({ code: 'PGRST202', message: 'Could not find the function' }, 404);
       if (p === '/rest/v1/rpc/msg_members') return json(MEMBERS);
+      if (p === '/rest/v1/msg_presence') return noPres ? json({ code: 'PGRST205', message: 'Could not find the table' }, 404) : json(Object.values(PRESENCE));
+      if (p === '/rest/v1/rpc/msg_presence_set'){
+        const b = JSON.parse(req.postData()); calls.push(['pres', b]);
+        const old = PRESENCE[ME] || {};
+        PRESENCE[ME] = { user_id: ME, name: '고희주', loc: b.p_on ? b.p_loc : (old.loc || ''), is_on: b.p_on, changed_at: NOWISO() };
+        return json(PRESENCE[ME]);
+      }
       if (p === '/rest/v1/rpc/msg_send'){
         const b = JSON.parse(req.postData()); calls.push(['send', b]);
         const m = addMsg(ME, b.p_body, b.p_files);
+        if (b.p_reply) m.reply_to = b.p_reply;
         let text = b.p_body; (b.p_mentions || []).forEach(id => { text = text.split('@' + NAME[id]).join(''); });
-        text = text.replace(/\s+/g, ' ').trim() || '메시지 확인';
-        const tasks = (b.p_mentions || []).map(id => addTask(m, id, text));
+        const all = /@(모두|전체)/.test(b.p_body);
+        text = text.replace(/@(모두|전체)/g, '').replace(/\s+/g, ' ').trim() || '메시지 확인';
+        const tasks = [...new Set(b.p_mentions || [])].map(id => { const k = addTask(m, id, text); k.ack_only = all; return k; });
         return json({ message: m, tasks });
+      }
+      if (p === '/rest/v1/rpc/msg_task_seen'){
+        const b = JSON.parse(req.postData()); calls.push(['seen', b]);
+        const t = TASKS.find(x => x.id === b.p_id);
+        t.seen_at = t.seen_at || ts(); if (t.ack_only && t.status !== '완료'){ t.status = '완료'; t.done_at = ts(); t.done_by_name = '고희주'; } t.updated_at = ts();
+        return json(t);
       }
       if (p === '/rest/v1/rpc/msg_task_set'){
         const b = JSON.parse(req.postData()); calls.push(['task', b]);
@@ -140,9 +165,16 @@ function filterRows(rows, u){
         const b = JSON.parse(req.postData()); calls.push(['fn', b]);
         if (b.action === 'key') return json({ key: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U' });
         if (b.action === 'test') return json({ devices: 1, sent: 1, gone: 0, failed: 0 });
+        if (b.action === 'send' && failSendOnce){ failSendOnce = false; return json({ error: 'lookup_failed' }, 503); }
         return json({ targets: 2, sent: 2 });
       }
-      if (p === '/rest/v1/msg_messages') return json(filterRows(MSGS, u));
+      if (p === '/rest/v1/msg_messages'){
+        if (/count=exact/.test(req.headers()['prefer'] || '')){
+          const n = filterRows(MSGS, u).length;
+          return route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*', 'access-control-expose-headers': 'content-range', 'content-range': (n ? '0-0/' : '*/') + n }, body: '[]' });
+        }
+        return json(filterRows(MSGS, u));
+      }
       if (p === '/rest/v1/msg_tasks') return json(filterRows(TASKS, u));
       if (p.startsWith('/storage/v1/object/authenticated/msg-files/')){
         const key = decodeURIComponent(p.slice('/storage/v1/object/authenticated/msg-files/'.length));
@@ -270,9 +302,36 @@ function filterRows(rows, u){
   await page.waitForFunction(() => document.body.dataset.tab === 'chat');
   ok(true, '할 일을 누르면 대화 탭으로');
   if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'phone-chat.png') }); await page.click('#tabBoard'); await page.screenshot({ path: path.join(process.env.SHOT, 'phone-board.png') }); await page.click('#tabChat'); }
+  await page.click('#tabBoard');
+  const mB = addMsg(BOSS, '카톡처럼 숫자 시험', [], ts());
+  await page.waitForFunction(() => !document.querySelector('#chatBadge').hidden, null, { timeout: 7000 });
+  ok((await page.locator('#chatBadge').textContent()) === '1', '업무 카드를 보는 중 새 메시지 → 대화 탭에 빨간 1');
+  await page.click('#tabChat');
+  await page.evaluate(() => { const el = document.getElementById('msgs'); el.scrollTop = el.scrollHeight; el.dispatchEvent(new Event('scroll')); });
+  await page.waitForFunction(() => document.querySelector('#chatBadge').hidden);
+  ok(true, '대화를 끝까지 보면 숫자 사라짐');
   const sw = await page.evaluate(() => document.documentElement.scrollWidth);
   ok(sw <= 390, '가로 넘침 없음 (' + sw + ')');
   await ctx.close();
+
+  console.log('⑩-2 빨간 숫자 — 불러오지 않은 메시지·앱 아이콘 (Codex 검토)');
+  const before80 = MSGS.length ? MSGS[MSGS.length - 1].id : 0;
+  for (let i = 0; i < 85; i++) addMsg(BOSS, '쌓인 메시지 ' + i, [], ts());
+  ({ ctx, page } = await open({ width: 390, height: 844 }));
+  await page.waitForSelector('#msgs .m');
+  await page.click('#tabBoard');
+  await page.evaluate(([me, mk]) => { localStorage.setItem('msg_read_' + me, String(mk)); window.__cleared = 0; navigator.clearAppBadge = () => { window.__cleared++; return Promise.resolve(); }; }, [ME, before80]);
+  addMsg(BOSS, '하나 더', [], ts());
+  await page.waitForFunction(() => document.querySelector('#chatBadge').textContent === '86', null, { timeout: 9000 }).catch(() => {});
+  ok((await page.locator('#chatBadge').textContent()) === '86', '80개 넘게 쌓여도 대화 탭 숫자는 전부 (86)');
+  const offOne = MSGS.find(m => m.id > before80 && m.author === BOSS); offOne.deleted_at = ts(); offOne.body = ''; offOne.updated_at = ts();   // 화면 밖 구간 메시지를 다른 창에서 지움
+  await page.waitForFunction(() => document.querySelector('#chatBadge').textContent === '85', null, { timeout: 9000 }).catch(() => {});
+  ok((await page.locator('#chatBadge').textContent()) === '85', '화면 밖 메시지가 지워지면 다시 셈 (85)');
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await sleep(200);
+  ok(await page.evaluate(() => window.__cleared) === 0, '업무 카드 탭으로 돌아오면 앱 아이콘 숫자를 지우지 않음');
+  await ctx.close();
+  MSGS.splice(MSGS.length - 86, 86);
 
   console.log('⑪ 표 없음');
   missing = true;
@@ -282,50 +341,79 @@ function filterRows(rows, u){
   await ctx.close();
   missing = false;
 
-  console.log('⑫ 휴대폰 알림');
-  ({ ctx, page } = await open(null, { fakePush: true }));
+  console.log('⑫ 휴대폰 알림 — 켜기·끄기 없이 기본으로 켜짐');
+  ({ ctx, page } = await open(null, { perm: 'default' }));
   await page.waitForSelector('#m' + m3.id);
-  await page.waitForFunction(() => !document.querySelector('#pbanner').hidden);
-  ok((await page.locator('#notiBtn').textContent()) === '알림 꺼짐', '머리 버튼: 알림 꺼짐');
-  ok(await page.locator('#pbanner').isVisible(), '꺼져 있으면 위에 안내 띠');
-  await page.click('#pbannerBtn');
-  ok(await page.locator('#pback').isVisible(), '알림 창 열림');
+  await page.waitForFunction(() => !document.querySelector('#pback').hidden);
+  ok(await page.locator('#pback').isVisible(), '허용 전에는 관문 창이 화면을 덮음');
+  if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'gate.png') });
+  ok(await page.evaluate(() => document.querySelector('.app').hasAttribute('inert')), '관문 창 뒤 대화는 누를 수 없음(inert)');
+  ok(await page.locator('#notiBtn').count() === 0 && await page.locator('#pclose').count() === 0 && await page.locator('#pbanner').count() === 0, '알림 버튼·닫기·안내 띠 없음');
+  ok(await page.locator('input[name="pm"]').count() === 0 && await page.locator('#ptest').count() === 0, '받을 범위 선택·시험 알림 없음');
+  await page.keyboard.press('Escape'); await page.mouse.click(5, 5);
+  ok(await page.locator('#pback').isVisible(), 'Esc·바깥을 눌러도 안 닫힘');
   await page.click('#pon');
-  await page.waitForFunction(() => document.querySelector('#notiBtn').textContent === '알림 켜짐');
+  await page.waitForFunction(() => document.querySelector('#pback').hidden);
+  ok(!(await page.evaluate(() => document.querySelector('.app').hasAttribute('inert'))), '허용하면 관문이 사라지고 대화를 씀');
   ok(calls.some(c => c[0] === 'fn' && c[1].action === 'key'), '공개 키 받기');
   const so = await page.evaluate(() => window.__subOpts);
   ok(so && so.uv === true && so.keyLen === 65, '구독 — userVisibleOnly · 65바이트 키');
   const ps = calls.filter(c => c[0] === 'psave').pop();
   ok(ps && ps[1].p_sub.endpoint.includes('fake-1') && ps[1].p_mode === 'all' && ps[1].p_sub.keys.auth, 'msg_push_save — 구독·모든 메시지');
-  ok(!(await page.locator('#pbanner').isVisible()), '켜면 안내 띠 사라짐');
-  await page.check('input[name="pm"][value="mention"]');
-  await page.waitForFunction(() => true);
-  await sleep(300);
-  ok(calls.filter(c => c[0] === 'psave').pop()[1].p_mode === 'mention', '범위 바꾸기 → mention 저장');
-  await page.click('#ptest');
-  await sleep(300);
-  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'test'), '시험 알림 요청');
-  await page.click('#pclose');
   await page.click('#inp'); await page.keyboard.type('푸시 시험 @이은지'); await page.click('#send');
   await page.waitForFunction(() => document.querySelector('#inp').value === '');
   await sleep(300);
   const lastId = MSGS[MSGS.length - 1].id;
   ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === lastId), '보낸 뒤 msg-push send(message_id)');
-  await page.click('#notiBtn'); await page.click('#poff');
-  await page.waitForFunction(() => document.querySelector('#notiBtn').textContent === '알림 꺼짐');
-  ok(calls.some(c => c[0] === 'premove' && c[1].p_endpoint.includes('fake-1')), '끄기 → msg_push_remove');
+  failSendOnce = true;
+  await page.click('#inp'); await page.keyboard.type('서버가 잠깐 실패'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  const failId = MSGS[MSGS.length - 1].id;
+  await sleep(6500);
+  ok(calls.filter(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === failId).length === 2, '알림 서버가 실패하면 5초 뒤 한 번 더');
+  // 로그아웃하면 이 기기 구독도 지운다 (Codex 검토 P1)
+  const rmBefore = calls.filter(c => c[0] === 'premove').length;
+  await page.exposeFunction('__badgeCleared', () => calls.push(['badgeclr']));
+  await page.evaluate(() => { navigator.clearAppBadge = () => { window.__badgeCleared(); return Promise.resolve(); }; });
+  await page.evaluate(() => { window.TeacherAuth.logout(); });
+  await page.waitForURL(/login\.html/);
+  ok(calls.filter(c => c[0] === 'premove').length === rmBefore + 1, '로그아웃 → 서버 구독 삭제');
+  ok(calls.some(c => c[0] === 'badgeclr'), '로그아웃 → 앱 아이콘 숫자도 0');
   await ctx.close();
+
+  // 예전에 '나를 부른 메시지만'으로 저장한 기기는 열 때 '모든 메시지'로 다시 저장
+  PUSHSUBS['https://fcm.googleapis.com/fcm/send/fake-1'] = { mode: 'mention' };
+  const pb = calls.filter(c => c[0] === 'psave').length;
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id);
+  await page.waitForFunction(n => true, pb); await sleep(600);
+  const rs = calls.filter(c => c[0] === 'psave');
+  ok(rs.length > pb && rs[rs.length - 1][1].p_mode === 'all' && await page.locator('#pback').isHidden(), "옛 '나를 부른 것만' 기기 → 모든 메시지로 다시 저장");
+  await ctx.close();
+
+  console.log('⑫-2 같은 이름 두 사람(DB가 막지만 혹시 생기면)');
+  const DUP = '55555555-5555-5555-5555-555555555555';
+  MEMBERS.push({ user_id: DUP, name: '김지원', role: 'assistant' }); NAME[DUP] = '김지원';
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id);
+  let ds;
+  await page.click('#inp'); await page.keyboard.type('직접 친 이름 @김지원'); await page.keyboard.press('Escape'); await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  ds = calls.filter(c => c[0] === 'send').pop();
+  ok(ds[1].p_mentions.length === 2, '같은 이름은 둘 다에게');
+  ok((await page.locator('#status').textContent()).includes('같은 이름이 여럿'), '같은 이름 안내');
+  await ctx.close();
+  MEMBERS.pop();
 
   console.log('⑬ 아이폰 사파리(홈 화면 추가 전)');
   ({ ctx, page } = await open({ width: 390, height: 844 }, { ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1' }));
   await page.waitForSelector('#m' + m3.id);
-  await page.click('#notiBtn');
-  ok(await page.locator('#pios').isVisible(), '홈 화면에 추가 안내');
+  ok(await page.locator('#pback').isVisible() && await page.locator('#pios').isVisible(), '홈 화면에 추가 안내가 화면을 덮음');
   ok(!(await page.locator('#pon').isVisible()), '켜기 버튼은 숨김');
   await ctx.close();
 
   console.log('⑭ 서비스 워커(msg-sw.js) — 알림 띄우기');
-  ({ ctx, page } = await open());
+  ({ ctx, page } = await open(null, { realPush: true }));
   await ctx.grantPermissions(['notifications'], { origin: `http://127.0.0.1:${PORT}` });
   await page.waitForSelector('#m' + m3.id);
   const shown = await page.evaluate(async () => {
@@ -341,7 +429,10 @@ function filterRows(rows, u){
   const fakeClients = { list: [], matchAll(){ return Promise.resolve(this.list); }, openWindow(u){ opened.push(u); return Promise.resolve(); }, claim(){ return Promise.resolve(); } };
   const selfObj = { addEventListener(t, f){ handlers[t] = f; }, skipWaiting(){}, clients: fakeClients,
     registration: { showNotification(t, o){ notes.push({ t, o }); return Promise.resolve(); } }, navigator: {} };
-  vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'msg-sw.js'), 'utf8'), { self: selfObj });
+  const badges = []; let stored = null;
+  selfObj.navigator = { setAppBadge(n){ badges.push(n); return Promise.resolve(); } };
+  const fakeCaches = { open(){ return Promise.resolve({ match(){ return Promise.resolve(stored == null ? undefined : { text(){ return Promise.resolve(stored); } }); }, put(k, r){ return r.text().then(t => { stored = t; }); } }); } };
+  vm.runInNewContext(fs.readFileSync(path.join(ROOT, 'msg-sw.js'), 'utf8'), { self: selfObj, caches: fakeCaches, Response: class { constructor(b){ this.b = b; } text(){ return Promise.resolve(this.b); } } });
   let waits = [];
   const ev = (extra) => Object.assign({ waitUntil(p){ waits.push(p); } }, extra);
   handlers.push(ev({ data: { json(){ return { title: '이은지 → 나에게 할 일', body: '결석 알림톡 보내기', url: 'messenger.html#m3', tag: 'msg3' }; } } }));
@@ -351,6 +442,25 @@ function filterRows(rows, u){
   handlers.push(ev({ data: { json(){ throw new Error('x'); }, text(){ return '글자만'; } } }));
   await Promise.all(waits);
   ok(notes[1] && notes[1].t === '슈톡' && notes[1].o.body === '글자만', '내용이 깨져도 알림은 뜬다(아이폰 구독 유지)');
+  ok(badges.join(',') === '1,2', '앱 아이콘 빨간 숫자 1 → 2 (' + badges.join(',') + ')');
+  for (let i = 0; i < 3; i++) handlers.push(ev({ data: { json(){ return { title: 't', body: 'b' + i }; } } }));   // 거의 동시에 셋
+  await Promise.all(waits);
+  ok(stored === '5' && badges[badges.length - 1] === 5, '동시에 온 푸시도 하나씩 셈 (' + badges.join(',') + ')');
+  let clears = 0; selfObj.navigator.clearAppBadge = () => { clears++; return Promise.resolve(); };
+  handlers.push(ev({ data: { json(){ return { title: 't', body: '진행 중' }; } } }));   // +1 이 진행 중일 때
+  handlers.message(ev({ data: { type: 'badge-clear' } }));                               // 화면이 0으로
+  await Promise.all(waits);
+  ok(stored === '0' && clears === 1, '0으로는 진행 중인 +1 뒤에 (' + stored + ')');
+  fakeClients.list = [{ id: 'c1', url: 'http://x/messenger.html', visibilityState: 'visible', postMessage(){}, focus(){ return Promise.resolve(); } }];
+  handlers.push(ev({ data: { json(){ return { title: 't', body: '창만 보임' }; } } }));
+  await Promise.all(waits);
+  ok(stored === '1', '창이 보여도 대화를 읽는 중이 아니면(업무 카드 탭 등) 숫자를 올림');
+  handlers.message(ev({ data: { type: 'badge-clear' } }));
+  handlers.message(ev({ data: { type: 'reading', on: true }, source: { id: 'c1' } }));
+  handlers.push(ev({ data: { json(){ return { title: 't', body: '보는 중' }; } } }));
+  await Promise.all(waits);
+  ok(stored === '0' && notes[notes.length - 1].o.body === '보는 중', '대화를 끝까지 읽는 중이면 알림은 뜨되 숫자는 그대로');
+  fakeClients.list = [];
   waits = [];
   let closed = 0;
   handlers.notificationclick(ev({ notification: { data: { url: 'messenger.html#m9' }, close(){ closed++; } } }));
@@ -367,8 +477,197 @@ function filterRows(rows, u){
   ({ ctx, page } = await open());
   await page.goto(`http://127.0.0.1:${PORT}/index.html`);
   await page.waitForSelector('a.card');
-  ok((await page.locator('a.card').first().getAttribute('href')) === 'messenger.html', '첫 카드 = 슈톡');
+  ok((await page.locator('a.card').count()) === 5 && (await page.locator('a.card').nth(4).getAttribute('href')) === 'messenger.html', '2×2 아래 다섯째 카드 = 슈톡');
+  const wb = await page.locator('a.card.wide').boundingBox(), g = await page.locator('#grid').boundingBox(), c1 = await page.locator('a.card').nth(2).boundingBox();
+  ok(wb && Math.abs(wb.width - g.width) < 2 && wb.y > c1.y + c1.height - 1, '슈톡은 3행 두 칸 너비');
+  await page.waitForFunction(() => !document.querySelector('#msgBadge').hidden);
+  const others = MSGS.filter(m => m.author !== ME && !m.deleted_at && m.id > 0).length;
+  ok((await page.locator('#msgBadge').textContent()) === String(others), '슈톡 카드에 안 읽은 메시지 수 (' + others + ')');
+  await page.evaluate(id => localStorage.setItem('msg_read_' + id, '999999'), ME);
+  await page.reload(); await page.waitForSelector('a.card.wide'); await sleep(800);
+  ok(await page.locator('#msgBadge').isHidden(), '다 읽었으면 숫자 없음');
   await ctx.close();
+
+  console.log('⑰ 꼬리표 알약');
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id);
+  ok(await page.locator('#tags .tg').count() === 8 && (await page.locator('#tags').textContent()) === '입학상담결석지각이동상담요청공지기타요청질문', '알약 8개');
+  await page.click('#tags [data-tag="지각"]'); await page.click('#tags [data-tag="지각"]');
+  ok(await page.locator('#tags .tg.on').count() === 0, '같은 알약을 다시 누르면 빠짐');
+  await page.click('#tags [data-tag="결석"]');
+  ok(await page.locator('#tags .tg.on').textContent() === '결석' && await page.evaluate(() => document.querySelector('#tags').classList.contains('has')), '고른 알약만 진하게');
+  await page.click('#inp'); await page.keyboard.type('중3 박하늘 병결입니다 @이은지'); await page.keyboard.press('Escape'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  const tsend = calls.filter(c => c[0] === 'send').pop();
+  if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'tags.png') });
+    const pg = await ctx.newPage(); await pg.setViewportSize({ width: 390, height: 844 }); await pg.goto('http://127.0.0.1:' + PORT + '/messenger.html'); await pg.waitForSelector('#msgs .m'); await pg.click('#tags [data-tag="상담요청"]'); await pg.screenshot({ path: path.join(process.env.SHOT, 'tags-phone.png') }); await pg.close(); }
+  ok(tsend[1].p_body === '[결석] 중3 박하늘 병결입니다 @이은지', '본문 앞에 [결석] (' + tsend[1].p_body + ')');
+  const lastM = MSGS[MSGS.length - 1];
+  const bb = page.locator('#m' + lastM.id + ' .bb');
+  ok(await bb.locator('span.tg.c2').textContent() === '결석' && !(await bb.textContent()).includes('['), '대화에는 대괄호 없이 연핑크 알약');
+  ok(await page.locator('#tags .tg.on').count() === 0, '보낸 뒤 알약은 풀림');
+  ok(await page.locator('.pc[data-person="' + EUNJI + '"] .ctx span.tg.c2').count() >= 1, '업무 카드 할 일에도 알약');
+  await page.click('#inp'); await page.keyboard.type('[모르는말] 그대로'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  ok((await page.locator('#m' + MSGS[MSGS.length - 1].id + ' .bb').textContent()).includes('[모르는말]'), '목록에 없는 대괄호는 글 그대로');
+  await ctx.close();
+
+  console.log('⑱ 확인했습니다 · @모두');
+  const mA = addMsg(BOSS, '상담 일정 잡아 주세요 @고희주', [], ts()); addTask(mA, ME, '상담 일정 잡아 주세요');
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + mA.id);
+  const ackBtn = page.locator('#m' + mA.id + ' [data-ack]');
+  ok(await ackBtn.count() === 1 && (await ackBtn.textContent()) === '확인했습니다', '나를 부른 메시지 아래 [확인했습니다]');
+  ok(await page.locator('#m' + m4.id + ' [data-ack]').count() === 0, '남을 부른 메시지엔 버튼 없음');
+  const m1Ack = page.locator('.pc[data-person="' + ME + '"] [data-ack="' + TASKS.find(x => x.message_id === m1.id).id + '"]');
+  ok(await m1Ack.count() === 1, '내 업무 카드 할 일에도 [확인]');
+  await ackBtn.click();
+  await page.waitForFunction(id => !document.querySelector('#m' + id + ' [data-ack]'), mA.id);
+  const sc = calls.filter(c => c[0] === 'seen').pop();
+  ok(sc && sc[1].p_id === TASKS.find(x => x.message_id === mA.id).id, 'msg_task_seen 호출');
+  const tkTxt = await page.locator('#m' + mA.id + ' .tks').textContent();
+  ok(tkTxt.includes('확인 '), '표시가 \'확인 hh:mm\'로 (' + tkTxt + ')');
+  await m1Ack.click();
+  await page.waitForFunction(id => !document.querySelector('.pc [data-ack="' + id + '"]'), TASKS.find(x => x.message_id === m1.id).id);
+  ok((await page.locator('.pc[data-person="' + ME + '"]').textContent()).includes('확인함'), '카드에서 확인 → \'확인함\'');
+  // @모두
+  await page.click('#inp'); await page.keyboard.type('@모');
+  await page.waitForSelector('#mention.on');
+  ok((await page.locator('#mention button').first().textContent()).startsWith('모두'), '@ 목록 맨 위에 \'모두\'');
+  await page.keyboard.press('Enter'); await page.keyboard.type('내일 시험지 배부합니다'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  const as = calls.filter(c => c[0] === 'send').pop();
+  ok(as[1].p_body === '@모두 내일 시험지 배부합니다' && as[1].p_mentions.length === MEMBERS.length - 1 && !as[1].p_mentions.includes(ME), '@모두 → 나 빼고 모두 (' + as[1].p_mentions.length + '명)');
+  const allId = MSGS[MSGS.length - 1].id;
+  ok(await page.locator('#m' + allId + ' .bb .at').textContent() === '@모두', '@모두 강조');
+  ok(await page.locator('#m' + allId + ' .tk').count() === 3, '3명이면 사람마다 표시');
+  // 6명 넘는 @모두 — 접어서 '확인 n / m'
+  const many = addMsg(BOSS, '@모두 회의합니다', [], ts());
+  const extra = ['55555555-5555-5555-5555-55555555555', '66666666-6666-6666-6666-66666666666'];
+  [ME, EUNJI, '44444444-4444-4444-4444-444444444444'].concat([1,2,3].map(i => 'x' + i)).forEach((id, i) => { NAME[id] = NAME[id] || ('선생' + i); const k = addTask(many, id, '회의합니다'); k.ack_only = true; if (i === 1){ k.status = '완료'; k.seen_at = ts(); k.done_at = ts(); } });
+  await page.waitForSelector('#m' + many.id + ' .tk.sum', { timeout: 7000 });
+  ok((await page.locator('#m' + many.id + ' .tk.sum').textContent()).includes('모두 · 확인 1 / 6'), '여러 명은 \'모두 · 확인 1 / 6\' 한 줄');
+  await page.click('#m' + many.id + ' .tk.sum');
+  ok(await page.locator('#m' + many.id + ' .tk').count() === 7, '누르면 사람마다 펼침');
+  if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'ack.png') });
+  await page.click('#m' + many.id + ' [data-ack]');
+  await page.waitForFunction(id => (document.querySelector('#m' + id + ' .tk.sum') || {}).textContent.includes('확인 2 / 6'), many.id);
+  ok(TASKS.filter(k => k.message_id === many.id && k.assignee === ME)[0].status === '완료', '@모두는 확인하면 완료');
+  await ctx.close();
+
+  console.log('⑲ 찾기 · 꼬리표로 모아 보기');
+  addMsg(BOSS, '[결석] 중3 이하늘 병결', [], ts()); addMsg(EUNJI, '[지각] 고1 박하늘 10분 지각', [], ts()); addMsg(BOSS, '하늘반 시간표 바뀜', [], ts());
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id);
+  ok(await page.locator('#find').isHidden(), '처음엔 찾기 줄 숨김');
+  await page.click('#findBtn');
+  ok(await page.locator('#find').isVisible() && await page.evaluate(() => document.activeElement.id === 'fq'), '돋보기 → 찾기 줄·입력칸에 초점');
+  await page.fill('#fq', '하늘');
+  await page.waitForSelector('#results .ritem');
+  ok(await page.locator('#msgs').isHidden(), '결과를 보는 동안 대화는 숨김');
+  ok(await page.locator('#results .ritem').count() === 4 && (await page.locator('#results .ritem mark').first().textContent()) === '하늘', '\'하늘\' 4개 · 글자 강조');
+  await page.click('#ftags [data-ftag="결석"]');
+  await page.waitForFunction(() => document.querySelectorAll('#results .ritem').length === 2);
+  ok((await page.locator('#results .rsum').textContent()).includes('[결석]'), '꼬리표 + 검색어 함께 (결석·하늘 → 2개)');
+  await page.fill('#fq', '');
+  await page.waitForFunction(() => /\[결석\] —/.test(document.querySelector('#results .rsum').textContent));
+  const absN = MSGS.filter(m => !m.deleted_at && /^\[결석\]/.test(m.body)).length;
+  ok(await page.locator('#results .ritem').count() === absN && await page.locator('#results .ritem span.tg.c2').count() === absN, '[결석]만 모아 보기 (' + absN + '개)');
+  const hit = MSGS.filter(m => /^\[결석\] 중3 이하늘/.test(m.body))[0];
+  await page.click('#results [data-hit="' + hit.id + '"]');
+  await page.waitForFunction(id => document.querySelector('#m' + id + '.flash'), hit.id);
+  ok(await page.locator('#find').isHidden() && await page.locator('#msgs').isVisible(), '결과를 누르면 찾기를 닫고 그 메시지로');
+  await page.click('#findBtn'); await page.fill('#fq', '없는말없는말');
+  await page.waitForFunction(() => (document.querySelector('#results .rsum') || {}).textContent && document.querySelector('#results .rsum').textContent.includes('없습니다'));
+  ok(true, '없으면 \'찾은 메시지가 없습니다\'');
+  await page.keyboard.press('Escape');
+  ok(await page.locator('#find').isHidden() && await page.locator('#msgs').isVisible(), 'Esc로 닫으면 대화로');
+
+  console.log('⑳ 답장');
+  await page.locator('#m' + hit.id).hover();
+  await page.click('#m' + hit.id + ' [data-reply]');
+  ok(await page.locator('#rbar').isVisible() && (await page.locator('#rtext').textContent()).includes('이수경에게 답장') && (await page.locator('#rtext').textContent()).includes('결석중3 이하늘') && await page.locator('#rtext span.tg.c2').count() === 1, '[답장] → 입력칸 위 \'이수경에게 답장 · 원문\'');
+  await page.keyboard.type('보충 일정 잡았습니다'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  const rsd = calls.filter(c => c[0] === 'send').pop();
+  ok(rsd[1].p_reply === hit.id, 'msg_send p_reply = 원글');
+  ok(await page.locator('#rbar').isHidden(), '보내면 답장 줄 사라짐');
+  const rid = MSGS[MSGS.length - 1].id;
+  ok((await page.locator('#m' + rid + ' .quote').textContent()).includes('이수경') && (await page.locator('#m' + rid + ' .quote').textContent()).includes('중3 이하늘'), '답장 위에 원글 인용');
+  await page.click('#m' + rid + ' .quote');
+  await page.waitForFunction(id => document.querySelector('#m' + id + '.flash'), hit.id);
+  ok(true, '인용을 누르면 원글로');
+  await page.locator('#m' + m3.id).hover(); await page.click('#m' + m3.id + ' [data-reply]'); await page.click('#rcancel');
+  ok(await page.locator('#rbar').isHidden(), '[취소]로 답장 그만두기');
+  const sends = calls.filter(c => c[0] === 'send').length;
+  await page.click('#inp'); await page.keyboard.type('그냥 글'); await page.click('#send');
+  await page.waitForFunction(n => true, sends); await sleep(300);
+  ok(!('p_reply' in calls.filter(c => c[0] === 'send').pop()[1]), '답장이 아니면 p_reply 안 보냄(0006 전 DB와 호환)');
+  // 불러오지 않은 원글
+  const far = MSGS[0];
+  const rep2 = addMsg(BOSS, '예전 글에 답합니다', [], ts()); rep2.reply_to = far.id;
+  await page.waitForSelector('#m' + rep2.id + ' .quote', { timeout: 7000 });
+  await page.waitForFunction(id => !document.querySelector('#m' + id + ' .quote').textContent.includes('이전 메시지'), rep2.id, { timeout: 5000 }).catch(() => {});
+  ok((await page.locator('#m' + rep2.id + ' .quote').textContent()).includes(far.author_name), '원글이 화면에 없어도 받아 와 인용 (' + (await page.locator('#m' + rep2.id + ' .quote').textContent()) + ')');
+  far.body = ''; far.deleted_at = ts(); far.updated_at = ts();   // 다른 창에서 원글을 지움
+  await page.waitForFunction(id => document.querySelector('#m' + id + ' .quote').textContent.includes('삭제된 메시지'), rep2.id, { timeout: 7000 }).catch(() => {});
+  ok((await page.locator('#m' + rep2.id + ' .quote').textContent()).includes('삭제된 메시지'), '화면 밖 원글을 지우면 인용도 \'삭제된 메시지\'로');
+  if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'reply.png') }); await page.click('#findBtn'); await page.click('#ftags [data-ftag="결석"]'); await page.waitForSelector('#results .ritem'); await page.screenshot({ path: path.join(process.env.SHOT, 'find.png') });
+    const pg = await ctx.newPage(); await pg.setViewportSize({ width: 390, height: 844 }); await pg.goto('http://127.0.0.1:' + PORT + '/messenger.html'); await pg.waitForSelector('#msgs .m'); await pg.click('#findBtn'); await pg.fill('#fq', '하늘'); await pg.waitForSelector('#results .ritem'); await pg.screenshot({ path: path.join(process.env.SHOT, 'find-phone.png') }); await pg.close(); }
+  await ctx.close();
+
+  console.log('⑳-2 답장 열이 없는 DB(0006 전)');
+  const keep = MSGS.map(m => { const r = m.reply_to; delete m.reply_to; return r; });
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id);
+  ok(await page.locator('[data-reply]').count() === 0, '답장 버튼을 숨김');
+  await ctx.close();
+  MSGS.forEach((m, i) => { m.reply_to = keep[i]; });
+
+  console.log('⑯ 출근·퇴근');
+  PRESENCE[BOSS] = { user_id: BOSS, name: '이수경', loc: '본원', is_on: true, changed_at: ago(1) };
+  PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '화정센터', is_on: true, changed_at: ago(30) };   // 어제 출근 — 오늘은 OFF
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id);
+  await page.waitForFunction(() => !document.querySelector('#presBtn').hidden);
+  ok((await page.locator('#presBtn').textContent()) === '출근하기', '처음엔 [출근하기]');
+  const pres0 = await page.locator('#pres').textContent();
+  ok(pres0.includes('본원') && pres0.includes('이수경') && !pres0.includes('화정센터'), '업무 카드 위에 센터별 출근자 (어제 출근은 OFF)');
+  ok(pres0.includes('OFF3명'), 'OFF 인원 (' + pres0 + ')');
+  ok(await page.locator('.pc[data-person="' + EUNJI + '"] .pst').textContent() === 'OFF', '카드에 OFF 표시');
+  await page.click('#presBtn');
+  ok(await page.locator('#presMenu').isVisible() && await page.locator('#presMenu [data-out]').isHidden(), '센터 고르기 창 (출근 전엔 퇴근 없음)');
+  await page.click('#presMenu [data-loc="화정센터"]');
+  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '화정센터 출근');
+  const pc = calls.filter(c => c[0] === 'pres').pop();
+  ok(pc && pc[1].p_loc === '화정센터' && pc[1].p_on === true, 'msg_presence_set(화정센터, 출근)');
+  if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'pres.png') }); await page.click('#presBtn'); await page.screenshot({ path: path.join(process.env.SHOT, 'pres-menu.png') }); await page.click('#presBtn');
+    const pg = await ctx.newPage(); await pg.setViewportSize({ width: 390, height: 844 }); await pg.goto('http://127.0.0.1:' + PORT + '/messenger.html'); await pg.waitForSelector('#presBtn:not([hidden])'); await pg.screenshot({ path: path.join(process.env.SHOT, 'pres-phone.png') }); await pg.click('#tabBoard'); await pg.screenshot({ path: path.join(process.env.SHOT, 'pres-phone-board.png') }); await pg.close(); }
+  ok((await page.locator('#pres').textContent()).includes('화정센터고희주'), '센터 줄에 내 이름');
+  ok(await page.locator('.pc[data-person="' + ME + '"] .pst.on').textContent() === '화정센터 ON', '내 카드에 화정센터 ON');
+  await page.click('#presBtn');
+  await page.click('#presMenu [data-out]');
+  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '출근하기');
+  ok(calls.filter(c => c[0] === 'pres').pop()[1].p_on === false, '퇴근 → msg_presence_set(퇴근)');
+  PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '정리정독', is_on: true, changed_at: NOWISO() };
+  await page.waitForFunction(() => document.querySelector('#pres').textContent.includes('정리정독'), null, { timeout: 7000 }).catch(() => {});
+  ok((await page.locator('#pres').textContent()).includes('정리정독이은지'), '다른 사람 출근이 3초 안팎에 보임');
+  // 자정을 넘기면(서버 줄은 그대로) 어제 출근이 OFF로 바뀐다
+  await page.evaluate(() => { const D = Date, off = 86400e3; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
+  await page.waitForFunction(() => !document.querySelector('#pres').textContent.includes('정리정독'), null, { timeout: 7000 }).catch(() => {});
+  ok(!(await page.locator('#pres').textContent()).includes('정리정독'), '자정이 지나면 열어 둔 화면도 OFF로 바뀜');
+  await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
+  await page.waitForFunction(() => document.querySelector('#pres').textContent.includes('정리정독'), null, { timeout: 7000 }).catch(() => {});
+  await page.click('#inp'); await page.keyboard.type('@이은');
+  await page.waitForSelector('#mention.on');
+  ok((await page.locator('#mention').textContent()).includes('정리정독 ON'), '@ 목록에 출근 상태');
+  await ctx.close();
+  noPres = true;
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id); await sleep(500);
+  ok(await page.locator('#presBtn').isHidden() && await page.locator('#pres').isHidden(), '표가 없으면(마이그레이션 전) 출근 기능만 숨김');
+  await ctx.close();
+  noPres = false;
 
   await browser.close(); server.close();
   console.log(`\n${n - bad} / ${n} 통과`);

@@ -37,6 +37,13 @@ P -f supabase/migrations/202610190001_messenger.sql >/dev/null || { echo "마이
 P -f supabase/migrations/202610190001_messenger.sql >/dev/null && ok y y "다시 실행해도 오류 없음"
 P -f supabase/migrations/202610190002_messenger_push.sql >/dev/null || { echo "푸시 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610190002_messenger_push.sql >/dev/null && ok y y "푸시 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610190003_teacher_unique_name.sql >/dev/null || { echo "이름 중복 금지 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610190004_messenger_presence.sql >/dev/null || { echo "출근 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610190004_messenger_presence.sql >/dev/null && ok y y "출근 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610190005_messenger_seen_all.sql >/dev/null || { echo "확인·모두 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610190005_messenger_seen_all.sql >/dev/null && ok y y "확인·모두 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610190006_messenger_reply.sql >/dev/null || { echo "답장 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610190006_messenger_reply.sql >/dev/null && ok y y "답장 마이그레이션 다시 실행해도 오류 없음"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
 B=bbbbbbbb-0000-0000-0000-000000000002   # 이은지 선생님
@@ -100,6 +107,10 @@ ok "$(psql -X -A -t -q -d $DB -c "select public||'|'||file_size_limit from stora
 ok "$(as $C "insert into storage.objects(bucket_id,name) values ('msg-files','m/202610/x') returning 1")" 1 "교사는 파일 올림"
 ok "$(as $E "insert into storage.objects(bucket_id,name) values ('msg-files','m/202610/y')" | grep -c 'row-level security')" 1 "계정 없는 로그인은 파일 못 올림"
 
+echo "── 활성 계정 이름 중복 금지"
+psql -X -q -d $DB -c "insert into auth.users values ('ffffffff-0000-0000-0000-000000000006'),('ffffffff-0000-0000-0000-000000000007')" >/dev/null
+ok "$(psql -X -A -t -q -d $DB -c "insert into public.teacher_accounts (user_id, login_id, display_name, role, active) values ('ffffffff-0000-0000-0000-000000000006','dup1',' 이은지 ','teacher',true)" 2>&1 | grep -c teacher_accounts_active_name_uniq)" 1 "활성 계정은 같은 이름(앞뒤 공백 무시) 거절"
+ok "$(psql -X -A -t -q -d $DB -c "insert into public.teacher_accounts (user_id, login_id, display_name, role, active) values ('ffffffff-0000-0000-0000-000000000007','dup2','옛선생','teacher',false) returning 1" 2>&1 | tail -1)" 1 "비활성 계정끼리는 같은 이름 허용"
 echo "── 휴대폰 알림 구독"
 SUB='{"endpoint":"https://fcm.googleapis.com/fcm/send/abc","keys":{"p256dh":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB","auth":"aaaaaaaaaaaaaaaa"}}'
 ok "$(as $C "select public.msg_push_save('$SUB', 'all', 'iPhone')->>'mode'")" "all" "구독 저장"
@@ -113,6 +124,49 @@ ok "$(as $B "select public.msg_push_save('{\"endpoint\":\"http://x\",\"keys\":{\
 ok "$(as $E "select public.msg_push_save('$SUB', 'all', '')" | grep -c not_teacher)" 1 "계정 없는 로그인은 구독 못 함"
 ok "$(as $B "select count(*) from public.msg_push_subs" | grep -c 'permission denied')" 1 "구독 표는 직접 못 읽음"
 ok "$(anon "select public.msg_push_save('$SUB', 'all', '')" | grep -c 'permission denied')" 1 "공개 키는 함수 실행 불가"
+
+echo "── 출근·퇴근"
+ok "$(as $C "select public.msg_presence_set('화정센터', true)->>'loc'")" "화정센터" "출근 — 센터 저장"
+ok "$(as $C "select name||'|'||is_on from public.msg_presence where user_id='$C'")" "고희주|true" "이름은 서버가 정함 · ON"
+ok "$(as $C "select public.msg_presence_set('본원', true)->>'loc'")" "본원" "센터 바꾸기 — 한 줄 그대로"
+ok "$(as $C "select (public.msg_presence_set('', false)->>'is_on')||'|'||(select loc from public.msg_presence where user_id='$C')")" "false|본원" "퇴근 — OFF, 마지막 센터는 남김"
+ok "$(as $B "select count(*) from public.msg_presence_log where user_id='$C'")" 3 "누를 때마다 기록 한 줄 · 다른 교사도 읽음"
+ok "$(as $C "select public.msg_presence_set('집', true)" | grep -c bad_loc)" 1 "없는 센터 거절"
+ok "$(as $E "select public.msg_presence_set('본원', true)" | grep -c not_teacher)" 1 "계정 없는 로그인은 못 씀"
+ok "$(as $B "insert into public.msg_presence(user_id,name,loc,is_on) values ('$B','x','본원',true)" | grep -c 'permission denied')" 1 "표에 직접 쓰기 불가"
+ok "$(as $E "select count(*) from public.msg_presence")" 0 "계정 없는 로그인은 읽어도 0줄"
+ok "$(anon "select count(*) from public.msg_presence" | grep -c 'permission denied')" 1 "공개 키는 표를 못 읽음"
+
+echo "── 확인했습니다 · @모두"
+MA=$(as $B "select (public.msg_send('내일 시험지 배부합니다 @모두', '[]', '{}')->'message'->>'id')")
+ok "$(as $B "select count(*)||'|'||bool_and(ack_only)||'|'||min(text) from public.msg_tasks where message_id=$MA")" "2|true|내일 시험지 배부합니다" "@모두 = 나 빼고 활성 교사 모두(비활성 제외) · 확인만 · 글에서 @모두 뺌"
+TA=$(as $B "select id from public.msg_tasks where message_id=$MA and assignee='$C'")
+ok "$(as $A "select public.msg_task_seen($TA)" | grep -c not_allowed)" 1 "남의 할 일은 확인 못 함(관리자도)"
+TB=$(as $B "select id from public.msg_tasks where message_id=$MA and assignee='$A'")
+ok "$(as $B "select public.msg_task_set($TB, true)" | grep -c not_allowed)" 1 "@모두 할 일은 보낸 사람도 대신 완료 못 함"
+ok "$(as $A "select public.msg_task_set($TB, true)->>'status'")" "완료" "맡은 사람(관리자 본인 몫)은 체크 가능"
+ok "$(as $C "select (public.msg_task_seen($TA)->>'status')||'|'||(public.msg_task_seen($TA)->>'seen_at' is not null)")" "완료|true" "@모두는 확인을 누르면 완료"
+ok "$(as $C "select done_by_name from public.msg_tasks where id=$TA")" "고희주" "완료한 사람 = 확인한 사람"
+ok "$(as $C "select public.msg_task_set($TA, false)" | grep -c ack_locked)" 1 "@모두 확인은 되돌리지 않음"
+MN=$(as $A "select (public.msg_send('상담 일정 잡아 주세요 @고희주', '[]', array['$C']::uuid[])->'message'->>'id')")
+TN=$(as $A "select id from public.msg_tasks where message_id=$MN")
+ok "$(as $C "select (public.msg_task_seen($TN)->>'status')||'|'||(public.msg_task_seen($TN)->>'seen_at' is not null)")" "대기|true" "보통 할 일은 확인해도 대기 그대로(알았다는 표시만)"
+MN2=$(as $A "select (public.msg_send('출석부 정리 @고희주', '[]', array['$C']::uuid[])->'message'->>'id')")
+TN2=$(as $A "select id from public.msg_tasks where message_id=$MN2")
+ok "$(as $C "select (public.msg_task_set($TN2, true)->>'seen_at') is not null")" "t" "확인 없이 완료해도 확인으로 침"
+ok "$(as $A "select ack_only from public.msg_tasks where id=$TN")" "f" "보통 할 일은 ack_only 아님"
+ok "$(anon "select public.msg_task_seen($TN)" | grep -c 'permission denied')" 1 "공개 키는 확인 함수 실행 불가"
+
+MS=$(as $B "select (public.msg_send('내 이름도 적은 공지 @모두 @이은지', '[]', array['$B']::uuid[])->'message'->>'id')")
+ok "$(as $B "select count(*) filter (where assignee='$B')||'|'||count(*) from public.msg_tasks where message_id=$MS")" "0|2" "@모두는 내 이름을 함께 적어도 나를 뺌"
+echo "── 답장"
+ok "$(psql -X -A -t -q -d $DB -c "select count(*) from pg_proc where proname='msg_send'")" 1 "msg_send는 하나(네 인자)"
+R0=$(as $C "select (public.msg_send('질문 있습니다', '[]', '{}')->'message'->>'id')")
+R1=$(as $A "select (public.msg_send(p_body => '네 말씀하세요', p_reply => $R0)->'message'->>'reply_to')")
+ok "$R1" "$R0" "답장 = reply_to 저장"
+ok "$(as $A "select public.msg_send(p_body => 'x', p_reply => 999999)" | grep -c bad_reply)" 1 "없는 메시지에 답장 거절"
+as $C "select public.msg_delete($R0)" >/dev/null
+ok "$(as $A "select reply_to from public.msg_messages where reply_to=$R0 limit 1")" "$R0" "원글을 지워도 답장 연결은 남음"
 
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null

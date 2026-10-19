@@ -183,11 +183,17 @@
   function login(loginId, password) {
     var id = normalizeLoginId(loginId);
     if (!password) return Promise.reject(new Error('비밀번호를 입력하십시오.'));
-    clearSession();
+    var prev = readSession();
+    var prevUser = prev && prev.user && prev.user.id;
     return authRequest('password', {
       email: id + '@' + LOGIN_DOMAIN,
       password: String(password)
+    }).then(function (session) {
+      // 다른 사람이 이 기기로 로그인하면 앞 사람의 슈톡 알림 구독을 지운다
+      if (prev && prevUser && session.user && session.user.id !== prevUser) return dropPush(prev.access_token);
     }).then(function () {
+      teacherTask = null;
+      sessionTask = null;
       return requireTeacher();
     }).catch(function (error) {
       clearSession();
@@ -221,6 +227,36 @@
     return url;
   }
 
+  // 이 기기의 슈톡 푸시 구독을 지운다 — 로그아웃·다른 사람 로그인 때 앞 사람 앞으로 온 알림이
+  // 이 기기에 계속 뜨지 않게 (Codex 검토 P1). 브라우저 해제가 8초 안에 안 끝나면(먹통) 로그아웃은 진행한다.
+  function dropPush(token) {
+    var nav = global.navigator;
+    // 앱 아이콘 숫자와 서비스 워커가 세던 수도 0으로 — 다음 사람에게 앞 사람 숫자가 남지 않게 (Codex 검토)
+    if (nav && nav.clearAppBadge) nav.clearAppBadge().catch(function () {});
+    var swc = nav && nav.serviceWorker && nav.serviceWorker.controller;
+    if (swc) swc.postMessage({ type: 'badge-clear' });   // 진행 중인 +1 뒤에 0 (msg-sw.js)
+    else if (global.caches) global.caches.open('msg-badge').then(function (c) { return c.put('badge-n', new Response('0')); }).catch(function () {});
+    if (!nav || !nav.serviceWorker || !nav.serviceWorker.getRegistrations) return Promise.resolve();
+    var work = nav.serviceWorker.getRegistrations().then(function (regs) {
+      return Promise.all(regs.map(function (reg) {
+        if (!reg.pushManager) return null;
+        return reg.pushManager.getSubscription().then(function (sub) {
+          if (!sub) return null;
+          // 서버 삭제(keepalive — 화면을 떠나도 끝까지 간다)와 브라우저 구독 해제를 서로 기다리지 않고 함께 시작한다.
+          // 로그아웃은 브라우저 해제가 끝날 때까지 기다린다 — 해제되면 서버에 줄이 남아도 이 기기로는 오지 않는다.
+          if (token) rawFetch(SUPABASE_URL + '/rest/v1/rpc/msg_push_remove', {
+            method: 'POST',
+            keepalive: true,
+            headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ p_endpoint: sub.endpoint })
+          }).catch(function () {});
+          return sub.unsubscribe().catch(function () {});
+        });
+      }));
+    }).catch(function () {});
+    return Promise.race([work, new Promise(function (r) { setTimeout(r, 8000); })]);
+  }
+
   function logout() {
     var current = readSession();
     var task = current && current.access_token
@@ -229,8 +265,10 @@
           headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + current.access_token }
         }).catch(function () {})
       : Promise.resolve();
-    clearSession();
-    return task.then(function () { location.replace(LOGIN_PAGE); });
+    return dropPush(current && current.access_token).then(function () {
+      clearSession();
+      return task;
+    }).then(function () { location.replace(LOGIN_PAGE); });
   }
 
   function addToolbar(profile) {

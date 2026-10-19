@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>슈톡 · Shuetalk</title>
 <script src="assets/teacher-auth.js" data-mode="protected"></script>
-<meta name="description" content="이수경국어 슈톡(Shuetalk) — 한 대화방에서 이야기하고 @이름으로 할 일을 맡깁니다" />
+<meta name="description" content="이수경국어 슈톡(Shuetalk) — 한 대화방에서 이야기하고 업무 담당을 배정합니다" />
 <link rel="manifest" href="messenger.webmanifest" />
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -39,9 +39,31 @@
   .hbtn{border:0;border-radius:999px;background:var(--lav);color:var(--lavInk);font-size:13px;padding:7px 12px;text-decoration:none;}
   .hbtn.plain{background:var(--soft);color:var(--ink);}
 
+  /* 출근·퇴근 (2026-10-19 원장님) */
+  .pbtn{border:0;border-radius:999px;font-size:13px;padding:7px 12px;background:#F7E2DE;color:var(--lateInk);display:inline-flex;align-items:center;gap:6px;}
+  .pbtn.on{background:var(--ok);color:var(--okInk);}
+  .pbtn::before{content:"";width:8px;height:8px;border-radius:50%;background:#C98B72;}
+  .pbtn.on::before{background:#5E9A84;}
+  .pbtn[hidden]{display:none;}
+  .presmenu{position:fixed;top:58px;right:18px;z-index:45;background:#fff;border-radius:16px;box-shadow:0 8px 28px rgba(42,51,47,.18);padding:12px;display:flex;flex-direction:column;gap:6px;min-width:210px;}
+  .presmenu[hidden]{display:none;}
+  .presmenu .pmt{font-size:12.5px;color:var(--cap);padding:0 4px 2px;}
+  .presmenu button{border:0;border-radius:12px;background:var(--soft);color:var(--ink);font-size:14.5px;padding:11px 14px;text-align:left;}
+  .presmenu button.cur{background:var(--ok);color:var(--okInk);font-weight:700;}
+  .presmenu button.out{background:#F7E2DE;color:var(--lateInk);text-align:center;margin-top:4px;}
+  .pres{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;line-height:1.5;}
+  .pres[hidden]{display:none;}
+  .pres .pl b{font-weight:700;color:var(--okInk);margin-right:4px;}
+  .pres .pl.off b{color:var(--cap);}
+  .pres .pl.off{color:var(--cap);}
+  .pst{font-size:12px;border-radius:999px;padding:2px 8px;background:var(--soft);color:var(--cap);white-space:nowrap;}
+  .pst.on{background:var(--ok);color:var(--okInk);}
   .tabs{display:none;flex:none;gap:4px;margin:0 12px 8px;background:#E6ECE9;border-radius:999px;padding:3px;}
   .tabs button{flex:1;border:0;border-radius:999px;height:40px;font-size:15px;background:transparent;color:var(--ink2);}
   .tabs button.on{background:#fff;color:var(--ink);font-weight:700;}
+  /* 카카오톡처럼 빨간 원 안에 새 메시지 수 */
+  .nbadge{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;margin-left:6px;border-radius:999px;background:#E5484D;color:#fff;font-size:12px;font-weight:700;line-height:1;vertical-align:1px;}
+  .nbadge[hidden]{display:none;}
   .tabwrap{background:var(--top);}
 
   .layout{flex:1;min-height:0;display:flex;}
@@ -86,6 +108,37 @@
   .tk{border:0;font-size:12px;padding:3px 10px;border-radius:999px;}
   .tk.wait{background:var(--wait);color:var(--waitInk);}
   .tk.ok{background:var(--ok);color:var(--okInk);}
+  .tk.seen{background:var(--lav);color:var(--lavInk);}
+  .tk.sum{font-weight:700;}
+  .ack{border:0;border-radius:999px;background:var(--lavInk);color:#fff;font-size:13px;padding:6px 14px;margin-top:6px;font-weight:700;}
+  .ack.sm{font-size:12px;padding:3px 10px;margin:0 0 0 auto;flex:none;align-self:center;}
+  /* 검색·꼬리표 모아 보기 (제안 1·5) */
+  .ibtn.sm{width:36px;height:36px;border-radius:999px;background:var(--soft);}
+  .ibtn.sm.on{background:var(--lav);}
+  .find{flex:none;display:flex;flex-direction:column;gap:6px;padding:8px 18px;background:#E8EFEC;}
+  .find[hidden]{display:none;}
+  .frow{display:flex;gap:8px;align-items:center;}
+  .frow input{flex:1;min-width:0;border:0;border-radius:999px;padding:9px 14px;font-size:14.5px;font-family:inherit;background:#fff;color:var(--ink);}
+  .frow input:focus{outline:2px solid var(--lavBar);}
+  .ftags{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;}
+  .ftags::-webkit-scrollbar{display:none;}
+  .ftags.has .tg:not(.on){opacity:.42;}
+  #results{flex:1;overflow-y:auto;padding:10px 22px 14px;display:flex;flex-direction:column;gap:8px;}
+  #results[hidden],#msgs[hidden]{display:none;}
+  .rsum{font-size:13px;color:var(--ink2);}
+  .ritem{border:0;border-radius:14px;background:#fff;text-align:left;padding:10px 14px;font-size:14px;line-height:1.55;color:var(--ink);display:flex;flex-direction:column;gap:3px;}
+  .ritem .rh{font-size:12.5px;color:var(--cap);}
+  .ritem .rb{white-space:pre-wrap;word-break:break-word;}
+  .ritem mark{background:#F9EFD0;color:inherit;border-radius:3px;padding:0 1px;}
+  /* 답장 (제안 6) */
+  .quote{border:0;background:rgba(255,255,255,.55);border-radius:10px;padding:5px 10px;margin:2px 0 4px;font-size:12.5px;color:var(--ink2);text-align:left;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;}
+  .m.mine .quote{margin-left:auto;}
+  .quote b{color:var(--lavInk);margin-right:4px;}
+  .quote span.tg,.rbar span.tg{padding:0 7px;font-size:11.5px;margin-right:4px;}
+  .rbar{display:flex;align-items:center;gap:8px;background:#fff;border-radius:12px;padding:6px 8px 6px 12px;font-size:13px;color:var(--ink2);}
+  .rbar[hidden]{display:none;}
+  .rbar > span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .rbar b{color:var(--lavInk);}
   .jump{position:absolute;right:22px;bottom:118px;border:0;border-radius:999px;background:var(--lavInk);color:#fff;font-size:13px;padding:8px 14px;box-shadow:0 4px 14px rgba(0,0,0,.15);}
 
   #composer{flex:none;background:var(--top);padding:8px 18px calc(12px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:6px;position:relative;}
@@ -96,6 +149,21 @@
   #send{width:auto;padding:0 18px;background:var(--lavInk);color:#fff;font-size:14px;}
   #send:disabled{background:#B7B0BF;}
   .hint{font-size:12.5px;color:var(--ink2);}
+  /* 꼬리표 알약 (2026-10-19 원장님) — 본문 앞 '[결석] '으로 저장, 화면은 색 알약으로 */
+  .tags{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:1px 0;}
+  .tags::-webkit-scrollbar{display:none;}
+  .tags.has .tg:not(.on){opacity:.42;}
+  .tg{border:0;border-radius:999px;font-size:12.5px;padding:5px 11px;white-space:nowrap;flex:none;font-family:inherit;line-height:1.3;}
+  button.tg.on{font-weight:700;}
+  span.tg{display:inline-block;padding:2px 9px;margin-right:6px;font-size:12.5px;vertical-align:1px;}
+  .tg.c1{background:#DCE8E5;color:#2F5148;}
+  .tg.c2{background:#F7E2DE;color:#83413A;}
+  .tg.c3{background:#F9EFD0;color:#6E5718;}
+  .tg.c4{background:#EDE4F4;color:#5A4A6A;}
+  .tg.c5{background:#E9EDF8;color:#475A86;}
+  .tg.c6{background:#FBE3CF;color:#8A5320;}
+  .tg.c7{background:#E6EAE8;color:#4F5C56;}
+  .tg.c8{background:#D9EEF0;color:#2E6168;}
   .hint b{color:var(--lavInk);}
   #pend{display:flex;flex-wrap:wrap;gap:6px;}
   #pend:empty{display:none;}
@@ -137,12 +205,10 @@
   .none{font-size:13px;color:var(--cap);}
   .idle{grid-column:1/-1;font-size:12.5px;color:var(--ink2);}
   .notice{margin:30px auto;max-width:520px;background:#fff;border-radius:16px;padding:20px 22px;line-height:1.7;font-size:14.5px;}
-  .pbanner{flex:none;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#F9EFD0;color:#4F3E10;padding:9px 18px;font-size:13.5px;}
-  .pbanner[hidden]{display:none;}
   .hbtn.on{background:var(--ok);color:var(--okInk);}
   .hbtn.warn{background:#F7E2DE;color:var(--lateInk);}
   .hbtn.big{padding:11px 16px;font-size:14.5px;border-radius:12px;}
-  .pback{position:fixed;inset:0;background:rgba(42,51,47,.35);display:flex;align-items:center;justify-content:center;z-index:40;padding:16px;}
+  .pback{position:fixed;inset:0;background:rgba(42,51,47,.55);display:flex;align-items:center;justify-content:center;z-index:40;padding:16px;}
   .pback[hidden]{display:none;}
   .ppanel{background:#fff;border-radius:18px;padding:18px 20px;max-width:440px;width:100%;display:flex;flex-direction:column;gap:12px;max-height:90vh;overflow:auto;}
   .phead{display:flex;align-items:center;justify-content:space-between;}
@@ -152,10 +218,6 @@
   .pguide ol{margin:6px 0;padding-left:20px;}
   .prow{display:flex;gap:8px;flex-wrap:wrap;}
   .prow[hidden]{display:none;}
-  .pmode{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;font-size:14px;}
-  .pmode[hidden]{display:none;}
-  .pmode legend{font-size:13px;color:var(--ink2);margin-bottom:6px;}
-  .pmode label{display:flex;gap:8px;align-items:center;}
   .pnote{display:block;margin:0;font-size:12.5px;color:var(--cap);line-height:1.6;}
   #status{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2A332F;color:#fff;border-radius:999px;padding:9px 16px;font-size:13.5px;z-index:50;max-width:90vw;}
   #status:empty{display:none;}
@@ -187,27 +249,31 @@
       <span class="title">슈톡</span>
       <span class="cnt" id="cnt"></span>
       <span class="grow"></span>
+      <button class="ibtn sm" id="findBtn" type="button" aria-label="메시지 찾기" title="메시지 찾기 · 꼬리표로 모아 보기"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#4C6E66" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg></button>
+      <button class="pbtn" id="presBtn" type="button" hidden aria-haspopup="true">출근하기</button>
       <span class="live off" id="live">연결 중</span>
-      <button class="hbtn" id="notiBtn" type="button">휴대폰 알림</button>
       <span class="me" id="me"></span>
     </header>
     <div class="tabs" role="tablist">
-      <button type="button" id="tabChat" class="on" role="tab" aria-selected="true">대화</button>
+      <button type="button" id="tabChat" class="on" role="tab" aria-selected="true">대화<span class="nbadge" id="chatBadge" hidden></span></button>
       <button type="button" id="tabBoard" role="tab" aria-selected="false">업무 카드</button>
     </div>
   </div>
 
   <div class="layout">
     <section id="chat" aria-label="대화">
-      <div class="pbanner" id="pbanner" hidden>
-        <span>휴대폰 알림이 꺼져 있습니다. 켜 두어야 새 메시지와 할 일을 바로 받아요.</span>
-        <button class="hbtn" type="button" id="pbannerBtn">알림 켜기</button>
+      <div class="find" id="find" hidden>
+        <div class="frow"><input id="fq" type="search" placeholder="학생 이름·내용으로 찾기" aria-label="메시지 찾기" autocomplete="off" /><button class="hbtn plain" type="button" id="fclose">닫기</button></div>
+        <div class="ftags" id="ftags" role="group" aria-label="꼬리표로 모아 보기"></div>
       </div>
+      <div id="results" hidden aria-live="polite"></div>
       <div id="msgs" aria-live="polite"></div>
       <button class="jump" id="jump" type="button" hidden>새 메시지 ↓</button>
       <div id="composer">
         <div id="mention" role="listbox" aria-label="부를 사람"></div>
+        <div class="rbar" id="rbar" hidden><span id="rtext"></span><button class="hbtn plain" type="button" id="rcancel" aria-label="답장 취소">취소</button></div>
         <div id="pend"></div>
+        <div class="tags" id="tags" role="group" aria-label="꼬리표"></div>
         <div class="crow">
           <textarea id="inp" rows="1" aria-label="메시지 쓰기" placeholder="메시지 쓰기"></textarea>
           <input type="file" id="file" multiple hidden />
@@ -231,32 +297,36 @@
           </span>
         </div>
         <div class="bar"><i id="sumbar" style="width:0%"></i></div>
+        <div class="pres" id="pres" hidden></div>
       </div>
       <div id="cards"></div>
     </aside>
   </div>
 </div>
+<!-- 알림 관문 — 알림이 켜지기 전에는 슈톡을 쓸 수 없다(2026-10-19 원장님 "피할 수 있게 만들면 안돼요"). 닫기 버튼 없음 -->
 <div class="pback" id="pback" hidden>
   <div class="ppanel" role="dialog" aria-modal="true" aria-labelledby="ptitle">
-    <div class="phead"><span class="btitle" id="ptitle">휴대폰 알림</span><button class="hbtn plain" type="button" id="pclose">닫기</button></div>
+    <span class="btitle" id="ptitle">슈톡 알림을 켜 주십시오</span>
     <p class="pstate" id="pstate">확인하는 중…</p>
     <div id="pios" class="pguide" hidden>
       <b>아이폰·아이패드는 먼저 홈 화면에 추가해야 알림을 받을 수 있습니다.</b>
-      <ol><li>사파리에서 이 화면을 연 채로 아래 <b>공유</b> 버튼을 누릅니다.</li><li><b>홈 화면에 추가</b>를 누릅니다.</li><li>홈 화면에 생긴 <b>슈톡</b> 아이콘으로 열고, 여기서 [알림 켜기]를 누릅니다.</li></ol>
+      <ol><li>사파리에서 이 화면을 연 채로 아래 <b>공유</b> 버튼을 누릅니다.</li><li><b>홈 화면에 추가</b>를 누릅니다.</li><li>홈 화면에 생긴 <b>슈톡</b> 아이콘으로 엽니다.</li></ol>
       <span class="pnote">iOS 16.4 이상에서 됩니다. 카카오톡 안에서 열었다면 사파리로 다시 열어 주세요.</span>
     </div>
     <div class="prow" id="pbtns">
-      <button class="hbtn big" type="button" id="pon">이 기기에서 알림 켜기</button>
-      <button class="hbtn plain big" type="button" id="poff" hidden>이 기기 알림 끄기</button>
-      <button class="hbtn plain big" type="button" id="ptest" hidden>시험 알림 보내기</button>
+      <button class="hbtn big" type="button" id="pon">알림 허용하고 시작하기</button>
     </div>
-    <fieldset class="pmode" id="pmode" hidden>
-      <legend>어떤 메시지에 알림을 받을까요?</legend>
-      <label><input type="radio" name="pm" value="all" /> 모든 메시지 (카카오톡 단톡방처럼)</label>
-      <label><input type="radio" name="pm" value="mention" /> 나를 @로 부른 메시지만</label>
-    </fieldset>
-    <p class="pnote">기기마다 따로 켭니다. 컴퓨터와 휴대폰 모두에서 받으려면 각각 켜 주세요.</p>
+    <p class="pnote">모든 메시지와 나에게 온 할 일이 바로 알림으로 옵니다. 기기마다 한 번씩 허용해 주세요.</p>
+    <a class="pnote" href="index.html">티쳐스 첫 화면으로</a>
   </div>
+</div>
+<div class="presmenu" id="presMenu" hidden role="menu" aria-label="출근·퇴근">
+  <span class="pmt">어느 센터로 출근하나요?</span>
+  <button type="button" data-loc="본원">본원</button>
+  <button type="button" data-loc="화정센터">화정센터</button>
+  <button type="button" data-loc="민초센터">민초센터</button>
+  <button type="button" data-loc="정리정독">정리정독</button>
+  <button type="button" class="out" data-out="1">퇴근</button>
 </div>
 <div id="status" role="status"></div>
 
@@ -295,6 +365,7 @@
   function rpc(name, body){ return api('/rpc/' + name, { method: 'POST', body: JSON.stringify(body || {}) }); }
   function errText(e){
     var m = String((e && e.message) || e || '');
+    if (/p_reply|bad_reply/.test(m + JSON.stringify((e && e.data) || ''))) return /bad_reply/.test(m) ? '답장할 메시지를 찾지 못했습니다.' : '답장 기능 준비가 아직 끝나지 않았습니다(마이그레이션 202610190006).';
     if (/not_teacher/.test(m)) return '허브 개인 계정으로 로그인해야 쓸 수 있습니다.';
     if (/not_allowed/.test(m)) return '맡은 사람·맡긴 사람만 바꿀 수 있어요.';
     if (/bad_files/.test(m)) return '파일 정보가 올바르지 않습니다.';
@@ -344,7 +415,7 @@
       ready = true;
       renderMsgs('first'); renderBoard();
       var hm0 = location.hash.match(/^#m(\d+)$/); if (hm0) goTo(Number(hm0[1]));
-      pushInit();
+      pushInit(); loadPres();
       setLive(true); schedule();
     }).catch(function(e){
       setLive(false);
@@ -374,7 +445,7 @@
     var changed = false;
     (rows || []).forEach(function(t){
       var old = TASKS.get(t.id);
-      if (!old || old.updated_at !== t.updated_at){ TASKS.set(t.id, t); changed = true; }
+      if (!old || t.updated_at > old.updated_at){ TASKS.set(t.id, t); changed = true; }   // 늦게 온 옛 줄이 방금 바꾼 것을 덮지 않게
       if (!maxTaskTs || t.updated_at > maxTaskTs) maxTaskTs = t.updated_at;
     });
     return changed;
@@ -395,16 +466,22 @@
       api('/msg_tasks?select=*&updated_at=gt.' + encodeURIComponent(back30(maxTaskTs)) + '&order=id.asc&limit=1000')
     ]).then(function(res){
       setLive(true);
+      // 화면 밖(불러오지 않은 구간)의 인용 원글이 바뀌었으면(지움 등) 인용도 고친다 — Codex 검토
+      var qch = false;
+      // 화면 밖 구간의 메시지가 지워지면 대화 탭 숫자(gap)도 다시 센다 — 같은 줄은 한 번만 (Codex 검토)
+      (res[0] || []).forEach(function(m){ if (firstId != null && m.id < firstId && m.deleted_at && !offSeen[m.id + '|' + m.updated_at]){ offSeen[m.id + '|' + m.updated_at] = 1; gap.key = ''; qch = true; } });
+      (res[0] || []).forEach(function(m){ var c = QCACHE[m.id]; if (c && (firstId == null || m.id < firstId) && c.updated_at !== m.updated_at){ QCACHE[m.id] = m; qch = true; } });   // 바뀐 때만 다시 그림
       var newMsgs = (res[0] || []).filter(function(m){ return firstId == null || m.id >= firstId; });
       var deleted = newMsgs.filter(function(m){ return m.deleted_at; });
       var mc = addMsgs(newMsgs);
       deleted.forEach(function(m){ dropTasksOf(m.id); });
       var tc = addTasks(res[1]);
-      if (mc || tc || deleted.length){ renderMsgs(lastMsgId() > lastBefore ? 'new' : 'keep'); renderBoard(); }
+      if (mc || tc || deleted.length || qch){ renderMsgs(lastMsgId() > lastBefore ? 'new' : 'keep'); renderBoard(); }
       notifyNew(newMsgs.filter(function(m){ return m.id > lastBefore && m.author !== ME.id && !m.deleted_at; }));
     }).catch(function(){ setLive(false); }).then(function(){ polling = false; schedule(); });
+    loadPres();
   }
-  document.addEventListener('visibilitychange', function(){ if (!document.hidden){ unseen = 0; document.title = '슈톡 · Shuetalk'; if (navigator.clearAppBadge) navigator.clearAppBadge().catch(function(){}); markRead(); poll(); } });
+  document.addEventListener('visibilitychange', function(){ if (document.hidden) tellReading(false); if (!document.hidden){ unseen = 0; document.title = '슈톡 · Shuetalk'; markRead(); poll(); } });
 
   // ── 화면이 열려 있는 동안: 창 제목에 새 메시지 수 ─────────
   var unseen = 0;
@@ -415,92 +492,83 @@
 
   // ── 휴대폰 푸시 알림 (msg-sw.js + 엣지 함수 msg-push) ─────────
   var FN = SB + '/functions/v1/msg-push';
-  var PUSH = { reg: null, sub: null, mode: 'all', saved: false, busy: false };
+  var PUSH = { reg: null, sub: null, saved: false, busy: false, checking: false, err: false };
   function fn(body, keep){ return fetch(FN, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), keepalive: !!keep }).then(function(r){ return r.json().catch(function(){ return {}; }).then(function(d){ if (!r.ok){ var e = new Error(d.error || ('HTTP ' + r.status)); e.status = r.status; throw e; } return d; }); }); }
   function pushSupported(){ return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
   function isIOS(){ return /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
   function standalone(){ return (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true; }
   function b64u(s){ var p = '='.repeat((4 - s.length % 4) % 4), raw = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')), out = new Uint8Array(raw.length); for (var i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i); return out; }
   function pushOn(){ return !!(window.Notification && PUSH.sub && PUSH.saved && Notification.permission === 'granted'); }
+  // 알림 켜기·끄기 선택은 없다 — 모든 메시지에 알림(2026-10-19 원장님 "알림 켜기 끄기 기능을 없애고 기본적으로 알림이 뜨게").
+  // 기기가 허락하지 않은 동안은 관문 창(#pback)이 화면을 덮는다. 서버 쪽 잠깐의 실패(PUSH.err)는 막지 않는다 — 대화는 써야 하므로.
   function pushUi(){
-    var on = pushOn(), btn = $('notiBtn');
-    btn.textContent = on ? '알림 켜짐' : '알림 꺼짐';
-    btn.className = 'hbtn ' + (on ? 'on' : 'warn');
-    $('pbanner').hidden = on;
-    var iosNeed = isIOS() && !standalone();
+    var on = pushOn(), iosNeed = isIOS() && !standalone(), perm = window.Notification ? Notification.permission : 'default';
+    var settling = PUSH.checking && perm === 'granted' && pushSupported() && !iosNeed;   // 이미 허용한 기기는 저장하는 동안 덮지 않는다
+    var need = !on && !PUSH.err && !settling;
+    $('pback').hidden = !need;
+    var app = document.querySelector('.app'); if (need) app.setAttribute('inert', ''); else app.removeAttribute('inert');
     $('pios').hidden = !iosNeed;
     var st;
-    if (iosNeed) st = '이 화면은 아직 알림을 받을 수 없습니다. 아래 순서대로 홈 화면에 추가해 주세요.';
-    else if (!pushSupported()) st = '이 브라우저는 알림을 지원하지 않습니다. 크롬·사파리·엣지 최신 버전으로 열어 주세요.';
-    else if (Notification.permission === 'denied') st = '알림이 차단돼 있습니다. 브라우저(또는 휴대폰) 설정 → 알림에서 이 사이트를 허용으로 바꾼 뒤 다시 눌러 주세요.';
-    else if (on) st = '이 기기에서 알림을 받고 있습니다.';
-    else st = '이 기기는 알림이 꺼져 있습니다. 아래 버튼을 눌러 켜 주세요.';
+    if (iosNeed) st = '이 화면에서는 알림을 받을 수 없습니다. 아래 순서대로 홈 화면에 추가한 뒤 그 아이콘으로 열어 주십시오.';
+    else if (!pushSupported()) st = '이 브라우저는 알림을 받을 수 없습니다. 크롬·사파리·엣지 최신 버전으로 열어 주십시오.';
+    else if (perm === 'denied') st = '알림이 차단돼 있습니다. 브라우저(또는 휴대폰) 설정 → 알림에서 이 사이트를 허용으로 바꾼 뒤 아래 버튼을 눌러 주십시오.';
+    else st = '슈톡은 알림을 켜야 쓸 수 있습니다. 새 메시지와 나에게 온 할 일을 놓치지 않도록 아래 버튼을 눌러 알림을 허용해 주세요.';
     $('pstate').textContent = st;
-    var can = pushSupported() && !iosNeed;
-    $('pbtns').hidden = !can;
-    $('pon').hidden = on; $('poff').hidden = !on; $('ptest').hidden = !on;
-    $('pmode').hidden = !on;
-    document.querySelectorAll('input[name="pm"]').forEach(function(r){ r.checked = r.value === PUSH.mode; });
+    $('pbtns').hidden = !pushSupported() || iosNeed;
+    $('pon').textContent = perm === 'denied' ? '다시 확인하기' : '알림 허용하고 시작하기';
   }
   function pushInit(){
-    if (!pushSupported()){ pushUi(); return; }
+    if (!pushSupported() || (isIOS() && !standalone())){ pushUi(); return; }
+    PUSH.checking = true; pushUi();
     navigator.serviceWorker.register('msg-sw.js').then(function(reg){
       PUSH.reg = reg;
       return reg.pushManager.getSubscription();
     }).then(function(sub){
       PUSH.sub = sub;
-      if (!sub) return null;
+      if (Notification.permission !== 'granted') return null;
+      // 이미 허용한 기기 — 구독이 없으면 새로 만들고, 저장이 안 됐거나 '나를 부른 것만'이던 기기는 '모든 메시지'로 다시 저장
+      if (!sub) return subscribe();
       return rpc('msg_push_state', { p_endpoint: sub.endpoint }).then(function(st){
-        PUSH.mode = st.mode || 'all'; PUSH.saved = !!st.saved;
-        // 구독은 있는데 저장이 안 됐으면(다른 계정으로 로그인했던 기기 등) 지금 사람 이름으로 다시 저장
-        if (!st.saved && Notification.permission === 'granted') return savePush();
+        PUSH.saved = !!st.saved && st.mode === 'all';
+        if (!PUSH.saved) return savePush();
       });
-    }).catch(function(){}).then(pushUi);
+    }).catch(function(){ if (Notification.permission === 'granted') PUSH.err = true; })
+      .then(function(){ PUSH.checking = false; pushUi(); });
     navigator.serviceWorker.addEventListener('message', function(e){
       if (e.data && e.data.type === 'msg-open'){ var mm = String(e.data.url || '').match(/#m(\d+)/); if (mm) goTo(Number(mm[1])); }
     });
   }
   function savePush(){
-    return rpc('msg_push_save', { p_sub: PUSH.sub.toJSON(), p_mode: PUSH.mode, p_ua: navigator.userAgent.slice(0, 300) }).then(function(){ PUSH.saved = true; });
+    return rpc('msg_push_save', { p_sub: PUSH.sub.toJSON(), p_mode: 'all', p_ua: navigator.userAgent.slice(0, 300) }).then(function(){ PUSH.saved = true; PUSH.err = false; });
+  }
+  function subscribe(){
+    return Promise.all([fn({ action: 'key' }), PUSH.reg ? PUSH.reg : navigator.serviceWorker.register('msg-sw.js')]).then(function(r){
+      PUSH.reg = r[1];
+      return PUSH.reg.pushManager.getSubscription().then(function(old){
+        return old || PUSH.reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(r[0].key) });
+      });
+    }).then(function(sub){ PUSH.sub = sub; return savePush(); });
   }
   function enablePush(){
     if (PUSH.busy) return; PUSH.busy = true;
     // 권한 묻기는 버튼을 누른 바로 그 자리에서(아이폰은 다른 일을 먼저 하면 창을 띄우지 않는다)
     Notification.requestPermission().then(function(perm){
       if (perm !== 'granted') throw new Error('denied');
-      return Promise.all([fn({ action: 'key' }), PUSH.reg ? PUSH.reg : navigator.serviceWorker.register('msg-sw.js')]);
-    }).then(function(r){
-      PUSH.reg = r[1];
-      return PUSH.reg.pushManager.getSubscription().then(function(old){
-        return old || PUSH.reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(r[0].key) });
-      });
-    }).then(function(sub){ PUSH.sub = sub; return savePush(); })
-      .then(function(){ status('알림을 켰습니다. [시험 알림 보내기]로 확인해 보세요.', 5000); })
+      return subscribe();
+    }).then(function(){ status('알림을 켰습니다.', 4000); })
       .catch(function(e){
         var m = String(e && e.message);
-        status(m === 'denied' ? '알림을 허용해야 받을 수 있습니다.' : /no_vapid|503/.test(m) ? '알림 서버 준비가 아직 끝나지 않았습니다. 클로슈에게 알려 주세요.' : '알림을 켜지 못했습니다. (' + m.slice(0, 60) + ')', 6000);
+        if (m !== 'denied') PUSH.err = true;   // 서버 문제로 못 켰으면 대화는 쓰게 둔다(다음에 열 때 다시 켠다)
+        status(m === 'denied' ? '알림을 허용해야 슈톡을 쓸 수 있습니다.' : '알림 서버에 연결하지 못했습니다. 잠시 뒤 다시 열면 자동으로 켜집니다.', 6000);
       }).then(function(){ PUSH.busy = false; pushUi(); });
   }
-  function disablePush(){
-    var sub = PUSH.sub; if (!sub) return;
-    rpc('msg_push_remove', { p_endpoint: sub.endpoint }).catch(function(){}).then(function(){ return sub.unsubscribe().catch(function(){}); })
-      .then(function(){ PUSH.sub = null; PUSH.saved = false; status('이 기기 알림을 껐습니다.'); pushUi(); });
-  }
-  $('notiBtn').onclick = function(){ $('pback').hidden = false; pushUi(); };
-  $('pbannerBtn').onclick = function(){ $('pback').hidden = false; pushUi(); };
-  $('pclose').onclick = function(){ $('pback').hidden = true; };
-  $('pback').addEventListener('click', function(e){ if (e.target === $('pback')) $('pback').hidden = true; });
   $('pon').onclick = enablePush;
-  $('poff').onclick = disablePush;
-  $('ptest').onclick = function(){
-    status('시험 알림을 보내는 중…', 10000);
-    fn({ action: 'test' }).then(function(r){ status(r.sent ? '기기 ' + r.sent + '곳으로 보냈습니다. 알림이 오는지 확인해 주세요.' : '보낼 기기가 없습니다. 알림을 다시 켜 주세요.', 6000); })
-      .catch(function(e){ status('시험 알림을 보내지 못했습니다. (' + String(e.message).slice(0, 60) + ')', 6000); });
-  };
-  document.querySelectorAll('input[name="pm"]').forEach(function(r){
-    r.onchange = function(){ PUSH.mode = r.value; if (PUSH.sub) savePush().then(function(){ status(r.value === 'all' ? '모든 메시지에 알림을 받습니다.' : '나를 부른 메시지만 알림을 받습니다.'); }).catch(function(){ status('바꾸지 못했습니다.'); }); };
-  });
-  function pushAfterSend(id){ fn({ action: 'send', message_id: id }, true).catch(function(){}); }
+  // 알림 보내기 — 서버가 잠깐 실패하면(503) 5초 뒤 한 번 더 (서버가 그때는 잡은 자리를 풀어 둔다)
+  function pushAfterSend(id){
+    fn({ action: 'send', message_id: id }, true).catch(function(){
+      setTimeout(function(){ fn({ action: 'send', message_id: id }, true).catch(function(){}); }, 5000);
+    });
+  }
 
   // ── 대화 그리기 ───────────────────────────────────
   function sortedMsgs(){ return Array.from(MSGS.values()).sort(function(a, b){ return a.id - b.id; }); }
@@ -511,15 +579,38 @@
   function mentionRe(){
     if (MENTION_CACHE) return MENTION_CACHE;
     var names = MEMBERS.map(function(m){ return m.name; }).filter(Boolean).sort(function(a, b){ return b.length - a.length; });
-    MENTION_CACHE = names.length ? new RegExp('@(' + names.map(function(n){ return n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).join('|') + ')(T|선생님|쌤|조교|님)?', 'g') : null;
+    names = names.map(function(n){ return n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).concat(['모두', '전체']);
+    MENTION_CACHE = new RegExp('@(' + names.join('|') + ')(T|선생님|쌤|조교|님)?', 'g');
     return MENTION_CACHE;
   }
+  // ── 꼬리표 (입학상담·결석·지각·이동·상담요청·공지·기타요청·질문) ─────────
+  var TAGS = [['입학상담', 'c1'], ['결석', 'c2'], ['지각', 'c3'], ['이동', 'c4'], ['상담요청', 'c5'], ['공지', 'c6'], ['기타요청', 'c7'], ['질문', 'c8']];
+  var TAG_CLS = {}; TAGS.forEach(function(x){ TAG_CLS[x[0]] = x[1]; });
+  var curTag = '';
+  function tagSplit(text){
+    var m = String(text || '').match(/^\[([^\]]{1,8})\]\s?/);
+    return m && TAG_CLS[m[1]] ? { tag: m[1], rest: String(text).slice(m[0].length) } : { tag: '', rest: String(text || '') };
+  }
+  function tagPill(tag){ return tag ? '<span class="tg ' + TAG_CLS[tag] + '">' + esc(tag) + '</span>' : ''; }
+  function drawTags(){
+    $('tags').innerHTML = TAGS.map(function(x){ return '<button type="button" class="tg ' + x[1] + (curTag === x[0] ? ' on' : '') + '" data-tag="' + x[0] + '" aria-pressed="' + (curTag === x[0]) + '">' + x[0] + '</button>'; }).join('');
+    $('tags').classList.toggle('has', !!curTag);
+  }
+  $('tags').addEventListener('mousedown', function(e){ if (e.target.closest('[data-tag]')) e.preventDefault(); });   // 입력칸 초점 유지
+  $('tags').addEventListener('click', function(e){
+    var b = e.target.closest('[data-tag]'); if (!b) return;
+    curTag = curTag === b.dataset.tag ? '' : b.dataset.tag;   // 같은 알약을 다시 누르면 뺀다
+    drawTags();
+  });
+  drawTags();
+
   function bodyHtml(body){
-    var h = esc(body);
+    var sp = tagSplit(body);
+    var h = esc(sp.rest);
     h = h.replace(/https?:\/\/[^\s<]+/g, function(u){ return '<a href="' + u + '" target="_blank" rel="noopener">' + u + '</a>'; });
     var re = mentionRe();
     if (re) h = h.replace(re, function(s){ return '<span class="at">' + s + '</span>'; });
-    return h;
+    return tagPill(sp.tag) + h;
   }
   var FILE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="#4C6E66" stroke-width="1.6" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
   function size(n){ n = Number(n) || 0; return n >= 1048576 ? (n / 1048576).toFixed(1) + 'MB' : Math.max(1, Math.round(n / 1024)) + 'KB'; }
@@ -534,14 +625,59 @@
       return '<button class="file" type="button" data-file="' + esc(f.path) + '" data-name="' + esc(f.name) + '">' + FILE_SVG + '<span>' + esc(f.name) + ' <small>· ' + size(f.size) + '</small></span></button>';
     }).join('') + '</div>';
   }
+  // 할 일 표시: 아직 · 확인 hh:mm(알았다고 누름) · 완료 hh:mm. 여럿(@모두 등 5명 넘게)이면 '확인 n / m' 한 줄로 접고 누르면 펼친다.
+  var openChips = {};
+  function seenOf(t){ return t.status === '완료' || !!t.seen_at; }
+  function chipOne(t){
+    var done = t.status === '완료', seen = !done && !!t.seen_at;
+    return '<button class="tk ' + (done ? 'ok' : seen ? 'seen' : 'wait') + '" type="button" data-card="' + esc(t.assignee || t.assignee_name) + '">'
+      + (t.ack_only ? '' : '할 일 → ') + esc(t.assignee_name) + ' · ' + (done ? (t.ack_only ? '확인 ' : '완료 ') + hm(t.done_at) : seen ? '확인 ' + hm(t.seen_at) : '아직') + '</button>';
+  }
   function chipsHtml(id){
     var ts = tasksOf(id);
     if (!ts.length) return '';
-    return '<div class="tks">' + ts.map(function(t){
-      var done = t.status === '완료';
-      return '<button class="tk ' + (done ? 'ok' : 'wait') + '" type="button" data-card="' + esc(t.assignee || t.assignee_name) + '">할 일 → ' + esc(t.assignee_name) + ' · ' + (done ? '완료 ' + hm(t.done_at) : '아직') + '</button>';
-    }).join('') + '</div>';
+    var mine = ts.filter(function(t){ return t.assignee === ME.id && !seenOf(t) && 'seen_at' in t; })[0];
+    var ack = mine ? '<button class="ack" type="button" data-ack="' + mine.id + '">확인했습니다</button>' : '';
+    if (ts.length <= 5) return '<div class="tks">' + ts.map(chipOne).join('') + '</div>' + ack;
+    var n = ts.filter(seenOf).length, open = openChips[id];
+    return '<div class="tks"><button class="tk sum ' + (n === ts.length ? 'ok' : 'wait') + '" type="button" data-expand="' + id + '">' + (ts[0].ack_only ? '모두' : ts.length + '명') + ' · 확인 ' + n + ' / ' + ts.length + (open ? ' ▴' : ' ▾') + '</button>'
+      + (open ? ts.map(chipOne).join('') : '') + '</div>' + ack;
   }
+
+  // ── 답장 (제안 6, 마이그레이션 202610190006) ─────────
+  var replyTo = null, QCACHE = {}, qWant = {};
+  // 원글 한 줄 — 꼬리표는 알약으로, 글은 60자까지 (HTML)
+  function snip(m){
+    if (!m) return '';
+    if (m.deleted_at) return '삭제된 메시지';
+    var sp = tagSplit(m.body);
+    return tagPill(sp.tag) + esc(sp.rest.replace(/\s+/g, ' ').slice(0, 60) || ((m.files || []).length ? '파일 ' + m.files.length + '개' : ''));
+  }
+  function quoteHtml(m){
+    if (!m.reply_to) return '';
+    var q = MSGS.get(m.reply_to) || QCACHE[m.reply_to];
+    if (!q) qWant[m.reply_to] = 1;
+    return '<button class="quote" type="button" data-go-msg="' + m.reply_to + '">↩ ' + (q ? '<b>' + esc(q.author_name) + '</b>' + snip(q) : '이전 메시지') + '</button>';
+  }
+  // 불러오지 않은 원글은 한 번에 받아 두고 다시 그린다
+  function fillQuotes(){
+    var ids = Object.keys(qWant).filter(function(id){ return !QCACHE[id] && !MSGS.get(Number(id)); });
+    qWant = {};
+    if (!ids.length) return;
+    api('/msg_messages?select=id,author_name,body,files,deleted_at,updated_at&id=in.(' + ids.join(',') + ')').then(function(rows){
+      (rows || []).forEach(function(r){ QCACHE[r.id] = r; });
+      ids.forEach(function(id){ if (!QCACHE[id]) QCACHE[id] = { author_name: '', body: '', deleted_at: '1' }; });
+      renderMsgs('keep');
+    }).catch(function(){});
+  }
+  function setReply(id){
+    replyTo = id ? MSGS.get(id) : null;
+    $('rbar').hidden = !replyTo;
+    if (replyTo) $('rtext').innerHTML = '↩ <b>' + esc(replyTo.author_name) + '</b>에게 답장 · ' + snip(replyTo);
+    if (replyTo) inp.focus();
+  }
+  $('rcancel').onclick = function(){ setReply(null); };
+
   function msgHtml(m, prev){
     var mine = m.author === ME.id;
     var cont = prev && prev.author === m.author && !prev.deleted_at && ymd(prev.created_at) === ymd(m.created_at)
@@ -553,7 +689,9 @@
     return '<div class="m' + (mine ? ' mine' : '') + (cont ? ' cont' : '') + '" id="m' + m.id + '">'
       + '<div class="av" style="background:' + tn[0] + ';color:' + tn[1] + '">' + esc(m.author_name.slice(-2, -1) || m.author_name.charAt(0)) + '</div>'
       + '<div class="mb"><div class="nm">' + esc(m.author_name) + '<span class="rl">' + esc(mem ? roleLabel(mem.role) : '') + '</span></div>'
+      + quoteHtml(m)
       + '<div class="line">' + bb + '<span class="t">' + hm(m.created_at) + '</span>'
+      + (m.deleted_at || !('reply_to' in m) ? '' : '<button class="mact" type="button" data-reply="' + m.id + '">답장</button>')   // reply_to 열이 없으면(0006 전) 답장 버튼을 숨김
       + (canDel ? '<button class="mact" type="button" data-del="' + m.id + '">지우기</button>' : '') + '</div>'
       + (m.deleted_at ? '' : filesHtml(m.files)) + chipsHtml(m.id) + '</div></div>';
   }
@@ -571,6 +709,7 @@
       html.push(msgHtml(m, prev)); prev = m;
     });
     el.innerHTML = html.join('');
+    fillQuotes();
     if (mode === 'first'){
       var nl = $('newline');
       if (nl) nl.scrollIntoView({ block: 'center' }); else el.scrollTop = el.scrollHeight;
@@ -585,11 +724,54 @@
     loadThumbs();
     markRead();
   }
+  function boardOnly(){ return window.matchMedia && matchMedia('(max-width:900px)').matches && document.body.dataset.tab === 'board'; }
+  // 안 읽은 수 = 불러온 메시지 중 읽은 자리 뒤 + (읽은 자리가 불러온 첫 메시지보다 앞이면) 그 사이를 서버에서 센 수 — Codex 검토
+  var gap = { key: '', n: 0 }, offSeen = {};
+  function unreadCount(){
+    var mark = Number(localStorage.getItem('msg_read_' + (ME && ME.id)) || 0), n = 0;
+    MSGS.forEach(function(m){ if (m.id > mark && m.author !== ME.id && !m.deleted_at) n++; });
+    if (firstId != null && mark < firstId - 1){
+      var key = mark + '|' + firstId;
+      if (gap.key !== key){
+        var g = { key: key, n: 0 }; gap = g;   // 요청마다 새 객체 — 늦게 끝난 옛 요청이 새 값을 덮지 않게(gap === g 비교, Codex 검토)
+        fetch(REST + '/msg_messages?select=id&id=gt.' + mark + '&id=lt.' + firstId + '&or=(author.is.null,author.neq.' + ME.id + ')&deleted_at=is.null', { headers: { Prefer: 'count=exact', Range: '0-0' } })
+          .then(function(r){ var m = String(r.headers.get('content-range') || '').match(/\/(\d+)$/); if (gap === g && m){ g.n = Number(m[1]); updateBadges(); } })
+          .catch(function(){});
+      }
+      n += gap.n;
+    }
+    return n;
+  }
+  function nlabel(n){ return n > 99 ? '99+' : String(n); }
+  function updateBadges(){
+    if (!ME) return;
+    var n = unreadCount(), b = $('chatBadge');
+    b.hidden = !n; b.textContent = nlabel(n);
+  }
+  // 홈 화면 아이콘 숫자 지우기 — 서비스 워커가 세던 수도 0으로
+  function clearAppBadge(){
+    if (navigator.clearAppBadge) navigator.clearAppBadge().catch(function(){});
+    // 서비스 워커가 있으면 그쪽에 맡긴다(진행 중인 +1 뒤에 0) — 없을 때만 직접
+    var sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+    if (sw) sw.postMessage({ type: 'badge-clear' });
+    else if (window.caches) caches.open('msg-badge').then(function(c){ return c.put('badge-n', new Response('0')); }).catch(function(){});
+  }
+  // 서비스 워커에 '지금 대화를 읽고 있는지' 알려 준다 — 읽는 중에 온 푸시만 앱 숫자를 안 올린다(msg-sw.js viewing)
+  var lastReading = null;
+  function tellReading(on){
+    var sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+    if (!sw || lastReading === on) return;
+    lastReading = on; sw.postMessage({ type: 'reading', on: on });
+  }
   function markRead(){
-    if (!ME || document.hidden || !atBottom()) return;
+    // 휴대폰에서 업무 카드 탭을 보고 있으면 대화는 안 읽은 것
+    if (!ME || document.hidden || boardOnly() || !$('results').hidden || !atBottom()) { tellReading(false); updateBadges(); return; }
+    tellReading(true);
     var last = lastMsgId();
     if (last > Number(localStorage.getItem('msg_read_' + ME.id) || 0)) localStorage.setItem('msg_read_' + ME.id, String(last));
     $('jump').hidden = true;
+    clearAppBadge();
+    updateBadges();
   }
   $('msgs').addEventListener('scroll', function(){ if (atBottom()) markRead(); });
   $('jump').onclick = function(){ var el = $('msgs'); el.scrollTop = el.scrollHeight; markRead(); };
@@ -639,9 +821,20 @@
     var b = e.target.closest('button'); if (!b) return;
     if (b.id === 'older'){ b.disabled = true; b.textContent = '불러오는 중…'; loadOlder().then(function(){ renderMsgs('older'); }).catch(function(){ status('이전 대화를 불러오지 못했습니다.'); renderMsgs('keep'); }); return; }
     if (b.dataset.file){ download(b.dataset.file, b.dataset.name); return; }
+    if (b.dataset.reply){ setReply(Number(b.dataset.reply)); return; }
+    if (b.dataset.goMsg){ goTo(Number(b.dataset.goMsg)); return; }
+    if (b.dataset.expand){ var k = Number(b.dataset.expand); openChips[k] = !openChips[k]; renderMsgs('keep'); return; }
+    if (b.dataset.ack){ ackTask(Number(b.dataset.ack), b); return; }
     if (b.dataset.card){ showCard(b.dataset.card); return; }
     if (b.dataset.del){ delMsg(Number(b.dataset.del)); return; }
   });
+  // [확인했습니다] — 맡은 사람만. @모두로 받은 것은 확인하면 완료 (202610190005)
+  function ackTask(id, btn){
+    if (btn) btn.disabled = true;
+    rpc('msg_task_seen', { p_id: id }).then(function(row){
+      TASKS.delete(id); addTasks([row]); renderMsgs('keep'); renderBoard();
+    }).catch(function(e){ if (btn) btn.disabled = false; status(/msg_task_seen|PGRST202/.test(String(e.message) + JSON.stringify(e.data || '')) ? '확인 기능 준비가 아직 끝나지 않았습니다(마이그레이션 202610190005).' : errText(e)); });
+  }
   function delMsg(id){
     var m = MSGS.get(id); if (!m) return;
     if (!confirm('이 메시지를 지울까요?' + (tasksOf(id).length ? '\n이 메시지로 맡긴 할 일도 함께 지워집니다.' : ''))) return;
@@ -661,14 +854,16 @@
     var mm = before.match(/(^|\s)@([^\s@]{0,10})$/);
     return mm ? { q: mm[2], start: pos - mm[2].length - 1, end: pos } : null;
   }
+  var ALL_PICK = { id: '*all', name: '모두', role: 'all' };
   function updateMention(){
     var q = mentionQuery(), box = $('mention');
     if (!q){ box.classList.remove('on'); mList = []; return; }
     mList = MEMBERS.filter(function(m){ return m.name.indexOf(q.q) >= 0; })
       .sort(function(a, b){ return (b.name.indexOf(q.q) === 0) - (a.name.indexOf(q.q) === 0) || a.name.localeCompare(b.name, 'ko'); }).slice(0, 8);
+    if ('모두'.indexOf(q.q) === 0 || '전체'.indexOf(q.q) === 0) mList.unshift(ALL_PICK);   // @모두 — 나를 뺀 모두
     if (!mList.length){ box.classList.remove('on'); return; }
     mIdx = Math.min(mIdx, mList.length - 1);
-    box.innerHTML = mList.map(function(m, i){ return '<button type="button" role="option" data-mi="' + i + '" class="' + (i === mIdx ? 'on' : '') + '">' + esc(m.name) + ' <small>' + roleLabel(m.role) + '</small></button>'; }).join('');
+    box.innerHTML = mList.map(function(m, i){ return '<button type="button" role="option" data-mi="' + i + '" class="' + (i === mIdx ? 'on' : '') + '">' + esc(m.name) + ' <small>' + (m === ALL_PICK ? '나 빼고 ' + (MEMBERS.length - 1) + '명 · 확인만 받으면 끝' : roleLabel(m.role) + (presOk ? ' · ' + (presLoc(m.id) ? esc(presLoc(m.id)) + ' ON' : 'OFF') : '')) + '</small></button>'; }).join('');
     box.classList.add('on');
   }
   function pickMention(i){
@@ -692,12 +887,22 @@
     }
     if (e.key === 'Enter' && !e.shiftKey && !coarse){ e.preventDefault(); send(); }
   });
+  // 본문의 @이름 → 받을 사람 id. 이름마다 한 번만 보고 긴 이름 먼저('김지원A'가 '김지원'보다 먼저).
+  // 활성 계정은 표시 이름이 겹치지 않는다(202610190003) — 그래도 겹치면 모두에게 보내고 알린다.
+  var lastAmbig = false;
   function mentionsIn(body){
-    var ids = [], left = body;
-    MEMBERS.slice().sort(function(a, b){ return b.name.length - a.name.length; }).forEach(function(m){
-      var tag = '@' + m.name;
-      if (left.indexOf(tag) >= 0){ ids.push(m.id); left = left.split(tag).join(' '); }
+    var ids = [], left = body, names = {}, ambiguous = [];
+    MEMBERS.forEach(function(m){ (names[m.name] = names[m.name] || []).push(m); });
+    Object.keys(names).sort(function(a, b){ return b.length - a.length; }).forEach(function(name){
+      var tag = '@' + name;
+      if (left.indexOf(tag) < 0) return;
+      left = left.split(tag).join(' ');
+      if (names[name].length > 1) ambiguous.push(name);
+      names[name].forEach(function(m){ ids.push(m.id); });
     });
+    if (/@(모두|전체)/.test(body)){ ids = ids.filter(function(x){ return x !== ME.id; }); MEMBERS.forEach(function(m){ if (m.id !== ME.id && ids.indexOf(m.id) < 0) ids.push(m.id); }); }   // 서버도 같은 일을 한다(0005) — 나는 늘 뺀다
+    lastAmbig = ambiguous.length > 0;
+    if (ambiguous.length) status('같은 이름이 여럿이라 모두에게 보냈습니다: ' + ambiguous.join(', ') + ' — 계정 이름 뒤에 A·B를 붙여 구분해 주세요.', 6000);
     return ids;
   }
 
@@ -732,13 +937,15 @@
     if (sending || !ready) return;
     var body = inp.value.trim();
     if (!body && !pending.length) return;
+    if (curTag && tagSplit(body).tag !== curTag) body = '[' + curTag + '] ' + body;
     sending = true; $('send').disabled = true;
     var files = pending.slice(), up = [];
     status(files.length ? '파일을 올리는 중…' : '', 30000);
     files.reduce(function(p, f){ return p.then(function(){ return upload(f).then(function(x){ up.push(x); }); }); }, Promise.resolve())
-      .then(function(){ return rpc('msg_send', { p_body: body, p_files: up, p_mentions: mentionsIn(body) }); })
+      .then(function(){ var a = { p_body: body, p_files: up, p_mentions: mentionsIn(body) }; if (replyTo) a.p_reply = replyTo.id; return rpc('msg_send', a); })
       .then(function(res){
-        inp.value = ''; grow(); pending = []; drawPending(); status('');
+        inp.value = ''; grow(); pending = []; drawPending(); curTag = ''; drawTags(); setReply(null);
+        if (!lastAmbig) status('');
         addMsgs([res.message]); addTasks(res.tasks);
         renderMsgs('bottom'); renderBoard();
         pushAfterSend(res.message.id);
@@ -752,7 +959,7 @@
   $('send').onclick = send;
 
   // ── 업무 카드 ─────────────────────────────────────
-  function canCheck(t){ return t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'; }
+  function canCheck(t){ if (t.ack_only) return t.assignee === ME.id && t.status !== '완료'; return t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'; }   // @모두 할 일은 본인만, 확인한 뒤엔 되돌리지 않음
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
   function people(){
     var start = dayStartMs(), map = {};
@@ -785,16 +992,17 @@
       var items = p.todo.sort(function(a, b){ return a.id - b.id; }).map(function(t){
         var c = Date.parse(t.created_at), late = c < start ? md(t.created_at) + '부터 남음' : (now - c > LATE_MS ? Math.floor((now - c) / 3600e3) + '시간 지남' : '');
         return '<div class="ci"><button class="bx" type="button" data-tk="' + t.id + '" aria-label="완료로 표시"' + (canCheck(t) ? '' : ' disabled title="맡은 사람·맡긴 사람만 체크할 수 있어요"') + '></button>'
-          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + esc(t.text) + '<span class="meta' + (late ? ' lt' : '') + '">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + (late ? ' · ' + late : '') + '</span></button></div>';
+          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta' + (late ? ' lt' : '') + '">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + (late ? ' · ' + late : '') + (t.seen_at ? ' · 확인함' : '') + '</span></button>'
+          + (t.assignee === ME.id && !t.seen_at && 'seen_at' in t ? '<button class="ack sm" type="button" data-ack="' + t.id + '">확인</button>' : '') + '</div>';
       }).concat(p.done.sort(function(a, b){ return Date.parse(b.done_at) - Date.parse(a.done_at); }).map(function(t){
         return '<div class="ci d"><button class="bx on" type="button" data-tk="' + t.id + '" data-done="1" aria-label="완료 취소"' + (canCheck(t) ? '' : ' disabled') + '>' + CHECK + '</button>'
-          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + esc(t.text) + '<span class="meta">' + esc(t.requester_name) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</span></button></div>';
+          + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</span></button></div>';
       })).join('');
-      return '<section class="pc" data-person="' + esc(p.key) + '"><div class="ph1"><span class="pn">' + esc(p.name) + '</span><span class="prl">' + (p.key === ME.id ? '나 · ' : '') + esc(p.role ? roleLabel(p.role) : '') + '</span>'
+      return '<section class="pc" data-person="' + esc(p.key) + '"><div class="ph1"><span class="pn">' + esc(p.name) + '</span><span class="prl">' + (p.key === ME.id ? '나 · ' : '') + esc(p.role ? roleLabel(p.role) : '') + '</span>' + presTag(p.key)
         + '<span class="pcnt' + (full ? ' full' : '') + '">' + p.done.length + ' / ' + tot + (full ? ' 완료' : '') + '</span></div>'
         + '<div class="bar"><i class="' + (full ? 'full' : '') + '" style="width:' + pct + '%"></i></div>' + items + '</section>';
     });
-    var idle = MEMBERS.filter(function(m){ return !map[m.id]; }).map(function(m){ return m.name; });
+    var idle = MEMBERS.filter(function(m){ return !map[m.id]; }).map(function(m){ var l = presOk ? presLoc(m.id) : ''; return m.name + (l ? '(' + l + ')' : ''); });
     if (!html.length) html.push('<div class="none">' + (filter === 'all' ? '오늘 맡긴 일이 없습니다. 대화에 @이름을 넣으면 여기 카드가 생깁니다.' : '해당하는 카드가 없습니다.') + '</div>');
     if (idle.length && filter !== 'todo') html.push('<div class="idle">오늘 할 일 없음 · ' + idle.map(esc).join(', ') + '</div>');
     $('cards').innerHTML = html.join('');
@@ -813,8 +1021,71 @@
         .catch(function(err){ TASKS.set(id, old); renderBoard(); renderMsgs('keep'); status(errText(err)); });
       return;
     }
+    if (b.dataset.ack){ ackTask(Number(b.dataset.ack), b); return; }
     if (b.dataset.go) goTo(Number(b.dataset.go));
   });
+  // ── 출근·퇴근 (2026-10-19 원장님 "구성원이 어느 센터 on, off 상태를 표시") ─────────
+  // 표 msg_presence(사람마다 한 줄) — 쓰기는 msg_presence_set 함수로만. 오늘 출근한 것만 ON(날짜가 바뀌면 OFF에서 시작).
+  var PRES = {}, presOk = false, presDay = '', PRES_LOCS = ['본원', '화정센터', '민초센터', '정리정독'];
+  function presLoc(uid){
+    var r = PRES[uid];
+    return r && r.is_on && ymd(r.changed_at) === ymd(new Date().toISOString()) ? r.loc : '';
+  }
+  function presTag(uid){
+    if (!presOk) return '';
+    var loc = presLoc(uid);
+    return '<span class="pst' + (loc ? ' on' : '') + '">' + (loc ? esc(loc) + ' ON' : 'OFF') + '</span>';
+  }
+  function loadPres(){
+    return api('/msg_presence?select=user_id,name,loc,is_on,changed_at').then(function(rows){
+      var next = {}; (rows || []).forEach(function(r){ next[r.user_id] = r; });
+      // 날짜가 바뀌어도 다시 그린다 — 자정 넘어 열어 둔 화면에서 어제 출근이 ON으로 남지 않게 (Codex 검토)
+      var day = ymd(new Date().toISOString());
+      var changed = !presOk || presDay !== day || JSON.stringify(next) !== JSON.stringify(PRES);
+      PRES = next; presOk = true; presDay = day;
+      if (changed){ renderPres(); if (ready) renderBoard(); }
+    }).catch(function(e){
+      // 표가 아직 없으면(마이그레이션 202610190004 전) 출근 기능만 숨긴다
+      if (e && (e.status === 404 || (e.data && e.data.code === 'PGRST205'))){ presOk = false; renderPres(); }
+    });
+  }
+  function renderPres(){
+    var btn = $('presBtn');
+    btn.hidden = !presOk || !ME;
+    if (!presOk || !ME){ $('pres').hidden = true; return; }
+    var mine = presLoc(ME.id);
+    btn.classList.toggle('on', !!mine);
+    btn.textContent = mine ? mine + ' 출근' : '출근하기';
+    btn.title = mine ? '누르면 센터를 바꾸거나 퇴근합니다' : '누르면 출근할 센터를 고릅니다';
+    var by = {}, off = [];
+    MEMBERS.forEach(function(m){ var l = presLoc(m.id); if (l){ (by[l] = by[l] || []).push(m.name); } else off.push(m.name); });
+    var html = PRES_LOCS.filter(function(l){ return by[l]; }).map(function(l){
+      return '<span class="pl"><b>' + esc(l) + '</b>' + by[l].map(esc).join('·') + '</span>';
+    });
+    html.push('<span class="pl off" title="' + esc(off.join(', ')) + '"><b>OFF</b>' + off.length + '명</span>');
+    $('pres').innerHTML = html.join('');
+    $('pres').hidden = false;
+    document.querySelectorAll('#presMenu [data-loc]').forEach(function(b){ b.classList.toggle('cur', b.dataset.loc === mine); });
+    $('presMenu').querySelector('[data-out]').hidden = !mine;
+  }
+  function presMenu(open){
+    var m = $('presMenu');
+    if (open){ var r = $('presBtn').getBoundingClientRect(); m.style.top = (r.bottom + 6) + 'px'; m.style.right = Math.max(8, window.innerWidth - r.right) + 'px'; }
+    m.hidden = !open;
+  }
+  $('presBtn').onclick = function(e){ e.stopPropagation(); presMenu($('presMenu').hidden); };
+  document.addEventListener('click', function(e){ if (!$('presMenu').hidden && !e.target.closest('#presMenu')) presMenu(false); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('presMenu').hidden) presMenu(false); });
+  $('presMenu').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    var on = !b.dataset.out, loc = on ? b.dataset.loc : '';
+    presMenu(false);
+    rpc('msg_presence_set', { p_loc: loc, p_on: on }).then(function(row){
+      PRES[ME.id] = row; renderPres(); renderBoard();
+      status(on ? loc + '에 출근했습니다.' : '퇴근했습니다. 수고하셨어요.', 3000);
+    }).catch(function(err){ status(errText(err)); });
+  });
+
   function setTab(t){
     document.body.dataset.tab = t;
     $('tabChat').classList.toggle('on', t === 'chat'); $('tabBoard').classList.toggle('on', t === 'board');
@@ -830,6 +1101,60 @@
     if (!el){ status('그 할 일은 오늘 카드에 없습니다(지난 날 완료).'); return; }
     el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); el.classList.add('flash'); setTimeout(function(){ el.classList.remove('flash'); }, 1600);
   }
+  // ── 찾기 · 꼬리표로 모아 보기 (제안 1·5) — 서버에서 최근 100개까지 ─────────
+  var fTag = '', fTimer = null, fSeq = 0;
+  function findOpen(on){
+    $('find').hidden = !on; $('findBtn').classList.toggle('on', on);
+    if (on){ $('fq').focus(); } else { $('fq').value = ''; fTag = ''; drawFTags(); showResults(false); }
+  }
+  function drawFTags(){
+    $('ftags').innerHTML = TAGS.map(function(x){ return '<button type="button" class="tg ' + x[1] + (fTag === x[0] ? ' on' : '') + '" data-ftag="' + x[0] + '" aria-pressed="' + (fTag === x[0]) + '">' + x[0] + '</button>'; }).join('');
+    $('ftags').classList.toggle('has', !!fTag);
+  }
+  function showResults(on){ $('results').hidden = !on; $('msgs').hidden = on; $('jump').hidden = true; if (on) tellReading(false); else markRead(); }
+  function hl(text, q){
+    var h = esc(text);
+    if (!q) return h;
+    var e = esc(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return h.replace(new RegExp(e, 'gi'), function(x){ return '<mark>' + x + '</mark>'; });
+  }
+  function runFind(){
+    var q = $('fq').value.trim().replace(/[*%,()]/g, ' ').trim();
+    if (!q && !fTag){ showResults(false); return; }
+    var seq = ++fSeq;
+    showResults(true);
+    $('results').innerHTML = '<div class="rsum">찾는 중…</div>';
+    var path = '/msg_messages?select=id,author_name,body,files,created_at&deleted_at=is.null'
+      + (q ? '&body=ilike.' + encodeURIComponent('*' + q + '*') : '')
+      + (fTag ? '&body=like.' + encodeURIComponent('[' + fTag + ']*') : '')
+      + '&order=id.desc&limit=100';
+    api(path).then(function(rows){
+      if (seq !== fSeq) return;
+      rows = rows || [];
+      var label = [fTag ? '[' + fTag + ']' : '', q ? '‘' + q + '’' : ''].filter(Boolean).join(' · ');
+      $('results').innerHTML = '<div class="rsum">' + esc(label) + ' — ' + (rows.length ? rows.length + (rows.length === 100 ? '개(최근 100개까지)' : '개') + ' · 누르면 대화에서 그 메시지로 갑니다' : '찾은 메시지가 없습니다') + '</div>'
+        + rows.map(function(m){
+          var sp = tagSplit(m.body);
+          return '<button class="ritem" type="button" data-hit="' + m.id + '"><span class="rh">' + md(m.created_at) + ' ' + hm(m.created_at) + ' · ' + esc(m.author_name) + '</span><span class="rb">' + tagPill(sp.tag) + hl(sp.rest, q) + '</span></button>';
+        }).join('');
+    }).catch(function(e){ if (seq === fSeq) $('results').innerHTML = '<div class="rsum">찾지 못했습니다. (' + esc(String(e.message).slice(0, 60)) + ')</div>'; });
+  }
+  $('findBtn').onclick = function(){ findOpen($('find').hidden); };
+  $('fclose').onclick = function(){ findOpen(false); };
+  // 입력 중에는 결과 칸만 바꾼다(입력칸을 다시 그리지 않아 한글 조합이 끊기지 않음)
+  $('fq').addEventListener('input', function(){ clearTimeout(fTimer); fTimer = setTimeout(runFind, 350); });
+  $('fq').addEventListener('keydown', function(e){ if (e.key === 'Escape') findOpen(false); });
+  $('ftags').addEventListener('click', function(e){
+    var b = e.target.closest('[data-ftag]'); if (!b) return;
+    fTag = fTag === b.dataset.ftag ? '' : b.dataset.ftag; drawFTags(); runFind();
+  });
+  $('results').addEventListener('click', function(e){
+    var b = e.target.closest('[data-hit]'); if (!b) return;
+    var id = Number(b.dataset.hit);
+    findOpen(false); goTo(id);
+  });
+  drawFTags();
+
   function goTo(id, tries){
     tries = tries || 0;
     var el = $('m' + id);
