@@ -170,6 +170,13 @@ function filterRows(rows, u){
         else { t.history = (t.history || []).concat([{ kind: '미룸 해제', by: '고희주', at: ts(), note: '' }]); t.due_at = null; t.due_note = ''; }
         t.updated_at = ts(); return json(t);
       }
+      if (p === '/rest/v1/rpc/msg_task_progress'){
+        const b = JSON.parse(req.postData()); calls.push(['prog', b]);
+        const t = TASKS.find(x => x.id === b.p_id);
+        t.progress_at = b.p_on ? ts() : null; t.progress_by = b.p_on ? '고희주' : '';
+        t.history = (t.history || []).concat([{ kind: b.p_on ? '진행 중' : '진행 해제', by: '고희주', at: ts() }]);
+        t.updated_at = ts(); return json(t);
+      }
       if (p === '/rest/v1/rpc/msg_task_cancel'){
         const b = JSON.parse(req.postData()); calls.push(['cancel', b]);
         const t = TASKS.find(x => x.id === b.p_id);
@@ -1038,6 +1045,32 @@ function filterRows(rows, u){
   await sleep(500);
   ok(navs.some(u => /[?&]v=\d+/.test(u)), '새로고침 → ?v=시각으로 다시 열림');
   ok(!/[?&]v=/.test(page.url()), '열린 뒤 주소에서 v를 지움 (' + page.url() + ')');
+  await ctx.close();
+
+  console.log('㉑ 진행 중 표시 (202610200006)');
+  const mpg = addMsg(EUNJI, '출석부 스캔 @고희주', [], ago(0.02));
+  const tpg = addTask(mpg, ME, '출석부 스캔'); tpg.progress_at = null; tpg.progress_by = '';
+  const mpg2 = addMsg(ME, '교재 확인 @이은지', [], ago(0.02));
+  const tpg2 = addTask(mpg2, EUNJI, '교재 확인'); tpg2.progress_at = null; tpg2.progress_by = '';
+  ({ ctx, page } = await open());
+  await page.waitForSelector('[data-cx="' + tpg.id + '"]');
+  await page.click('[data-cx="' + tpg.id + '"]');
+  ok(await page.locator('#cxmodes [data-mode="prog"]').evaluate(e => e.classList.contains('on') && !e.hidden), '내 할 일 관리 창은 진행 중부터');
+  ok((await page.locator('#pgok').textContent()) === '진행 중으로 표시', '버튼: 진행 중으로 표시');
+  await page.click('#pgok');
+  await page.waitForFunction(() => document.querySelector('#cxback').hidden);
+  const pc1 = calls.filter(c => c[0] === 'prog').pop();
+  ok(pc1 && pc1[1].p_id === tpg.id && pc1[1].p_on === true, 'msg_task_progress(진행 중)');
+  const pgRow = page.locator('[data-cx="' + tpg.id + '"]').locator('xpath=..');
+  ok((await pgRow.textContent()).includes('진행 중') && (await pgRow.locator('.pg').count()) === 1, '카드에 진행 중 표시');
+  ok((await page.locator('#m' + mpg.id + ' .tk').textContent()).includes('진행 중'), '메시지 아래 표시 = 진행 중');
+  ok((await pgRow.textContent()).includes('고희주 · 진행 중'), '기록 리스트에 진행 중');
+  await page.click('[data-cx="' + tpg.id + '"]');
+  ok((await page.locator('#pgok').textContent()) === '진행 중 풀기', '다시 열면 진행 중 풀기');
+  await page.click('#pgok'); await page.waitForFunction(() => document.querySelector('#cxback').hidden);
+  ok(calls.filter(c => c[0] === 'prog').pop()[1].p_on === false && !(await page.locator('#m' + mpg.id + ' .tk').textContent()).includes('진행 중'), '진행 중 풀기');
+  await page.click('[data-cx="' + tpg2.id + '"]');
+  ok(await page.locator('#cxmodes [data-mode="prog"]').isHidden(), '내가 맡긴 남의 일은 진행 중 표시 못 함(맡은 사람만)');
   await ctx.close();
 
   await browser.close(); server.close();

@@ -50,6 +50,11 @@ P -f supabase/migrations/202610200002_messenger_handover.sql >/dev/null || { ech
 P -f supabase/migrations/202610200002_messenger_handover.sql >/dev/null && ok y y "넘기기·미루기 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610200003_messenger_attend_ack.sql >/dev/null || { echo "결석 확인 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200003_messenger_attend_ack.sql >/dev/null && ok y y "결석 확인 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610200006_task_progress.sql >/dev/null || { echo "진행 중 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200006_task_progress.sql >/dev/null && ok y y "진행 중 마이그레이션 다시 실행해도 오류 없음"
+for w in 202610200001_work_log 202610200002_work_overtime_approval 202610200003_work_early_out 202610200004_work_early_confirm; do P -f supabase/migrations/$w.sql >/dev/null || { echo "근무 일지 마이그레이션 실패 $w"; exit 1; }; done
+P -f supabase/migrations/202610200005_staff_manage.sql >/dev/null || { echo "강사 관리 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200005_staff_manage.sql >/dev/null && ok y y "강사 관리 마이그레이션 다시 실행해도 오류 없음"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
 B=bbbbbbbb-0000-0000-0000-000000000002   # 이은지 선생님
@@ -237,6 +242,38 @@ MK4=$(as $C "select (public.msg_send('[공지] 내일 휴강 @이은지', '[]', 
 ok "$(as $C "select bool_and(ack_only) from public.msg_tasks where message_id=$MK4")" "f" "다른 꼬리표는 보통 할 일"
 MK5=$(as $C "select (public.msg_send('결석 처리 부탁 [결석] @이은지', '[]', array['$B']::uuid[])->'message'->>'id')")
 ok "$(as $C "select bool_and(ack_only) from public.msg_tasks where message_id=$MK5")" "f" "꼬리표는 맨 앞일 때만"
+echo "── 진행 중"
+MP=$(as $B "select (public.msg_send('출석부 스캔 @고희주', '[]', array['$C']::uuid[])->'message'->>'id')")
+TP=$(as $B "select id from public.msg_tasks where message_id=$MP")
+ok "$(as $B "select public.msg_task_progress($TP, true)" | grep -c not_allowed)" 1 "맡긴 사람은 진행 중 표시 못 함(맡은 사람만)"
+ok "$(as $C "select (public.msg_task_progress($TP, true)->>'progress_by')||'|'||(select status from public.msg_tasks where id=$TP)")" "고희주|대기" "진행 중 — 상태는 대기 그대로"
+ok "$(as $C "select (public.msg_task_progress($TP, true)->'history')::text" | grep -o '진행 중' | wc -l | tr -d ' ')" 1 "같은 값이면 기록을 다시 쌓지 않음"
+ok "$(as $C "select (public.msg_task_progress($TP, false)->>'progress_at') is null")" "t" "진행 해제"
+ok "$(as $C "select jsonb_array_length(history) from public.msg_tasks where id=$TP")" 2 "기록 두 줄(진행 중·진행 해제)"
+as $C "select public.msg_task_progress($TP, true)" >/dev/null
+as $C "select public.msg_task_set($TP, true)" >/dev/null
+ok "$(as $C "select public.msg_task_progress($TP, false)" | grep -c not_pending)" 1 "끝난 일은 진행 표시를 바꾸지 않음"
+ok "$(anon "select public.msg_task_progress($TP, true)" | grep -c 'permission denied')" 1 "공개 키는 진행 중 함수 실행 불가"
+
+echo "── 사용 시간"
+psql -X -q -d $DB -c "insert into auth.users values ('99999999-0000-0000-0000-000000000009')" -c "insert into public.teacher_accounts (user_id, login_id, display_name, role, active) values ('99999999-0000-0000-0000-000000000009','parkeh','박언호','teacher',true)" >/dev/null
+PK=99999999-0000-0000-0000-000000000009
+ok "$(as $C "select public.usage_tick('shueguk-report/timetable.html')")" "t" "1분 기록"
+ok "$(as $C "select public.usage_tick('shueguk-report/timetable.html')")" "f" "45초 안에 또 부르면 세지 않음"
+ok "$(as $C "select public.usage_tick('shueguk-hub/ops.html')")" "f" "같은 묶음(티쳐스)의 다른 페이지도 한 번만"
+ok "$(as $C "select public.usage_tick('shueguk-hub/messenger.html')")" "t" "슈톡은 따로 셈"
+psql -X -q -d $DB -c "update public.teacher_usage_last set at = now() - interval '1 minute'" >/dev/null
+ok "$(as $C "select public.usage_tick('SHUEGUK-REPORT/timetable.html')")" "t" "1분 지나면 다시 셈(대소문자 무시)"
+ok "$(as $C "select public.usage_tick('../etc/passwd')" | grep -c bad_page)" 1 "이상한 페이지 이름 거절"
+ok "$(as $E "select public.usage_tick('shueguk-hub/ops.html')")" "f" "계정 없는 로그인은 세지 않음"
+ok "$(psql -X -A -t -q -d $DB -c "select string_agg(page||'='||minutes, ',' order by page) from public.teacher_usage where user_id='$C'")" "shueguk-hub/messenger.html=1,shueguk-report/timetable.html=2" "페이지마다 분 수 누적"
+ok "$(as $C "select count(*) from public.teacher_usage" | grep -c 'permission denied')" 1 "사용 시간 표는 직접 못 읽음"
+D0=$(psql -X -A -t -q -d $DB -c "select (now() at time zone 'Asia/Seoul')::date")
+ok "$(as $C "select count(*) from public.staff_usage('$D0', '$D0')" | grep -c not_allowed)" 1 "보통 교사는 강사 관리 사용 시간 못 봄"
+ok "$(as $A "select sum(minutes) from public.staff_usage('$D0', '$D0')")" 3 "원장님(관리자)은 봄"
+ok "$(as $PK "select count(*) from public.staff_usage('$D0', '$D0')")" 2 "대표님(parkeh)도 봄"
+ok "$(as $A "select count(*) from public.staff_usage('$D0', '2020-01-01')" | grep -c bad_range)" 1 "거꾸로 된 기간 거절"
+ok "$(anon "select public.usage_tick('shueguk-hub/ops.html')" | grep -c 'permission denied')" 1 "공개 키는 사용 시간 함수 실행 불가"
 
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null

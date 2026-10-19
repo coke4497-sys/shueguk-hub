@@ -302,6 +302,39 @@
     else render();
   }
 
+  // ── 화면 사용 시간 (2026-10-19 원장님 강사 관리 "티쳐스 페이지 사용시간 · 슈톡 사용시간") ─────────
+  // 화면이 앞에 떠 있고(visible) 10분 안에 조작이 있었던 시간만 15초씩 모아, 1분이 차면 usage_tick 으로 1분을 보낸다.
+  // github.io 에서만(검증 스크립트·로컬 미리보기는 세지 않음 — 검사용 window.__shuegukUsageForce). 실패해도 화면에는 아무 영향 없음.
+  function startUsage(getToken) {
+    if (global.__shuegukUsage) return;
+    if (!(/\.github\.io$/.test(location.hostname) || global.__shuegukUsageForce)) return;
+    global.__shuegukUsage = true;
+    var parts = location.pathname.split('/').filter(Boolean);
+    var file = parts.length && /\.html$/i.test(parts[parts.length - 1]) ? parts[parts.length - 1] : 'index.html';
+    var page = ((parts[0] && !/\.html$/i.test(parts[0]) ? parts[0] : 'site') + '/' + file).toLowerCase();
+    if (!/^[a-z0-9._-]{1,40}\/[a-z0-9._-]{1,38}$/.test(page)) return;
+    var STEP = 15000, EVERY = Number(global.__shuegukUsageEvery) || STEP, IDLE = 10 * 60000, acc = 0, lastAct = Date.now();   // EVERY 는 검사용(빨리 돌리기)
+    function act() { lastAct = Date.now(); }
+    ['pointerdown', 'keydown', 'wheel', 'touchstart', 'mousemove', 'scroll'].forEach(function (ev) {
+      document.addEventListener(ev, act, { passive: true, capture: true });
+    });
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) act(); });
+    setInterval(function () {
+      if (document.hidden || Date.now() - lastAct > IDLE) return;
+      acc += STEP;
+      if (acc < 60000) return;
+      acc -= 60000;
+      Promise.resolve(getToken()).then(function (token) {
+        if (!token) return;
+        return rawFetch(SUPABASE_URL + '/rest/v1/rpc/usage_tick', {
+          method: 'POST',
+          headers: { apikey: SUPABASE_KEY, Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ p_page: page })
+        });
+      }).catch(function () {});
+    }, EVERY);
+  }
+
   function protectPage() {
     document.documentElement.setAttribute('data-teacher-auth', 'checking');
     var style = document.createElement('style');
@@ -311,6 +344,7 @@
     return requireTeacher().then(function (context) {
       document.documentElement.setAttribute('data-teacher-auth', 'ready');
       addToolbar(context.profile);
+      startUsage(function () { return validSession().then(function (s) { return s.access_token; }); });
       return context;
     }).catch(function (error) {
       clearSession();
