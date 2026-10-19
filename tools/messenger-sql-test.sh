@@ -37,6 +37,7 @@ P -f supabase/migrations/202610190001_messenger.sql >/dev/null || { echo "마이
 P -f supabase/migrations/202610190001_messenger.sql >/dev/null && ok y y "다시 실행해도 오류 없음"
 P -f supabase/migrations/202610190002_messenger_push.sql >/dev/null || { echo "푸시 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610190002_messenger_push.sql >/dev/null && ok y y "푸시 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610190003_teacher_unique_name.sql >/dev/null || { echo "이름 중복 금지 마이그레이션 실패"; exit 1; }
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
 B=bbbbbbbb-0000-0000-0000-000000000002   # 이은지 선생님
@@ -100,6 +101,10 @@ ok "$(psql -X -A -t -q -d $DB -c "select public||'|'||file_size_limit from stora
 ok "$(as $C "insert into storage.objects(bucket_id,name) values ('msg-files','m/202610/x') returning 1")" 1 "교사는 파일 올림"
 ok "$(as $E "insert into storage.objects(bucket_id,name) values ('msg-files','m/202610/y')" | grep -c 'row-level security')" 1 "계정 없는 로그인은 파일 못 올림"
 
+echo "── 활성 계정 이름 중복 금지"
+psql -X -q -d $DB -c "insert into auth.users values ('ffffffff-0000-0000-0000-000000000006'),('ffffffff-0000-0000-0000-000000000007')" >/dev/null
+ok "$(psql -X -A -t -q -d $DB -c "insert into public.teacher_accounts (user_id, login_id, display_name, role, active) values ('ffffffff-0000-0000-0000-000000000006','dup1',' 이은지 ','teacher',true)" 2>&1 | grep -c teacher_accounts_active_name_uniq)" 1 "활성 계정은 같은 이름(앞뒤 공백 무시) 거절"
+ok "$(psql -X -A -t -q -d $DB -c "insert into public.teacher_accounts (user_id, login_id, display_name, role, active) values ('ffffffff-0000-0000-0000-000000000007','dup2','옛선생','teacher',false) returning 1" 2>&1 | tail -1)" 1 "비활성 계정끼리는 같은 이름 허용"
 echo "── 휴대폰 알림 구독"
 SUB='{"endpoint":"https://fcm.googleapis.com/fcm/send/abc","keys":{"p256dh":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB","auth":"aaaaaaaaaaaaaaaa"}}'
 ok "$(as $C "select public.msg_push_save('$SUB', 'all', 'iPhone')->>'mode'")" "all" "구독 저장"

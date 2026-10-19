@@ -671,13 +671,8 @@
     box.innerHTML = mList.map(function(m, i){ return '<button type="button" role="option" data-mi="' + i + '" class="' + (i === mIdx ? 'on' : '') + '">' + esc(m.name) + ' <small>' + roleLabel(m.role) + '</small></button>'; }).join('');
     box.classList.add('on');
   }
-  // 목록에서 고른 순서 — 이름마다 [id…]. 같은 이름이 둘일 때 누구인지 가린다.
-  // 보낼 때는 본문에 그 @이름이 남아 있는 개수만큼 마지막에 고른 사람만 쓴다
-  // (잘못 고른 뒤 지우고 다시 고르면 앞의 선택은 빠진다 — Codex 검토)
-  var picked = {};
   function pickMention(i){
     var q = mentionQuery(), m = mList[i]; if (!q || !m) return;
-    (picked[m.name] = picked[m.name] || []).push(m.id);
     inp.value = inp.value.slice(0, q.start) + '@' + m.name + ' ' + inp.value.slice(q.end);
     var p = q.start + m.name.length + 2; inp.setSelectionRange(p, p);
     $('mention').classList.remove('on'); mList = []; inp.focus(); grow();
@@ -697,24 +692,21 @@
     }
     if (e.key === 'Enter' && !e.shiftKey && !coarse){ e.preventDefault(); send(); }
   });
-  // 본문의 @이름 → 받을 사람 id. 이름마다 한 번만 보고(긴 이름 먼저), 같은 이름이 여럿이면
-  // 목록에서 고른 사람만 — 손으로 쳐서 누구인지 모르면 모두에게 보내고 알린다 (Codex 검토 P2)
+  // 본문의 @이름 → 받을 사람 id. 이름마다 한 번만 보고 긴 이름 먼저('김지원A'가 '김지원'보다 먼저).
+  // 활성 계정은 표시 이름이 겹치지 않는다(202610190003) — 그래도 겹치면 모두에게 보내고 알린다.
   var lastAmbig = false;
   function mentionsIn(body){
     var ids = [], left = body, names = {}, ambiguous = [];
     MEMBERS.forEach(function(m){ (names[m.name] = names[m.name] || []).push(m); });
     Object.keys(names).sort(function(a, b){ return b.length - a.length; }).forEach(function(name){
       var tag = '@' + name;
-      var occ = left.split(tag).length - 1;
-      if (!occ) return;
+      if (left.indexOf(tag) < 0) return;
       left = left.split(tag).join(' ');
-      var recent = (picked[name] || []).slice(-occ);
-      var group = names[name], chosen = group.filter(function(m){ return recent.indexOf(m.id) >= 0; });
-      if (group.length > 1 && !chosen.length) ambiguous.push(name);
-      (group.length > 1 && chosen.length ? chosen : group).forEach(function(m){ ids.push(m.id); });
+      if (names[name].length > 1) ambiguous.push(name);
+      names[name].forEach(function(m){ ids.push(m.id); });
     });
     lastAmbig = ambiguous.length > 0;
-    if (ambiguous.length) status('같은 이름이 여럿이라 모두에게 보냈습니다: ' + ambiguous.join(', ') + ' — 다음엔 @ 목록에서 골라 주세요.', 6000);
+    if (ambiguous.length) status('같은 이름이 여럿이라 모두에게 보냈습니다: ' + ambiguous.join(', ') + ' — 계정 이름 뒤에 A·B를 붙여 구분해 주세요.', 6000);
     return ids;
   }
 
@@ -755,7 +747,7 @@
     files.reduce(function(p, f){ return p.then(function(){ return upload(f).then(function(x){ up.push(x); }); }); }, Promise.resolve())
       .then(function(){ return rpc('msg_send', { p_body: body, p_files: up, p_mentions: mentionsIn(body) }); })
       .then(function(res){
-        inp.value = ''; grow(); pending = []; drawPending(); picked = {};
+        inp.value = ''; grow(); pending = []; drawPending();
         if (!lastAmbig) status('');
         addMsgs([res.message]); addTasks(res.tasks);
         renderMsgs('bottom'); renderBoard();

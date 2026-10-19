@@ -323,35 +323,16 @@ function filterRows(rows, u){
   ok(calls.filter(c => c[0] === 'premove').length === rmBefore + 1, '로그아웃 → 서버 구독 삭제');
   await ctx.close();
 
-  console.log('⑫-2 같은 이름 두 사람');
+  console.log('⑫-2 같은 이름 두 사람(DB가 막지만 혹시 생기면)');
   const DUP = '55555555-5555-5555-5555-555555555555';
   MEMBERS.push({ user_id: DUP, name: '김지원', role: 'assistant' }); NAME[DUP] = '김지원';
   ({ ctx, page } = await open());
   await page.waitForSelector('#m' + m3.id);
-  await page.click('#inp'); await page.keyboard.type('확인 부탁 @김지');
-  await page.waitForSelector('#mention.on');
-  ok(await page.locator('#mention button').count() === 2, '목록에 둘 다 (역할로 구분)');
-  const second = await page.locator('#mention button').nth(1).textContent();
-  await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter'); await page.keyboard.press('Enter');
-  await page.waitForFunction(() => document.querySelector('#inp').value === '');
-  let ds = calls.filter(c => c[0] === 'send').pop();
-  const wantId = second.includes('조교') ? DUP : '44444444-4444-4444-4444-444444444444';
-  ok(ds[1].p_mentions.length === 1 && ds[1].p_mentions[0] === wantId, '목록에서 고른 사람만 받음');
-  // 잘못 고른 뒤 지우고 다시 고르기 → 마지막에 고른 사람만
-  await page.click('#inp'); await page.keyboard.type('다시 @김지');
-  await page.waitForSelector('#mention.on');
-  await page.keyboard.press('Enter');                       // 첫째 사람을 골랐다가
-  for (let i = 0; i < 5; i++) await page.keyboard.press('Backspace');   // '김지원 ' 과 '@' 지움
-  await page.keyboard.type('@김지');
-  await page.waitForSelector('#mention.on');
-  await page.keyboard.press('ArrowDown'); await page.keyboard.press('Enter'); await page.keyboard.press('Enter');
-  await page.waitForFunction(() => document.querySelector('#inp').value === '');
-  ds = calls.filter(c => c[0] === 'send').pop();
-  ok(ds[1].p_mentions.length === 1 && ds[1].p_mentions[0] === wantId, '잘못 고른 사람은 빠지고 다시 고른 사람만');
+  let ds;
   await page.click('#inp'); await page.keyboard.type('직접 친 이름 @김지원'); await page.keyboard.press('Escape'); await page.keyboard.press('Enter');
   await page.waitForFunction(() => document.querySelector('#inp').value === '');
   ds = calls.filter(c => c[0] === 'send').pop();
-  ok(ds[1].p_mentions.length === 2, '손으로 친 같은 이름은 둘 다에게');
+  ok(ds[1].p_mentions.length === 2, '같은 이름은 둘 다에게');
   ok((await page.locator('#status').textContent()).includes('같은 이름이 여럿'), '같은 이름 안내');
   await ctx.close();
   MEMBERS.pop();

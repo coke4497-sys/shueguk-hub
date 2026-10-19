@@ -100,6 +100,10 @@ const createTeacher = withSupabase({ auth: 'user' }, async (request, context) =>
   })
   if (insertError) {
     await context.supabaseAdmin.auth.admin.deleteUser(created.user.id)
+    // 활성 계정끼리 같은 표시 이름 금지 (202610190003 — 슈톡 @이름이 누구인지 가려야 해서)
+    if (insertError.code === '23505' && String(insertError.message || '').includes('teacher_accounts_active_name_uniq')) {
+      return reply(409, { error: '같은 이름의 계정이 이미 있습니다. 이름 뒤에 A·B를 붙여 구분해 주십시오(예: 김지원A).' })
+    }
     return reply(500, { error: '교사 권한을 저장하지 못해 계정 생성을 취소했습니다.' })
   }
 
