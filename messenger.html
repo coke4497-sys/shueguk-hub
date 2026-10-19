@@ -39,6 +39,25 @@
   .hbtn{border:0;border-radius:999px;background:var(--lav);color:var(--lavInk);font-size:13px;padding:7px 12px;text-decoration:none;}
   .hbtn.plain{background:var(--soft);color:var(--ink);}
 
+  /* 출근·퇴근 (2026-10-19 원장님) */
+  .pbtn{border:0;border-radius:999px;font-size:13px;padding:7px 12px;background:#F7E2DE;color:var(--lateInk);display:inline-flex;align-items:center;gap:6px;}
+  .pbtn.on{background:var(--ok);color:var(--okInk);}
+  .pbtn::before{content:"";width:8px;height:8px;border-radius:50%;background:#C98B72;}
+  .pbtn.on::before{background:#5E9A84;}
+  .pbtn[hidden]{display:none;}
+  .presmenu{position:fixed;top:58px;right:18px;z-index:45;background:#fff;border-radius:16px;box-shadow:0 8px 28px rgba(42,51,47,.18);padding:12px;display:flex;flex-direction:column;gap:6px;min-width:210px;}
+  .presmenu[hidden]{display:none;}
+  .presmenu .pmt{font-size:12.5px;color:var(--cap);padding:0 4px 2px;}
+  .presmenu button{border:0;border-radius:12px;background:var(--soft);color:var(--ink);font-size:14.5px;padding:11px 14px;text-align:left;}
+  .presmenu button.cur{background:var(--ok);color:var(--okInk);font-weight:700;}
+  .presmenu button.out{background:#F7E2DE;color:var(--lateInk);text-align:center;margin-top:4px;}
+  .pres{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;line-height:1.5;}
+  .pres[hidden]{display:none;}
+  .pres .pl b{font-weight:700;color:var(--okInk);margin-right:4px;}
+  .pres .pl.off b{color:var(--cap);}
+  .pres .pl.off{color:var(--cap);}
+  .pst{font-size:12px;border-radius:999px;padding:2px 8px;background:var(--soft);color:var(--cap);white-space:nowrap;}
+  .pst.on{background:var(--ok);color:var(--okInk);}
   .tabs{display:none;flex:none;gap:4px;margin:0 12px 8px;background:#E6ECE9;border-radius:999px;padding:3px;}
   .tabs button{flex:1;border:0;border-radius:999px;height:40px;font-size:15px;background:transparent;color:var(--ink2);}
   .tabs button.on{background:#fff;color:var(--ink);font-weight:700;}
@@ -184,6 +203,7 @@
       <span class="title">슈톡</span>
       <span class="cnt" id="cnt"></span>
       <span class="grow"></span>
+      <button class="pbtn" id="presBtn" type="button" hidden aria-haspopup="true">출근하기</button>
       <span class="live off" id="live">연결 중</span>
       <span class="me" id="me"></span>
     </header>
@@ -223,6 +243,7 @@
           </span>
         </div>
         <div class="bar"><i id="sumbar" style="width:0%"></i></div>
+        <div class="pres" id="pres" hidden></div>
       </div>
       <div id="cards"></div>
     </aside>
@@ -244,6 +265,14 @@
     <p class="pnote">모든 메시지와 나에게 온 할 일이 바로 알림으로 옵니다. 기기마다 한 번씩 허용해 주세요.</p>
     <a class="pnote" href="index.html">티쳐스 첫 화면으로</a>
   </div>
+</div>
+<div class="presmenu" id="presMenu" hidden role="menu" aria-label="출근·퇴근">
+  <span class="pmt">어느 센터로 출근하나요?</span>
+  <button type="button" data-loc="본원">본원</button>
+  <button type="button" data-loc="화정센터">화정센터</button>
+  <button type="button" data-loc="민초센터">민초센터</button>
+  <button type="button" data-loc="정리정독">정리정독</button>
+  <button type="button" class="out" data-out="1">퇴근</button>
 </div>
 <div id="status" role="status"></div>
 
@@ -331,7 +360,7 @@
       ready = true;
       renderMsgs('first'); renderBoard();
       var hm0 = location.hash.match(/^#m(\d+)$/); if (hm0) goTo(Number(hm0[1]));
-      pushInit();
+      pushInit(); loadPres();
       setLive(true); schedule();
     }).catch(function(e){
       setLive(false);
@@ -390,6 +419,7 @@
       if (mc || tc || deleted.length){ renderMsgs(lastMsgId() > lastBefore ? 'new' : 'keep'); renderBoard(); }
       notifyNew(newMsgs.filter(function(m){ return m.id > lastBefore && m.author !== ME.id && !m.deleted_at; }));
     }).catch(function(){ setLive(false); }).then(function(){ polling = false; schedule(); });
+    loadPres();
   }
   document.addEventListener('visibilitychange', function(){ if (!document.hidden){ unseen = 0; document.title = '슈톡 · Shuetalk'; markRead(); poll(); } });
 
@@ -678,7 +708,7 @@
       .sort(function(a, b){ return (b.name.indexOf(q.q) === 0) - (a.name.indexOf(q.q) === 0) || a.name.localeCompare(b.name, 'ko'); }).slice(0, 8);
     if (!mList.length){ box.classList.remove('on'); return; }
     mIdx = Math.min(mIdx, mList.length - 1);
-    box.innerHTML = mList.map(function(m, i){ return '<button type="button" role="option" data-mi="' + i + '" class="' + (i === mIdx ? 'on' : '') + '">' + esc(m.name) + ' <small>' + roleLabel(m.role) + '</small></button>'; }).join('');
+    box.innerHTML = mList.map(function(m, i){ return '<button type="button" role="option" data-mi="' + i + '" class="' + (i === mIdx ? 'on' : '') + '">' + esc(m.name) + ' <small>' + roleLabel(m.role) + (presOk ? ' · ' + (presLoc(m.id) ? esc(presLoc(m.id)) + ' ON' : 'OFF') : '') + '</small></button>'; }).join('');
     box.classList.add('on');
   }
   function pickMention(i){
@@ -810,11 +840,11 @@
         return '<div class="ci d"><button class="bx on" type="button" data-tk="' + t.id + '" data-done="1" aria-label="완료 취소"' + (canCheck(t) ? '' : ' disabled') + '>' + CHECK + '</button>'
           + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + esc(t.text) + '<span class="meta">' + esc(t.requester_name) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</span></button></div>';
       })).join('');
-      return '<section class="pc" data-person="' + esc(p.key) + '"><div class="ph1"><span class="pn">' + esc(p.name) + '</span><span class="prl">' + (p.key === ME.id ? '나 · ' : '') + esc(p.role ? roleLabel(p.role) : '') + '</span>'
+      return '<section class="pc" data-person="' + esc(p.key) + '"><div class="ph1"><span class="pn">' + esc(p.name) + '</span><span class="prl">' + (p.key === ME.id ? '나 · ' : '') + esc(p.role ? roleLabel(p.role) : '') + '</span>' + presTag(p.key)
         + '<span class="pcnt' + (full ? ' full' : '') + '">' + p.done.length + ' / ' + tot + (full ? ' 완료' : '') + '</span></div>'
         + '<div class="bar"><i class="' + (full ? 'full' : '') + '" style="width:' + pct + '%"></i></div>' + items + '</section>';
     });
-    var idle = MEMBERS.filter(function(m){ return !map[m.id]; }).map(function(m){ return m.name; });
+    var idle = MEMBERS.filter(function(m){ return !map[m.id]; }).map(function(m){ var l = presOk ? presLoc(m.id) : ''; return m.name + (l ? '(' + l + ')' : ''); });
     if (!html.length) html.push('<div class="none">' + (filter === 'all' ? '오늘 맡긴 일이 없습니다. 대화에 @이름을 넣으면 여기 카드가 생깁니다.' : '해당하는 카드가 없습니다.') + '</div>');
     if (idle.length && filter !== 'todo') html.push('<div class="idle">오늘 할 일 없음 · ' + idle.map(esc).join(', ') + '</div>');
     $('cards').innerHTML = html.join('');
@@ -835,6 +865,66 @@
     }
     if (b.dataset.go) goTo(Number(b.dataset.go));
   });
+  // ── 출근·퇴근 (2026-10-19 원장님 "구성원이 어느 센터 on, off 상태를 표시") ─────────
+  // 표 msg_presence(사람마다 한 줄) — 쓰기는 msg_presence_set 함수로만. 오늘 출근한 것만 ON(날짜가 바뀌면 OFF에서 시작).
+  var PRES = {}, presOk = false, PRES_LOCS = ['본원', '화정센터', '민초센터', '정리정독'];
+  function presLoc(uid){
+    var r = PRES[uid];
+    return r && r.is_on && ymd(r.changed_at) === ymd(new Date().toISOString()) ? r.loc : '';
+  }
+  function presTag(uid){
+    if (!presOk) return '';
+    var loc = presLoc(uid);
+    return '<span class="pst' + (loc ? ' on' : '') + '">' + (loc ? esc(loc) + ' ON' : 'OFF') + '</span>';
+  }
+  function loadPres(){
+    return api('/msg_presence?select=user_id,name,loc,is_on,changed_at').then(function(rows){
+      var next = {}; (rows || []).forEach(function(r){ next[r.user_id] = r; });
+      var changed = !presOk || JSON.stringify(next) !== JSON.stringify(PRES);
+      PRES = next; presOk = true;
+      if (changed){ renderPres(); if (ready) renderBoard(); }
+    }).catch(function(e){
+      // 표가 아직 없으면(마이그레이션 202610190004 전) 출근 기능만 숨긴다
+      if (e && (e.status === 404 || (e.data && e.data.code === 'PGRST205'))){ presOk = false; renderPres(); }
+    });
+  }
+  function renderPres(){
+    var btn = $('presBtn');
+    btn.hidden = !presOk || !ME;
+    if (!presOk || !ME){ $('pres').hidden = true; return; }
+    var mine = presLoc(ME.id);
+    btn.classList.toggle('on', !!mine);
+    btn.textContent = mine ? mine + ' 출근' : '출근하기';
+    btn.title = mine ? '누르면 센터를 바꾸거나 퇴근합니다' : '누르면 출근할 센터를 고릅니다';
+    var by = {}, off = [];
+    MEMBERS.forEach(function(m){ var l = presLoc(m.id); if (l){ (by[l] = by[l] || []).push(m.name); } else off.push(m.name); });
+    var html = PRES_LOCS.filter(function(l){ return by[l]; }).map(function(l){
+      return '<span class="pl"><b>' + esc(l) + '</b>' + by[l].map(esc).join('·') + '</span>';
+    });
+    html.push('<span class="pl off" title="' + esc(off.join(', ')) + '"><b>OFF</b>' + off.length + '명</span>');
+    $('pres').innerHTML = html.join('');
+    $('pres').hidden = false;
+    document.querySelectorAll('#presMenu [data-loc]').forEach(function(b){ b.classList.toggle('cur', b.dataset.loc === mine); });
+    $('presMenu').querySelector('[data-out]').hidden = !mine;
+  }
+  function presMenu(open){
+    var m = $('presMenu');
+    if (open){ var r = $('presBtn').getBoundingClientRect(); m.style.top = (r.bottom + 6) + 'px'; m.style.right = Math.max(8, window.innerWidth - r.right) + 'px'; }
+    m.hidden = !open;
+  }
+  $('presBtn').onclick = function(e){ e.stopPropagation(); presMenu($('presMenu').hidden); };
+  document.addEventListener('click', function(e){ if (!$('presMenu').hidden && !e.target.closest('#presMenu')) presMenu(false); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('presMenu').hidden) presMenu(false); });
+  $('presMenu').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    var on = !b.dataset.out, loc = on ? b.dataset.loc : '';
+    presMenu(false);
+    rpc('msg_presence_set', { p_loc: loc, p_on: on }).then(function(row){
+      PRES[ME.id] = row; renderPres(); renderBoard();
+      status(on ? loc + '에 출근했습니다.' : '퇴근했습니다. 수고하셨어요.', 3000);
+    }).catch(function(err){ status(errText(err)); });
+  });
+
   function setTab(t){
     document.body.dataset.tab = t;
     $('tabChat').classList.toggle('on', t === 'chat'); $('tabBoard').classList.toggle('on', t === 'board');

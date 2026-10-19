@@ -38,6 +38,8 @@ P -f supabase/migrations/202610190001_messenger.sql >/dev/null && ok y y "다시
 P -f supabase/migrations/202610190002_messenger_push.sql >/dev/null || { echo "푸시 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610190002_messenger_push.sql >/dev/null && ok y y "푸시 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610190003_teacher_unique_name.sql >/dev/null || { echo "이름 중복 금지 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610190004_messenger_presence.sql >/dev/null || { echo "출근 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610190004_messenger_presence.sql >/dev/null && ok y y "출근 마이그레이션 다시 실행해도 오류 없음"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
 B=bbbbbbbb-0000-0000-0000-000000000002   # 이은지 선생님
@@ -118,6 +120,18 @@ ok "$(as $B "select public.msg_push_save('{\"endpoint\":\"http://x\",\"keys\":{\
 ok "$(as $E "select public.msg_push_save('$SUB', 'all', '')" | grep -c not_teacher)" 1 "계정 없는 로그인은 구독 못 함"
 ok "$(as $B "select count(*) from public.msg_push_subs" | grep -c 'permission denied')" 1 "구독 표는 직접 못 읽음"
 ok "$(anon "select public.msg_push_save('$SUB', 'all', '')" | grep -c 'permission denied')" 1 "공개 키는 함수 실행 불가"
+
+echo "── 출근·퇴근"
+ok "$(as $C "select public.msg_presence_set('화정센터', true)->>'loc'")" "화정센터" "출근 — 센터 저장"
+ok "$(as $C "select name||'|'||is_on from public.msg_presence where user_id='$C'")" "고희주|true" "이름은 서버가 정함 · ON"
+ok "$(as $C "select public.msg_presence_set('본원', true)->>'loc'")" "본원" "센터 바꾸기 — 한 줄 그대로"
+ok "$(as $C "select (public.msg_presence_set('', false)->>'is_on')||'|'||(select loc from public.msg_presence where user_id='$C')")" "false|본원" "퇴근 — OFF, 마지막 센터는 남김"
+ok "$(as $B "select count(*) from public.msg_presence_log where user_id='$C'")" 3 "누를 때마다 기록 한 줄 · 다른 교사도 읽음"
+ok "$(as $C "select public.msg_presence_set('집', true)" | grep -c bad_loc)" 1 "없는 센터 거절"
+ok "$(as $E "select public.msg_presence_set('본원', true)" | grep -c not_teacher)" 1 "계정 없는 로그인은 못 씀"
+ok "$(as $B "insert into public.msg_presence(user_id,name,loc,is_on) values ('$B','x','본원',true)" | grep -c 'permission denied')" 1 "표에 직접 쓰기 불가"
+ok "$(as $E "select count(*) from public.msg_presence")" 0 "계정 없는 로그인은 읽어도 0줄"
+ok "$(anon "select count(*) from public.msg_presence" | grep -c 'permission denied')" 1 "공개 키는 표를 못 읽음"
 
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null

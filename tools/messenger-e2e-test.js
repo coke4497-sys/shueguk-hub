@@ -36,7 +36,8 @@ const NAME = { [ME]: '고희주', [EUNJI]: '이은지', [BOSS]: '이수경' };
 let missing = false, failSendOnce = false;
 let mid = 0, tid = 0, clock = 0;
 const ts = () => new Date(Date.now() + (clock++)).toISOString();
-const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {};
+const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {};
+let noPres = false;
 function addMsg(author, body, files, createdIso){
   const t = createdIso || ts();
   const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null };
@@ -115,6 +116,13 @@ function filterRows(rows, u){
       if (p === '/rest/v1/teacher_accounts') return json([{ user_id: ME, login_id: 'heeju', display_name: '고희주', active: true, role: 'assistant' }]);
       if (missing && p.startsWith('/rest/v1/rpc/msg')) return json({ code: 'PGRST202', message: 'Could not find the function' }, 404);
       if (p === '/rest/v1/rpc/msg_members') return json(MEMBERS);
+      if (p === '/rest/v1/msg_presence') return noPres ? json({ code: 'PGRST205', message: 'Could not find the table' }, 404) : json(Object.values(PRESENCE));
+      if (p === '/rest/v1/rpc/msg_presence_set'){
+        const b = JSON.parse(req.postData()); calls.push(['pres', b]);
+        const old = PRESENCE[ME] || {};
+        PRESENCE[ME] = { user_id: ME, name: '고희주', loc: b.p_on ? b.p_loc : (old.loc || ''), is_on: b.p_on, changed_at: NOWISO() };
+        return json(PRESENCE[ME]);
+      }
       if (p === '/rest/v1/rpc/msg_send'){
         const b = JSON.parse(req.postData()); calls.push(['send', b]);
         const m = addMsg(ME, b.p_body, b.p_files);
@@ -444,6 +452,45 @@ function filterRows(rows, u){
   await page.reload(); await page.waitForSelector('a.card.wide'); await sleep(800);
   ok(await page.locator('#msgBadge').isHidden(), '다 읽었으면 숫자 없음');
   await ctx.close();
+
+  console.log('⑯ 출근·퇴근');
+  PRESENCE[BOSS] = { user_id: BOSS, name: '이수경', loc: '본원', is_on: true, changed_at: ago(1) };
+  PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '화정센터', is_on: true, changed_at: ago(30) };   // 어제 출근 — 오늘은 OFF
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id);
+  await page.waitForFunction(() => !document.querySelector('#presBtn').hidden);
+  ok((await page.locator('#presBtn').textContent()) === '출근하기', '처음엔 [출근하기]');
+  const pres0 = await page.locator('#pres').textContent();
+  ok(pres0.includes('본원') && pres0.includes('이수경') && !pres0.includes('화정센터'), '업무 카드 위에 센터별 출근자 (어제 출근은 OFF)');
+  ok(pres0.includes('OFF3명'), 'OFF 인원 (' + pres0 + ')');
+  ok(await page.locator('.pc[data-person="' + EUNJI + '"] .pst').textContent() === 'OFF', '카드에 OFF 표시');
+  await page.click('#presBtn');
+  ok(await page.locator('#presMenu').isVisible() && await page.locator('#presMenu [data-out]').isHidden(), '센터 고르기 창 (출근 전엔 퇴근 없음)');
+  await page.click('#presMenu [data-loc="화정센터"]');
+  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '화정센터 출근');
+  const pc = calls.filter(c => c[0] === 'pres').pop();
+  ok(pc && pc[1].p_loc === '화정센터' && pc[1].p_on === true, 'msg_presence_set(화정센터, 출근)');
+  if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'pres.png') }); await page.click('#presBtn'); await page.screenshot({ path: path.join(process.env.SHOT, 'pres-menu.png') }); await page.click('#presBtn');
+    const pg = await ctx.newPage(); await pg.setViewportSize({ width: 390, height: 844 }); await pg.goto('http://127.0.0.1:' + PORT + '/messenger.html'); await pg.waitForSelector('#presBtn:not([hidden])'); await pg.screenshot({ path: path.join(process.env.SHOT, 'pres-phone.png') }); await pg.click('#tabBoard'); await pg.screenshot({ path: path.join(process.env.SHOT, 'pres-phone-board.png') }); await pg.close(); }
+  ok((await page.locator('#pres').textContent()).includes('화정센터고희주'), '센터 줄에 내 이름');
+  ok(await page.locator('.pc[data-person="' + ME + '"] .pst.on').textContent() === '화정센터 ON', '내 카드에 화정센터 ON');
+  await page.click('#presBtn');
+  await page.click('#presMenu [data-out]');
+  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '출근하기');
+  ok(calls.filter(c => c[0] === 'pres').pop()[1].p_on === false, '퇴근 → msg_presence_set(퇴근)');
+  PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '정리정독', is_on: true, changed_at: NOWISO() };
+  await page.waitForFunction(() => document.querySelector('#pres').textContent.includes('정리정독'), null, { timeout: 7000 }).catch(() => {});
+  ok((await page.locator('#pres').textContent()).includes('정리정독이은지'), '다른 사람 출근이 3초 안팎에 보임');
+  await page.click('#inp'); await page.keyboard.type('@이은');
+  await page.waitForSelector('#mention.on');
+  ok((await page.locator('#mention').textContent()).includes('정리정독 ON'), '@ 목록에 출근 상태');
+  await ctx.close();
+  noPres = true;
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id); await sleep(500);
+  ok(await page.locator('#presBtn').isHidden() && await page.locator('#pres').isHidden(), '표가 없으면(마이그레이션 전) 출근 기능만 숨김');
+  await ctx.close();
+  noPres = false;
 
   await browser.close(); server.close();
   console.log(`\n${n - bad} / ${n} 통과`);
