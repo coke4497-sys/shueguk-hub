@@ -39,7 +39,11 @@ const ts = () => new Date(Date.now() + (clock++)).toISOString();
 const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [];
 let noPres = false;
 const TT = [], TTP = [], TTLOG = [], NOTES = [];
-let failTT = false;   // 시간표·기간·주간 기록·수업 기록 (오늘 수업 줄)
+let failTT = false;
+const STUDENTS = [
+  { name: '김민준', teacher: '이은지', enrolled: 'Y' }, { name: '박하늘', teacher: '김지원', enrolled: 'Y' },
+  { name: '이준A', teacher: '이은지', enrolled: 'Y' }, { name: '이준B', teacher: '김지원', enrolled: 'Y' },
+  { name: '고은비', teacher: '고희주', enrolled: 'Y' }, { name: '최퇴원', teacher: '이은지', enrolled: '퇴원' }];   // 시간표·기간·주간 기록·수업 기록 (오늘 수업 줄)
 function addMsg(author, body, files, createdIso){
   const t = createdIso || ts();
   const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null, reply_to: null };
@@ -139,7 +143,7 @@ function filterRows(rows, u){
         const m = addMsg(ME, b.p_body, b.p_files);
         if (b.p_reply) m.reply_to = b.p_reply;
         let text = b.p_body; (b.p_mentions || []).forEach(id => { text = text.split('@' + NAME[id]).join(''); });
-        const all = /@(모두|전체)/.test(b.p_body);
+        const all = /@(모두|전체)/.test(b.p_body) || /^\[(결석|지각|이동)\]/.test(b.p_body);   // 결석·지각·이동도 확인만(202610200003)
         text = text.replace(/@(모두|전체)/g, '').replace(/\s+/g, ' ').trim() || '메시지 확인';
         const tasks = [...new Set(b.p_mentions || [])].map(id => { const k = addTask(m, id, text); k.ack_only = all; return k; });
         return json({ message: m, tasks });
@@ -208,6 +212,7 @@ function filterRows(rows, u){
         const cid = u.searchParams.get('class_id') || '', day = (u.searchParams.get('day') || '').replace(/^eq\./, '');
         return json(TT.filter(c => cid.startsWith('not.like.w') ? !/^w/.test(c.class_id) && (!day || c.day === day) : cid.startsWith('like.') ? c.class_id.startsWith(cid.slice(5).replace('*', '')) : true));
       }
+      if (p === '/rest/v1/students'){ calls.push(['stu']); return json(STUDENTS); }
       if (p === '/rest/v1/tt_period') return json(TTP.filter(x => 'eq.' + x.week_wednesday === u.searchParams.get('week_wednesday')));
       if (p === '/rest/v1/tt_log') return json(TTLOG.filter(x => 'eq.' + x.apply_date === u.searchParams.get('apply_date')));
       if (p === '/rest/v1/class_notes') return json(NOTES.filter(x => 'eq.' + x.ymd === u.searchParams.get('ymd')));
@@ -846,6 +851,47 @@ function filterRows(rows, u){
   await page.waitForFunction(id => document.querySelector('[data-uncx="' + id + '"]'), old3.id, { timeout: 5000 }).catch(() => {});
   ok(await page.locator('[data-uncx="' + old3.id + '"]').count() === 1, '지우지 않은 원문이면 받아 온 뒤 [되돌리기]');
   ok(await page.locator('[data-uncx="' + old1.id + '"]').count() === 0 && (await page.locator('.pc[data-person="' + ME + '"]').textContent()).includes('옛 사유'), '지운 원문이면 취소 줄만, [되돌리기] 없음');
+  await ctx.close();
+
+  console.log('㉔ 결석·지각·이동 = 담당 선생님 확인 (2026-10-20 원장님)');
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#msgs .m');
+  const sendAtt = async (tag, text) => {
+    await page.click('#tags [data-tag="' + tag + '"]');
+    await page.fill('#inp', text); await page.dispatchEvent('#inp', 'input');
+    await page.waitForFunction(() => !document.querySelector('#ahint').hidden && !/찾는 중/.test(document.querySelector('#ahint').textContent), null, { timeout: 5000 }).catch(() => {});
+    return (await page.locator('#ahint').textContent());
+  };
+  let hint = await sendAtt('결석', '중3 김민준이 병결입니다');
+  ok(/이은지 선생님께 \[결석\] 확인 요청이 갑니다 \(김민준\)/.test(hint), '학생 이름으로 담당 선생님 안내 (' + hint + ')');
+  await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  let sa = calls.filter(c => c[0] === 'send').pop();
+  ok(sa[1].p_body === '[결석] 중3 김민준이 병결입니다' && JSON.stringify(sa[1].p_mentions) === JSON.stringify([EUNJI]), '@ 없이도 담당 선생님에게 (p_mentions = 이은지)');
+  const at1 = TASKS.filter(x => x.message_id === MSGS[MSGS.length - 1].id);
+  ok(at1.length === 1 && at1[0].ack_only, '확인만 하면 끝나는 할 일');
+  ok(await page.locator('#ahint').isHidden(), '보낸 뒤 안내 줄 닫힘');
+  hint = await sendAtt('지각', '고1 이준 10분 지각');
+  ok(/가리지 못했습니다/.test(hint), '같은 이름(이준A·이준B) 담당이 다르면 못 가림 안내');
+  await page.fill('#inp', ''); await page.click('#tags [data-tag="지각"]');
+  hint = await sendAtt('이동', '고은비 금→토 이동');
+  ok(/내 담당 학생이라/.test(hint), '내 담당 학생이면 업무 목록에 안 올린다는 안내');
+  await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  sa = calls.filter(c => c[0] === 'send').pop();
+  ok(sa[1].p_mentions.length === 0, '내 담당 학생 → 받을 사람 없음');
+  hint = await sendAtt('결석', '김민준 결석 @김지원');
+  ok(/@로 부른 사람에게/.test(hint), '@로 부르면 그 사람에게');
+  await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  sa = calls.filter(c => c[0] === 'send').pop();
+  ok(JSON.stringify(sa[1].p_mentions) === JSON.stringify(['44444444-4444-4444-4444-444444444444']), '@가 있으면 학생 이름보다 @ 우선');
+  hint = await sendAtt('결석', '최퇴원 결석');
+  ok(/찾지 못했습니다/.test(hint), '퇴원생·명단에 없는 이름은 못 찾음 안내');
+  await page.fill('#inp', ''); await page.click('#tags [data-tag="결석"]');
+  await page.click('#tags [data-tag="공지"]'); await page.fill('#inp', '김민준 상담'); await page.dispatchEvent('#inp', 'input'); await sleep(400);
+  ok(await page.locator('#ahint').isHidden(), '다른 꼬리표엔 안내 없음');
+  if (process.env.SHOT){ await page.click('#tags [data-tag="공지"]'); await sendAtt('결석', '중3 김민준 병결'); await page.screenshot({ path: path.join(process.env.SHOT, 'att-hint.png') }); }
   await ctx.close();
 
   console.log('⑫ 출근 전 카드는 흐리게 · 오늘 수업 기록 줄 (2026-10-20 원장님)');

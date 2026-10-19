@@ -43,11 +43,13 @@ P -f supabase/migrations/202610190004_messenger_presence.sql >/dev/null && ok y 
 P -f supabase/migrations/202610190005_messenger_seen_all.sql >/dev/null || { echo "확인·모두 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610190005_messenger_seen_all.sql >/dev/null && ok y y "확인·모두 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610190006_messenger_reply.sql >/dev/null || { echo "답장 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610190006_messenger_reply.sql >/dev/null && ok y y "답장 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610200001_messenger_cancel.sql >/dev/null || { echo "취소 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200001_messenger_cancel.sql >/dev/null && ok y y "취소 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610200002_messenger_handover.sql >/dev/null || { echo "넘기기·미루기 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200002_messenger_handover.sql >/dev/null && ok y y "넘기기·미루기 마이그레이션 다시 실행해도 오류 없음"
-P -f supabase/migrations/202610190006_messenger_reply.sql >/dev/null && ok y y "답장 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610200003_messenger_attend_ack.sql >/dev/null || { echo "결석 확인 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200003_messenger_attend_ack.sql >/dev/null && ok y y "결석 확인 마이그레이션 다시 실행해도 오류 없음"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
 B=bbbbbbbb-0000-0000-0000-000000000002   # 이은지 선생님
@@ -221,6 +223,20 @@ ok "$(as $B "select public.msg_task_delegate($TY, '$A', '')" | grep -c ack_only)
 ok "$(as $C "update public.msg_tasks set assignee='$B' where id=$TH" 2>&1 | grep -c 'permission denied')" 1 "표에 직접 쓰기 불가"
 ok "$(anon "select public.msg_task_delegate($TH, '$B', '')" | grep -c 'permission denied')" 1 "공개 키는 넘기기 함수 실행 불가"
 ok "$(anon "select public.msg_task_defer($TH, now(), '')" | grep -c 'permission denied')" 1 "공개 키는 미루기 함수 실행 불가"
+
+echo "── 결석·지각·이동 = 담당 선생님 확인 (202610200003)"
+MK=$(as $C "select (public.msg_send('[결석] 중3 김민준 병결입니다 @이은지', '[]', array['$B']::uuid[])->'message'->>'id')")
+ok "$(as $C "select count(*)||'|'||bool_and(ack_only)||'|'||min(text) from public.msg_tasks where message_id=$MK")" "1|true|[결석] 중3 김민준 병결입니다" "결석 꼬리표 = 확인만 하면 끝"
+TK=$(as $C "select id from public.msg_tasks where message_id=$MK")
+ok "$(as $B "select (public.msg_task_seen($TK)->>'status')")" "완료" "담당 선생님이 확인을 누르면 완료"
+MK2=$(as $B "select (public.msg_send('[지각] 고2 박하늘 10분 지각 @이은지', '[]', array['$B']::uuid[])->'message'->>'id')")
+ok "$(as $B "select count(*) from public.msg_tasks where message_id=$MK2")" 0 "선생님 본인이 올리면 업무 목록에 안 올라감"
+MK3=$(as $B "select (public.msg_send('[이동] 고1 이준 금→토 @고희주 @이은지', '[]', array['$C','$B']::uuid[])->'message'->>'id')")
+ok "$(as $B "select count(*)||'|'||min(assignee_name)||'|'||bool_and(ack_only) from public.msg_tasks where message_id=$MK3")" "1|고희주|true" "이동도 확인만 · 나는 빼고 다른 사람만"
+MK4=$(as $C "select (public.msg_send('[공지] 내일 휴강 @이은지', '[]', array['$B']::uuid[])->'message'->>'id')")
+ok "$(as $C "select bool_and(ack_only) from public.msg_tasks where message_id=$MK4")" "f" "다른 꼬리표는 보통 할 일"
+MK5=$(as $C "select (public.msg_send('결석 처리 부탁 [결석] @이은지', '[]', array['$B']::uuid[])->'message'->>'id')")
+ok "$(as $C "select bool_and(ack_only) from public.msg_tasks where message_id=$MK5")" "f" "꼬리표는 맨 앞일 때만"
 
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null

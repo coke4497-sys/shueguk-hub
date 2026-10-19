@@ -138,6 +138,11 @@
   .tk.seen{background:var(--lav);color:var(--lavInk);}
   .tk.sum{font-weight:700;}
   .tk.cx{background:#ECEEED;color:#6A716C;}
+  /* 결석·지각·이동 확인 요청 안내 (202610200003) */
+  .ahint{font-size:12.5px;color:var(--lavInk);background:var(--lav);border-radius:10px;padding:6px 10px;margin:0 0 6px;}
+  .ahint.warn{color:var(--lateInk);background:#F7E2DE;}
+  .ahint.soft{color:var(--ink2);background:var(--soft);}
+  .ahint[hidden]{display:none;}
   /* 할 일 취소 + 사유 (2026-10-20 원장님) */
   .cxb{border:0;background:transparent;color:var(--cap);font-size:12px;padding:3px 6px;margin-left:auto;flex:none;align-self:center;border-radius:8px;}
   .cxb:hover{background:var(--soft);color:var(--ink2);}
@@ -331,6 +336,7 @@
         <div class="rbar" id="rbar" hidden><span id="rtext"></span><button class="hbtn plain" type="button" id="rcancel" aria-label="답장 취소">취소</button></div>
         <div id="pend"></div>
         <div class="tags" id="tags" role="group" aria-label="꼬리표"></div>
+        <div class="ahint" id="ahint" hidden></div>
         <div class="crow">
           <textarea id="inp" rows="1" aria-label="메시지 쓰기" placeholder="메시지 쓰기"></textarea>
           <input type="file" id="file" multiple hidden />
@@ -703,9 +709,56 @@
   $('tags').addEventListener('click', function(e){
     var b = e.target.closest('[data-tag]'); if (!b) return;
     curTag = curTag === b.dataset.tag ? '' : b.dataset.tag;   // 같은 알약을 다시 누르면 뺀다
-    drawTags();
+    drawTags(); attHint();
   });
   drawTags();
+
+  // ── 결석·지각·이동 = 담당 선생님 확인 요청 (2026-10-20 원장님, 202610200003) ─────
+  // 받을 사람: @로 부른 사람(나는 빼고) → @가 없으면 글 속 학생 이름으로 찾은 담당 선생님(students.teacher).
+  // 서버가 이 꼬리표 글의 할 일을 '확인만 하면 끝'(ack_only)으로 만들고 보낸 사람 본인은 늘 뺀다 — 선생님이 직접 올리면 업무 목록에 안 올라간다.
+  var ATT_TAGS = { '결석': 1, '지각': 1, '이동': 1 }, STU = null, stuP = null;
+  var STU_LEFT = /^(퇴원|n|no|off|x|중단|비재원)$/i;
+  var PARTICLE = /^(학생|친구|이가|이는|이도|이의|이랑|이|가|은|는|의|도|와|과|랑|군|양)(?![가-힣])/;
+  function loadStudents(){
+    if (!stuP) stuP = api('/students?select=name,teacher,enrolled&limit=5000').then(function(rows){
+      STU = (rows || []).filter(function(x){ return x.name && !STU_LEFT.test(String(x.enrolled || '').trim()); });
+    }).catch(function(){ stuP = null; STU = STU || []; });   // 못 읽으면 빈 명단(안내 줄이 '못 찾음'), 다음에 다시 읽음
+    return stuP;
+  }
+  function attTagOf(body){ var t = tagSplit(body).tag || curTag; return ATT_TAGS[t] ? t : ''; }
+  function hasMention(body){ return /@(모두|전체)/.test(body) || MEMBERS.some(function(m){ return body.indexOf('@' + m.name) >= 0; }); }
+  // 글 속 학생 이름(끝 A·B 뗀 이름, 앞은 한글이 아니고 뒤는 띄어쓰기·조사) — 이름이 겹치면 담당 선생님이 하나일 때만 쓴다
+  function attAuto(body){
+    var text = tagSplit(body).rest, by = {}, out = { ids: [], found: [], miss: [], self: [] };
+    (STU || []).forEach(function(x){ var b = String(x.name).replace(/\s+/g, '').replace(/[A-Z]$/, ''); if (b.length >= 2) (by[b] = by[b] || []).push(x); });
+    Object.keys(by).sort(function(a, b){ return b.length - a.length; }).forEach(function(b){
+      for (var i = text.indexOf(b); i >= 0; i = text.indexOf(b, i + 1)){
+        var rest = text.slice(i + b.length);
+        if (i > 0 && /[가-힣]/.test(text.charAt(i - 1))) continue;
+        if (/^[가-힣]/.test(rest) && !PARTICLE.test(rest)) continue;
+        var ts = []; by[b].forEach(function(x){ var t = String(x.teacher || '').trim(); if (t && ts.indexOf(t) < 0) ts.push(t); });
+        var uid = ts.length === 1 ? (MEMBERS.filter(function(m){ return m.name === ts[0]; }).length === 1 ? MEMBERS.filter(function(m){ return m.name === ts[0]; })[0].id : lessonUid(ts[0])) : '';
+        if (!uid) out.miss.push(b);
+        else if (uid === ME.id) out.self.push(b);
+        else { if (out.ids.indexOf(uid) < 0) out.ids.push(uid); out.found.push(b); }
+        text = text.slice(0, i) + ' ' + rest;   // 같은 자리를 짧은 이름이 다시 잡지 않게
+        break;
+      }
+    });
+    return out;
+  }
+  function attHint(){   // 가벼운 계산이라 입력마다 바로 그린다
+    var el = $('ahint'), body = inp.value, tag = attTagOf(body);
+    if (!tag || !ME){ el.hidden = true; return; }
+    var set = function(cls, txt){ el.className = 'ahint' + (cls ? ' ' + cls : ''); el.textContent = txt; el.hidden = false; };
+    if (hasMention(body)){ set('', '[' + tag + '] @로 부른 사람에게 확인 요청이 갑니다. 받은 사람은 [확인]만 누르면 끝나요.'); return; }
+    if (!STU){ set('soft', '담당 선생님을 찾는 중…'); loadStudents().then(attHint); return; }
+    var a = attAuto(body);
+    if (a.ids.length) set('', a.ids.map(function(id){ return MBY[id] ? MBY[id].name : ''; }).join('·') + ' 선생님께 [' + tag + '] 확인 요청이 갑니다 (' + a.found.join(', ') + ')' + (a.miss.length ? ' · 담당을 못 찾은 이름: ' + a.miss.join(', ') : ''));
+    else if (a.self.length && !a.miss.length) set('soft', '내 담당 학생이라 업무 목록에 올리지 않아요.');
+    else if (a.miss.length) set('warn', '\'' + a.miss.join(', ') + '\' 담당 선생님을 가리지 못했습니다. @이름으로 불러 주십시오.');
+    else set('warn', '학생 이름으로 담당 선생님을 찾지 못했습니다. 학생 이름을 쓰거나 @이름으로 불러 주십시오.');
+  }
 
   function bodyHtml(body){
     var sp = tagSplit(body);
@@ -976,7 +1029,7 @@
     $('mention').classList.remove('on'); mList = []; inp.focus(); grow();
   }
   $('mention').addEventListener('mousedown', function(e){ var b = e.target.closest('[data-mi]'); if (b){ e.preventDefault(); pickMention(Number(b.dataset.mi)); } });
-  inp.addEventListener('input', function(){ mIdx = 0; grow(); updateMention(); });
+  inp.addEventListener('input', function(){ mIdx = 0; grow(); updateMention(); attHint(); });
   inp.addEventListener('click', updateMention);
   inp.addEventListener('blur', function(){ setTimeout(function(){ $('mention').classList.remove('on'); }, 150); });
   var coarse = window.matchMedia && matchMedia('(pointer: coarse)').matches;
@@ -1044,10 +1097,15 @@
     sending = true; $('send').disabled = true;
     var files = pending.slice(), up = [];
     status(files.length ? '파일을 올리는 중…' : '', 30000);
-    files.reduce(function(p, f){ return p.then(function(){ return upload(f).then(function(x){ up.push(x); }); }); }, Promise.resolve())
-      .then(function(){ var a = { p_body: body, p_files: up, p_mentions: mentionsIn(body) }; if (replyTo) a.p_reply = replyTo.id; return rpc('msg_send', a); })
+    var att = attTagOf(body) && !hasMention(body);   // 결석·지각·이동인데 @가 없으면 학생 이름으로 담당 선생님을 찾는다
+    files.reduce(function(p, f){ return p.then(function(){ return upload(f).then(function(x){ up.push(x); }); }); }, att ? loadStudents() : Promise.resolve())
+      .then(function(){
+        var ids = att ? attAuto(body).ids : mentionsIn(body);
+        if (attTagOf(body)) ids = ids.filter(function(x){ return x !== ME.id; });   // 서버도 나를 뺀다
+        var a = { p_body: body, p_files: up, p_mentions: ids }; if (replyTo) a.p_reply = replyTo.id; return rpc('msg_send', a);
+      })
       .then(function(res){
-        inp.value = ''; grow(); pending = []; drawPending(); curTag = ''; drawTags(); setReply(null);
+        inp.value = ''; grow(); pending = []; drawPending(); curTag = ''; drawTags(); setReply(null); attHint();
         if (!lastAmbig) status('');
         addMsgs([res.message]); addTasks(res.tasks);
         renderMsgs('bottom'); renderBoard();
