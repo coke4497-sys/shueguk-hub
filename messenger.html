@@ -59,6 +59,7 @@
   .wnbox button{border:0;border-radius:12px;background:var(--lav);color:var(--lavInk);font-weight:700;font-size:15px;padding:12px;min-height:46px;}
   .wnbox button.plain{background:var(--soft);color:var(--ink);font-weight:400;}
   .wnbox .wnbtns{display:flex;flex-direction:column;gap:8px;}
+  .wnbox input{border:1px solid #DCE4DF;border-radius:10px;padding:10px 12px;font:inherit;font-size:14.5px;min-height:44px;}
   .plpanel{background:#fff;border-radius:18px;padding:16px 18px;width:min(380px,100%);max-height:calc(100vh - 80px);overflow:auto;display:flex;flex-direction:column;gap:12px;box-shadow:0 8px 28px rgba(42,51,47,.18);}
   .plhead{display:flex;align-items:center;gap:8px;}
   .plhead .btitle{flex:1;}
@@ -380,6 +381,7 @@
   <div class="wnbox">
     <b id="wnTitle">16:00부터 근무</b>
     <p id="wnText"></p>
+    <input type="text" id="wnNote" maxlength="100" placeholder="사유 (선택) — 예: 병원 진료" aria-label="조기퇴근 사유" hidden />
     <div class="wnbtns">
       <button type="button" id="wnYes" hidden></button>
       <button type="button" id="wnOk">확인</button>
@@ -1280,6 +1282,7 @@
       var work = row && row.work; if (row) delete row.work;
       PRES[ME.id] = row; renderPres(); renderBoard();
       status(on ? loc + '에 출근했습니다.' : '퇴근했습니다. 수고하셨어요.' + (work && work.event === 'out' ? ' 오늘 근무 ' + Math.floor(work.minutes / 60) + '시간' + (work.minutes % 60 ? ' ' + work.minutes % 60 + '분' : '') + '.' : ''), 4000);
+      if (work && work.message_id) pushAfterSend(work.message_id);   // 조기퇴근 확인 요청 글(202610200004)
       if (work && work.ask) workAsk(work);
       else if (!on && work && work.early) workEarly(work);
       else if (on && work && work.clipped) workNotice(work.start);
@@ -1288,7 +1291,7 @@
   // 근무표 시작보다 일찍 [출근]하면 근무 시간은 시작 시각부터 — 서버(msg_presence_set)가 정하고, 여기서는 알려 주기만 한다
   var WN = null;
   function workNotice(start){
-    WN = null;
+    WN = null; $('wnNote').hidden = true;
     $('wnTitle').textContent = start + '부터 근무';
     $('wnText').textContent = '출근을 기록했습니다. 오늘 근무표 시작이 ' + start + '이라 근무 시간은 ' + start + '부터 기록됩니다.';
     $('wnYes').hidden = true; $('wnOk').textContent = '확인'; $('wnOk').classList.remove('plain');
@@ -1302,14 +1305,15 @@
     WN = w; WN.mode = 'early';
     var d = w.early_diff, gap = d >= 60 ? Math.floor(d / 60) + '시간' + (d % 60 ? ' ' + d % 60 + '분' : '') : d + '분';
     $('wnTitle').textContent = '조기퇴근인가요?';
-    $('wnText').textContent = '오늘 근무 끝은 ' + w.sched + '입니다. 지금 퇴근(' + w.actual + ')이 ' + gap + ' 이릅니다.';
+    $('wnText').textContent = '오늘 근무 끝은 ' + w.sched + '입니다. 지금 퇴근(' + w.actual + ')이 ' + gap + ' 이릅니다.' + (w.early_status === '대기' ? ' 박언호 대표님께 조기퇴근 확인 요청이 갔어요.' : '');
+    $('wnNote').value = ''; $('wnNote').hidden = false;
     $('wnYes').textContent = '네, 조기퇴근이에요 — ' + w.actual + '까지 기록';
     $('wnOk').textContent = '아니요, 잘못 눌렀어요 — 퇴근 취소';
     $('wnYes').hidden = false; $('wnOk').classList.add('plain');
     $('wnback').hidden = false; $('wnYes').focus();
   }
   function workAsk(w){
-    WN = w;
+    WN = w; $('wnNote').hidden = true;
     var gap = w.diff >= 60 ? Math.floor(w.diff / 60) + '시간' + (w.diff % 60 ? ' ' + w.diff % 60 + '분' : '') : w.diff + '분';
     $('wnTitle').textContent = '초과근무인가요?';
     $('wnText').textContent = w.event === 'in'
@@ -1323,7 +1327,7 @@
   $('wnYes').onclick = function(){
     var w = WN; $('wnback').hidden = true; WN = null; if (!w) return;
     if (w.mode === 'early'){
-      rpc('work_early', { p_id: w.id, p_yes: true }).then(function(){ status('조기퇴근으로 기록했습니다. 수고하셨어요.', 4000); })
+      rpc('work_early', { p_id: w.id, p_yes: true, p_note: $('wnNote').value.trim() }).then(function(){ status(w.early_status === '대기' ? '조기퇴근으로 기록했습니다. 박언호 대표님이 확인해요.' : '조기퇴근으로 기록했습니다. 수고하셨어요.', 5000); })
         .catch(function(err){ status(errText(err) + ' 근무 일지에서 고칠 수 있어요.', 6000); });
       return;
     }
@@ -1336,7 +1340,7 @@
   $('wnOk').onclick = function(){
     if (WN && WN.mode === 'early'){
       var w = WN; $('wnback').hidden = true; WN = null;
-      rpc('work_early', { p_id: w.id, p_yes: false }).then(function(r){
+      rpc('work_early', { p_id: w.id, p_yes: false, p_note: '' }).then(function(r){
         if (r && r.presence){ PRES[ME.id] = r.presence; renderPres(); renderBoard(); }
         status('퇴근을 취소했습니다. 계속 근무 중으로 기록돼요.', 4000);
       }).catch(function(err){ status(/too_late/.test(String(err && err.message)) ? '이미 다시 출근한 뒤라 취소할 수 없습니다. 근무 일지에서 고쳐 주세요.' : errText(err), 6000); });
