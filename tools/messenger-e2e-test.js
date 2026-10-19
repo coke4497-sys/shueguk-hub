@@ -679,6 +679,19 @@ function filterRows(rows, u){
   ok(/오늘 출근 기록 없음.*1명.*김지원/.test(pl), '오늘 기록 없는 사람');
   ok((await page.locator('#pltitle').textContent()).includes('2명'), '제목에 출근 인원');
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'pres-list.png') });
+  // 휴대폰에서도 내 줄이 보여야 한다(예전엔 '.me' 클래스라 휴대폰에서 숨겨졌다)
+  await page.click('#plclose');
+  await page.click('#presBtn'); await page.click('#presMenu [data-loc="본원"]');
+  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근');
+  await page.setViewportSize({ width: 390, height: 844 });
+  if ((await page.locator('#plback').isHidden())) await page.click('#presListBtn');
+  await page.waitForFunction(() => [...document.querySelectorAll('#plbody .plrow')].some(r => r.textContent.includes('고희주') && r.offsetHeight > 0), null, { timeout: 5000 }).catch(() => {});
+  ok(await page.evaluate(() => [...document.querySelectorAll('#plbody .plrow')].some(r => r.textContent.includes('고희주') && r.offsetHeight > 0)), '휴대폰에서도 내 출근 줄이 보임');
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.click('#plclose');
+  await page.click('#presBtn'); await page.click('#presMenu [data-loc="화정센터"]');
+  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '화정센터 출근');
+  if ((await page.locator('#plback').isHidden())) await page.click('#presListBtn');
   await page.keyboard.press('Escape');
   ok(await page.locator('#plback').isHidden(), 'Esc로 닫힘');
   await page.click('#pres');
