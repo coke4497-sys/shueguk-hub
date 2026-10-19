@@ -233,7 +233,9 @@
     var nav = global.navigator;
     // 앱 아이콘 숫자와 서비스 워커가 세던 수도 0으로 — 다음 사람에게 앞 사람 숫자가 남지 않게 (Codex 검토)
     if (nav && nav.clearAppBadge) nav.clearAppBadge().catch(function () {});
-    if (global.caches) global.caches.open('msg-badge').then(function (c) { return c.put('badge-n', new Response('0')); }).catch(function () {});
+    var swc = nav && nav.serviceWorker && nav.serviceWorker.controller;
+    if (swc) swc.postMessage({ type: 'badge-clear' });   // 진행 중인 +1 뒤에 0 (msg-sw.js)
+    else if (global.caches) global.caches.open('msg-badge').then(function (c) { return c.put('badge-n', new Response('0')); }).catch(function () {});
     if (!nav || !nav.serviceWorker || !nav.serviceWorker.getRegistrations) return Promise.resolve();
     var work = nav.serviceWorker.getRegistrations().then(function (regs) {
       return Promise.all(regs.map(function (reg) {

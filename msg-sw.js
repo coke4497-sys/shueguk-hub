@@ -15,7 +15,9 @@ function badgeRead() {
 // 거의 동시에 온 푸시가 같은 숫자를 읽고 둘 다 +1 하지 않게 차례로 처리한다 (Codex 검토)
 var badgeChain = Promise.resolve();
 function badgeUp() {
-  badgeChain = badgeChain.then(badgeStep, badgeStep);
+  // 받은 순서대로 줄에 세우고, 차례가 오면 그때 '보고 있나'를 본다 — 0으로(badgeClear)와 순서가 뒤바뀌지 않게
+  var step = function () { return viewing().then(function (yes) { return yes ? null : badgeStep(); }); };
+  badgeChain = badgeChain.then(step, step);
   return badgeChain;
 }
 function badgeStep() {
@@ -40,8 +42,26 @@ self.addEventListener('push', function (e) {
   };
   e.waitUntil(Promise.all([
     self.registration.showNotification(title, opts),
+    // 슈톡 화면을 지금 보고 있으면 숫자를 올리지 않는다(badgeUp 안에서) — 화면이 이미 읽음 처리했을 수 있어서 (Codex 검토)
     badgeUp()
   ]));
+});
+function viewing() {
+  return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
+    return list.some(function (c) { return c.url.indexOf('messenger.html') >= 0 && c.visibilityState === 'visible'; });
+  }).catch(function () { return false; });
+}
+// 화면(끝까지 읽음)·로그아웃이 보내는 '0으로' — 진행 중인 +1 뒤에 줄 세워, 늦게 끝난 +1이 0을 덮지 않게 (Codex 검토)
+function badgeClear() {
+  badgeChain = badgeChain.then(badgeZero, badgeZero);
+  return badgeChain;
+}
+function badgeZero() {
+  return caches.open(BADGE_CACHE).then(function (c) { return c.put(BADGE_KEY, new Response('0')); }).catch(function () {})
+    .then(function () { if (self.navigator && self.navigator.clearAppBadge) return self.navigator.clearAppBadge().catch(function () {}); });
+}
+self.addEventListener('message', function (e) {
+  if (e.data && e.data.type === 'badge-clear') e.waitUntil(badgeClear());
 });
 
 self.addEventListener('notificationclick', function (e) {

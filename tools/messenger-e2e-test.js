@@ -441,6 +441,16 @@ function filterRows(rows, u){
   for (let i = 0; i < 3; i++) handlers.push(ev({ data: { json(){ return { title: 't', body: 'b' + i }; } } }));   // 거의 동시에 셋
   await Promise.all(waits);
   ok(stored === '5' && badges[badges.length - 1] === 5, '동시에 온 푸시도 하나씩 셈 (' + badges.join(',') + ')');
+  let clears = 0; selfObj.navigator.clearAppBadge = () => { clears++; return Promise.resolve(); };
+  handlers.push(ev({ data: { json(){ return { title: 't', body: '진행 중' }; } } }));   // +1 이 진행 중일 때
+  handlers.message(ev({ data: { type: 'badge-clear' } }));                               // 화면이 0으로
+  await Promise.all(waits);
+  ok(stored === '0' && clears === 1, '0으로는 진행 중인 +1 뒤에 (' + stored + ')');
+  fakeClients.list = [{ url: 'http://x/messenger.html', visibilityState: 'visible', postMessage(){}, focus(){ return Promise.resolve(); } }];
+  handlers.push(ev({ data: { json(){ return { title: 't', body: '보는 중' }; } } }));
+  await Promise.all(waits);
+  ok(stored === '0' && notes[notes.length - 1].o.body === '보는 중', '슈톡을 보고 있으면 알림은 뜨되 숫자는 그대로');
+  fakeClients.list = [];
   waits = [];
   let closed = 0;
   handlers.notificationclick(ev({ notification: { data: { url: 'messenger.html#m9' }, close(){ closed++; } } }));

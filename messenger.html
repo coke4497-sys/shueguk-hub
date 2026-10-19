@@ -674,7 +674,10 @@
   // 홈 화면 아이콘 숫자 지우기 — 서비스 워커가 세던 수도 0으로
   function clearAppBadge(){
     if (navigator.clearAppBadge) navigator.clearAppBadge().catch(function(){});
-    if (window.caches) caches.open('msg-badge').then(function(c){ return c.put('badge-n', new Response('0')); }).catch(function(){});
+    // 서비스 워커가 있으면 그쪽에 맡긴다(진행 중인 +1 뒤에 0) — 없을 때만 직접
+    var sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+    if (sw) sw.postMessage({ type: 'badge-clear' });
+    else if (window.caches) caches.open('msg-badge').then(function(c){ return c.put('badge-n', new Response('0')); }).catch(function(){});
   }
   function markRead(){
     // 휴대폰에서 업무 카드 탭을 보고 있으면 대화는 안 읽은 것
