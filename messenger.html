@@ -60,7 +60,7 @@
   .plrow .nm{font-weight:700;}
   .plrow .rl{font-size:12px;color:var(--cap);}
   .plrow .tm{margin-left:auto;font-size:12.5px;color:var(--ink2);white-space:nowrap;}
-  .plrow.me{background:var(--ok);}
+  .plrow.plme{background:var(--ok);}   /* '.me'는 머리 이름 칸 클래스라 휴대폰에서 숨겨진다 — 쓰지 말 것 */
   .plnone{font-size:13px;color:var(--cap);line-height:1.6;}
   #pres{cursor:pointer;}
   .pbtn,.plbtn{white-space:nowrap;flex:none;}
@@ -1129,7 +1129,7 @@
       else if (r && !r.is_on && ymd(r.changed_at) === today) left.push({ m: m, at: r.changed_at, loc: r.loc });
       else none.push(m);
     });
-    var row = function(x, tm){ return '<div class="plrow' + (x.m.id === ME.id ? ' me' : '') + '"><span class="nm">' + esc(x.m.name) + '</span><span class="rl">' + esc(roleLabel(x.m.role)) + '</span><span class="tm">' + tm + '</span></div>'; };
+    var row = function(x, tm){ return '<div class="plrow' + (x.m.id === ME.id ? ' plme' : '') + '"><span class="nm">' + esc(x.m.name) + '</span><span class="rl">' + esc(roleLabel(x.m.role)) + '</span><span class="tm">' + tm + '</span></div>'; };
     var byTime = function(a, b){ return Date.parse(a.at) - Date.parse(b.at); };
     var onN = 0, html = PRES_LOCS.filter(function(l){ return by[l]; }).map(function(l){
       onN += by[l].length;
