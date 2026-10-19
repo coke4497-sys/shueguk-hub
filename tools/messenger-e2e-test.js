@@ -36,7 +36,7 @@ const NAME = { [ME]: '고희주', [EUNJI]: '이은지', [BOSS]: '이수경' };
 let missing = false, failSendOnce = false;
 let mid = 0, tid = 0, clock = 0;
 const ts = () => new Date(Date.now() + (clock++)).toISOString();
-const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {};
+const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [];
 let noPres = false;
 function addMsg(author, body, files, createdIso){
   const t = createdIso || ts();
@@ -123,10 +123,12 @@ function filterRows(rows, u){
       if (missing && p.startsWith('/rest/v1/rpc/msg')) return json({ code: 'PGRST202', message: 'Could not find the function' }, 404);
       if (p === '/rest/v1/rpc/msg_members') return json(MEMBERS);
       if (p === '/rest/v1/msg_presence') return noPres ? json({ code: 'PGRST205', message: 'Could not find the table' }, 404) : json(Object.values(PRESENCE));
+      if (p === '/rest/v1/msg_presence_log') return json(filterRows(PLOGS, u).sort((a, b) => a.at < b.at ? -1 : 1));
       if (p === '/rest/v1/rpc/msg_presence_set'){
         const b = JSON.parse(req.postData()); calls.push(['pres', b]);
         const old = PRESENCE[ME] || {};
         PRESENCE[ME] = { user_id: ME, name: '고희주', loc: b.p_on ? b.p_loc : (old.loc || ''), is_on: b.p_on, changed_at: NOWISO() };
+        PLOGS.push({ id: PLOGS.length + 1, user_id: ME, is_on: b.p_on, at: NOWISO() });
         return json(PRESENCE[ME]);
       }
       if (p === '/rest/v1/rpc/msg_send'){
@@ -625,7 +627,8 @@ function filterRows(rows, u){
   MSGS.forEach((m, i) => { m.reply_to = keep[i]; });
 
   console.log('⑯ 출근·퇴근');
-  PRESENCE[BOSS] = { user_id: BOSS, name: '이수경', loc: '본원', is_on: true, changed_at: ago(1) };
+  PRESENCE[BOSS] = { user_id: BOSS, name: '이수경', loc: '본원', is_on: true, changed_at: ago(0.05) };   // 방금 센터만 바꿈
+  PLOGS.push({ id: 900, user_id: BOSS, is_on: true, at: ago(Math.min(1, (Date.now() - Date.parse(new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10) + 'T00:00:00+09:00')) / 3600e3 / 2)) }, { id: 901, user_id: BOSS, is_on: true, at: ago(0.05) });
   PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '화정센터', is_on: true, changed_at: ago(30) };   // 어제 출근 — 오늘은 OFF
   ({ ctx, page } = await open());
   await page.waitForSelector('#m' + m3.id);
@@ -668,6 +671,10 @@ function filterRows(rows, u){
   await page.waitForSelector('#plback:not([hidden])');
   const pl = await page.locator('#plbody').textContent();
   ok(/본원.*1명.*이수경.*출근/.test(pl) && /정리정독.*1명.*이은지.*출근/.test(pl), '센터별 출근자와 출근 시각');
+  const bossFirst = PLOGS.find(x => x.id === 900).at;
+  const hmK = iso => { const d = new Date(Date.parse(iso) + 9 * 3600e3), h = d.getUTCHours(), m = d.getUTCMinutes(); return (h < 12 ? '오전 ' : '오후 ') + ((h % 12) || 12) + ':' + (m < 10 ? '0' : '') + m; };
+  await page.waitForFunction(t => document.querySelector('#plbody').textContent.includes(t), '출근 ' + hmK(bossFirst), { timeout: 5000 }).catch(() => {});
+  ok((await page.locator('#plbody').textContent()).includes('출근 ' + hmK(bossFirst)), '센터만 바꿔도 처음 출근 시각 (' + hmK(bossFirst) + ')');
   ok(/오늘 퇴근.*1명.*고희주.*화정센터 · 퇴근/.test(pl), '오늘 퇴근한 사람은 퇴근 시각과 함께');
   ok(/오늘 출근 기록 없음.*1명.*김지원/.test(pl), '오늘 기록 없는 사람');
   ok((await page.locator('#pltitle').textContent()).includes('2명'), '제목에 출근 인원');

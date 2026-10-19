@@ -1077,7 +1077,7 @@
       var day = ymd(new Date().toISOString());
       var changed = !presOk || presDay !== day || JSON.stringify(next) !== JSON.stringify(PRES);
       PRES = next; presOk = true; presDay = day;
-      if (changed){ renderPres(); if (ready) renderBoard(); }
+      if (changed){ renderPres(); if (ready) renderBoard(); if (!$('plback').hidden) loadPresLog(); }
     }).catch(function(e){
       // 표가 아직 없으면(마이그레이션 202610190004 전) 출근 기능만 숨긴다
       if (e && (e.status === 404 || (e.data && e.data.code === 'PGRST205'))){ presOk = false; renderPres(); }
@@ -1107,11 +1107,25 @@
     if (!$('plback').hidden) renderPresList();
   }
   // 출근 현황 목록 — 센터별 출근(출근 시각) · 오늘 퇴근(퇴근 시각) · 오늘 기록 없음
+  // 오늘 기록(msg_presence_log)으로 지금 출근이 시작된 시각을 찾는다 — 센터만 바꾼 것은 출근 시각이 아니다(Codex 검토)
+  var PLOG = {};
+  function loadPresLog(){
+    return api('/msg_presence_log?select=user_id,is_on,at&at=gte.' + encodeURIComponent(new Date(dayStartMs()).toISOString()) + '&order=at.asc&limit=2000').then(function(rows){
+      var start = {};
+      (rows || []).forEach(function(r){
+        if (!r.is_on){ start[r.user_id] = null; return; }   // 퇴근하면 끊긴다
+        if (!start[r.user_id]) start[r.user_id] = r.at;      // 퇴근 뒤 첫 출근(또는 오늘 첫 출근)
+      });
+      PLOG = start;
+      if (!$('plback').hidden) renderPresList();
+    }).catch(function(){});
+  }
+  function onSince(uid){ return PLOG[uid] || (PRES[uid] && PRES[uid].changed_at); }
   function renderPresList(){
     var today = ymd(new Date().toISOString()), by = {}, left = [], none = [];
     MEMBERS.forEach(function(m){
       var r = PRES[m.id], l = presLoc(m.id);
-      if (l) (by[l] = by[l] || []).push({ m: m, at: r.changed_at });
+      if (l) (by[l] = by[l] || []).push({ m: m, at: onSince(m.id) });
       else if (r && !r.is_on && ymd(r.changed_at) === today) left.push({ m: m, at: r.changed_at, loc: r.loc });
       else none.push(m);
     });
@@ -1127,7 +1141,7 @@
     $('pltitle').textContent = '오늘 출근 현황 · ' + md(new Date().toISOString()) + ' · ' + onN + '명';
     $('plbody').innerHTML = html.join('');
   }
-  function presList(open){ $('plback').hidden = !open; if (open){ renderPresList(); loadPres(); } }
+  function presList(open){ $('plback').hidden = !open; if (open){ renderPresList(); loadPres(); loadPresLog(); } }
   $('presListBtn').onclick = function(){ presList(true); };
   $('pres').addEventListener('click', function(){ presList(true); });
   $('plclose').onclick = function(){ presList(false); };
