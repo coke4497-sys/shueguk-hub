@@ -448,10 +448,15 @@ function filterRows(rows, u){
   handlers.message(ev({ data: { type: 'badge-clear' } }));                               // 화면이 0으로
   await Promise.all(waits);
   ok(stored === '0' && clears === 1, '0으로는 진행 중인 +1 뒤에 (' + stored + ')');
-  fakeClients.list = [{ url: 'http://x/messenger.html', visibilityState: 'visible', postMessage(){}, focus(){ return Promise.resolve(); } }];
+  fakeClients.list = [{ id: 'c1', url: 'http://x/messenger.html', visibilityState: 'visible', postMessage(){}, focus(){ return Promise.resolve(); } }];
+  handlers.push(ev({ data: { json(){ return { title: 't', body: '창만 보임' }; } } }));
+  await Promise.all(waits);
+  ok(stored === '1', '창이 보여도 대화를 읽는 중이 아니면(업무 카드 탭 등) 숫자를 올림');
+  handlers.message(ev({ data: { type: 'badge-clear' } }));
+  handlers.message(ev({ data: { type: 'reading', on: true }, source: { id: 'c1' } }));
   handlers.push(ev({ data: { json(){ return { title: 't', body: '보는 중' }; } } }));
   await Promise.all(waits);
-  ok(stored === '0' && notes[notes.length - 1].o.body === '보는 중', '슈톡을 보고 있으면 알림은 뜨되 숫자는 그대로');
+  ok(stored === '0' && notes[notes.length - 1].o.body === '보는 중', '대화를 끝까지 읽는 중이면 알림은 뜨되 숫자는 그대로');
   fakeClients.list = [];
   waits = [];
   let closed = 0;

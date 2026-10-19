@@ -105,6 +105,10 @@ begin
      and v_me.role <> 'admin' then
     raise exception 'not_allowed' using errcode = '42501';
   end if;
+  -- @모두로 받은 할 일은 맡은 사람만(맡긴 사람·관리자가 대신 '확인'으로 만들지 못하게 — Codex 검토)
+  if v_t.ack_only and v_t.assignee is distinct from v_me.user_id then
+    raise exception 'not_allowed' using errcode = '42501';
+  end if;
   update public.msg_tasks set
     status = case when p_done then '완료' else '대기' end,
     done_by_name = case when p_done then v_me.display_name else null end,

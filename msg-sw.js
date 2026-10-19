@@ -46,9 +46,12 @@ self.addEventListener('push', function (e) {
     badgeUp()
   ]));
 });
+// 화면이 '지금 대화를 끝까지 읽고 있다'(markRead가 읽음 처리하는 상태)고 알려 준 창 — 창이 보이기만 하는 것으로는 안 친다
+// (업무 카드 탭·위로 스크롤한 상태는 읽은 게 아니다 — Codex 검토). 서비스 워커가 다시 뜨면 비어 있어 숫자를 올린다(안전한 쪽).
+var reading = {};
 function viewing() {
   return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
-    return list.some(function (c) { return c.url.indexOf('messenger.html') >= 0 && c.visibilityState === 'visible'; });
+    return list.some(function (c) { return reading[c.id] && c.visibilityState === 'visible'; });
   }).catch(function () { return false; });
 }
 // 화면(끝까지 읽음)·로그아웃이 보내는 '0으로' — 진행 중인 +1 뒤에 줄 세워, 늦게 끝난 +1이 0을 덮지 않게 (Codex 검토)
@@ -62,6 +65,7 @@ function badgeZero() {
 }
 self.addEventListener('message', function (e) {
   if (e.data && e.data.type === 'badge-clear') e.waitUntil(badgeClear());
+  if (e.data && e.data.type === 'reading' && e.source && e.source.id) reading[e.source.id] = !!e.data.on;
 });
 
 self.addEventListener('notificationclick', function (e) {

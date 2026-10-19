@@ -476,7 +476,7 @@
     }).catch(function(){ setLive(false); }).then(function(){ polling = false; schedule(); });
     loadPres();
   }
-  document.addEventListener('visibilitychange', function(){ if (!document.hidden){ unseen = 0; document.title = '슈톡 · Shuetalk'; markRead(); poll(); } });
+  document.addEventListener('visibilitychange', function(){ if (document.hidden) tellReading(false); if (!document.hidden){ unseen = 0; document.title = '슈톡 · Shuetalk'; markRead(); poll(); } });
 
   // ── 화면이 열려 있는 동안: 창 제목에 새 메시지 수 ─────────
   var unseen = 0;
@@ -751,9 +751,17 @@
     if (sw) sw.postMessage({ type: 'badge-clear' });
     else if (window.caches) caches.open('msg-badge').then(function(c){ return c.put('badge-n', new Response('0')); }).catch(function(){});
   }
+  // 서비스 워커에 '지금 대화를 읽고 있는지' 알려 준다 — 읽는 중에 온 푸시만 앱 숫자를 안 올린다(msg-sw.js viewing)
+  var lastReading = null;
+  function tellReading(on){
+    var sw = navigator.serviceWorker && navigator.serviceWorker.controller;
+    if (!sw || lastReading === on) return;
+    lastReading = on; sw.postMessage({ type: 'reading', on: on });
+  }
   function markRead(){
     // 휴대폰에서 업무 카드 탭을 보고 있으면 대화는 안 읽은 것
-    if (!ME || document.hidden || boardOnly() || !$('results').hidden || !atBottom()) { updateBadges(); return; }
+    if (!ME || document.hidden || boardOnly() || !$('results').hidden || !atBottom()) { tellReading(false); updateBadges(); return; }
+    tellReading(true);
     var last = lastMsgId();
     if (last > Number(localStorage.getItem('msg_read_' + ME.id) || 0)) localStorage.setItem('msg_read_' + ME.id, String(last));
     $('jump').hidden = true;
@@ -946,7 +954,7 @@
   $('send').onclick = send;
 
   // ── 업무 카드 ─────────────────────────────────────
-  function canCheck(t){ return t.assignee === ME.id || t.requester === ME.id || ME.role === 'admin'; }
+  function canCheck(t){ return t.assignee === ME.id || (!t.ack_only && (t.requester === ME.id || ME.role === 'admin')); }   // @모두 할 일은 본인만
   var CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" aria-hidden="true"><path d="M5 12l5 5L20 7"/></svg>';
   function people(){
     var start = dayStartMs(), map = {};

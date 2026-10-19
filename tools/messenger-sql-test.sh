@@ -142,6 +142,9 @@ MA=$(as $B "select (public.msg_send('내일 시험지 배부합니다 @모두', 
 ok "$(as $B "select count(*)||'|'||bool_and(ack_only)||'|'||min(text) from public.msg_tasks where message_id=$MA")" "2|true|내일 시험지 배부합니다" "@모두 = 나 빼고 활성 교사 모두(비활성 제외) · 확인만 · 글에서 @모두 뺌"
 TA=$(as $B "select id from public.msg_tasks where message_id=$MA and assignee='$C'")
 ok "$(as $A "select public.msg_task_seen($TA)" | grep -c not_allowed)" 1 "남의 할 일은 확인 못 함(관리자도)"
+TB=$(as $B "select id from public.msg_tasks where message_id=$MA and assignee='$A'")
+ok "$(as $B "select public.msg_task_set($TB, true)" | grep -c not_allowed)" 1 "@모두 할 일은 보낸 사람도 대신 완료 못 함"
+ok "$(as $A "select public.msg_task_set($TB, true)->>'status'")" "완료" "맡은 사람(관리자 본인 몫)은 체크 가능"
 ok "$(as $C "select (public.msg_task_seen($TA)->>'status')||'|'||(public.msg_task_seen($TA)->>'seen_at' is not null)")" "완료|true" "@모두는 확인을 누르면 완료"
 ok "$(as $C "select done_by_name from public.msg_tasks where id=$TA")" "고희주" "완료한 사람 = 확인한 사람"
 MN=$(as $A "select (public.msg_send('상담 일정 잡아 주세요 @고희주', '[]', array['$C']::uuid[])->'message'->>'id')")
