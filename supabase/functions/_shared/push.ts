@@ -117,7 +117,7 @@ export async function pushMessage(admin: any, id: number, extra?: (q: any) => an
   const r = await deliver(admin, items)
   const { failedIds, ...cnt } = r
   if (!r.sent && r.failed) {
-    await admin.from('msg_messages').update({ pushed_at: null }).eq('id', id).eq('pushed_at', at)
+    await checked(() => admin.from('msg_messages').update({ pushed_at: null }).eq('id', id).eq('pushed_at', at), 'unclaim msg ' + id)
     return { status: 503, body: { error: 'deliver_failed', targets: items.length, ...cnt } }
   }
   // 일부 기기만 실패 — 그 기기만 적어 두고 순찰이 다시 보낸다(retryPush).

@@ -30,3 +30,17 @@ as $$
 $$;
 revoke all on function public.msg_hand_retry_claim(bigint) from public, anon, authenticated;
 grant execute on function public.msg_hand_retry_claim(bigint) to service_role;
+
+-- 새로 넘기면(hand_push 가 새로 정해지면) 앞 넘김의 재시도 정보는 버린다 — A→B→A 로 다시 넘겼을 때 낡은 알림이 가지 않게 (Codex 검토)
+create or replace function private.msg_hand_retry_reset()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if new.hand_push is not null and new.hand_push is distinct from old.hand_push then
+    new.hand_retry := null;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists msg_tasks_hand_retry_reset on public.msg_tasks;
+create trigger msg_tasks_hand_retry_reset before update of hand_push on public.msg_tasks
+  for each row execute function private.msg_hand_retry_reset();

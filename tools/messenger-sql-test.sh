@@ -366,6 +366,9 @@ ok "$(SQ "select coalesce(push_retry::text, 'null') from public.msg_messages whe
 HT=$(SQ "select id from public.msg_tasks order by id limit 1")
 SQ "update public.msg_tasks set hand_retry='{\"to\":\"$B\",\"by\":\"이수경\",\"subs\":[3]}' where id=$HT" >/dev/null
 ok "$(svc "select public.msg_hand_retry_claim($HT)->'subs'")" "[3]" "넘김 알림도 일부 실패 기기만 다시 잡음"
+SQ "update public.msg_tasks set hand_retry='{\"to\":\"$B\",\"subs\":[3]}', hand_push=null where id=$HT" >/dev/null
+SQ "update public.msg_tasks set hand_push='$C' where id=$HT" >/dev/null
+ok "$(SQ "select coalesce(hand_retry::text, 'null') from public.msg_tasks where id=$HT")" "null" "다시 넘기면 앞 넘김 재시도 정보는 버림 (Codex 검토)"
 ok "$(as $A "select public.msg_push_retry_claim($NQ)" | grep -c 'permission denied')" 1 "교사는 다시 보내기 잡기 함수를 못 부름"
 SQ "update public.teacher_accounts set role='teacher' where user_id='$A'" >/dev/null
 ok "$(svc "select (public.kakao_inbound('noadm1', '관리자 없음')).bot->>'to'")" "[]" "관리자가 없어도 모두에게 보내지 않음(빈 받는 사람) (Codex 검토)"
