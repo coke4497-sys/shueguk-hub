@@ -10,7 +10,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { withSupabase } from 'jsr:@supabase/server@^1'
 
-import { PAGE, cut, plan, handPlan, setup, deliver, pushMessage, type Sub } from '../_shared/push.ts'
+import { PAGE, cut, plan, handPlan, setup, deliver, pushMessage, saveRetry, type Sub } from '../_shared/push.ts'
 export { cut, plan, handPlan }
 
 function reply(status: number, body: Record<string, unknown>) {
@@ -78,7 +78,11 @@ const handler = withSupabase({ auth: 'user' }, async (request, context) => {
       return reply(503, { error: 'deliver_failed', targets: items.length, ...r })
     }
     // 일부 기기만 실패 — 그 기기만 적어 두고 클로슈 순찰(closhu feed)이 retryHand 로 다시 보낸다 (Codex 검토)
-    if (r.failedIds.length) await admin.from('msg_tasks').update({ hand_retry: { to, by: me.display_name, subs: r.failedIds } }).eq('id', id)
+    // 적기마저 실패하면 알림 자리(hand_push)를 되돌려 화면이 다시 부르게 한다 — 같은 tag 라 받은 기기에는 겹쳐 쌓이지 않는다 (Codex 검토)
+    if (r.failedIds.length && !(await saveRetry(admin, 'msg_tasks', id, { hand_retry: { to, by: me.display_name, subs: r.failedIds } }))) {
+      await admin.from('msg_tasks').update({ hand_push: to }).eq('id', id).is('hand_push', null)
+      return reply(503, { error: 'retry_save_failed', targets: items.length, ...r })
+    }
     return reply(200, { targets: items.length, ...r })
   }
   return reply(400, { error: 'bad_action' })

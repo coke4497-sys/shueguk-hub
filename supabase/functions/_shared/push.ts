@@ -120,9 +120,23 @@ export async function pushMessage(admin: any, id: number, extra?: (q: any) => an
     await admin.from('msg_messages').update({ pushed_at: null }).eq('id', id).eq('pushed_at', at)
     return { status: 503, body: { error: 'deliver_failed', targets: items.length, ...cnt } }
   }
-  // 일부 기기만 실패 — 그 기기만 적어 두고 순찰이 다시 보낸다(retryPush)
-  if (failedIds.length) await admin.from('msg_messages').update({ push_retry: failedIds }).eq('id', id)
+  // 일부 기기만 실패 — 그 기기만 적어 두고 순찰이 다시 보낸다(retryPush).
+  // 적기마저 실패하면 보낼 자리(pushed_at)를 되돌려 전체를 다시 보내게 한다 — 같은 tag 라 받은 기기에는 알림이 겹쳐 쌓이지 않는다 (Codex 검토)
+  if (failedIds.length && !(await saveRetry(admin, 'msg_messages', id, { push_retry: failedIds }))) {
+    await admin.from('msg_messages').update({ pushed_at: null }).eq('id', id).eq('pushed_at', at)
+    return { status: 503, body: { error: 'retry_save_failed', targets: items.length, ...cnt } }
+  }
   return { status: 200, body: { targets: items.length, ...cnt } }
+}
+
+// 다시 보낼 목록 적기 — 한 번 더 해 보고 결과를 돌려준다
+// deno-lint-ignore no-explicit-any
+export async function saveRetry(admin: any, table: string, id: number, row: Record<string, unknown>) {
+  for (let i = 0; i < 2; i++) {
+    const { error } = await admin.from(table).update(row).eq('id', id)
+    if (!error) return true
+  }
+  return false
 }
 
 // 일부 실패한 메시지를 그 기기에만 다시 — 적어 둔 목록을 한 문장으로 비우며 옛 값을 받아(동시에 두 번 안 가게), 또 실패한 기기만 다시 적는다 (Codex 검토)
