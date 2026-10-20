@@ -101,7 +101,8 @@ begin
   if v_ask.bot ? 'done' then
     raise exception 'already';
   end if;
-  select * into v_src from public.msg_messages where id = (v_ask.bot->>'for')::bigint;
+  -- 원글도 잠근다 — 지우는 중(msg_delete 가 원글을 먼저 잠금)에 새 할 일이 끼어들지 않게 (Codex 검토)
+  select * into v_src from public.msg_messages where id = (v_ask.bot->>'for')::bigint for update;
   if v_src.id is null or v_src.deleted_at is not null then
     raise exception 'msg_deleted';
   end if;
@@ -214,6 +215,13 @@ begin
     update public.msg_tasks set due_alerted_at = now() where id = t.id;
     v_ids := v_ids || v_m.id;
   end loop;
+  -- 아직 휴대폰 알림을 못 보낸 클로슈 글(하루 안)도 돌려준다 — 만든 화면이 알림 전에 닫혀도 다음 tick 의 화면이 보낸다.
+  -- msg-push 가 pushed_at 으로 한 번만 보낸다 (Codex 검토)
+  v_ids := v_ids || coalesce(array(
+    select m.id from public.msg_messages m
+    where m.bot is not null and m.pushed_at is null and m.deleted_at is null
+      and m.created_at > now() - interval '1 day' and not (m.id = any(v_ids))
+    order by m.id limit 20), '{}');
   return jsonb_build_object('msgs', to_jsonb(v_ids),
     'summary', extract(hour from now() at time zone 'Asia/Seoul') >= 21 and not exists (select 1 from public.msg_bot_runs where key = 'summary:' || v_day));
 end;

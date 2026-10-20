@@ -290,6 +290,10 @@ ok "$(as $B "select jsonb_array_length(public.msg_bot_pick($AQ, '$B')->'tasks')"
 ok "$(as $B "select assignee_name||'|'||ack_only||'|'||requester_name||'|'||hand_push||'|'||hand_by from public.msg_tasks where message_id=$MQ")" "이은지|true|고희주|$B|$B" "고른 선생님에게 확인만 할 일 + 넘김 알림 자리"
 ok "$(as $C "select bot->'done'->>'to' from public.msg_messages where id=$AQ")" "이은지" "질문에 고른 결과 남김"
 ok "$(as $C "select public.msg_bot_pick($AQ, '$A')" | grep -c already)" 1 "이미 고른 질문은 다시 못 고름"
+MQ2=$(as $C "select (public.msg_send('[지각] 중3 친구 지각', '[]', '{}')->'message'->>'id')")
+AQ2=$(as $C "select (public.msg_bot_ask($MQ2, '누구?', '[{\"label\":\"이은지T\",\"uid\":\"$B\"}]')->>'id')")
+as $C "select public.msg_delete($MQ2)" >/dev/null
+ok "$(as $B "select public.msg_bot_pick($AQ2, '$B')" | grep -c msg_deleted)" 1 "지운 원글엔 배정 할 일을 만들지 않음"
 ok "$(as $C "select public.msg_bot_post('answer', '답', $MQ)" | grep -c not_allowed)" 1 "@클로슈 없는 글엔 답 불가"
 MA2=$(as $C "select (public.msg_send('@클로슈 김민준 담당이 누구야?', '[]', '{}')->'message'->>'id')")
 ok "$(as $B "select public.msg_bot_post('answer', '답', $MA2)" | grep -c not_allowed)" 1 "남의 질문엔 답을 올릴 수 없음"
@@ -302,7 +306,10 @@ as $B "select public.msg_task_defer($TD, now() + interval '1 hour', '저녁에')
 psql -X -q -d $DB -c "update public.msg_tasks set due_at = now() - interval '5 minutes' where id=$TD" >/dev/null
 ok "$(as $C "select jsonb_array_length(public.msg_bot_tick()->'msgs') >= 1")" "t" "약속 지난 할 일에 클로슈 알림"
 ok "$(as $C "select (body ~ '^@이은지 약속 시각\(\d+/\d+ 오[전후] \d+:\d\d\)이 지났어요 — 교재 주문 \(저녁에\)$')||'|'||(bot->'to'->>0) from public.msg_messages where bot->>'kind'='due' and (bot->>'task')::bigint=$TD")" "true|$B" "알림 글·받는 사람"
-ok "$(as $C "select jsonb_array_length(public.msg_bot_tick()->'msgs')")" "0" "같은 약속엔 한 번만"
+ok "$(as $C "select (public.msg_bot_tick()->'msgs') @> to_jsonb(array[(select id from public.msg_messages where bot->>'kind'='due' and (bot->>'task')::bigint=$TD)])")" "t" "알림을 못 보낸 클로슈 글은 다음 tick에 다시 돌려줌"
+ok "$(as $C "select count(*) from public.msg_messages where bot->>'kind'='due' and (bot->>'task')::bigint=$TD")" "1" "같은 약속엔 글 한 번만"
+psql -X -q -d $DB -c "update public.msg_messages set pushed_at = now() where bot is not null" >/dev/null
+ok "$(as $C "select jsonb_array_length(public.msg_bot_tick()->'msgs')")" "0" "알림을 보낸 글은 다시 돌려주지 않음"
 as $B "select public.msg_task_defer($TD, now() + interval '2 hours', '')" >/dev/null
 ok "$(as $C "select due_alerted_at is null from public.msg_tasks where id=$TD")" "t" "다시 미루면 알림 자리 비움"
 ok "$(as $E "select public.msg_bot_tick()" | grep -c not_teacher)" 1 "계정 없는 로그인은 못 부름"

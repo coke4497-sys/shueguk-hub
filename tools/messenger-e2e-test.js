@@ -221,6 +221,7 @@ function filterRows(rows, u){
       if (p === '/rest/v1/tt_classes'){
         calls.push(['tt', u.search]);
         const cid = u.searchParams.get('class_id') || '', day = (u.searchParams.get('day') || '').replace(/^eq\./, '');
+        if (cid.startsWith('in.(')){ const ids = decodeURIComponent(cid.slice(4, -1)).split(','); return json(TT.filter(c => ids.includes(c.class_id))); }
         return json(TT.filter(c => cid.startsWith('not.like.w') ? !/^w/.test(c.class_id) && (!day || c.day === day) : cid.startsWith('like.') ? c.class_id.startsWith(cid.slice(5).replace('*', '')) : true));
       }
       if (p === '/rest/v1/rpc/msg_bot_tick'){ calls.push(['tick']); const r = BOT.tick; BOT.tick = { msgs: [], summary: false }; return json(r); }
@@ -244,7 +245,10 @@ function filterRows(rows, u){
       }
       if (p === '/rest/v1/students'){ calls.push(['stu']); return json(STUDENTS); }
       if (p === '/rest/v1/tt_period') return json(TTP.filter(x => 'eq.' + x.week_wednesday === u.searchParams.get('week_wednesday')));
-      if (p === '/rest/v1/tt_log') return json(TTLOG.filter(x => 'eq.' + x.apply_date === u.searchParams.get('apply_date')));
+      if (p === '/rest/v1/tt_log'){
+        const ad = u.searchParams.getAll('apply_date');
+        return json(TTLOG.filter(x => ad.every(c => c.startsWith('eq.') ? x.apply_date === c.slice(3) : c.startsWith('gte.') ? x.apply_date >= c.slice(4) : c.startsWith('lte.') ? x.apply_date <= c.slice(4) : true)));
+      }
       if (p === '/rest/v1/class_notes') return json(NOTES.filter(x => 'eq.' + x.ymd === u.searchParams.get('ymd')));
       if (p.startsWith('/storage/v1/object/authenticated/msg-files/')){
         const key = decodeURIComponent(p.slice('/storage/v1/object/authenticated/msg-files/'.length));
@@ -1173,6 +1177,7 @@ function filterRows(rows, u){
   await ctx.close();
   // 출근 현황을 아직 못 읽었으면 출근 질문에 답하지 않고 다음 순찰에서 (Codex 검토)
   failPres = true;
+  MEMBERS.splice(1, 0, { user_id: '55555555-5555-5555-5555-555555555555', name: '김은지', role: 'teacher' });   // 끝 두 글자가 같은 선생님
   ({ ctx, page } = await open());
   await page.waitForSelector('#msgs .m');
   const bp1 = calls.filter(c => c[0] === 'bpost').length;
@@ -1210,8 +1215,20 @@ function filterRows(rows, u){
   await page.evaluate(() => { const D = Date, off = 460000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
   await page.waitForFunction(() => true); await sleep(5000);
   ok(calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'summary').length === sm0 + 1, '다음 tick에 오늘 정리를 씀');
+  // 전체 이름을 짧은 이름보다 먼저 (Codex 검토)
+  await page.fill('#inp', '@클로슈 오늘 이은지 수업'); await page.click('#send'); await sleep(2000);
+  bp = calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'answer').pop();
+  ok(bp && /^오늘 이은지 선생님 수업/.test(bp[1].p_text), '이름이 비슷한 선생님이 있어도 전체 이름으로 (' + (bp && bp[1].p_text.split('\n')[0]) + ')');
+  // 이번 주 휴강·옮김을 학생 수업 답에 (Codex 검토)
+  const today0 = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  TTLOG.push({ kind: '주간반휴강', from_class_id: 'n201', to_class_id: null, apply_date: today0 });
+  await page.fill('#inp', '@클로슈 김민준 이번 주'); await page.click('#send'); await sleep(2000);
+  bp = calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'answer').pop();
+  ok(bp && /중3 진도\(은지T\) — 이번 주 휴강/.test(bp[1].p_text), '이번 주 휴강을 학생 수업 답에 (' + (bp && bp[1].p_text.replace(/\n/g, ' / ')) + ')');
+  TTLOG.pop();
   await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
   await ctx.close();
+  MEMBERS.splice(1, 1);
 
   await browser.close(); server.close();
   console.log(`\n${n - bad} / ${n} 통과`);

@@ -1579,14 +1579,31 @@
   }
 
   // ④ @클로슈 질문에 답하기 — 학생 이름(담당·이번 주 수업) · 오늘 수업 · 남은 일 · 출근
-  var WEEKCLS = null;
+  // 이번 주(수업 주차 — 월·화는 그 주 수요일 직전 날짜) 반 + 이번 주 휴강·옮긴 수업 (Codex 검토).
+  // 묻는 때마다 새로 읽는다. 못 읽으면 실패를 그대로 넘긴다 — 수업 줄이 빠진 답을 확정하지 않게 (Codex 검토)
+  var WK_OFF = { '월': -2, '화': -1, '수': 0, '목': 1, '금': 2, '토': 3, '일': 4 };
   function loadWeekClasses(){
-    if (WEEKCLS && WEEKCLS.day === todayYmd()) return Promise.resolve(WEEKCLS.list);
-    return api('/tt_classes?select=book,class_id,name,day,start_time,end_time,teacher,roster&class_id=not.like.w*&limit=2000').then(function(rows){
-      var b0 = LES.book0 || '정규', ov = LES.ov || {};
-      var list = (rows || []).filter(function(c){ var g = gradeOfName(c.name); return c.book === ((g && ov[g]) ? ov[g] : b0) && String(c.roster || '').trim(); });
-      WEEKCLS = { day: todayYmd(), list: list }; return list;
-    });   // 못 읽으면 실패를 그대로 넘긴다 — 수업 줄이 빠진 답을 확정하지 않게 (Codex 검토)
+    var wed = weekWed(todayYmd()), from = addDay(wed, -2), to = addDay(wed, 4);
+    return Promise.all([
+      api('/tt_classes?select=book,class_id,name,day,start_time,end_time,teacher,roster&class_id=not.like.w*&limit=2000'),
+      api('/tt_log?select=kind,from_class_id,to_class_id,apply_date&kind=in.(' + encodeURIComponent('주간반휴강,주간반이동') + ')&apply_date=gte.' + from + '&apply_date=lte.' + to + '&limit=500')
+    ]).then(function(r){
+      var b0 = LES.book0 || '정규', ov = LES.ov || {}, logs = r[1] || [];
+      var list = (r[0] || []).filter(function(c){ var g = gradeOfName(c.name); return c.book === ((g && ov[g]) ? ov[g] : b0) && String(c.roster || '').trim(); });
+      var ids = logs.filter(function(l){ return l.to_class_id; }).map(function(l){ return l.to_class_id; });
+      return (ids.length ? api('/tt_classes?select=class_id,day,start_time&class_id=in.(' + ids.map(encodeURIComponent).join(',') + ')') : Promise.resolve([])).then(function(cp){
+        var copy = {}; (cp || []).forEach(function(c){ copy[c.class_id] = c; });
+        list.forEach(function(c){
+          var d = addDay(wed, WK_OFF[c.day] || 0), lg = logs.filter(function(l){ return l.from_class_id === c.class_id && l.apply_date === d; })[0];
+          c.note = '';
+          if (!lg) return;
+          if (lg.kind === '주간반휴강') { c.note = '이번 주 휴강'; return; }
+          var k = copy[lg.to_class_id], m = /^w(\d\d)(\d\d)(\d\d)/.exec(lg.to_class_id || '');
+          c.note = m && k ? '이번 주는 ' + (+m[2]) + '/' + (+m[3]) + ' (' + k.day + ') ' + k.start_time + '로 옮김' : '이번 주는 다른 날로 옮김';
+        });
+        return list;
+      });
+    });
   }
   function botSoon(){ var e = new Error('잠시 못 읽음'); e.soon = true; return e; }
   function rosterHas(c, x, only){
@@ -1595,6 +1612,14 @@
       var p = tok.replace(/^\([^)]*\)/, '').replace(/\([^)]*\)$/, '');
       return p === name || (only && p.replace(/[A-Z]$/, '') === base);
     });
+  }
+  // 글 속 선생님 — 전체 이름이 먼저(긴 이름 먼저), 짧은 이름('은지')은 한 사람과만 맞을 때만 (Codex 검토)
+  function memberIn(q, short){
+    var full = MEMBERS.filter(function(m){ return m.name && q.indexOf(m.name) >= 0; }).sort(function(a, b){ return b.name.length - a.name.length; });
+    if (full.length) return full[0];
+    if (!short) return null;
+    var sh = MEMBERS.filter(function(m){ return m.name.length >= 3 && q.indexOf(m.name.slice(1)) >= 0; });
+    return sh.length === 1 ? sh[0] : null;
   }
   function botAnswer(msg){
     var q = String(msg.body || '').replace(/@클로슈/g, ' ').replace(/\s+/g, ' ').trim();
@@ -1612,17 +1637,17 @@
             var uid = teacherUid(x.teacher), cls = wk.filter(function(c){ return rosterHas(c, x, h.list.length === 1); })
               .sort(function(a, b){ return '월화수목금토일'.indexOf(a.day) - '월화수목금토일'.indexOf(b.day) || minsOf(a.start_time) - minsOf(b.start_time); });
             out.push(x.name + ' · ' + [String(x.school || '').trim(), gradeLabel(x.grade)].filter(Boolean).join(' ') + ' · 담당 ' + (uid && MBY[uid] ? MBY[uid].name : (x.teacher || '미정')) + ' 선생님'
-              + (cls.length ? '\n  이번 주 수업: ' + cls.map(function(c){ return c.day + ' ' + c.start_time + ' ' + c.name + '(' + c.teacher + 'T)'; }).join(' · ') : ''));
+              + (cls.length ? '\n  이번 주 수업: ' + cls.map(function(c){ return c.day + ' ' + c.start_time + ' ' + c.name + '(' + c.teacher + 'T)' + (c.note ? ' — ' + c.note : ''); }).join(' · ') : ''));
           });
         });
         if (/수업/.test(q) && !hits.length){
-          var g = (q.match(/[중고]\s*[1-3]/) || [''])[0].replace(/\s/g, ''), who = MEMBERS.filter(function(m){ return q.indexOf(m.name) >= 0 || q.indexOf(m.name.slice(1)) >= 0; })[0];
+          var g = (q.match(/[중고]\s*[1-3]/) || [''])[0].replace(/\s/g, ''), who = memberIn(q, true);
           var ls = []; Object.keys(LES.by || {}).forEach(function(uid){ (LES.by[uid] || []).forEach(function(l){ ls.push({ l: l, uid: uid }); }); });
           ls = ls.filter(function(x){ return (!g || x.l.name.indexOf(g) >= 0) && (!who || x.uid === who.id); }).sort(function(a, b){ return minsOf(a.l.start) - minsOf(b.l.start); });
           out.push('오늘' + (g ? ' ' + g : '') + (who ? ' ' + who.name + ' 선생님' : '') + ' 수업 ' + ls.length + '개' + (ls.length ? ':\n' + ls.slice(0, 15).map(function(x){ return '  ' + x.l.start + '~' + x.l.end + ' ' + x.l.name + ' (' + (MBY[x.uid] ? MBY[x.uid].name : '') + ', ' + (x.l.done ? '기록 완료' : '기록 전') + ')'; }).join('\n') : ''));
         }
         if (askTask){
-          var tgt = MEMBERS.filter(function(m){ return q.indexOf(m.name) >= 0; })[0] || MBY[ME.id];
+          var tgt = memberIn(q, false) || MBY[ME.id];
           var ts = (res[3] || []).filter(function(t){ return t.assignee === tgt.id; });   // 방금 받은 대기 목록만 — 다른 화면에서 끝낸 일이 남지 않게
           ts.sort(function(a, b){ return a.id - b.id; });
           out.push(tgt.name + ' 남은 일 ' + ts.length + '건' + (ts.length ? ':\n' + ts.slice(0, 8).map(function(t){ var over = t.due_at && Date.parse(t.due_at) < Date.now(); return '  · ' + t.text + (t.due_at ? (over ? ' (약속 지남)' : ' (' + whenLabel(t.due_at) + '까지)') : ''); }).join('\n') : ''));
