@@ -1235,9 +1235,9 @@
       });
       Object.keys(by).forEach(function(k){ by[k].sort(function(a, b){ return minsOf(a.start) - minsOf(b.start) || String(a.name).localeCompare(String(b.name), 'ko'); }); });
       var changed = !LES.ok || LES.day !== day || JSON.stringify(by) !== JSON.stringify(LES.by);
-      LES.by = by; LES.ok = true; LES.day = day; LES.at = Date.now(); LES.book0 = book0; LES.ov = ov;
+      LES.by = by; LES.ok = true; LES.day = day; LES.at = Date.now(); LES.book0 = book0; LES.ov = ov; LES.fail = 0;
       if (changed && ready) renderBoard();
-    }).catch(function(){ LES.at = Date.now(); })   // 시간표를 못 읽으면 수업 줄 없이 그대로(1분 뒤 다시)
+    }).catch(function(){ LES.at = Date.now(); LES.fail = Date.now(); })   // 시간표를 못 읽으면 수업 줄 없이 그대로(1분 뒤 다시)
       .then(function(){ LES.busy = false; }));
   }
   function lessonsOf(uid){ return (LES.ok && LES.day === todayYmd() && LES.by[uid]) || []; }
@@ -1584,8 +1584,9 @@
       var b0 = LES.book0 || '정규', ov = LES.ov || {};
       var list = (rows || []).filter(function(c){ var g = gradeOfName(c.name); return c.book === ((g && ov[g]) ? ov[g] : b0) && String(c.roster || '').trim(); });
       WEEKCLS = { day: todayYmd(), list: list }; return list;
-    }).catch(function(){ return []; });
+    });   // 못 읽으면 실패를 그대로 넘긴다 — 수업 줄이 빠진 답을 확정하지 않게 (Codex 검토)
   }
+  function botSoon(){ var e = new Error('잠시 못 읽음'); e.soon = true; return e; }
   function rosterHas(c, x, only){
     var name = String(x.name).replace(/\s+/g, ''), base = name.replace(/[A-Z]$/, '');
     return String(c.roster || '').split(/\s+/).some(function(tok){
@@ -1596,6 +1597,8 @@
   function botAnswer(msg){
     var q = String(msg.body || '').replace(/@클로슈/g, ' ').replace(/\s+/g, ' ').trim();
     Promise.all([loadStudents(), loadLessons(true)]).then(function(){
+      // 명단·시간표를 못 읽은 채로 답하면 틀린 답이 남는다 — 답을 미루고 다음 순찰(1분 뒤)에서 다시
+      if (!stuP || !LES.ok || LES.fail) throw botSoon();
       var hits = scanNames(q);
       return (hits.length ? loadWeekClasses() : Promise.resolve([])).then(function(wk){
         var out = [];
@@ -1627,7 +1630,7 @@
         if (!out.length) out.push('이렇게 물어보세요.\n  · 학생 이름 — 담당 선생님·이번 주 수업 (예: @클로슈 김민준)\n  · 오늘 수업 — 학년·선생님으로 좁히기 (예: @클로슈 오늘 고2 수업)\n  · 남은 일 — 나 또는 그 사람 (예: @클로슈 이은지 남은 일)\n  · 출근 — 지금 출근한 사람');
         return rpc('msg_bot_post', { p_kind: 'answer', p_text: out.join('\n').slice(0, 3900), p_reply: msg.id }).then(function(row){ addMsgs([row]); renderMsgs('bottom'); botPush(row.id); });
       });
-    }).catch(function(e){ if (/exists/.test(String(e && e.message))){ botTried[msg.id] = 9; return; } botFail(e); status('클로슈가 답하지 못했습니다. 잠시 뒤 다시 해 볼게요.'); });
+    }).catch(function(e){ if (/exists/.test(String(e && e.message))){ botTried[msg.id] = 9; return; } if (!(e && e.soon)) botFail(e); status('클로슈가 답하지 못했습니다. 잠시 뒤 다시 해 볼게요.'); });
   }
 
   // ── 출근·퇴근 (2026-10-19 원장님 "구성원이 어느 센터 on, off 상태를 표시") ─────────

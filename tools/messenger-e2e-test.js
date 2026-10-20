@@ -1156,6 +1156,18 @@ function filterRows(rows, u){
   bp = calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'summary').pop();
   ok(calls.filter(c => c[0] === 'tick').length >= 1 && calls.some(c => c[0] === 'bpost' && c[1].p_kind === 'summary'), '오늘 정리 전 최신 할 일을 다시 받음');
   ok(bp && /^오늘 정리 · /.test(bp[1].p_text) && /할 일: 오늘 완료 \d+건 · 남은 일 \d+건/.test(bp[1].p_text) && /수업 기록: \d+ \/ \d+ 완료/.test(bp[1].p_text), '밤 9시 오늘 정리 (' + (bp && bp[1].p_text.replace(/\n/g, ' / ')) + ')');
+  await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
+  // 시간표를 못 읽으면 수업 줄이 빠진 답을 올리지 않고 다음 순찰에서 다시 (Codex 검토)
+  failTT = true;
+  const bp0 = calls.filter(c => c[0] === 'bpost').length;
+  await page.fill('#inp', '@클로슈 박하늘 수업'); await page.click('#send'); await sleep(2000);
+  ok(calls.filter(c => c[0] === 'bpost').length === bp0, '시간표를 못 읽으면 답을 미룸');
+  failTT = false;
+  await page.evaluate(() => { const D = Date, off = 260000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
+  await page.waitForFunction(() => true); await sleep(5000);
+  bp = calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'answer').pop();
+  ok(bp && calls.filter(c => c[0] === 'bpost').length > bp0 && /박하늘 · .*담당 김지원 선생님/.test(bp[1].p_text), '다음 순찰에서 답을 올림 (' + (bp && bp[1].p_text.split('\n')[0]) + ')');
+  await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'bot.png') });
   await ctx.close();
 
