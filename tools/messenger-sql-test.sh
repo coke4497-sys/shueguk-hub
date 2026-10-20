@@ -312,6 +312,10 @@ MA2=$(as $C "select (public.msg_send('@클로슈 김민준 담당이 누구야?'
 ok "$(svc "select (public.msg_bot_say('answer', '김민준 · 담당 이은지 선생님', $MA2, array['$C']::uuid[], null, 'answer:$MA2')).author_name")" "클로슈" "@클로슈 질문에 클로드 답"
 ok "$(svc "select public.msg_bot_say('answer', '또', $MA2, null, null, 'answer:$MA2')" | grep -c exists)" 1 "질문마다 답 한 번"
 ok "$(as $C "select (bot->'to'->>0)||'|'||(bot->>'ai') from public.msg_messages where reply_to=$MA2 and bot is not null")" "$C|true" "답 알림은 물어본 사람에게만"
+MA3=$(as $C "select (public.msg_send('@클로슈 오늘 출근 누구?', '[]', '{}')->'message'->>'id')")
+svc "select public.msg_bot_say('note', '약속 알림 같은 다른 글', $MA3)" >/dev/null
+ok "$(svc "select string_agg(id::text, ',' order by id) from public.msg_bot_unanswered(50) where id in ($MA2, $MA3)")" "$MA3" "답 안 한 @클로슈만(다른 클로슈 글은 답이 아님)"
+ok "$(as $C "select count(*) from public.msg_bot_unanswered(5)" | grep -c 'permission denied')" 1 "교사는 답 안 한 질문 함수를 못 부름"
 ok "$(svc "select (public.msg_bot_say('summary', '오늘 정리', null, null, null, 'summary:x')).bot->>'to'")" "" "오늘 정리는 모두에게"
 ok "$(svc "select message_id is not null from public.msg_bot_runs where key='summary:x'")" "t" "열쇠에 올린 글 번호를 남김"
 MD=$(as $A "select (public.msg_send('교재 주문 @이은지', '[]', array['$B']::uuid[])->'message'->>'id')")

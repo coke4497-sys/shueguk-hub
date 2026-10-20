@@ -87,3 +87,18 @@ grant execute on function public.msg_bot_say(text, text, bigint, uuid[], jsonb, 
 
 -- 엣지 함수 clochu 는 읽은 곳(열쇠 'clochu:cursor')을 이 표에 적는다 — service_role 만(교사·공개 키는 그대로 못 읽음)
 grant select, insert, update on table public.msg_bot_runs to service_role;
+
+-- 답 안 한 @클로슈 질문 — 진짜 답(bot.kind='answer', 안 지움)이 없는 것만, 오래된 순. 개수 제한은 거른 뒤에 건다 (Codex 검토)
+create or replace function public.msg_bot_unanswered(p_limit int default 50)
+returns setof public.msg_messages
+language sql stable security definer set search_path = ''
+as $$
+  select m.* from public.msg_messages m
+  where m.body like '%@클로슈%' and m.bot is null and m.deleted_at is null
+    and not exists (select 1 from public.msg_messages a
+                    where a.reply_to = m.id and a.deleted_at is null and a.bot->>'kind' = 'answer')
+  order by m.id
+  limit least(greatest(coalesce(p_limit, 50), 1), 200);
+$$;
+revoke all on function public.msg_bot_unanswered(int) from public, anon, authenticated;
+grant execute on function public.msg_bot_unanswered(int) to service_role;
