@@ -30,6 +30,16 @@ async function members() {
   return data || []
 }
 
+// 아직 휴대폰 알림을 못 보낸 클로슈 글(이레 안)을 순찰 때마다 다시 보낸다 — 슈톡을 아무도 열지 않아도 빠지지 않게 (Codex 검토)
+async function repush() {
+  const since = new Date(Date.now() - 7 * 86400e3).toISOString()
+  const { data, error } = await admin.from('msg_messages').select('id').not('bot', 'is', null).is('pushed_at', null).is('deleted_at', null).gte('created_at', since).order('id').limit(20)
+  if (error || !setup()) return { tried: 0, failed: error ? 'lookup' : 'no_vapid' }
+  let failed = 0
+  for (const m of data || []) { const r = await pushMessage(admin, m.id); if (r.status !== 200) failed++ }
+  return { tried: (data || []).length, failed }
+}
+
 async function feed() {
   const run = await admin.from('msg_bot_runs').select('message_id').eq('key', CURSOR).maybeSingle()
   if (run.error) throw run.error
@@ -101,7 +111,7 @@ Deno.serve(async (request) => {
   let input: any = {}
   try { input = await request.json() } catch (_) { /* 빈 본문 */ }
   try {
-    if (input.action === 'feed') return reply(200, await feed())
+    if (input.action === 'feed') { const push_retry = await repush(); return reply(200, { ...(await feed()), push_retry }) }
     if (input.action === 'get') {
       const sq = safeQuery(String(input.table || ''), String(input.query || ''))
       if (sq === null) return reply(400, { error: 'bad_table', tables: Object.keys(TABLES) })
@@ -118,7 +128,8 @@ Deno.serve(async (request) => {
       })
       if (error) return reply(error.message.includes('exists') ? 409 : 400, { error: error.message })
       const push = setup() ? await pushMessage(admin, data.id) : { status: 503, body: { error: 'no_vapid' } }
-      return reply(200, { message: { id: data.id, created_at: data.created_at }, push: push.body })
+      // 글은 올라갔으니 200 — 알림만 못 보냈으면 push.status 로 알리고, 다음 순찰의 feed 가 다시 보낸다
+      return reply(200, { message: { id: data.id, created_at: data.created_at }, push: { status: push.status, ...push.body } })
     }
     if (input.action === 'cursor') {
       const id = Number(input.id)

@@ -33,7 +33,7 @@ const MEMBERS = [
   { user_id: '44444444-4444-4444-4444-444444444444', name: '김지원', role: 'teacher' },
 ];
 const NAME = { [ME]: '고희주', [EUNJI]: '이은지', [BOSS]: '이수경' };
-let missing = false, failSendOnce = false;
+let missing = false, failSendOnce = false, failHand = 0;
 let mid = 0, tid = 0, clock = 0;
 const ts = () => new Date(Date.now() + (clock++)).toISOString();
 const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [];
@@ -206,6 +206,7 @@ function filterRows(rows, u){
         const b = JSON.parse(req.postData()); calls.push(['fn', b]);
         if (b.action === 'key') return json({ key: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U' });
         if (b.action === 'test') return json({ devices: 1, sent: 1, gone: 0, failed: 0 });
+        if (b.action === 'hand' && failHand > 0){ failHand--; return json({ error: 'deliver_failed' }, 503); }
         if (b.action === 'send' && failSendOnce){ failSendOnce = false; return json({ error: 'lookup_failed' }, 503); }
         return json({ targets: 2, sent: 2 });
       }
@@ -228,7 +229,7 @@ function filterRows(rows, u){
       if (p === '/rest/v1/rpc/msg_bot_pick'){
         const b = JSON.parse(req.postData()); calls.push(['pick', b]);
         const ask = MSGS.find(x => x.id === b.p_ask), src = MSGS.find(x => x.id === ask.bot.for), to = MEMBERS.find(x => x.user_id === b.p_uid);
-        const k = addTask(src, to.user_id, src.body); k.assignee_name = to.name; k.ack_only = true; k.hand_push = to.user_id;
+        const k = addTask(src, to.user_id, src.body); k.assignee_name = to.name; k.ack_only = true; k.hand_push = to.user_id; k.hand_by = ME;
         ask.bot = Object.assign({}, ask.bot, { done: { to: to.name, uid: to.user_id, by: '고희주', at: ts(), task: true } }); ask.updated_at = ts();
         return json({ message: ask, tasks: [k] });
       }
@@ -1110,6 +1111,7 @@ function filterRows(rows, u){
   await page.waitForFunction(() => document.querySelector('.botm .bopt'), null, { timeout: 8000 }).catch(() => {});
   ok((await page.locator('.botm .nm').last().textContent()).startsWith('클로슈') && (await page.locator('.botm .av').last().textContent()) === '클', '클로슈 이름·동그라미');
   ok(!(await page.locator('.botm').last().textContent()).includes('님 화면에서'), '클로드 글에는 화면 표시 없음');
+  failHand = 2;   // 고른 직후 넘김 알림이 두 번 다 실패해도 다음 tick 에 다시
   await page.locator('.botm .bopt', { hasText: '이은지' }).last().click();
   await page.waitForFunction(() => document.querySelector('.botm .bdone'), null, { timeout: 5000 }).catch(() => {});
   const pk = calls.filter(c => c[0] === 'pick').pop();
@@ -1122,6 +1124,7 @@ function filterRows(rows, u){
   BOT.tick = { msgs: [dueMsg.id, am.id], summary: true };
   await page.evaluate(() => { const D = Date, off = 130000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
   await page.waitForFunction(() => true); await sleep(5000);
+  ok(calls.filter(c => c[0] === 'fn' && c[1].action === 'hand').length >= 3, '넘김 알림이 실패하면 다음 tick 에 다시 (Codex 검토)');
   ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === dueMsg.id) && calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === am.id), 'tick 이 돌려준 클로슈 글 → 휴대폰 알림 요청');
   ok(!calls.some(c => c[0] === 'botrpc' && /msg_bot_(ask|post)/.test(c[1])), '밤 9시 정리도 화면이 쓰지 않음(클로드가 씀)');
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'bot.png') });
