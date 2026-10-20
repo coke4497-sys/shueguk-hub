@@ -1111,6 +1111,8 @@
     });
     if (rdOpen) renderReadList();
   }
+  // 읽은 자리 표가 없으면(0012 전) 숫자 칸을 걷어 내고 다시 그리지 않는다
+  function noReads(){ readsOk = false; Array.prototype.forEach.call($('msgs').querySelectorAll('.rc'), function(b){ b.remove(); }); }
   function loadReads(){
     if (!readsOk || !ME) return;
     api('/msg_reads?select=user_id,last_id').then(function(rows){
@@ -1119,7 +1121,7 @@
       if (READS) Object.keys(READS).forEach(function(k){ if (!(k in nx)) changed = true; });
       READS = nx;
       if (changed) paintReads();
-    }).catch(function(e){ if (e && (e.status === 404 || /msg_reads/.test(String(e.message)))) readsOk = false; });
+    }).catch(function(e){ if (e && (e.status === 404 || /msg_reads/.test(String(e.message)))) noReads(); });
   }
   // 여기까지 읽음 — 커질 때만 서버에 적는다(실패하면 다음 읽음 때 다시)
   function sendRead(last){
@@ -1130,7 +1132,7 @@
       readSent = Math.max(readSent, Number(v) || last);
       if (READS){ READS[ME.id] = Math.max(READS[ME.id] || 0, readSent); paintReads(); }
       if (lastMsgId() > readSent) markRead();   // 보내는 사이 새 메시지를 읽었으면 한 번 더(실패 때는 다음 읽음 때)
-    }).catch(function(e){ readSending = false; if (e && (e.status === 404 || /msg_read_mark|PGRST202/.test(String(e.message) + JSON.stringify(e.data || '')))) readsOk = false; });
+    }).catch(function(e){ readSending = false; if (e && (e.status === 404 || /msg_read_mark|PGRST202/.test(String(e.message) + JSON.stringify(e.data || '')))) noReads(); });
   }
   function toggleHeart(id, btn){
     var m = MSGS.get(id) || QCACHE[id]; if (!m || !ME) return;
