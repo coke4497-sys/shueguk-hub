@@ -67,6 +67,9 @@ begin
     end if;
   end if;
   if p_key is not null then
+    -- 그 열쇠로 올린 글을 지웠으면 열쇠도 다시 쓸 수 있다 — 지운 답 때문에 질문이 영영 막히지 않게 (Codex 검토)
+    delete from public.msg_bot_runs r where r.key = left(p_key, 120)
+      and exists (select 1 from public.msg_messages m where m.id = r.message_id and m.deleted_at is not null);
     insert into public.msg_bot_runs (key) values (left(p_key, 120)) on conflict (key) do nothing;
     if not found then
       raise exception 'exists';
