@@ -124,18 +124,18 @@ function filt(rows, u){
   ok(!(await page.locator('.tab[data-tab="set"]').isHidden()), '원장님에게는 [사람·근무표 설정] 탭');
   const rows = await page.$$eval('tr.person', trs => trs.map(t => [...t.querySelectorAll('td')].map(td => td.textContent.trim())));
   const kim = rows.find(r => r[0].startsWith('김영훈')), hee = rows.find(r => r[0].startsWith('고희주')), sum = rows.find(r => r[0].startsWith('조수민'));
-  ok(kim && kim[1] === '2일' && kim[2] === '12시간 30분' && kim[3] === '—' && kim[4] === '13,000' && kim[5] === '162,500' && kim[6] === '157,137', '김영훈: 15:40 출근은 16:00부터·승인 대기 초과근무는 빼고 12시간 30분 · 162,500 (' + (kim || []).join('|') + ')');
-  ok(kim && kim[7].includes('승인 대기 1'), '기록 칸에 \'승인 대기 1\'');
+  ok(kim && kim[1] === '2일' && kim[2] === '12시간 30분' && kim[3] === '—' && kim[4] === '+30분 (1회)' && kim[5] === '13,000' && kim[6] === '169,000' && kim[7] === '163,423', '김영훈: 15:40 출근은 16:00부터·승인 대기 초과근무는 빼고 12시간 30분 + 수요일(11/4) 가산 30분 → 169,000 (' + (kim || []).join('|') + ')');
+  ok(kim && kim[8].includes('승인 대기 1'), '기록 칸에 \'승인 대기 1\'');
   await page.waitForSelector('#mWait:not([hidden])');
   const wt = await page.locator('#mWait').textContent();
   ok(wt.includes('2건') && wt.includes('조기퇴근 퇴근 21:00 (근무표 22:00) · 1시간 일찍 · 사유 병원'), '조기퇴근 확인 대기도 같은 카드에');
   ok(wt.includes('김영훈') && wt.includes('퇴근 23:30 (근무표 22:30)') && wt.includes('1시간'), '맨 위 \'초과근무 승인 대기\' 카드 (' + wt.replace(/\s+/g, ' ').slice(0, 120) + ')');
-  ok(hee && hee[1] === '2일' && hee[2] === '10시간 55분' && hee[5] === '131,000' && hee[6] === '126,677', '고희주: 2일 · 10시간 55분(조기퇴근 1시간) · 131,000 · 126,677');
-  ok(sum && sum[7] === '확인 2건', '조수민: 출근 기록 없음 + 퇴근 기록 없음 = 확인 2건');
-  ok(sum && sum[2] === '7시간 30분' && sum[3] === '1시간' && sum[5] === '90,000', '조수민 11/11: 15:00 초과근무 출근 ~ 22:30(23:00 퇴근은 근무표 끝까지) = 7시간 30분, 그중 초과근무 1시간 (' + (sum || []).join('|') + ')');
-  ok((await page.locator('tr.sum').textContent()).includes('383,500'), '합계 총 급여 383,500');
+  ok(hee && hee[1] === '2일' && hee[2] === '10시간 55분' && hee[4] === '—' && hee[6] === '131,000' && hee[7] === '126,677', '고희주: 2일 · 10시간 55분(조기퇴근 1시간) · 131,000 · 126,677');
+  ok(sum && sum[8] === '확인 2건', '조수민: 출근 기록 없음 + 퇴근 기록 없음 = 확인 2건');
+  ok(sum && sum[2] === '7시간 30분' && sum[3] === '1시간' && sum[4] === '+30분 (1회)' && sum[6] === '96,000', '조수민 11/11(수): 15:00 초과근무 출근 ~ 22:30 = 7시간 30분, 그중 초과근무 1시간, 수요일 가산 30분 → 96,000 (' + (sum || []).join('|') + ')');
+  ok((await page.locator('tr.sum').textContent()).includes('396,000') && (await page.locator('tr.sum').textContent()).includes('+1시간'), '합계 총 급여 396,000 · 수요일 가산 +1시간');
   const tiles = await page.locator('#mTiles').textContent();
-  ok(tiles.includes('확인이 필요한 기록2건') && tiles.includes('383,500'), '위 칸: 총 급여·확인할 기록 (' + tiles + ')');
+  ok(tiles.includes('확인이 필요한 기록2건') && tiles.includes('396,000'), '위 칸: 총 급여·확인할 기록 (' + tiles + ')');
   await page.click('#mWait [data-ok$="|1"]');
   await sleep(300);
   const dc = calls.filter(c => c[0] === 'work_ot_decide').pop();
@@ -147,9 +147,10 @@ function filt(rows, u){
   ok(de && de[1].p_id === RECS[2].id && de[1].p_ok === true, '[확인] → work_early_decide(확인)');
   await page.waitForFunction(() => document.querySelector('#mWait').hidden);
   const kim2 = await page.$$eval('tr.person', trs => trs.map(t => [...t.querySelectorAll('td')].map(td => td.textContent.trim())).find(r => r[0].startsWith('김영훈')));
-  ok(kim2[2] === '13시간 30분' && kim2[3] === '1시간' && kim2[5] === '175,500', '승인하면 근무시간·초과근무·급여에 들어감 (' + kim2.join('|') + ')');
+  ok(kim2[2] === '13시간 30분' && kim2[3] === '1시간' && kim2[6] === '182,000', '승인하면 근무시간·초과근무·급여에 들어감 (' + kim2.join('|') + ')');
   await page.click('tr.person:has-text("김영훈")');
   ok((await page.locator('tr.detail').first().textContent()).includes('출근 15:40 → 16:00부터'), '펼치면 일찍 출근한 날 \'16:00부터\' 표시');
+  ok((await page.locator('tr.detail').first().textContent()).includes('수요일 가산 +30분(급여)'), '수요일 근무한 날에 가산 표시');
   ok((await page.locator('tr.detail').first().textContent()).includes('초과근무 1시간 · 퇴근 23:30까지 · 승인 이수경'), '승인한 초과근무와 승인한 사람');
   await page.click('tr.person:has-text("고희주")');
   ok((await page.locator('#mBody').textContent()).includes('조수민 대신 근무'), '대신 근무한 날 표시');
@@ -175,7 +176,7 @@ function filt(rows, u){
   ok(await page.locator('[data-ot="' + RECS[4].id + '|0"]').count() === 1, '이제 [근무표 시각으로] 버튼');
   await page.click('#mCopy');
   const clip = await page.evaluate(() => navigator.clipboard.readText());
-  ok(clip.split('\n')[0].split('\t').length === 8 && clip.includes('김영훈\t2\t13:30\t810\t60\t13000\t175500\t169708'), '표 복사(탭 구분)');
+  ok(clip.split('\n')[0].split('\t').length === 9 && clip.includes('김영훈\t2\t13:30\t810\t60\t30\t13000\t182000\t175994'), '표 복사(탭 구분)');
   await shot(page, 'month-boss');
 
   console.log('· 원장님 — 주간 근무표·교체');
