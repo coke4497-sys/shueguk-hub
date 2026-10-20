@@ -1596,9 +1596,10 @@
   }
   function botAnswer(msg){
     var q = String(msg.body || '').replace(/@클로슈/g, ' ').replace(/\s+/g, ' ').trim();
-    Promise.all([loadStudents(), loadLessons(true)]).then(function(){
-      // 명단·시간표를 못 읽은 채로 답하면 틀린 답이 남는다 — 답을 미루고 다음 순찰(1분 뒤)에서 다시
-      if (!stuP || !LES.ok || LES.fail) throw botSoon();
+    var askPres = /출근/.test(q);
+    Promise.all([loadStudents(), loadLessons(true), askPres ? loadPres() : null]).then(function(){
+      // 명단·시간표·출근 현황을 못 읽은 채로 답하면 틀린 답이 남는다 — 답을 미루고 다음 순찰(1분 뒤)에서 다시 (Codex 검토)
+      if (!stuP || !LES.ok || LES.fail || (askPres && !presOk && !presNone)) throw botSoon();
       var hits = scanNames(q);
       return (hits.length ? loadWeekClasses() : Promise.resolve([])).then(function(wk){
         var out = [];
@@ -1635,7 +1636,7 @@
 
   // ── 출근·퇴근 (2026-10-19 원장님 "구성원이 어느 센터 on, off 상태를 표시") ─────────
   // 표 msg_presence(사람마다 한 줄) — 쓰기는 msg_presence_set 함수로만. 오늘 출근한 것만 ON(날짜가 바뀌면 OFF에서 시작).
-  var PRES = {}, presOk = false, presDay = '', PRES_LOCS = ['본원', '화정센터', '민초센터', '정리정독'];
+  var PRES = {}, presOk = false, presNone = false, presDay = '', PRES_LOCS = ['본원', '화정센터', '민초센터', '정리정독'];
   function presLoc(uid){
     var r = PRES[uid];
     return r && r.is_on && ymd(r.changed_at) === ymd(new Date().toISOString()) ? r.loc : '';
@@ -1651,11 +1652,11 @@
       // 날짜가 바뀌어도 다시 그린다 — 자정 넘어 열어 둔 화면에서 어제 출근이 ON으로 남지 않게 (Codex 검토)
       var day = ymd(new Date().toISOString());
       var changed = !presOk || presDay !== day || JSON.stringify(next) !== JSON.stringify(PRES);
-      PRES = next; presOk = true; presDay = day;
+      PRES = next; presOk = true; presNone = false; presDay = day;
       if (changed){ renderPres(); if (ready) renderBoard(); if (!$('plback').hidden) loadPresLog(); }
     }).catch(function(e){
       // 표가 아직 없으면(마이그레이션 202610190004 전) 출근 기능만 숨긴다
-      if (e && (e.status === 404 || (e.data && e.data.code === 'PGRST205'))){ presOk = false; renderPres(); }
+      if (e && (e.status === 404 || (e.data && e.data.code === 'PGRST205'))){ presOk = false; presNone = true; renderPres(); }
     });
   }
   function renderPres(){

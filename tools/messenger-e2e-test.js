@@ -37,7 +37,7 @@ let missing = false, failSendOnce = false;
 let mid = 0, tid = 0, clock = 0;
 const ts = () => new Date(Date.now() + (clock++)).toISOString();
 const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [];
-let noPres = false, workClip = false, workAsk = false, workEarly = false;
+let noPres = false, failPres = false, workClip = false, workAsk = false, workEarly = false;
 const TT = [], TTP = [], TTLOG = [], NOTES = [];
 let failTT = false;
 const BOT = { tick: { msgs: [], summary: false }, failAsk: 0 };
@@ -130,6 +130,7 @@ function filterRows(rows, u){
       if (p === '/rest/v1/teacher_accounts') return json([{ user_id: ME, login_id: 'heeju', display_name: '고희주', active: true, role: 'assistant' }]);
       if (missing && p.startsWith('/rest/v1/rpc/msg')) return json({ code: 'PGRST202', message: 'Could not find the function' }, 404);
       if (p === '/rest/v1/rpc/msg_members') return json(MEMBERS);
+      if (p === '/rest/v1/msg_presence' && failPres) return json({ message: 'boom' }, 500);
       if (p === '/rest/v1/msg_presence') return noPres ? json({ code: 'PGRST205', message: 'Could not find the table' }, 404) : json(Object.values(PRESENCE));
       if (p === '/rest/v1/msg_presence_log') return json(filterRows(PLOGS, u).sort((a, b) => a.at < b.at ? -1 : 1));
       if (p === '/rest/v1/rpc/msg_presence_set'){
@@ -1169,6 +1170,19 @@ function filterRows(rows, u){
   ok(bp && calls.filter(c => c[0] === 'bpost').length > bp0 && /박하늘 · .*담당 김지원 선생님/.test(bp[1].p_text), '다음 순찰에서 답을 올림 (' + (bp && bp[1].p_text.split('\n')[0]) + ')');
   await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'bot.png') });
+  await ctx.close();
+  // 출근 현황을 아직 못 읽었으면 출근 질문에 답하지 않고 다음 순찰에서 (Codex 검토)
+  failPres = true;
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#msgs .m');
+  const bp1 = calls.filter(c => c[0] === 'bpost').length;
+  await page.fill('#inp', '@클로슈 지금 출근한 사람'); await page.click('#send'); await sleep(2000);
+  ok(calls.filter(c => c[0] === 'bpost').length === bp1, '출근 현황을 못 읽으면 출근 답을 미룸');
+  failPres = false;
+  await page.evaluate(() => { const D = Date, off = 61000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
+  await page.waitForFunction(() => true); await sleep(5000);
+  bp = calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'answer').pop();
+  ok(bp && calls.filter(c => c[0] === 'bpost').length > bp1 && /^지금 출근: /.test(bp[1].p_text), '출근 현황이 오면 다음 순찰에서 출근 답 (' + (bp && bp[1].p_text.split('\n')[0]) + ')');
   await ctx.close();
 
   await browser.close(); server.close();

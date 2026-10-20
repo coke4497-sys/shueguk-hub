@@ -146,8 +146,9 @@ const handler = withSupabase({ auth: 'user' }, async (request, context) => {
     //    잡기 자체가 실패하면 그대로 503(아무것도 안 바뀜 — 다시 부르면 처음부터).
     //    잡을 때도 '안 지움·내가 씀'을 다시 확인하고, 보낼 내용은 잡는 순간의 줄로 쓴다
     //    (읽은 뒤 그 사이에 지운 메시지의 원문이 나가지 않게 — Codex 검토)
+    const at = new Date().toISOString()
     const { data: claimed, error: ce } = await admin.from('msg_messages')
-      .update({ pushed_at: new Date().toISOString() })
+      .update({ pushed_at: at })
       .eq('id', id).is('pushed_at', null).is('deleted_at', null).or('author.eq.' + uid + ',and(author.is.null,bot.not.is.null)')
       .select('id,author,author_name,body,files,deleted_at,bot')
     if (ce) return reply(503, { error: 'claim_failed' })
@@ -156,7 +157,13 @@ const handler = withSupabase({ auth: 'user' }, async (request, context) => {
     const tasks = t.data, subs = s.data, act = a.data
     const active = new Set<string>((act || []).map((r: { user_id: string }) => r.user_id))
     const items = plan(msg, tasks || [], subs || [], active)
-    return reply(200, { targets: items.length, ...(await deliver(admin, items)) })
+    const r = await deliver(admin, items)
+    // 한 기기에도 못 보냈고 일시적 실패가 있으면 자리를 되돌려 화면이 5초 뒤 다시 부르게 한다 — hand 와 같음 (Codex 검토)
+    if (!r.sent && r.failed) {
+      await admin.from('msg_messages').update({ pushed_at: null }).eq('id', id).eq('pushed_at', at)
+      return reply(503, { error: 'deliver_failed', targets: items.length, ...r })
+    }
+    return reply(200, { targets: items.length, ...r })
   }
   if (input.action === 'hand') {
     const id = Number(input.task_id)
