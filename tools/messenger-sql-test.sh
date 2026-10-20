@@ -354,6 +354,9 @@ ok "$(SQ "select replace(body, chr(10), '/') from public.msg_messages where id=$
 ok "$(svc "select replace((public.kakao_inbound('a1b2c3', '')).body, chr(10), '/')")" "학부모님 문의 (#a1b2c3)/(글 없이 보낸 메시지)" "빈 글도 받음"
 SQ "insert into public.msg_messages (author, author_name, body, files, bot) select null, '카카오채널', 'x', '[]', '{\"kind\":\"kakao\",\"who\":\"zzzzzz\"}' from generate_series(1,30)" >/dev/null
 ok "$(svc "select public.kakao_inbound('zzzzzz', '또')" | grep -c too_many)" 1 "같은 사람은 하루 30개까지"
+SQ "update public.teacher_accounts set role='teacher' where user_id='$A'" >/dev/null
+ok "$(svc "select (public.kakao_inbound('noadm1', '관리자 없음')).bot->>'to'")" "[]" "관리자가 없어도 모두에게 보내지 않음(빈 받는 사람) (Codex 검토)"
+SQ "update public.teacher_accounts set role='admin' where user_id='$A'" >/dev/null
 ok "$(as $A "select public.kakao_inbound('x', 'y')" | grep -c 'permission denied')" 1 "교사는 카카오 함수를 못 부름"
 ok "$(psql -X -A -t -q -d $DB -c "set role anon;" -c "select public.kakao_inbound('x', 'y')" 2>&1 | grep -c 'permission denied')" 1 "공개 키도 못 부름"
 

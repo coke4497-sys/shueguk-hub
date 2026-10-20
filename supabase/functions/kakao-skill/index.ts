@@ -6,7 +6,7 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { setup, pushMessage } from '../_shared/push.ts'
 import { sameToken } from '../closhu/lib.ts'
-import { whoOf, reply, THANKS, BUSY } from './lib.ts'
+import { whoOf, reply, THANKS, BUSY, FAIL } from './lib.ts'
 
 const admin = createClient(Deno.env.get('SUPABASE_URL') || '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '', { auth: { persistSession: false } })
 
@@ -21,7 +21,11 @@ Deno.serve(async (request) => {
   const text = String(u.utterance || '').slice(0, 2000)
   const who = await whoOf(String(u.user?.id || u.user?.properties?.plusfriendUserKey || ''))
   const { data, error } = await admin.rpc('kakao_inbound', { p_who: who, p_text: text })
-  if (error) return reply(error.message.includes('too_many') ? BUSY : THANKS)   // 저장 실패도 학부모님께는 같은 안내 — 로그로 확인
+  if (error) {
+    if (error.message.includes('too_many')) return reply(BUSY)
+    console.error('kakao_inbound', error.message)
+    return reply(FAIL)
+  }
   // deno-lint-ignore no-explicit-any
   if (setup()) (globalThis as any).EdgeRuntime?.waitUntil(pushMessage(admin, data.id).catch(() => null))
   return reply(THANKS)

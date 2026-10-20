@@ -1,6 +1,7 @@
 -- 슈톡 ← 카카오톡 채널 문의 (2026-10-20 원장님 "슈톡에 카카오채널 메시지를 연결할 수 있어요?" → "1번 챗봇 방식으로 진행")
 -- 카카오 i 오픈빌더 챗봇의 스킬 서버(엣지 함수 kakao-skill)가 학부모님이 채널에 보낸 글을 받아 이 함수로 슈톡에 올린다.
 --   · 메시지: author 없이 author_name '카카오채널', bot {kind:'kakao', who:보낸 사람 구분(6자), to:관리자들}
+--     활성 관리자가 없어도 to 는 빈 배열로 둔다 — to 가 없으면 모든 교사에게 알림이 가므로 (Codex 검토)
 --   · 업무 카드: 활성 관리자(원장님)마다 '카카오채널 문의 확인' 할 일 — 답을 마치면 체크
 --   · 답장은 카카오채널 관리자센터에서 한다(슈톡에서 채널로 보내지는 않음)
 -- service_role 만 실행. 같은 사람은 하루 30개까지(장난 글로 업무 카드가 넘치지 않게).
@@ -22,7 +23,7 @@ begin
     from public.teacher_accounts t where t.active and t.role = 'admin';
   insert into public.msg_messages (author, author_name, body, files, reply_to, bot)
   values (null, '카카오채널', '학부모님 문의 (#' || v_who || ')' || chr(10) || v_text, '[]'::jsonb, null,
-          jsonb_build_object('kind', 'kakao', 'who', v_who) || case when v_to is null then '{}'::jsonb else jsonb_build_object('to', to_jsonb(v_to)) end)
+          jsonb_build_object('kind', 'kakao', 'who', v_who, 'to', to_jsonb(coalesce(v_to, '{}'::uuid[]))))
   returning * into v_m;
   insert into public.msg_tasks (message_id, assignee, assignee_name, requester, requester_name, text)
   select v_m.id, t.user_id, t.display_name, null, '카카오채널', left('카카오채널 문의 확인 (#' || v_who || ') — ' || v_text, 300)
