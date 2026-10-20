@@ -880,7 +880,8 @@ function filterRows(rows, u){
   const t6 = addTask(m6, ME, '교재 주문해 주세요', m6.created_at);
   await page.waitForSelector('[data-cx="' + t6.id + '"]', { timeout: 7000 });
   await page.click('[data-cx="' + t6.id + '"]');
-  ok(await page.locator('#cxmodes [data-mode="defer"]').evaluate(e => e.classList.contains('on')), '내 할 일은 미루기부터');
+  ok(await page.locator('#cxmodes [data-mode="done"]').evaluate(e => e.classList.contains('on')) && (await page.locator('#cxtitle').textContent()) === '업무 체크리스트', '창 이름 업무 체크리스트 · 완료부터');
+  await page.click('#cxmodes [data-mode="defer"]');
   await page.click('#dfq [data-q="tmr"]');
   await page.fill('#dfNote', '내일 수업 끝나고');
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'defer-dialog.png') });
@@ -1072,17 +1073,27 @@ function filterRows(rows, u){
   ({ ctx, page } = await open());
   await page.waitForSelector('[data-cx="' + tpg.id + '"]');
   await page.click('[data-cx="' + tpg.id + '"]');
-  ok(await page.locator('#cxmodes [data-mode="prog"]').evaluate(e => e.classList.contains('on') && !e.hidden), '내 할 일 관리 창은 진행 중부터');
+  await page.click('#cxmodes [data-mode="prog"]');
+  ok(await page.locator('#cxmodes [data-mode="prog"]').evaluate(e => e.classList.contains('on') && !e.hidden), '관리 창에 진행 중');
   ok((await page.locator('#pgok').textContent()) === '진행 중으로 표시', '버튼: 진행 중으로 표시');
   await page.click('#pgok');
   await page.waitForFunction(() => document.querySelector('#cxback').hidden);
+  { // 관리 창의 [완료] (2026-10-20 원장님 "완료 버튼이 없어요")
+    const mdn = addMsg(BOSS, '출석부 정리 @고희주', [], ts()); const tdn = addTask(mdn, ME, '출석부 정리', mdn.created_at);
+    await page.waitForSelector('[data-cx="' + tdn.id + '"]', { timeout: 7000 });
+    await page.click('[data-cx="' + tdn.id + '"]');
+    ok(!(await page.locator('#cxmodes [data-mode="done"]').isHidden()) && (await page.locator('#dnok').textContent()) === '완료로 체크', '관리 창에 [완료] — 완료로 체크');
+    await page.click('#dnok');
+    await page.waitForFunction(() => document.querySelector('#cxback').hidden, null, { timeout: 5000 }).catch(() => {});
+    ok(calls.some(c => c[0] === 'task' && c[1].p_id === tdn.id && c[1].p_done === true) && await page.locator('#cxback').isHidden(), '[완료로 체크] → msg_task_set(완료) · 창 닫힘');
+  }
   const pc1 = calls.filter(c => c[0] === 'prog').pop();
   ok(pc1 && pc1[1].p_id === tpg.id && pc1[1].p_on === true, 'msg_task_progress(진행 중)');
   const pgRow = page.locator('[data-cx="' + tpg.id + '"]').locator('xpath=..');
   ok((await pgRow.textContent()).includes('진행 중') && (await pgRow.locator('.pg').count()) === 1, '카드에 진행 중 표시');
   ok((await page.locator('#m' + mpg.id + ' .tk').textContent()).includes('진행 중'), '메시지 아래 표시 = 진행 중');
   ok((await pgRow.textContent()).includes('고희주 · 진행 중'), '기록 리스트에 진행 중');
-  await page.click('[data-cx="' + tpg.id + '"]');
+  await page.click('[data-cx="' + tpg.id + '"]'); await page.click('#cxmodes [data-mode="prog"]');
   ok((await page.locator('#pgok').textContent()) === '진행 중 풀기', '다시 열면 진행 중 풀기');
   await page.click('#pgok'); await page.waitForFunction(() => document.querySelector('#cxback').hidden);
   ok(calls.filter(c => c[0] === 'prog').pop()[1].p_on === false && !(await page.locator('#m' + mpg.id + ' .tk').textContent()).includes('진행 중'), '진행 중 풀기');
