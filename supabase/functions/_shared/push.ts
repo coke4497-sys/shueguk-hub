@@ -143,9 +143,12 @@ export async function checked(run: () => any, what: string) {
 
 // 다시 보낼 목록 적기 — 한 번 더 해 보고 결과를 돌려준다
 // deno-lint-ignore no-explicit-any
-export async function saveRetry(admin: any, table: string, id: number, row: Record<string, unknown>) {
+// same 이 있으면 그 열이 그대로일 때만 적는다(그 사이 다시 넘겼으면 낡은 정보를 적지 않게 — 0줄이어도 성공으로 본다)
+export async function saveRetry(admin: any, table: string, id: number, row: Record<string, unknown>, same?: [string, unknown]) {
   for (let i = 0; i < 2; i++) {
-    const { error } = await admin.from(table).update(row).eq('id', id)
+    let q = admin.from(table).update(row).eq('id', id)
+    if (same) q = q.eq(same[0], same[1])
+    const { error } = await q
     if (!error) return true
   }
   return false
