@@ -131,6 +131,23 @@
   .m.mine .bb{background:var(--lav);border-radius:14px 4px 14px 14px;}
   .m.flash .bb{box-shadow:0 0 0 3px #B9A5CC;}
   .mact{border:0;background:transparent;color:var(--cap);font-size:12px;padding:2px 4px;opacity:0;}
+  /* 읽음 숫자(카카오톡처럼 안 읽은 사람 수) · 공감(하트) — 202610200012 */
+  .tw{display:flex;flex-direction:column;align-items:flex-start;gap:1px;flex:none;}
+  .m.mine .tw{align-items:flex-end;}
+  .rc{border:0;background:transparent;padding:0 2px;font-size:11.5px;font-weight:700;color:#B88A1E;line-height:1.2;}
+  .rc[hidden]{display:none;}
+  .hrt{border:0;background:transparent;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;color:var(--cap);font-size:12px;opacity:0;}
+  .hrt svg{width:14px;height:14px;}
+  .hrt.on,.hrt.has{opacity:1;}
+  .hrt.on{color:#C64F63;}
+  .m:hover .hrt,.hrt:focus{opacity:1;}
+  @media (hover:none){.hrt{opacity:.7;} .hrt.on,.hrt.has{opacity:1;}}
+  .rdback{position:fixed;inset:0;background:rgba(42,51,47,.35);display:flex;align-items:center;justify-content:center;z-index:46;padding:14px;}
+  .rdback[hidden]{display:none;}
+  .rdtabs{display:flex;gap:6px;flex-wrap:wrap;}
+  .rdtabs button{border:0;border-radius:999px;padding:6px 12px;font-size:13px;background:var(--soft);color:var(--ink);}
+  .rdtabs button.on{background:var(--lav);color:var(--lavInk);font-weight:700;}
+  .rdsnip{font-size:13px;color:var(--ink2);background:var(--soft);border-radius:10px;padding:8px 10px;line-height:1.5;max-height:66px;overflow:hidden;}
   .m:hover .mact,.mact:focus{opacity:1;}
   @media (hover:none){.mact{opacity:.7;}}
   .files{display:flex;flex-direction:column;gap:6px;margin-top:4px;}
@@ -409,6 +426,14 @@
     <div id="plbody"></div>
   </div>
 </div>
+<div class="rdback" id="rdback" hidden>
+  <div class="plpanel" role="dialog" aria-modal="true" aria-labelledby="rdtitle">
+    <div class="plhead"><span class="btitle" id="rdtitle">읽음 확인</span><button class="hbtn plain" type="button" id="rdclose">닫기</button></div>
+    <div class="rdsnip" id="rdsnip"></div>
+    <div class="rdtabs" id="rdtabs"></div>
+    <div id="rdbody"></div>
+  </div>
+</div>
 <div class="pback" id="cxback" hidden>
   <div class="ppanel cxpanel" role="dialog" aria-modal="true" aria-labelledby="cxtitle">
     <span class="btitle" id="cxtitle">업무 체크리스트</span>
@@ -577,6 +602,7 @@
     }).then(function(){
       ready = true;
       renderMsgs('first'); renderBoard();
+      loadReads();
       var hm0 = location.hash.match(/^#m(\d+)$/); if (hm0) goTo(Number(hm0[1]));
       pushInit(); loadPres(); loadLessons(true);
       setLive(true); schedule();
@@ -642,7 +668,7 @@
       if (mc || tc || deleted.length || qch){ renderMsgs(lastMsgId() > lastBefore ? 'new' : 'keep'); renderBoard(); }
       notifyNew(newMsgs.filter(function(m){ return m.id > lastBefore && m.author !== ME.id && !m.deleted_at; }));
     }).catch(function(){ setLive(false); }).then(function(){ polling = false; schedule(); });
-    loadPres(); loadLessons(); botTick();
+    loadPres(); loadLessons(); botTick(); loadReads();
   }
   document.addEventListener('visibilitychange', function(){ if (document.hidden) tellReading(false); if (!document.hidden){ unseen = 0; document.title = '슈톡 · Shuetalk'; markRead(); poll(); } });
 
@@ -906,7 +932,8 @@
       + '<div class="av" style="background:' + tn[0] + ';color:' + tn[1] + '">' + esc(kko ? '카' : m.bot ? '클' : avChar(m.author_name)) + '</div>'
       + '<div class="mb"><div class="nm">' + esc(m.author_name) + '<span class="rl">' + esc(kko ? '학부모님 문의 · 답은 채널 관리자센터에서' : m.bot ? '도우미' : mem ? roleLabel(mem.role) : '') + '</span></div>'
       + quoteHtml(m)
-      + '<div class="line">' + bb + '<span class="t">' + hm(m.created_at) + '</span>'
+      + '<div class="line">' + bb + '<span class="tw">' + rcHtml(m) + '<span class="t">' + hm(m.created_at) + '</span></span>'
+      + heartHtml(m)
       + (m.deleted_at || !('reply_to' in m) ? '' : '<button class="mact" type="button" data-reply="' + m.id + '">답장</button>')   // reply_to 열이 없으면(0006 전) 답장 버튼을 숨김
       + (canDel ? '<button class="mact" type="button" data-del="' + m.id + '">지우기</button>' : '') + '</div>'
       + (m.deleted_at ? '' : filesHtml(m.files)) + (m.bot ? botAskHtml(m) : '') + chipsHtml(m.id) + '</div></div>';
@@ -985,6 +1012,7 @@
     tellReading(true);
     var last = lastMsgId();
     if (last > Number(localStorage.getItem('msg_read_' + ME.id) || 0)) localStorage.setItem('msg_read_' + ME.id, String(last));
+    sendRead(last);
     $('jump').hidden = true;
     clearAppBadge();
     updateBadges();
@@ -1044,7 +1072,104 @@
     if (b.dataset.pick){ botPick(b.dataset.pick, b); return; }
     if (b.dataset.card){ showCard(b.dataset.card); return; }
     if (b.dataset.del){ delMsg(Number(b.dataset.del)); return; }
+    if (b.dataset.rc){ readList(Number(b.dataset.rc), 'unread'); return; }
+    if (b.dataset.heart){ toggleHeart(Number(b.dataset.heart), b); return; }
   });
+  // ── 읽음 숫자 · 공감(하트) (2026-10-20 원장님 "카톡 대화처럼", 202610200012) ─────────
+  // 메시지 아래 숫자 = 그 메시지를 아직 안 읽은 사람 수(쓴 사람 빼고, 지금 활성 교사). 누르면 읽은 사람·안 읽은 사람·공감한 사람 목록.
+  // 읽은 자리는 사람마다 서버 한 줄(msg_reads — 가장 멀리 읽은 메시지 번호). 표가 없으면(0012 전) 숫자를 그리지 않는다.
+  var READS = null, readsOk = true, readSent = 0, readSending = false, rdOpen = null;
+  var HEART_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>';
+  var HEART_ON = HEART_SVG.replace('fill="none"', 'fill="currentColor"');
+  function lastReadOf(uid){
+    var v = READS && READS[uid] ? READS[uid] : 0;
+    if (ME && uid === ME.id) v = Math.max(v, Number(localStorage.getItem('msg_read_' + ME.id) || 0));
+    return v;
+  }
+  // 이 메시지를 받을 사람 — 쓴 사람 빼고 지금 활성 교사(클로슈·카카오채널 글은 모두)
+  function readersOf(m){ return MEMBERS.filter(function(u){ return u.id !== m.author; }); }
+  function unreadOf(m){ return readersOf(m).filter(function(u){ return lastReadOf(u.id) < m.id; }); }
+  // 숫자 칸은 늘 그려 두고(처음엔 숨김) 읽은 자리를 받으면 paintReads 가 채운다 — 대화를 다시 그리지 않게
+  function rcHtml(m){
+    if (m.deleted_at || !readsOk) return '';
+    var n = READS ? unreadOf(m).length : 0;
+    return '<button class="rc" type="button" data-rc="' + m.id + '" title="안 읽은 사람 ' + n + '명 · 누르면 목록"' + (n ? '' : ' hidden') + '>' + n + '</button>';
+  }
+  function heartHtml(m){
+    if (m.deleted_at || !('hearts' in m)) return '';
+    var hs = m.hearts || [], n = hs.length, on = !!ME && hs.indexOf(ME.id) >= 0;
+    var who = hs.map(function(id){ return MBY[id] ? MBY[id].name : '알 수 없음'; }).join(', ');
+    return '<button class="hrt' + (on ? ' on' : '') + (n ? ' has' : '') + '" type="button" data-heart="' + m.id + '" aria-pressed="' + on + '" aria-label="공감' + (n ? ' ' + n + '명' : '') + '" title="' + esc(n ? '공감 ' + who : '공감하기') + '">' + (on ? HEART_ON : HEART_SVG) + (n ? '<span>' + n + '</span>' : '') + '</button>';
+  }
+  // 숫자만 고친다 — 3초마다 대화 전체를 다시 그리지 않게
+  function paintReads(){
+    if (!READS) return;
+    Array.prototype.forEach.call($('msgs').querySelectorAll('.rc'), function(b){
+      var m = MSGS.get(Number(b.dataset.rc)) || QCACHE[b.dataset.rc]; if (!m) return;
+      var n = unreadOf(m).length;
+      b.textContent = n; b.hidden = !n; b.title = '안 읽은 사람 ' + n + '명 · 누르면 목록';
+    });
+    if (rdOpen) renderReadList();
+  }
+  function loadReads(){
+    if (!readsOk || !ME) return;
+    api('/msg_reads?select=user_id,last_id').then(function(rows){
+      var nx = {}, changed = !READS;
+      (rows || []).forEach(function(r){ nx[r.user_id] = Number(r.last_id) || 0; if (!READS || READS[r.user_id] !== nx[r.user_id]) changed = true; });
+      if (READS) Object.keys(READS).forEach(function(k){ if (!(k in nx)) changed = true; });
+      READS = nx;
+      if (changed) paintReads();
+    }).catch(function(e){ if (e && (e.status === 404 || /msg_reads/.test(String(e.message)))) readsOk = false; });
+  }
+  // 여기까지 읽음 — 커질 때만 서버에 적는다(실패하면 다음 읽음 때 다시)
+  function sendRead(last){
+    if (!readsOk || !last || last <= readSent || readSending) return;
+    readSending = true;
+    rpc('msg_read_mark', { p_id: last }).then(function(v){
+      readSending = false;
+      readSent = Math.max(readSent, Number(v) || last);
+      if (READS){ READS[ME.id] = Math.max(READS[ME.id] || 0, readSent); paintReads(); }
+      if (lastMsgId() > readSent) markRead();   // 보내는 사이 새 메시지를 읽었으면 한 번 더(실패 때는 다음 읽음 때)
+    }).catch(function(e){ readSending = false; if (e && (e.status === 404 || /msg_read_mark|PGRST202/.test(String(e.message) + JSON.stringify(e.data || '')))) readsOk = false; });
+  }
+  function toggleHeart(id, btn){
+    var m = MSGS.get(id) || QCACHE[id]; if (!m || !ME) return;
+    var on = (m.hearts || []).indexOf(ME.id) < 0;
+    if (btn) btn.disabled = true;
+    rpc('msg_heart', { p_id: id, p_on: on }).then(function(row){
+      if (MSGS.has(id)) addMsgs([row]); else QCACHE[id] = row;
+      renderMsgs('keep'); if (rdOpen && rdOpen.id === id) renderReadList();
+    }).catch(function(e){
+      if (btn) btn.disabled = false;
+      status(/msg_heart|PGRST202/.test(String(e.message) + JSON.stringify(e.data || '')) ? '공감 기능 준비가 아직 끝나지 않았습니다(마이그레이션 202610200012).' : /deleted/.test(String(e.message)) ? '지운 메시지에는 공감할 수 없습니다.' : errText(e));
+    });
+  }
+  // 읽음 확인 창 — [안 읽음 n][읽음 n][공감 n]
+  function readList(id, tab){ rdOpen = { id: id, tab: tab || 'unread' }; $('rdback').hidden = false; renderReadList(); loadReads(); }
+  function renderReadList(){
+    if (!rdOpen) return;
+    var m = MSGS.get(rdOpen.id) || QCACHE[rdOpen.id]; if (!m){ closeReadList(); return; }
+    var all = readersOf(m), un = unreadOf(m), unIds = un.map(function(u){ return u.id; });
+    var rd = all.filter(function(u){ return unIds.indexOf(u.id) < 0; });
+    var hs = (m.hearts || []).map(function(id){ return MBY[id] || { id: id, name: '알 수 없음', role: '' }; });
+    var tabs = [['unread', '안 읽음 ' + un.length], ['read', '읽음 ' + rd.length]];
+    if ('hearts' in m) tabs.push(['heart', '공감 ' + hs.length]);
+    $('rdtitle').textContent = '읽음 확인 · 전체 ' + all.length + '명';
+    $('rdsnip').innerHTML = '<b>' + esc(m.author_name) + '</b> · ' + hm(m.created_at) + '<br>' + snip(m);
+    $('rdtabs').innerHTML = tabs.map(function(t){ return '<button type="button" data-rdtab="' + t[0] + '" class="' + (rdOpen.tab === t[0] ? 'on' : '') + '">' + esc(t[1]) + '</button>'; }).join('');
+    var list = rdOpen.tab === 'read' ? rd : rdOpen.tab === 'heart' ? hs : un;
+    var empty = rdOpen.tab === 'read' ? '아직 읽은 사람이 없습니다.' : rdOpen.tab === 'heart' ? '아직 공감한 사람이 없습니다.' : '모두 읽었습니다.';
+    list = list.slice().sort(function(a, b){ return a.name.localeCompare(b.name, 'ko'); });
+    $('rdbody').innerHTML = list.length ? list.map(function(u){
+      return '<div class="plrow' + (ME && u.id === ME.id ? ' plme' : '') + '"><span class="nm">' + esc(u.name) + '</span><span class="rl">' + esc(u.role ? roleLabel(u.role) : '') + '</span></div>';
+    }).join('') : '<div class="plnone">' + empty + '</div>';
+  }
+  function closeReadList(){ rdOpen = null; $('rdback').hidden = true; }
+  $('rdtabs').addEventListener('click', function(e){ var b = e.target.closest('button[data-rdtab]'); if (b && rdOpen){ rdOpen.tab = b.dataset.rdtab; renderReadList(); } });
+  $('rdclose').onclick = closeReadList;
+  $('rdback').addEventListener('click', function(e){ if (e.target === $('rdback')) closeReadList(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && rdOpen) closeReadList(); });
+
   // [확인했습니다] — 맡은 사람만. @모두로 받은 것은 확인하면 완료 (202610190005)
   function ackTask(id, btn){
     if (btn) btn.disabled = true;

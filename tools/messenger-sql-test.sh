@@ -395,6 +395,32 @@ SQ "update public.teacher_accounts set role='admin' where user_id='$A'" >/dev/nu
 ok "$(as $A "select public.kakao_inbound('x', 'y')" | grep -c 'permission denied')" 1 "교사는 카카오 함수를 못 부름"
 ok "$(psql -X -A -t -q -d $DB -c "set role anon;" -c "select public.kakao_inbound('x', 'y')" 2>&1 | grep -c 'permission denied')" 1 "공개 키도 못 부름"
 
+echo "── 읽음 숫자 · 공감(하트) (202610200012)"
+P -f supabase/migrations/202610200012_messenger_read_heart.sql >/dev/null || { echo "읽음·공감 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200012_messenger_read_heart.sql >/dev/null && ok y y "읽음·공감 마이그레이션 다시 실행해도 오류 없음"
+MX=$(SQ "select max(id) from public.msg_messages")
+ok "$(SQ "select count(*) from public.msg_reads r join public.teacher_accounts t using (user_id) where t.active and r.last_id=$MX")" "$(SQ "select count(*) from public.teacher_accounts where active")" "처음 적용 때 활성 교사는 지금까지 모두 읽은 것으로"
+ok "$(SQ "select count(*) from public.msg_reads where user_id='$D'")" "0" "비활성 교사는 넣지 않음"
+SQ "update public.msg_reads set last_id=1 where user_id='$B'" >/dev/null
+ok "$(as $B "select public.msg_read_mark(3)")" "3" "읽은 자리 앞으로"
+ok "$(as $B "select public.msg_read_mark(2)")" "3" "뒤로는 가지 않음"
+ok "$(as $B "select public.msg_read_mark(99999999)")" "$MX" "없는 번호보다 크게는 못 적음"
+ok "$(as $C "select count(*) from public.msg_reads")" "$(SQ "select count(*) from public.msg_reads")" "활성 교사는 모든 사람의 읽은 자리를 봄"
+ok "$(as $C "insert into public.msg_reads (user_id, last_id) values ('$C', 0) on conflict (user_id) do update set last_id=0" | grep -c 'permission denied')" 1 "표에 직접 쓰지 못함"
+ok "$(anon "select public.msg_read_mark(1)" | grep -c 'permission denied')" 1 "공개 키는 읽은 자리를 못 적음"
+ok "$(anon "select count(*) from public.msg_reads" | grep -c 'permission denied')" 1 "공개 키는 읽은 자리를 못 봄"
+HM=$(as $B "select (public.msg_send('하트 시험', '[]', '{}')->'message'->>'id')")
+U0=$(SQ "select updated_at from public.msg_messages where id=$HM")
+ok "$(as $C "select (public.msg_heart($HM, true))->'hearts'")" "[\"$C\"]" "공감 누르기"
+ok "$(as $C "select jsonb_array_length((public.msg_heart($HM, true))->'hearts')")" "1" "두 번 눌러도 한 번"
+ok "$(as $A "select jsonb_array_length((public.msg_heart($HM, true))->'hearts')")" "2" "다른 사람 공감도 더해짐"
+ok "$(SQ "select updated_at > '$U0' from public.msg_messages where id=$HM")" "t" "공감하면 updated_at 이 바뀌어 다른 화면도 받음"
+ok "$(as $C "select (public.msg_heart($HM, false))->'hearts'")" "[\"$A\"]" "공감 풀기는 내 것만"
+ok "$(as $C "update public.msg_messages set hearts='{}' where id=$HM" | grep -c 'permission denied')" 1 "표의 공감 목록을 직접 못 고침"
+as $B "select public.msg_delete($HM)" >/dev/null
+ok "$(as $A "select public.msg_heart($HM, true)" | grep -c deleted)" 1 "지운 메시지에는 공감 불가"
+ok "$(anon "select public.msg_heart($HM, true)" | grep -c 'permission denied')" 1 "공개 키는 공감 불가"
+
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null
 [ $fail -eq 0 ]

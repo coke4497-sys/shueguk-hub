@@ -36,7 +36,8 @@ const NAME = { [ME]: '고희주', [EUNJI]: '이은지', [BOSS]: '이수경' };
 let missing = false, failSendOnce = false, failHand = 0;
 let mid = 0, tid = 0, clock = 0;
 const ts = () => new Date(Date.now() + (clock++)).toISOString();
-const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [];
+const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [], READS = {};
+let noReads = false;
 let noPres = false, workClip = false, workAsk = false, workEarly = false;
 const TT = [], TTP = [], TTLOG = [], NOTES = [];
 let failTT = false;
@@ -47,7 +48,7 @@ const STUDENTS = [
   { name: '고은비', teacher: '고희주', enrolled: 'Y' }, { name: '최퇴원', teacher: '이은지', enrolled: '퇴원' }];   // 시간표·기간·주간 기록·수업 기록 (오늘 수업 줄)
 function addMsg(author, body, files, createdIso){
   const t = createdIso || ts();
-  const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null, reply_to: null };
+  const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null, reply_to: null, hearts: [] };
   MSGS.push(m); return m;
 }
 function addTask(m, assignee, text, createdIso){
@@ -132,6 +133,14 @@ function filterRows(rows, u){
       if (p === '/rest/v1/teacher_accounts') return json([{ user_id: ME, login_id: 'heeju', display_name: '고희주', active: true, role: 'assistant' }]);
       if (missing && p.startsWith('/rest/v1/rpc/msg')) return json({ code: 'PGRST202', message: 'Could not find the function' }, 404);
       if (p === '/rest/v1/rpc/msg_members') return json(MEMBERS);
+      if (p === '/rest/v1/msg_reads') return noReads ? json({ code: 'PGRST205', message: 'Could not find the table public.msg_reads' }, 404) : json(Object.keys(READS).map(k => ({ user_id: k, last_id: READS[k] })));
+      if (p === '/rest/v1/rpc/msg_read_mark'){ const b = JSON.parse(req.postData()); calls.push(['readmark', b]); READS[ME] = Math.max(READS[ME] || 0, Math.min(b.p_id, mid)); return json(READS[ME]); }
+      if (p === '/rest/v1/rpc/msg_heart'){
+        const b = JSON.parse(req.postData()); calls.push(['heart', b]);
+        const m = MSGS.find(x => x.id === b.p_id); if (!m || m.deleted_at) return json({ message: 'deleted' }, 400);
+        m.hearts = (m.hearts || []).filter(x => x !== ME); if (b.p_on) m.hearts.push(ME); m.updated_at = ts();
+        return json(m);
+      }
       if (p === '/rest/v1/msg_presence') return noPres ? json({ code: 'PGRST205', message: 'Could not find the table' }, 404) : json(Object.values(PRESENCE));
       if (p === '/rest/v1/msg_presence_log') return json(filterRows(PLOGS, u).sort((a, b) => a.at < b.at ? -1 : 1));
       if (p === '/rest/v1/rpc/msg_presence_set'){
@@ -1172,6 +1181,60 @@ function filterRows(rows, u){
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'bot.png') });
   await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
   await ctx.close();
+
+  { // 읽음 숫자 · 공감(하트) (202610200012) — 카톡처럼 안 읽은 사람 수, 누르면 목록
+    const rm = addMsg(BOSS, '내일 회의는 3시입니다', []);
+    Object.keys(READS).forEach(k => delete READS[k]);
+    READS[EUNJI] = rm.id - 1; READS[BOSS] = rm.id; READS['44444444-4444-4444-4444-444444444444'] = rm.id;
+    const { ctx: ctx2, page } = await open();
+    await page.waitForSelector('#m' + rm.id + ' .rc', { timeout: 8000 }).catch(() => {});
+    await page.waitForFunction(id => { const b = document.querySelector('#m' + id + ' .rc'); return b && !b.hidden && b.textContent === '1'; }, rm.id, { timeout: 8000 }).catch(() => {});
+    const rc = page.locator('#m' + rm.id + ' .rc');
+    ok((await rc.count()) === 1 && (await rc.textContent()) === '1' && !(await rc.evaluate(e => e.hidden)), '메시지 아래 안 읽은 사람 수(쓴 사람 빼고 — 이은지 1명)');
+    await page.waitForFunction(() => true); await sleep(800);
+    const mk = calls.filter(c => c[0] === 'readmark').pop();
+    ok(mk && mk[1].p_id >= rm.id, '대화를 끝까지 보면 읽은 자리를 서버에 적음(msg_read_mark)');
+    await rc.click();
+    await page.waitForSelector('#rdback:not([hidden])');
+    ok((await page.locator('#rdtitle').textContent()).includes('전체 3명'), '읽음 확인 창 — 전체 인원(쓴 사람 빼고)');
+    ok((await page.locator('#rdbody').textContent()).includes('이은지') && !(await page.locator('#rdbody').textContent()).includes('김지원'), '안 읽은 사람 목록');
+    await page.locator('#rdtabs button[data-rdtab="read"]').click();
+    const rdTxt = await page.locator('#rdbody').textContent();
+    ok(rdTxt.includes('고희주') && rdTxt.includes('김지원') && !rdTxt.includes('이은지'), '읽은 사람 목록');
+    READS[EUNJI] = rm.id;   // 이은지가 읽으면 3초 폴링으로 숫자가 사라짐
+    await page.waitForFunction(id => document.querySelector('#m' + id + ' .rc').hidden, rm.id, { timeout: 8000 }).catch(() => {});
+    ok(await rc.evaluate(e => e.hidden), '모두 읽으면 숫자가 사라짐');
+    ok((await page.locator('#rdtabs').textContent()).includes('안 읽음 0'), '열린 창도 바로 고쳐짐');
+    await page.keyboard.press('Escape');
+    ok(await page.locator('#rdback').evaluate(e => e.hidden), 'Esc로 닫힘');
+    const hb = page.locator('#m' + rm.id + ' .hrt');
+    ok((await hb.count()) === 1 && (await hb.getAttribute('aria-pressed')) === 'false', '공감(하트) 버튼');
+    ok((await hb.innerHTML()).includes('<svg'), '하트는 라인 SVG(이모지 아님)');
+    await hb.click();
+    await page.waitForFunction(id => document.querySelector('#m' + id + ' .hrt.on'), rm.id, { timeout: 5000 }).catch(() => {});
+    const hc = calls.filter(c => c[0] === 'heart').pop();
+    ok(hc && hc[1].p_id === rm.id && hc[1].p_on === true, '누르면 msg_heart(켜기)');
+    ok((await page.locator('#m' + rm.id + ' .hrt').textContent()).trim() === '1', '공감 수 1');
+    MSGS.find(x => x.id === rm.id).hearts.push(EUNJI); MSGS.find(x => x.id === rm.id).updated_at = ts();
+    await page.waitForFunction(id => (document.querySelector('#m' + id + ' .hrt') || {}).textContent === '2', rm.id, { timeout: 8000 }).catch(() => {});
+    ok((await page.locator('#m' + rm.id + ' .hrt').textContent()).trim() === '2', '다른 사람 공감도 폴링으로 반영');
+    await page.locator('#m' + rm.id + ' .rc').evaluate(e => { e.hidden = false; e.click(); });
+    await page.locator('#rdtabs button[data-rdtab="heart"]').click();
+    const hTxt = await page.locator('#rdbody').textContent();
+    ok(hTxt.includes('고희주') && hTxt.includes('이은지'), '읽음 확인 창의 공감 탭에 누른 사람');
+    await page.locator('#rdclose').click();
+    await page.locator('#m' + rm.id + ' .hrt').click();
+    await page.waitForFunction(id => !document.querySelector('#m' + id + ' .hrt.on'), rm.id, { timeout: 5000 }).catch(() => {});
+    ok(calls.filter(c => c[0] === 'heart').pop()[1].p_on === false, '한 번 더 누르면 공감 풀기');
+    if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'read-heart.png') });
+    await ctx2.close();
+    // 표가 없으면(0012 전) 숫자 없이
+    noReads = true;
+    const { ctx: ctx3, page: p3 } = await open();
+    await p3.waitForSelector('#m' + rm.id); await sleep(1500);
+    ok((await p3.locator('.rc').count()) === 0, '읽은 자리 표가 없으면 숫자를 그리지 않음');
+    await ctx3.close(); noReads = false;
+  }
 
   await browser.close(); server.close();
   console.log(`\n${n - bad} / ${n} 통과`);
