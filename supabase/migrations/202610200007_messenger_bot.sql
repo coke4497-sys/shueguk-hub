@@ -98,6 +98,9 @@ begin
   if v_ask.id is null or coalesce(v_ask.bot->>'kind', '') <> 'ask' then
     raise exception 'not_found';
   end if;
+  if v_ask.deleted_at is not null then   -- 지운 질문으로는 고르지 못한다 (Codex 검토)
+    raise exception 'msg_deleted';
+  end if;
   if v_ask.bot ? 'done' then
     raise exception 'already';
   end if;

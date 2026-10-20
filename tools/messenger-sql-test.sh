@@ -304,6 +304,10 @@ AQ2=$(svc "select (public.msg_bot_say('ask', '누구?', $MQ2, null, '[{\"label\"
 as $C "select public.msg_delete($MQ2)" >/dev/null
 ok "$(as $B "select public.msg_bot_pick($AQ2, '$B')" | grep -c msg_deleted)" 1 "지운 원글엔 배정 할 일을 만들지 않음"
 ok "$(svc "select public.msg_bot_say('answer', '답', $MQ2)" | grep -c msg_deleted)" 1 "지운 글엔 답하지 않음"
+MQ3=$(as $C "select (public.msg_send('[이동] 중3 친구 이동', '[]', '{}')->'message'->>'id')")
+AQ3=$(svc "select (public.msg_bot_say('ask', '누구?', $MQ3, null, '[{\"label\":\"이은지T\",\"uid\":\"$B\"}]')).id")
+as $A "select public.msg_delete($AQ3)" >/dev/null
+ok "$(as $B "select public.msg_bot_pick($AQ3, '$B')" | grep -c msg_deleted)" 1 "지운 배정 질문으로는 고르지 못함"
 MA2=$(as $C "select (public.msg_send('@클로슈 김민준 담당이 누구야?', '[]', '{}')->'message'->>'id')")
 ok "$(svc "select (public.msg_bot_say('answer', '김민준 · 담당 이은지 선생님', $MA2, array['$C']::uuid[], null, 'answer:$MA2')).author_name")" "클로슈" "@클로슈 질문에 클로드 답"
 ok "$(svc "select public.msg_bot_say('answer', '또', $MA2, null, null, 'answer:$MA2')" | grep -c exists)" 1 "질문마다 답 한 번"

@@ -51,7 +51,8 @@ async function feed() {
     admin.from('msg_tasks').select('id,message_id,assignee_name,text,status,done_by_name,done_at,cancel_reason').neq('status', '대기').gte('done_at', dayStart).order('id').limit(500),
     members(),
     admin.from('msg_presence').select('name,loc,is_on,changed_at'),
-    admin.from('msg_messages').select('id,created_at,author_name,body').like('body', '%@클로슈%').is('deleted_at', null).is('bot', null).gte('created_at', since).order('id').limit(50),
+    // 답했는지 가리기 전에 자르지 않는다 — 이틀 치를 다 받고 답 안 한 것만 50개 (Codex 검토)
+    admin.from('msg_messages').select('id,created_at,author_name,body').like('body', '%@클로슈%').is('deleted_at', null).is('bot', null).gte('created_at', since).order('id').limit(1000),
     // 고르기 전 배정 질문은 날짜로 버리지 않는다 — 고를 때까지 계속 보인다 (Codex 검토)
     admin.from('msg_messages').select('id,created_at,body,bot,reply_to').eq('bot->>kind', 'ask').is('bot->done', null).is('deleted_at', null).order('id', { ascending: false }).limit(50),
   ])
@@ -69,13 +70,14 @@ async function feed() {
   return {
     now_kst: kst(), cursor, first_run: first,
     last_id: Math.max(cursor, ...((fresh.data || []).map((m: { id: number }) => m.id))),
-    new_messages: (fresh.data || []).map(short),
+    // 지운 글은 보지 않는다 — 읽은 곳(last_id)은 지운 글까지 넘긴다 (Codex 검토)
+    new_messages: (fresh.data || []).filter((m: { deleted_at: string | null }) => !m.deleted_at).map(short),
     earlier_messages: (before.data || []).reverse().map(short),
     open_tasks: pend.data || [],
     closed_today: today.data || [],
     members: mem,
     presence_today: (pres.data || []).filter((p: { is_on: boolean; changed_at: string }) => p.is_on && kst(Date.parse(p.changed_at)).slice(0, 10) === today0),
-    unanswered_mentions: (ments.data || []).filter((m: { id: number }) => !answered.has(m.id)),
+    unanswered_mentions: (ments.data || []).filter((m: { id: number }) => !answered.has(m.id)).slice(0, 50),
     open_asks: (asks.data || []).filter((m: { bot: { done?: unknown } }) => !m.bot?.done),
   }
 }
