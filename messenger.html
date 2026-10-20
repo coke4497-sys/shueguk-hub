@@ -893,7 +893,8 @@
 
   function msgHtml(m, prev){
     var mine = m.author === ME.id;
-    var cont = prev && prev.author === m.author && !prev.deleted_at && ymd(prev.created_at) === ymd(m.created_at)
+    // 작성자 없는 글(클로슈·카카오채널)끼리는 이름·종류까지 같아야 이어 붙인다 (Codex 검토)
+    var cont = prev && prev.author === m.author && prev.author_name === m.author_name && ((prev.bot && prev.bot.kind) || '') === ((m.bot && m.bot.kind) || '') && !prev.deleted_at && ymd(prev.created_at) === ymd(m.created_at)
       && Date.parse(m.created_at) - Date.parse(prev.created_at) < 5 * 60e3;
     var kko = m.bot && m.bot.kind === 'kakao';   // 카카오채널 학부모님 문의(202610200009)
     var mem = MBY[m.author], tn = kko ? ['#F9EFD0', '#7A5F1E'] : m.bot ? ['#4C6E66', '#fff'] : tone(m.author_name);

@@ -125,25 +125,46 @@ export async function pushMessage(admin: any, id: number, extra?: (q: any) => an
   return { status: 200, body: { targets: items.length, ...cnt } }
 }
 
-// 일부 실패한 메시지를 그 기기에만 다시 — 적어 둔 목록을 비우며 잡고(동시에 두 번 안 가게), 또 실패한 기기만 다시 적는다
+// 일부 실패한 메시지를 그 기기에만 다시 — 적어 둔 목록을 한 문장으로 비우며 옛 값을 받아(동시에 두 번 안 가게), 또 실패한 기기만 다시 적는다 (Codex 검토)
 // deno-lint-ignore no-explicit-any
 export async function retryPush(admin: any, id: number) {
-  const { data: claimed, error: ce } = await admin.from('msg_messages').update({ push_retry: null }).eq('id', id)
-    .not('push_retry', 'is', null).is('deleted_at', null).select('id,author,author_name,body,files,deleted_at,bot,push_retry')
-  if (ce) return { status: 503 }
-  if (!claimed || !claimed.length) return { status: 200, skipped: true }
-  const m = claimed[0]
-  const [t, s, a] = await Promise.all([
+  const c = await admin.rpc('msg_push_retry_claim', { p_id: id })
+  if (c.error) return { status: 503 }
+  const ids = c.data
+  if (!Array.isArray(ids) || !ids.length) return { status: 200, skipped: true }
+  const restore = async (v: unknown) => { await admin.from('msg_messages').update({ push_retry: v }).eq('id', id).is('push_retry', null) }
+  const [m, t, s, a] = await Promise.all([
+    admin.from('msg_messages').select('id,author,author_name,body,files,deleted_at,bot').eq('id', id).maybeSingle(),
     admin.from('msg_tasks').select('assignee,text').eq('message_id', id),
-    admin.from('msg_push_subs').select('*'),
+    admin.from('msg_push_subs').select('*').in('id', ids),
     admin.from('teacher_accounts').select('user_id').eq('active', true),
   ])
-  if (t.error || s.error || a.error) {
-    await admin.from('msg_messages').update({ push_retry: m.push_retry }).eq('id', id).is('push_retry', null)
-    return { status: 503 }
-  }
+  if (m.error || t.error || s.error || a.error) { await restore(ids); return { status: 503 } }
+  if (!m.data || m.data.deleted_at) return { status: 200, skipped: true }
   const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
-  const r = await deliver(admin, onlySubs(plan(m, t.data || [], s.data || [], active), m.push_retry))
-  if (r.failedIds.length) await admin.from('msg_messages').update({ push_retry: r.failedIds }).eq('id', id).is('push_retry', null)
+  const r = await deliver(admin, onlySubs(plan(m.data, t.data || [], s.data || [], active), ids))
+  if (r.failedIds.length) await restore(r.failedIds)
+  return { status: r.failed ? 503 : 200 }
+}
+
+// 넘김 알림도 같은 방식 — hand_retry = {to, by, subs:[id…]} 의 기기에만 다시 (Codex 검토)
+// deno-lint-ignore no-explicit-any
+export async function retryHand(admin: any, id: number) {
+  const c = await admin.rpc('msg_hand_retry_claim', { p_id: id })
+  if (c.error) return { status: 503 }
+  const h = c.data as { to?: string; by?: string; subs?: number[] } | null
+  if (!h || !Array.isArray(h.subs) || !h.subs.length || !h.to) return { status: 200, skipped: true }
+  const restore = async (v: unknown) => { await admin.from('msg_tasks').update({ hand_retry: v }).eq('id', id).is('hand_retry', null) }
+  const [t, s, a] = await Promise.all([
+    admin.from('msg_tasks').select('id,message_id,text,status,assignee').eq('id', id).maybeSingle(),
+    admin.from('msg_push_subs').select('*').in('id', h.subs),
+    admin.from('teacher_accounts').select('user_id').eq('active', true),
+  ])
+  if (t.error || s.error || a.error) { await restore(h); return { status: 503 } }
+  // 그 사이 다른 사람에게 다시 넘겼으면 옛 사람에게는 보내지 않는다
+  if (!t.data || t.data.assignee !== h.to) return { status: 200, skipped: true }
+  const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
+  const r = await deliver(admin, onlySubs(handPlan({ ...t.data, to: h.to }, h.by || '', s.data || [], active), h.subs))
+  if (r.failedIds.length) await restore({ ...h, subs: r.failedIds })
   return { status: r.failed ? 503 : 200 }
 }

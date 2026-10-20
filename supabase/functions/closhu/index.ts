@@ -9,7 +9,7 @@
 // 지침: docs/클로슈-지침.md
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { setup, pushMessage, retryPush } from '../_shared/push.ts'
+import { setup, pushMessage, retryPush, retryHand } from '../_shared/push.ts'
 import { sameToken, safeQuery, TABLES } from './lib.ts'
 
 const URL0 = Deno.env.get('SUPABASE_URL') || ''
@@ -41,6 +41,8 @@ async function repush() {
   const part = await admin.from('msg_messages').select('id').not('push_retry', 'is', null).is('deleted_at', null).gte('created_at', since).order('id').limit(20)
   let retried = 0
   for (const m of part.data || []) { retried++; const r = await retryPush(admin, m.id); if (r.status !== 200) failed++ }
+  const hands = await admin.from('msg_tasks').select('id').not('hand_retry', 'is', null).eq('status', '대기').order('id').limit(20)
+  for (const t of hands.data || []) { retried++; const r = await retryHand(admin, t.id); if (r.status !== 200) failed++ }
   return { tried: (data || []).length, retried, failed }
 }
 

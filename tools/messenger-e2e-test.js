@@ -1146,6 +1146,7 @@ function filterRows(rows, u){
     await page.waitForSelector('#m' + km.id, { timeout: 8000 }).catch(() => {});
     const kr = page.locator('#m' + km.id);
     ok((await kr.count()) === 1 && (await kr.locator('.av').textContent()) === '카' && (await kr.locator('.nm').textContent()).includes('학부모님 문의') && await kr.evaluate(e => e.classList.contains('kko')), '카카오채널 글 — 동그라미 카·학부모님 문의 표시');
+    ok(!(await kr.evaluate(e => e.classList.contains('cont'))), '클로슈 글 바로 뒤의 카카오채널 글도 이름·동그라미를 따로 보임 (Codex 검토)');
   }
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'bot.png') });
   await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });

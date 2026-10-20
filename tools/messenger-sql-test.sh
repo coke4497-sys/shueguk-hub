@@ -359,6 +359,14 @@ ok "$(svc "select public.msg_bot_say('note', '받는 사람 없는 알림')" | g
 NQ=$(as $C "select (public.msg_send('교재 주문 누가 해요?', '[]', '{}')->'message'->>'id')")
 ok "$(svc "select (public.msg_bot_say('note', '@로 부르면 업무 카드에 올라가요', $NQ)).bot->'to'->>0")" "$C" "받는 사람을 빠뜨린 note 는 원글 쓴 사람에게만"
 ok "$(SQ "select count(*) from information_schema.columns where table_name='msg_messages' and column_name='push_retry'")" "1" "일부 실패 기기 목록 열(push_retry)"
+SQ "update public.msg_messages set push_retry='[7,9]' where id=$NQ" >/dev/null
+ok "$(svc "select public.msg_push_retry_claim($NQ)")" "[7, 9]" "다시 보낼 기기 목록을 비우며 옛 값을 돌려줌 (Codex 검토)"
+ok "$(svc "select coalesce(public.msg_push_retry_claim($NQ)::text, 'null')")" "null" "두 번째는 빈 값(한쪽만 잡음)"
+ok "$(SQ "select coalesce(push_retry::text, 'null') from public.msg_messages where id=$NQ")" "null" "잡은 뒤 목록은 비워짐"
+HT=$(SQ "select id from public.msg_tasks order by id limit 1")
+SQ "update public.msg_tasks set hand_retry='{\"to\":\"$B\",\"by\":\"이수경\",\"subs\":[3]}' where id=$HT" >/dev/null
+ok "$(svc "select public.msg_hand_retry_claim($HT)->'subs'")" "[3]" "넘김 알림도 일부 실패 기기만 다시 잡음"
+ok "$(as $A "select public.msg_push_retry_claim($NQ)" | grep -c 'permission denied')" 1 "교사는 다시 보내기 잡기 함수를 못 부름"
 SQ "update public.teacher_accounts set role='teacher' where user_id='$A'" >/dev/null
 ok "$(svc "select (public.kakao_inbound('noadm1', '관리자 없음')).bot->>'to'")" "[]" "관리자가 없어도 모두에게 보내지 않음(빈 받는 사람) (Codex 검토)"
 SQ "update public.teacher_accounts set role='admin' where user_id='$A'" >/dev/null

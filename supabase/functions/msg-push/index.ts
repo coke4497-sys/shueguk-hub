@@ -77,6 +77,8 @@ const handler = withSupabase({ auth: 'user' }, async (request, context) => {
       await admin.from('msg_tasks').update({ hand_push: to }).eq('id', id).is('hand_push', null)
       return reply(503, { error: 'deliver_failed', targets: items.length, ...r })
     }
+    // 일부 기기만 실패 — 그 기기만 적어 두고 클로슈 순찰(closhu feed)이 retryHand 로 다시 보낸다 (Codex 검토)
+    if (r.failedIds.length) await admin.from('msg_tasks').update({ hand_retry: { to, by: me.display_name, subs: r.failedIds } }).eq('id', id)
     return reply(200, { targets: items.length, ...r })
   }
   return reply(400, { error: 'bad_action' })
