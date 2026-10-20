@@ -75,14 +75,15 @@ const handler = withSupabase({ auth: 'user' }, async (request, context) => {
     const r = await deliver(admin, items)
     // 한 기기에도 못 보냈고 일시적 실패가 있으면 자리를 되돌려 화면이 5초 뒤 다시 부르게 한다 (Codex 검토)
     if (!r.sent && r.failed) {
-      await checked(() => admin.from('msg_tasks').update({ hand_push: to }).eq('id', id).is('hand_push', null), 'unclaim hand ' + id)
+      await checked(() => admin.from('msg_tasks').update({ hand_push: to }).eq('id', id).is('hand_push', null).eq('updated_at', claimed[0].updated_at), 'unclaim hand ' + id)
       return reply(503, { error: 'deliver_failed', targets: items.length, ...r })
     }
     // 일부 기기만 실패 — 그 기기만 적어 두고 클로슈 순찰(closhu feed)이 retryHand 로 다시 보낸다 (Codex 검토)
+    // 되돌림·재시도 정보 모두 잡은 뒤 그대로일 때만 — 보내는 사이 다시 넘겼으면 옛 사람을 되살리지 않는다 (Codex 검토)
     // 잡은 뒤 그대로일 때만 적는다 — 보내는 사이 다시 넘겼으면(updated_at 이 바뀜) 낡은 재시도 정보를 남기지 않는다 (Codex 검토)
     // 적기마저 실패하면 알림 자리(hand_push)를 되돌려 화면이 다시 부르게 한다 — 같은 tag 라 받은 기기에는 겹쳐 쌓이지 않는다 (Codex 검토)
     if (r.failedIds.length && !(await saveRetry(admin, 'msg_tasks', id, { hand_retry: { to, by: me.display_name, subs: r.failedIds } }, ['updated_at', claimed[0].updated_at]))) {
-      await checked(() => admin.from('msg_tasks').update({ hand_push: to }).eq('id', id).is('hand_push', null), 'unclaim hand ' + id)
+      await checked(() => admin.from('msg_tasks').update({ hand_push: to }).eq('id', id).is('hand_push', null).eq('updated_at', claimed[0].updated_at), 'unclaim hand ' + id)
       return reply(503, { error: 'retry_save_failed', targets: items.length, ...r })
     }
     return reply(200, { targets: items.length, ...r })
