@@ -93,8 +93,26 @@ async function feed() {
     if (g.error) throw g.error
     for (const r of g.data || []) goneSrc.add(r.id)
   }
-  const today0 = kst().slice(0, 10)
   const short = (m: Record<string, unknown>) => ({ ...m, files: Array.isArray(m.files) ? (m.files as unknown[]).length : 0 })
+  // 고르기 전에 지운 배정 질문의 원글 — 원글은 살아 있고 할 일도, 다른 열린 질문도 없으면 다시 살펴볼 글로 돌려준다.
+  // 지운 질문의 열쇠(ask:<원글>)는 msg_bot_say 가 다시 쓸 수 있게 풀어 준다 (Codex 검토)
+  const gone = await allRows(() => admin.from('msg_messages').select('reply_to').eq('bot->>kind', 'ask').is('bot->done', null).not('deleted_at', 'is', null).order('id'))
+  if (gone.error) throw gone.error
+  const openSrc = new Set(askRows.map((m) => m.reply_to))
+  const cand = [...new Set((gone.data as { reply_to: number | null }[]).map((m) => m.reply_to).filter((x): x is number => !!x && !openSrc.has(x)))]
+  const reopen: unknown[] = []
+  for (let i = 0; i < cand.length; i += 200) {
+    const ids = cand.slice(i, i + 200)
+    const [src, tk] = await Promise.all([
+      admin.from('msg_messages').select(sel).in('id', ids).is('deleted_at', null).order('id'),
+      admin.from('msg_tasks').select('message_id').in('message_id', ids),
+    ])
+    if (src.error) throw src.error
+    if (tk.error) throw tk.error
+    const hasTask = new Set((tk.data || []).map((t: { message_id: number }) => t.message_id))
+    for (const m of src.data || []) if (!hasTask.has(m.id)) reopen.push(short(m))
+  }
+  const today0 = kst().slice(0, 10)
   return {
     now_kst: kst(), cursor, first_run: first,
     last_id: Math.max(cursor, ...((fresh.data || []).map((m: { id: number }) => m.id))),
@@ -107,6 +125,7 @@ async function feed() {
     members: mem,
     presence_today: (pres.data || []).filter((p: { is_on: boolean; changed_at: string }) => p.is_on && kst(Date.parse(p.changed_at)).slice(0, 10) === today0),
     unanswered_mentions: (ments.data || []).map((m: { id: number; created_at: string; author_name: string; body: string }) => ({ id: m.id, created_at: m.created_at, author_name: m.author_name, body: m.body })),
+    reopen_messages: reopen,
     open_asks: askRows.filter((m) => !m.bot?.done && !(m.reply_to && goneSrc.has(m.reply_to))),
   }
 }
