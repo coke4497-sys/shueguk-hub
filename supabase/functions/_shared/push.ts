@@ -25,8 +25,9 @@ export function plan(msg: Msg, tasks: Task[], subs: Sub[], active: Set<string>) 
   return subs
     .filter((s) => s.user_id !== msg.author && active.has(s.user_id))
     .filter((s) => !only || only.has(s.user_id))
-    // bot.to 로 정한 사람은 옛 'mention' 범위로 저장된 기기여도 받는다 — 클로슈 글에는 그 사람 할 일이 없다 (Codex 검토)
-    .filter((s) => !!only || s.mode !== 'mention' || mine.has(s.user_id))
+    // 클로슈·카카오채널 글(bot)은 옛 'mention' 범위로 저장된 기기여도 받는다 — 그 글에는 받는 사람 할 일이 없다.
+    // bot.to 가 없는 글(오늘 정리 등)은 모두에게 (Codex 검토)
+    .filter((s) => !!msg.bot || s.mode !== 'mention' || mine.has(s.user_id))
     .map((s) => {
       const t = mine.get(s.user_id)
       return {
@@ -217,7 +218,7 @@ export async function retryHand(admin: any, id: number) {
 // 다 읽고 → hand_push 를 비우며 잡고 → 보냄. 전체 실패면 자리를 되돌리고, 일부 실패면 그 기기만 hand_retry 에. by 가 있으면 그 사람이 넘긴 일만.
 // deno-lint-ignore no-explicit-any
 export async function pushHand(admin: any, id: number, by?: string) {
-  let tq = admin.from('msg_tasks').select('id,message_id,text,status,hand_push,hand_by').eq('id', id).not('hand_push', 'is', null)
+  let tq = admin.from('msg_tasks').select('id,message_id,text,status,hand_push,hand_by,updated_at').eq('id', id).not('hand_push', 'is', null)
   if (by) tq = tq.eq('hand_by', by)
   const [t, a] = await Promise.all([tq.maybeSingle(), admin.from('teacher_accounts').select('user_id,display_name').eq('active', true)])
   if (t.error || a.error) return { status: 503, body: { error: 'lookup_failed' } }
@@ -228,8 +229,9 @@ export async function pushHand(admin: any, id: number, by?: string) {
   const s = await admin.from('msg_push_subs').select('*').eq('user_id', to)
   if (s.error) return { status: 503, body: { error: 'lookup_failed' } }
   // 새 넘김 알림을 잡을 때 앞 넘김의 재시도 정보도 비운다 — A→B→A 처럼 다시 넘겼을 때 낡은 알림이 가지 않게
-  let cq = admin.from('msg_tasks').update({ hand_push: null, hand_retry: null }).eq('id', id).eq('hand_push', to)
-  if (by) cq = cq.eq('hand_by', by)
+  // 처음 읽은 위임 차례(넘긴 사람·updated_at)가 그대로일 때만 잡는다 — 그 사이 B→C→B 로 다시 넘겼으면 옛 이름으로 보내지 않게 (Codex 검토)
+  const cq = admin.from('msg_tasks').update({ hand_push: null, hand_retry: null }).eq('id', id).eq('hand_push', to)
+    .eq('hand_by', t.data.hand_by).eq('updated_at', t.data.updated_at)
   const { data: claimed, error: ce } = await cq.select('id,message_id,text,status,updated_at')
   if (ce) return { status: 503, body: { error: 'claim_failed' } }
   if (!claimed || !claimed.length) return { status: 200, body: { skipped: true } }

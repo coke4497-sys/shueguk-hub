@@ -52,6 +52,8 @@ Deno.test('클로슈 메시지 — 받을 사람이 정해지면 그 사람 기�
   assertEquals(plan(all, [], [sub(1, A), sub(2, B)], new Set([A, B])).map((i) => i.sub.id), [1, 2])
   // 옛 'mention' 범위로 저장된 기기도 bot.to 대상이면 받는다
   assertEquals(plan(bot, [], [{ ...sub(2, B), mode: 'mention' }, { ...sub(3, C), mode: 'mention' }], new Set([A, B, C])).map((i) => i.sub.id), [2])
+  // 받을 사람이 없는 클로슈 글(오늘 정리)은 옛 'mention' 기기에도 간다 (Codex 검토)
+  assertEquals(plan(all, [], [{ ...sub(1, A), mode: 'mention' }, sub(2, B)], new Set([A, B])).map((i) => i.sub.id), [1, 2])
 })
 
 Deno.test('Deno에서 web-push 암호화가 되고 받는 기기가 풀 수 있다', () => {

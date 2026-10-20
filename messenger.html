@@ -877,7 +877,7 @@
     var ids = Object.keys(qWant).filter(function(id){ return !QCACHE[id] && !MSGS.get(Number(id)); });
     qWant = {};
     if (!ids.length) return;
-    api('/msg_messages?select=id,author_name,body,files,deleted_at,updated_at&id=in.(' + ids.join(',') + ')').then(function(rows){
+    api('/msg_messages?select=id,author,author_name,body,files,deleted_at,updated_at&id=in.(' + ids.join(',') + ')').then(function(rows){
       (rows || []).forEach(function(r){ QCACHE[r.id] = r; });
       ids.forEach(function(id){ if (!QCACHE[id]) QCACHE[id] = { author_name: '', body: '', deleted_at: '1' }; });
       renderMsgs('keep'); renderBoard();
