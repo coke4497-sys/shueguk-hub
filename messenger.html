@@ -1478,8 +1478,13 @@
     rpc('msg_bot_tick').then(function(r){
       ((r && r.msgs) || []).forEach(botPush);
     }).catch(botFail).then(function(){ botBusy = false; });
-    // 내가 넘긴(또는 클로슈 보기로 고른) 일의 넘김 알림이 아직 남아 있으면 다시 부른다 — 서버가 hand_push 로 한 번만 보낸다 (Codex 검토)
-    TASKS.forEach(function(t){ if (t.hand_push && t.hand_by === ME.id && t.status === '대기') fn({ action: 'hand', task_id: t.id }, true).then(function(){ t.hand_push = null; }).catch(function(){}); });
+    // 내가 넘긴(또는 클로슈 보기로 고른) 일의 넘김 알림이 아직 남아 있으면 다시 부른다 — 서버가 hand_push 로 한 번만 보낸다.
+    // 화면에 불러온 할 일(처음 1000건)만 보면 그 밖의 것을 놓치므로 서버에 직접 묻는다 (Codex 검토)
+    api('/msg_tasks?select=id&hand_by=eq.' + ME.id + '&hand_push=not.is.null&status=eq.' + encodeURIComponent('대기') + '&order=id&limit=50').then(function(rows){
+      (rows || []).forEach(function(r){
+        fn({ action: 'hand', task_id: r.id }, true).then(function(){ var t = TASKS.find(function(x){ return x.id === r.id; }); if (t) t.hand_push = null; }).catch(function(){});
+      });
+    }).catch(function(){});
   }
 
   // ── 출근·퇴근 (2026-10-19 원장님 "구성원이 어느 센터 on, off 상태를 표시") ─────────

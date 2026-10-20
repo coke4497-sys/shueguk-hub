@@ -75,6 +75,7 @@ function filterRows(rows, u){
       out = out.filter(r => parts.some(([f, op, val]) => op === 'is' ? r[f] == null : op === 'neq' ? String(r[f]) !== val : op === 'eq' ? String(r[f]) === val : false));
       return;
     }
+    if (v === 'not.is.null'){ out = out.filter(r => r[k] != null); return; }
     const m = v.match(/^(eq|neq|gt|gte|lt|in|is|ilike|like)\.(.*)$/); if (!m) return;
     const [, op, val] = m;
     if (op === 'eq') out = out.filter(r => String(r[k]) === val);
@@ -207,6 +208,7 @@ function filterRows(rows, u){
         if (b.action === 'key') return json({ key: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U' });
         if (b.action === 'test') return json({ devices: 1, sent: 1, gone: 0, failed: 0 });
         if (b.action === 'hand' && failHand > 0){ failHand--; return json({ error: 'deliver_failed' }, 503); }
+        if (b.action === 'hand'){ const k = TASKS.find(x => x.id === b.task_id); if (k) k.hand_push = null; }
         if (b.action === 'send' && failSendOnce){ failSendOnce = false; return json({ error: 'lookup_failed' }, 503); }
         return json({ targets: 2, sent: 2 });
       }
@@ -1125,6 +1127,7 @@ function filterRows(rows, u){
   await page.evaluate(() => { const D = Date, off = 130000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
   await page.waitForFunction(() => true); await sleep(5000);
   ok(calls.filter(c => c[0] === 'fn' && c[1].action === 'hand').length >= 3, '넘김 알림이 실패하면 다음 tick 에 다시 (Codex 검토)');
+  ok(calls.some(c => c[0] === 'tasksq' && /hand_push=not\.is\.null/.test(c[1]) && /hand_by=eq\./.test(c[1])), '남은 넘김 알림은 서버에 직접 묻는다(1000건 밖도) (Codex 검토)');
   ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === dueMsg.id) && calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === am.id), 'tick 이 돌려준 클로슈 글 → 휴대폰 알림 요청');
   ok(!calls.some(c => c[0] === 'botrpc' && /msg_bot_(ask|post)/.test(c[1])), '밤 9시 정리도 화면이 쓰지 않음(클로드가 씀)');
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'bot.png') });

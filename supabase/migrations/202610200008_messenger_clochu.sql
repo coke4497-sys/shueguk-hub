@@ -49,6 +49,13 @@ begin
       where not exists (select 1 from public.teacher_accounts t where t.user_id = u and t.active)) then
     raise exception 'bad_person';
   end if;
+  -- 답은 물어본 사람에게만 알린다 — 받는 사람을 빠뜨려 모두에게 가지 않게 서버가 정한다 (Codex 검토)
+  if p_kind = 'answer' then
+    if v_src.author is null then
+      raise exception 'bad_reply';
+    end if;
+    v_to := array[v_src.author];
+  end if;
   if p_kind = 'ask' then
     if jsonb_typeof(p_options) is distinct from 'array' or jsonb_array_length(p_options) not between 1 and 8 then
       raise exception 'bad_options';

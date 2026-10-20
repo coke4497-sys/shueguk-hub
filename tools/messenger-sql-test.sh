@@ -311,6 +311,9 @@ ok "$(as $B "select public.msg_bot_pick($AQ3, '$B')" | grep -c msg_deleted)" 1 "
 MA2=$(as $C "select (public.msg_send('@클로슈 김민준 담당이 누구야?', '[]', '{}')->'message'->>'id')")
 ok "$(svc "select (public.msg_bot_say('answer', '김민준 · 담당 이은지 선생님', $MA2, array['$C']::uuid[], null, 'answer:$MA2')).author_name")" "클로슈" "@클로슈 질문에 클로드 답"
 ok "$(svc "select public.msg_bot_say('answer', '또', $MA2, null, null, 'answer:$MA2')" | grep -c exists)" 1 "질문마다 답 한 번"
+ok "$(psql -X -A -t -q -d $DB -c "select bot->'to' from public.msg_messages where reply_to=$MA2 and bot->>'kind'='answer'")" "[\"$C\"]" "답 알림은 물어본 사람에게만"
+MA4=$(as $C "select (public.msg_send('@클로슈 오늘 휴강 반 있어?', '[]', '{}')->'message'->>'id')")
+ok "$(svc "select (public.msg_bot_say('answer', '없습니다', $MA4, array['$A','$B']::uuid[])).bot->'to'")" "[\"$C\"]" "받는 사람을 다르게 줘도 답은 물어본 사람에게만 (Codex 검토)"
 as $A "select public.msg_delete((select id from public.msg_messages where reply_to=$MA2 and bot->>'kind'='answer'))" >/dev/null
 ok "$(svc "select (public.msg_bot_say('answer', '다시 답', $MA2, array['$C']::uuid[], null, 'answer:$MA2')).body")" "다시 답" "지운 답의 열쇠는 다시 쓸 수 있음"
 ok "$(svc "select public.msg_bot_say('answer', '또또', $MA2, null, null, 'answer:$MA2')" | grep -c exists)" 1 "다시 단 답도 한 번만"
