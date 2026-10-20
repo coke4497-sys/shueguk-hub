@@ -45,6 +45,17 @@ Deno.test('넘겨받은 사람 기기에만, 대기 중·활성일 때만', () =
   assertEquals(handPlan(t, 'x', [sub(2, B)], new Set([A])).length, 0)
 })
 
+Deno.test('클로슈 메시지 — 받을 사람이 정해지면 그 사람 기기에만', () => {
+  const bot = { id: 5, author: null, author_name: '클로슈', body: '@이은지 약속 시각이 지났어요', files: [], deleted_at: null, bot: { to: [B] } }
+  assertEquals(plan(bot, [], [sub(1, A), sub(2, B), sub(3, C)], new Set([A, B, C])).map((i) => i.sub.id), [2])
+  const all = { ...bot, bot: {} }
+  assertEquals(plan(all, [], [sub(1, A), sub(2, B)], new Set([A, B])).map((i) => i.sub.id), [1, 2])
+  // 옛 'mention' 범위로 저장된 기기도 bot.to 대상이면 받는다
+  assertEquals(plan(bot, [], [{ ...sub(2, B), mode: 'mention' }, { ...sub(3, C), mode: 'mention' }], new Set([A, B, C])).map((i) => i.sub.id), [2])
+  // 받을 사람이 없는 클로슈 글(오늘 정리)은 옛 'mention' 기기에도 간다 (Codex 검토)
+  assertEquals(plan(all, [], [{ ...sub(1, A), mode: 'mention' }, sub(2, B)], new Set([A, B])).map((i) => i.sub.id), [1, 2])
+})
+
 Deno.test('Deno에서 web-push 암호화가 되고 받는 기기가 풀 수 있다', () => {
   const vapid = webpush.generateVAPIDKeys()
   webpush.setVapidDetails('https://coke4497-sys.github.io/shueguk-hub/messenger.html', vapid.publicKey, vapid.privateKey)
@@ -58,4 +69,11 @@ Deno.test('Deno에서 web-push 암호화가 되고 받는 기기가 풀 수 있�
   assertEquals(String(req.headers['Authorization']).startsWith('vapid t='), true)
   const plain = ece.decrypt(req.body, { version: 'aes128gcm', privateKey: ua, authSecret })
   assertEquals(new TextDecoder().decode(plain), body)
+})
+
+Deno.test('일부 실패 다시 보내기는 적어 둔 기기에만 (Codex 검토)', async () => {
+  const { onlySubs } = await import('../_shared/push.ts')
+  const items = [1, 2, 3].map((id) => ({ sub: { id } as unknown as import('../_shared/push.ts').Sub, payload: {} }))
+  assertEquals(onlySubs(items, [2, 3]).map((x) => Number(x.sub.id)), [2, 3])
+  assertEquals(onlySubs(items, null).length, 0)
 })

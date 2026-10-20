@@ -131,6 +131,23 @@
   .m.mine .bb{background:var(--lav);border-radius:14px 4px 14px 14px;}
   .m.flash .bb{box-shadow:0 0 0 3px #B9A5CC;}
   .mact{border:0;background:transparent;color:var(--cap);font-size:12px;padding:2px 4px;opacity:0;}
+  /* 읽음 숫자(카카오톡처럼 안 읽은 사람 수) · 공감(하트) — 202610200012 */
+  .tw{display:flex;flex-direction:column;align-items:flex-start;gap:1px;flex:none;}
+  .m.mine .tw{align-items:flex-end;}
+  .rc{border:0;background:transparent;padding:0 2px;font-size:11.5px;font-weight:700;color:#B88A1E;line-height:1.2;}
+  .rc[hidden]{display:none;}
+  .hrt{border:0;background:transparent;padding:2px 4px;display:inline-flex;align-items:center;gap:3px;color:var(--cap);font-size:12px;opacity:0;}
+  .hrt svg{width:14px;height:14px;}
+  .hrt.on,.hrt.has{opacity:1;}
+  .hrt.on{color:#C64F63;}
+  .m:hover .hrt,.hrt:focus{opacity:1;}
+  @media (hover:none){.hrt{opacity:.7;} .hrt.on,.hrt.has{opacity:1;}}
+  .rdback{position:fixed;inset:0;background:rgba(42,51,47,.35);display:flex;align-items:center;justify-content:center;z-index:46;padding:14px;}
+  .rdback[hidden]{display:none;}
+  .rdtabs{display:flex;gap:6px;flex-wrap:wrap;}
+  .rdtabs button{border:0;border-radius:999px;padding:6px 12px;font-size:13px;background:var(--soft);color:var(--ink);}
+  .rdtabs button.on{background:var(--lav);color:var(--lavInk);font-weight:700;}
+  .rdsnip{font-size:13px;color:var(--ink2);background:var(--soft);border-radius:10px;padding:8px 10px;line-height:1.5;max-height:66px;overflow:hidden;}
   .m:hover .mact,.mact:focus{opacity:1;}
   @media (hover:none){.mact{opacity:.7;}}
   .files{display:flex;flex-direction:column;gap:6px;margin-top:4px;}
@@ -150,6 +167,13 @@
   .tk.cx{background:#ECEEED;color:#6A716C;}
   .tk.pg{background:#E9EDF8;color:#3F4E78;}
   .meta .pg{color:#3F4E78;font-weight:700;}
+  /* 클로슈 (202610200007) */
+  .m.botm .bb{background:#EEF4F1;}
+  .m.kko .bb{background:#FBF4DF;}
+  .bopts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+  .bopt{border:0;border-radius:999px;background:var(--lav);color:var(--lavInk);font-size:13px;padding:6px 12px;}
+  .bdone{font-size:12.5px;color:var(--okInk);background:var(--ok);border-radius:10px;padding:5px 10px;margin-top:6px;display:inline-block;}
+  .bwait{font-size:12px;color:var(--cap);margin-top:4px;}
   /* 결석·지각·이동 확인 요청 안내 (202610200003) */
   .ahint{font-size:12.5px;color:var(--lavInk);background:var(--lav);border-radius:10px;padding:6px 10px;margin:0 0 6px;}
   .ahint.warn{color:var(--lateInk);background:#F7E2DE;}
@@ -402,11 +426,23 @@
     <div id="plbody"></div>
   </div>
 </div>
+<div class="rdback" id="rdback" hidden>
+  <div class="plpanel" role="dialog" aria-modal="true" aria-labelledby="rdtitle">
+    <div class="plhead"><span class="btitle" id="rdtitle">읽음 확인</span><button class="hbtn plain" type="button" id="rdclose">닫기</button></div>
+    <div class="rdsnip" id="rdsnip"></div>
+    <div class="rdtabs" id="rdtabs"></div>
+    <div id="rdbody"></div>
+  </div>
+</div>
 <div class="pback" id="cxback" hidden>
   <div class="ppanel cxpanel" role="dialog" aria-modal="true" aria-labelledby="cxtitle">
-    <span class="btitle" id="cxtitle">할 일 관리</span>
+    <span class="btitle" id="cxtitle">업무 체크리스트</span>
     <div class="cxt" id="cxtask"></div>
-    <div class="cxm" id="cxmodes"><button type="button" data-mode="prog">진행 중</button><button type="button" data-mode="defer">미루기</button><button type="button" data-mode="deleg">넘기기</button><button type="button" data-mode="cancel">취소</button></div>
+    <div class="cxm" id="cxmodes"><button type="button" data-mode="done">완료</button><button type="button" data-mode="prog">진행 중</button><button type="button" data-mode="defer">미루기</button><button type="button" data-mode="deleg">넘기기</button><button type="button" data-mode="cancel">취소</button></div>
+    <div class="cxs" data-sec="done">
+      <p class="pnote">다 끝낸 일을 완료로 체크합니다. 업무 카드의 네모 칸을 눌러도 같아요.</p>
+      <div class="prow"><button class="hbtn big" type="button" id="dnok">완료로 체크</button></div>
+    </div>
     <div class="cxs" data-sec="prog">
       <p class="pnote" id="pgnote">지금 이 일을 하고 있다고 표시합니다. 업무 카드와 메시지 아래에 '진행 중'으로 보여요.</p>
       <div class="prow"><button class="hbtn big" type="button" id="pgok">진행 중으로 표시</button></div>
@@ -566,6 +602,7 @@
     }).then(function(){
       ready = true;
       renderMsgs('first'); renderBoard();
+      loadReads();
       var hm0 = location.hash.match(/^#m(\d+)$/); if (hm0) goTo(Number(hm0[1]));
       pushInit(); loadPres(); loadLessons(true);
       setLive(true); schedule();
@@ -631,7 +668,7 @@
       if (mc || tc || deleted.length || qch){ renderMsgs(lastMsgId() > lastBefore ? 'new' : 'keep'); renderBoard(); }
       notifyNew(newMsgs.filter(function(m){ return m.id > lastBefore && m.author !== ME.id && !m.deleted_at; }));
     }).catch(function(){ setLive(false); }).then(function(){ polling = false; schedule(); });
-    loadPres(); loadLessons();
+    loadPres(); loadLessons(); botTick(); loadReads();
   }
   document.addEventListener('visibilitychange', function(){ if (document.hidden) tellReading(false); if (!document.hidden){ unseen = 0; document.title = '슈톡 · Shuetalk'; markRead(); poll(); } });
 
@@ -733,7 +770,7 @@
   function mentionRe(){
     if (MENTION_CACHE) return MENTION_CACHE;
     var names = MEMBERS.map(function(m){ return m.name; }).filter(Boolean).sort(function(a, b){ return b.length - a.length; });
-    names = names.map(function(n){ return n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).concat(['모두', '전체', '조교', '선생님']);
+    names = names.map(function(n){ return n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).concat(['모두', '전체', '조교', '선생님', '클로슈']);
     MENTION_CACHE = new RegExp('@(' + names.join('|') + ')(T|선생님|쌤|조교|님)?', 'g');
     return MENTION_CACHE;
   }
@@ -765,7 +802,7 @@
   var STU_LEFT = /^(퇴원|n|no|off|x|중단|비재원)$/i;
   var PARTICLE = /^(학생|친구|이가|이는|이도|이의|이랑|이|가|은|는|의|도|와|과|랑|군|양)(?![가-힣])/;
   function loadStudents(){
-    if (!stuP) stuP = api('/students?select=name,teacher,enrolled&limit=5000').then(function(rows){
+    if (!stuP) stuP = api('/students?select=name,school,grade,teacher,enrolled&limit=5000').then(function(rows){
       STU = (rows || []).filter(function(x){ return x.name && !STU_LEFT.test(String(x.enrolled || '').trim()); });
     }).catch(function(){ stuP = null; STU = STU || []; });   // 못 읽으면 빈 명단(안내 줄이 '못 찾음'), 다음에 다시 읽음
     return stuP;
@@ -867,7 +904,7 @@
     var ids = Object.keys(qWant).filter(function(id){ return !QCACHE[id] && !MSGS.get(Number(id)); });
     qWant = {};
     if (!ids.length) return;
-    api('/msg_messages?select=id,author_name,body,files,deleted_at,updated_at&id=in.(' + ids.join(',') + ')').then(function(rows){
+    api('/msg_messages?select=id,author,author_name,body,files,deleted_at,updated_at&id=in.(' + ids.join(',') + ')').then(function(rows){
       (rows || []).forEach(function(r){ QCACHE[r.id] = r; });
       ids.forEach(function(id){ if (!QCACHE[id]) QCACHE[id] = { author_name: '', body: '', deleted_at: '1' }; });
       renderMsgs('keep'); renderBoard();
@@ -883,20 +920,23 @@
 
   function msgHtml(m, prev){
     var mine = m.author === ME.id;
-    var cont = prev && prev.author === m.author && !prev.deleted_at && ymd(prev.created_at) === ymd(m.created_at)
+    // 작성자 없는 글(클로슈·카카오채널)끼리는 이름·종류까지 같아야 이어 붙인다 (Codex 검토)
+    var cont = prev && prev.author === m.author && prev.author_name === m.author_name && ((prev.bot && prev.bot.kind) || '') === ((m.bot && m.bot.kind) || '') && !prev.deleted_at && ymd(prev.created_at) === ymd(m.created_at)
       && Date.parse(m.created_at) - Date.parse(prev.created_at) < 5 * 60e3;
-    var mem = MBY[m.author], tn = tone(m.author_name);
+    var kko = m.bot && m.bot.kind === 'kakao';   // 카카오채널 학부모님 문의(202610200009)
+    var mem = MBY[m.author], tn = kko ? ['#F9EFD0', '#7A5F1E'] : m.bot ? ['#4C6E66', '#fff'] : tone(m.author_name);
     var canDel = !m.deleted_at && (mine || ME.role === 'admin');
     var bb = m.deleted_at ? '<div class="bb del">삭제된 메시지입니다.</div>'
       : (m.body ? '<div class="bb">' + bodyHtml(m.body) + '</div>' : '');
-    return '<div class="m' + (mine ? ' mine' : '') + (cont ? ' cont' : '') + '" id="m' + m.id + '">'
-      + '<div class="av" style="background:' + tn[0] + ';color:' + tn[1] + '">' + esc(avChar(m.author_name)) + '</div>'
-      + '<div class="mb"><div class="nm">' + esc(m.author_name) + '<span class="rl">' + esc(mem ? roleLabel(mem.role) : '') + '</span></div>'
+    return '<div class="m' + (mine ? ' mine' : '') + (m.bot ? ' botm' : '') + (kko ? ' kko' : '') + (cont ? ' cont' : '') + '" id="m' + m.id + '">'
+      + '<div class="av" style="background:' + tn[0] + ';color:' + tn[1] + '">' + esc(kko ? '카' : m.bot ? '클' : avChar(m.author_name)) + '</div>'
+      + '<div class="mb"><div class="nm">' + esc(m.author_name) + '<span class="rl">' + esc(kko ? '학부모님 문의 · 답은 채널 관리자센터에서' : m.bot ? '도우미' : mem ? roleLabel(mem.role) : '') + '</span></div>'
       + quoteHtml(m)
-      + '<div class="line">' + bb + '<span class="t">' + hm(m.created_at) + '</span>'
+      + '<div class="line">' + bb + '<span class="tw">' + rcHtml(m) + '<span class="t">' + hm(m.created_at) + '</span></span>'
+      + heartHtml(m)
       + (m.deleted_at || !('reply_to' in m) ? '' : '<button class="mact" type="button" data-reply="' + m.id + '">답장</button>')   // reply_to 열이 없으면(0006 전) 답장 버튼을 숨김
       + (canDel ? '<button class="mact" type="button" data-del="' + m.id + '">지우기</button>' : '') + '</div>'
-      + (m.deleted_at ? '' : filesHtml(m.files)) + chipsHtml(m.id) + '</div></div>';
+      + (m.deleted_at ? '' : filesHtml(m.files)) + (m.bot ? botAskHtml(m) : '') + chipsHtml(m.id) + '</div></div>';
   }
   function atBottom(){ var el = $('msgs'); return el.scrollHeight - el.scrollTop - el.clientHeight < 80; }
   function renderMsgs(mode){
@@ -972,6 +1012,7 @@
     tellReading(true);
     var last = lastMsgId();
     if (last > Number(localStorage.getItem('msg_read_' + ME.id) || 0)) localStorage.setItem('msg_read_' + ME.id, String(last));
+    sendRead(last);
     $('jump').hidden = true;
     clearAppBadge();
     updateBadges();
@@ -1028,9 +1069,109 @@
     if (b.dataset.goMsg){ goTo(Number(b.dataset.goMsg)); return; }
     if (b.dataset.expand){ var k = Number(b.dataset.expand); openChips[k] = !openChips[k]; renderMsgs('keep'); return; }
     if (b.dataset.ack){ ackTask(Number(b.dataset.ack), b); return; }
+    if (b.dataset.pick){ botPick(b.dataset.pick, b); return; }
     if (b.dataset.card){ showCard(b.dataset.card); return; }
     if (b.dataset.del){ delMsg(Number(b.dataset.del)); return; }
+    if (b.dataset.rc){ readList(Number(b.dataset.rc), 'unread'); return; }
+    if (b.dataset.heart){ toggleHeart(Number(b.dataset.heart), b); return; }
   });
+  // ── 읽음 숫자 · 공감(하트) (2026-10-20 원장님 "카톡 대화처럼", 202610200012) ─────────
+  // 메시지 아래 숫자 = 그 메시지를 아직 안 읽은 사람 수(쓴 사람 빼고, 지금 활성 교사). 누르면 읽은 사람·안 읽은 사람·공감한 사람 목록.
+  // 읽은 자리는 사람마다 서버 한 줄(msg_reads — 가장 멀리 읽은 메시지 번호). 표가 없으면(0012 전) 숫자를 그리지 않는다.
+  var READS = null, readsOk = true, readSent = 0, readSending = false, rdOpen = null;
+  var HEART_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>';
+  var HEART_ON = HEART_SVG.replace('fill="none"', 'fill="currentColor"');
+  function lastReadOf(uid){
+    var v = READS && READS[uid] ? READS[uid] : 0;
+    if (ME && uid === ME.id) v = Math.max(v, Number(localStorage.getItem('msg_read_' + ME.id) || 0));
+    return v;
+  }
+  // 이 메시지를 받을 사람 — 쓴 사람 빼고 지금 활성 교사(클로슈·카카오채널 글은 모두)
+  function readersOf(m){ return MEMBERS.filter(function(u){ return u.id !== m.author; }); }
+  function unreadOf(m){ return readersOf(m).filter(function(u){ return lastReadOf(u.id) < m.id; }); }
+  // 숫자 칸은 늘 그려 두고(처음엔 숨김) 읽은 자리를 받으면 paintReads 가 채운다 — 대화를 다시 그리지 않게
+  function rcHtml(m){
+    if (m.deleted_at || !readsOk) return '';
+    var n = READS ? unreadOf(m).length : 0;
+    return '<button class="rc" type="button" data-rc="' + m.id + '" title="안 읽은 사람 ' + n + '명 · 누르면 목록"' + (n ? '' : ' hidden') + '>' + n + '</button>';
+  }
+  function heartHtml(m){
+    if (m.deleted_at || !('hearts' in m)) return '';
+    var hs = m.hearts || [], n = hs.length, on = !!ME && hs.indexOf(ME.id) >= 0;
+    var who = hs.map(function(id){ return MBY[id] ? MBY[id].name : '알 수 없음'; }).join(', ');
+    return '<button class="hrt' + (on ? ' on' : '') + (n ? ' has' : '') + '" type="button" data-heart="' + m.id + '" aria-pressed="' + on + '" aria-label="공감' + (n ? ' ' + n + '명' : '') + '" title="' + esc(n ? '공감 ' + who : '공감하기') + '">' + (on ? HEART_ON : HEART_SVG) + (n ? '<span>' + n + '</span>' : '') + '</button>';
+  }
+  // 숫자만 고친다 — 3초마다 대화 전체를 다시 그리지 않게
+  function paintReads(){
+    if (!READS) return;
+    Array.prototype.forEach.call($('msgs').querySelectorAll('.rc'), function(b){
+      var m = MSGS.get(Number(b.dataset.rc)) || QCACHE[b.dataset.rc]; if (!m) return;
+      var n = unreadOf(m).length;
+      b.textContent = n; b.hidden = !n; b.title = '안 읽은 사람 ' + n + '명 · 누르면 목록';
+    });
+    if (rdOpen) renderReadList();
+  }
+  // 읽은 자리 표가 없으면(0012 전) 숫자 칸을 걷어 내고 다시 그리지 않는다
+  function noReads(){ readsOk = false; Array.prototype.forEach.call($('msgs').querySelectorAll('.rc'), function(b){ b.remove(); }); }
+  function loadReads(){
+    if (!readsOk || !ME) return;
+    api('/msg_reads?select=user_id,last_id').then(function(rows){
+      var nx = {}, changed = !READS;
+      (rows || []).forEach(function(r){ nx[r.user_id] = Number(r.last_id) || 0; if (!READS || READS[r.user_id] !== nx[r.user_id]) changed = true; });
+      if (READS) Object.keys(READS).forEach(function(k){ if (!(k in nx)) changed = true; });
+      READS = nx;
+      if (changed) paintReads();
+    }).catch(function(e){ if (e && (e.status === 404 || /msg_reads/.test(String(e.message)))) noReads(); });
+  }
+  // 여기까지 읽음 — 커질 때만 서버에 적는다(실패하면 다음 읽음 때 다시)
+  function sendRead(last){
+    if (!readsOk || !last || last <= readSent || readSending) return;
+    readSending = true;
+    rpc('msg_read_mark', { p_id: last }).then(function(v){
+      readSending = false;
+      readSent = Math.max(readSent, Number(v) || last);
+      if (READS){ READS[ME.id] = Math.max(READS[ME.id] || 0, readSent); paintReads(); }
+      if (lastMsgId() > readSent) markRead();   // 보내는 사이 새 메시지를 읽었으면 한 번 더(실패 때는 다음 읽음 때)
+    }).catch(function(e){ readSending = false; if (e && (e.status === 404 || /msg_read_mark|PGRST202/.test(String(e.message) + JSON.stringify(e.data || '')))) noReads(); });
+  }
+  function toggleHeart(id, btn){
+    var m = MSGS.get(id) || QCACHE[id]; if (!m || !ME) return;
+    var on = (m.hearts || []).indexOf(ME.id) < 0;
+    if (btn) btn.disabled = true;
+    rpc('msg_heart', { p_id: id, p_on: on }).then(function(row){
+      if (MSGS.has(id)) addMsgs([row]); else QCACHE[id] = row;
+      renderMsgs('keep'); if (rdOpen && rdOpen.id === id) renderReadList();
+    }).catch(function(e){
+      if (btn) btn.disabled = false;
+      status(/msg_heart|PGRST202/.test(String(e.message) + JSON.stringify(e.data || '')) ? '공감 기능 준비가 아직 끝나지 않았습니다(마이그레이션 202610200012).' : /deleted/.test(String(e.message)) ? '지운 메시지에는 공감할 수 없습니다.' : errText(e));
+    });
+  }
+  // 읽음 확인 창 — [안 읽음 n][읽음 n][공감 n]
+  function readList(id, tab){ rdOpen = { id: id, tab: tab || 'unread' }; $('rdback').hidden = false; renderReadList(); loadReads(); }
+  function renderReadList(){
+    if (!rdOpen) return;
+    var m = MSGS.get(rdOpen.id) || QCACHE[rdOpen.id]; if (!m){ closeReadList(); return; }
+    var all = readersOf(m), un = unreadOf(m), unIds = un.map(function(u){ return u.id; });
+    var rd = all.filter(function(u){ return unIds.indexOf(u.id) < 0; });
+    var hs = (m.hearts || []).map(function(id){ return MBY[id] || { id: id, name: '알 수 없음', role: '' }; });
+    var tabs = [['unread', '안 읽음 ' + un.length], ['read', '읽음 ' + rd.length]];
+    if ('hearts' in m) tabs.push(['heart', '공감 ' + hs.length]);
+    $('rdtitle').textContent = '읽음 확인 · 전체 ' + all.length + '명';
+    $('rdsnip').innerHTML = '<b>' + esc(m.author_name) + '</b> · ' + hm(m.created_at) + '<br>' + snip(m);
+    $('rdtabs').innerHTML = tabs.map(function(t){ return '<button type="button" data-rdtab="' + t[0] + '" class="' + (rdOpen.tab === t[0] ? 'on' : '') + '">' + esc(t[1]) + '</button>'; }).join('');
+    var list = rdOpen.tab === 'read' ? rd : rdOpen.tab === 'heart' ? hs : un;
+    var empty = rdOpen.tab === 'read' ? '아직 읽은 사람이 없습니다.' : rdOpen.tab === 'heart' ? '아직 공감한 사람이 없습니다.' : '모두 읽었습니다.';
+    list = list.slice().sort(function(a, b){ return a.name.localeCompare(b.name, 'ko'); });
+    $('rdbody').innerHTML = list.length ? list.map(function(u){
+      return '<div class="plrow' + (ME && u.id === ME.id ? ' plme' : '') + '"><span class="nm">' + esc(u.name) + '</span><span class="rl">' + esc(u.role ? roleLabel(u.role) : '') + '</span></div>';
+    }).join('') : '<div class="plnone">' + empty + '</div>';
+  }
+  function closeReadList(){ rdOpen = null; $('rdback').hidden = true; }
+  $('rdtabs').addEventListener('click', function(e){ var b = e.target.closest('button[data-rdtab]'); if (b && rdOpen){ rdOpen.tab = b.dataset.rdtab; renderReadList(); } });
+  $('rdclose').onclick = closeReadList;
+  $('rdback').addEventListener('click', function(e){ if (e.target === $('rdback')) closeReadList(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && rdOpen) closeReadList(); });
+
   // [확인했습니다] — 맡은 사람만. @모두로 받은 것은 확인하면 완료 (202610190005)
   function ackTask(id, btn){
     if (btn) btn.disabled = true;
@@ -1057,7 +1198,7 @@
     var mm = before.match(/(^|\s)@([^\s@]{0,10})$/);
     return mm ? { q: mm[2], start: pos - mm[2].length - 1, end: pos } : null;
   }
-  var ALL_PICK = { id: '*all', name: '모두', role: 'all' };
+  var ALL_PICK = { id: '*all', name: '모두', role: 'all' }, BOT_PICK = { id: '*bot', name: '클로슈', role: 'bot' };
   // @조교·@선생님 — 그 역할의 활성 계정 모두(나 빼고), @모두처럼 확인만 받으면 끝 (2026-10-20 원장님, 202610200007)
   var GROUP_PICKS = [ALL_PICK, { id: '*ast', name: '조교', role: 'grp', roles: ['assistant'] }, { id: '*tch', name: '선생님', role: 'grp', roles: ['teacher', 'admin'] }];
   function groupMembers(g){ return MEMBERS.filter(function(m){ return m.id !== ME.id && (g === ALL_PICK || g.roles.indexOf(m.role) >= 0); }); }
@@ -1067,9 +1208,10 @@
     mList = MEMBERS.filter(function(m){ return m.name.indexOf(q.q) >= 0; })
       .sort(function(a, b){ return (b.name.indexOf(q.q) === 0) - (a.name.indexOf(q.q) === 0) || a.name.localeCompare(b.name, 'ko'); }).slice(0, 8);
     mList = GROUP_PICKS.filter(function(g){ return g.name.indexOf(q.q) === 0 || (g === ALL_PICK && '전체'.indexOf(q.q) === 0); }).concat(mList);   // @모두·@조교·@선생님
+    if (botOk && '클로슈'.indexOf(q.q) === 0) mList.push(BOT_PICK);   // @클로슈 — 도우미에게 묻기
     if (!mList.length){ box.classList.remove('on'); return; }
     mIdx = Math.min(mIdx, mList.length - 1);
-    box.innerHTML = mList.map(function(m, i){ return '<button type="button" role="option" data-mi="' + i + '" class="' + (i === mIdx ? 'on' : '') + '">' + esc(m.name) + ' <small>' + (m === ALL_PICK ? '나 빼고 ' + (MEMBERS.length - 1) + '명 · 확인만 받으면 끝' : m.role === 'grp' ? m.name + ' 모두 · 나 빼고 ' + groupMembers(m).length + '명 · 확인만 받으면 끝' : roleLabel(m.role) + (presOk ? ' · ' + (presLoc(m.id) ? esc(presLoc(m.id)) + ' ON' : 'OFF') : '')) + '</small></button>'; }).join('');
+    box.innerHTML = mList.map(function(m, i){ return '<button type="button" role="option" data-mi="' + i + '" class="' + (i === mIdx ? 'on' : '') + '">' + esc(m.name) + ' <small>' + (m === ALL_PICK ? '나 빼고 ' + (MEMBERS.length - 1) + '명 · 확인만 받으면 끝' : m.role === 'grp' ? m.name + ' 모두 · 나 빼고 ' + groupMembers(m).length + '명 · 확인만 받으면 끝' : m === BOT_PICK ? '도우미 · 학생 담당·수업·남은 일·출근을 물어보세요' : roleLabel(m.role) + (presOk ? ' · ' + (presLoc(m.id) ? esc(presLoc(m.id)) + ' ON' : 'OFF') : '')) + '</small></button>'; }).join('');
     box.classList.add('on');
   }
   function pickMention(i){
@@ -1161,6 +1303,7 @@
         addMsgs([res.message]); addTasks(res.tasks);
         renderMsgs('bottom'); renderBoard();
         pushAfterSend(res.message.id);
+        if (/@클로슈/.test(res.message.body || '') && !lastAmbig) status('클로슈가 몇 분 안에 대화를 읽고 답해요.', 6000);
       })
       .catch(function(e){
         if (up.length) fetch(STO + '/object/' + BUCKET, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefixes: up.map(function(x){ return x.path; }) }) }).catch(function(){});
@@ -1201,11 +1344,11 @@
   }
   function loadLessons(force){
     var day = todayYmd();
-    if (LES.busy || (!force && LES.tryDay === day && Date.now() - LES.at < LES_MS)) return;   // 실패해도 1분 뒤에 다시 (Codex 검토)
+    if (LES.busy || (!force && LES.tryDay === day && Date.now() - LES.at < LES_MS)) return LES.p || Promise.resolve();   // 실패해도 1분 뒤에 다시 (Codex 검토)
     LES.busy = true; LES.tryDay = day; LES.at = Date.now();
     var wed = weekWed(day), wid = 'w' + day.slice(2).replace(/-/g, ''), dn = WDAY[new Date(day + 'T00:00:00Z').getUTCDay()];
     var sel = '?select=book,class_id,name,day,start_time,end_time,teacher,roster';
-    Promise.all([
+    return (LES.p = Promise.all([
       api('/tt_classes' + sel + '&day=eq.' + encodeURIComponent(dn) + '&class_id=not.like.w*&limit=1000'),
       api('/tt_classes' + sel + '&class_id=like.' + wid + '*&limit=200'),
       api('/tt_period?select=week_wednesday,book,overrides&week_wednesday=eq.' + wed)
@@ -1231,10 +1374,10 @@
       });
       Object.keys(by).forEach(function(k){ by[k].sort(function(a, b){ return minsOf(a.start) - minsOf(b.start) || String(a.name).localeCompare(String(b.name), 'ko'); }); });
       var changed = !LES.ok || LES.day !== day || JSON.stringify(by) !== JSON.stringify(LES.by);
-      LES.by = by; LES.ok = true; LES.day = day; LES.at = Date.now();
+      LES.by = by; LES.ok = true; LES.day = day; LES.at = Date.now(); LES.book0 = book0; LES.ov = ov;
       if (changed && ready) renderBoard();
     }).catch(function(){ LES.at = Date.now(); })   // 시간표를 못 읽으면 수업 줄 없이 그대로(1분 뒤 다시)
-      .then(function(){ LES.busy = false; });
+      .then(function(){ LES.busy = false; }));
   }
   function lessonsOf(uid){ return (LES.ok && LES.day === todayYmd() && LES.by[uid]) || []; }
   function lessonHtml(l){
@@ -1253,7 +1396,9 @@
   // 진행 중(202610200006) — 상태는 대기 그대로, 지금 맡은 사람이 표시한 것만
   function isProg(t){ return t.status === '대기' && !!t.progress_at && t.progress_by === t.assignee_name; }
   function canProg(t){ return 'progress_at' in t && t.status === '대기' && !t.ack_only && t.assignee === ME.id; }
-  function canManage(t){ return t.status === '대기' && (canCancel(t) || canDefer(t) || canDeleg(t) || canProg(t)); }
+  // 관리 창의 [완료] — @모두 할 일은 [확인했습니다]가 곧 완료라 넣지 않는다
+  function canDone(t){ return t.status === '대기' && !t.ack_only && canCheck(t); }
+  function canManage(t){ return t.status === '대기' && (canDone(t) || canCancel(t) || canDefer(t) || canDeleg(t) || canProg(t)); }
   // 그 메시지가 지워지지 않았다고 알 때만 true — 불러오지 않은 메시지는 받아 온 뒤 다시 그린다(Codex 검토)
   function msgAlive(id){
     var m = MSGS.get(id) || QCACHE[id];
@@ -1301,7 +1446,7 @@
         return '<div class="ci"><button class="bx" type="button" data-tk="' + t.id + '" aria-label="완료로 표시"' + (canCheck(t) ? '' : ' disabled title="맡은 사람·맡긴 사람만 체크할 수 있어요"') + '></button>'
           + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta' + (late ? ' lt' : '') + '">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + (late ? ' · ' + late : '') + (t.seen_at ? ' · 확인함' : '') + (isProg(t) ? ' · <span class="pg">진행 중</span>' : '') + dueHtml + histHtml(t) + '</span></button>'
           + (t.assignee === ME.id && !t.seen_at && 'seen_at' in t ? '<button class="ack sm" type="button" data-ack="' + t.id + '">확인</button>' : '')
-          + (canManage(t) ? '<button class="cxb" type="button" data-cx="' + t.id + '" title="진행 중 · 미루기 · 넘기기 · 취소">관리</button>' : '') + '</div>';
+          + (canManage(t) ? '<button class="cxb" type="button" data-cx="' + t.id + '" title="완료 · 진행 중 · 미루기 · 넘기기 · 취소">관리</button>' : '') + '</div>';
       }).concat(p.done.sort(function(a, b){ return Date.parse(b.done_at) - Date.parse(a.done_at); }).map(function(t){
         if (t.status === '취소') return '<div class="ci d x"><span class="bx x" title="취소한 할 일">×</span>'
           + '<button class="ctx" type="button" data-go="' + t.message_id + '">' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest) + '<span class="meta">' + esc(t.requester_name) + ' · 취소 ' + hm(t.done_at) + (t.done_by_name ? ' (' + esc(t.done_by_name) + ')' : '') + '<br><span class="why">사유: ' + esc(t.cancel_reason || '') + '</span>' + histHtml(t) + '</span></button>'
@@ -1358,7 +1503,7 @@
     cxMode = mode;
     document.querySelectorAll('#cxmodes button').forEach(function(b){ b.classList.toggle('on', b.dataset.mode === mode); });
     document.querySelectorAll('#cxback .cxs').forEach(function(x){ x.hidden = x.dataset.sec !== mode; });
-    var f = mode === 'cancel' ? $('cxin') : mode === 'deleg' ? $('dgTo') : mode === 'prog' ? $('pgok') : $('dfDate');
+    var f = mode === 'done' ? $('dnok') : mode === 'cancel' ? $('cxin') : mode === 'deleg' ? $('dgTo') : mode === 'prog' ? $('pgok') : $('dfDate');
     if (f) f.focus();
   }
   var DF_TIMES = []; for (var dh = 7; dh <= 23; dh++){ DF_TIMES.push((dh < 10 ? '0' : '') + dh + ':00'); DF_TIMES.push((dh < 10 ? '0' : '') + dh + ':30'); }
@@ -1369,7 +1514,7 @@
     var t = TASKS.get(id); if (!t) return;
     cxId = id;
     $('cxtask').innerHTML = esc(t.assignee_name) + ' · ' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest);
-    $('cxin').value = ''; $('cxok').disabled = false; $('dfok').disabled = false; $('dgok').disabled = false;
+    $('cxin').value = ''; $('cxok').disabled = false; $('dnok').disabled = false; $('dfok').disabled = false; $('dgok').disabled = false;
     $('dfNote').value = t.due_note || ''; $('dgNote').value = '';
     if (t.due_at){ var d = kst(t.due_at).toISOString(); dfSet(d.slice(0, 10), d.slice(11, 16)); } else dfSet(addDayKst(1), '15:00');
     $('dfclear').hidden = !t.due_at;
@@ -1377,11 +1522,11 @@
       var l = presOk ? presLoc(m.id) : '';
       return '<option value="' + esc(m.id) + '">' + esc(m.name) + ' · ' + esc(roleLabel(m.role)) + (presOk ? (l ? ' · ' + esc(l) + ' ON' : ' · OFF') : '') + '</option>';
     }).join('');
-    var ok = { prog: canProg(t), defer: canDefer(t), deleg: canDeleg(t), cancel: canCancel(t) };
+    var ok = { done: canDone(t), prog: canProg(t), defer: canDefer(t), deleg: canDeleg(t), cancel: canCancel(t) };
     document.querySelectorAll('#cxmodes button').forEach(function(b){ b.hidden = !ok[b.dataset.mode]; });
     $('pgok').disabled = false; $('pgok').textContent = isProg(t) ? '진행 중 풀기' : '진행 중으로 표시';
     $('cxback').hidden = false;
-    cxSetMode(ok.prog ? 'prog' : ok.defer ? 'defer' : ok.deleg ? 'deleg' : 'cancel');
+    cxSetMode(ok.done ? 'done' : ok.prog ? 'prog' : ok.defer ? 'defer' : ok.deleg ? 'deleg' : 'cancel');
   }
   function cxClose(){ $('cxback').hidden = true; cxId = null; }
   function cxDone(id, row){ cxClose(); TASKS.delete(id); addTasks([row]); renderBoard(); renderMsgs('keep'); }
@@ -1412,6 +1557,12 @@
     rpc('msg_task_defer', { p_id: id, p_until: until.toISOString(), p_note: $('dfNote').value.trim() }).then(function(row){ cxDone(id, row); })
       .catch(function(e){ $('dfok').disabled = false; status(errText(e), 6000); });
   };
+  $('dnok').onclick = function(){
+    var id = cxId; if (!TASKS.get(id)) return;
+    $('dnok').disabled = true;
+    rpc('msg_task_set', { p_id: id, p_done: true }).then(function(row){ cxDone(id, row); })
+      .catch(function(e){ $('dnok').disabled = false; status(errText(e), 6000); });
+  };
   $('pgok').onclick = function(){
     var id = cxId, t = TASKS.get(id); if (!t) return;
     $('pgok').disabled = true;
@@ -1439,6 +1590,48 @@
     rpc('msg_task_cancel', { p_id: id, p_undo: true }).then(function(row){
       TASKS.delete(id); addTasks([row]); renderBoard(); renderMsgs('keep');
     }).catch(function(e){ if (btn) btn.disabled = false; status(errText(e)); });
+  }
+
+  // ── 클로슈 = 진짜 클로드 (2026-10-20 원장님 "슈톡 클로슈도 진짜 클로드가 답해야해. 몇분마다 이 대화를 읽고 업무 배정이나 진행에 부족한 부분이
+  //    있을 때만 알려주고 진행하도록 도와주면 돼. 클로슈를 태그해 질문하면 깨어나 답해주고", 202610200008) ──
+  // 글은 클로드 세션이 몇 분마다 대화를 읽고 엣지 함수 closhu 로 올린다 — 화면은 클로슈 글을 만들지 않는다(지침: docs/클로슈-지침.md).
+  // 화면이 하는 일: 클로슈 글 그리기 · 배정 질문 보기 버튼(msg_bot_pick) · 약속 지남 알림(msg_bot_tick — 규칙, 1분마다) · 못 보낸 클로슈 알림 보내기.
+  var botOk = true, BOT_TICK_MS = 60000, botAt = 0, botBusy = false;
+  function botFail(e){ if (e && /msg_bot|PGRST202/.test(String(e.message) + JSON.stringify(e.data || ''))) botOk = false; }
+  function botPush(id){ fn({ action: 'send', message_id: id }, true).catch(function(){ setTimeout(function(){ fn({ action: 'send', message_id: id }, true).catch(function(){}); }, 5000); }); }
+  function botAskHtml(m){
+    var b = m.bot || {};
+    if (b.kind !== 'ask' || m.deleted_at) return '';
+    if (b.done) return '<div class="bdone">' + (b.done.task ? '→ ' + esc(b.done.to) + ' 선생님께 확인 요청을 올렸습니다' : '→ ' + esc(b.done.to) + ' 선생님 담당 — 업무 목록에 올리지 않았어요') + ' · ' + esc(b.done.by) + ' ' + esc(hm(b.done.at)) + '</div>';
+    var src = MSGS.get(b.for) || QCACHE[b.for], mineSrc = !src || src.author === ME.id;
+    var btns = (b.options || []).filter(function(o){ return mineSrc || ME.role === 'admin' || o.uid === ME.id; }).map(function(o){
+      return '<button class="bopt" type="button" data-pick="' + m.id + '|' + esc(o.uid) + '">' + esc(o.label) + '</button>';
+    }).join('');
+    return btns ? '<div class="bopts">' + btns + '</div>' : '<div class="bwait">글쓴 사람이나 보기의 선생님이 고를 수 있어요.</div>';
+  }
+  function botPick(v, btn){
+    var p = v.split('|'), ask = Number(p[0]), uid = p[1];
+    if (btn) btn.disabled = true;
+    rpc('msg_bot_pick', { p_ask: ask, p_uid: uid }).then(function(res){
+      addMsgs([res.message]); addTasks(res.tasks || []); renderMsgs('keep'); renderBoard();
+      (res.tasks || []).forEach(function(t){ if (t.hand_push) fn({ action: 'hand', task_id: t.id }, true).catch(function(){ setTimeout(function(){ fn({ action: 'hand', task_id: t.id }, true).catch(function(){}); }, 5000); }); });
+    }).catch(function(e){ if (btn) btn.disabled = false; status(/already/.test(String(e.message)) ? '이미 다른 분이 골랐습니다.' : errText(e)); });
+  }
+
+  // 약속 지남 알림 — 1분마다(폴링 때) 서버에 물어본다. 아직 알림을 못 보낸 클로슈 글도 함께 돌려받아 보낸다
+  function botTick(){
+    if (!botOk || botBusy || Date.now() - botAt < BOT_TICK_MS) return;
+    botBusy = true; botAt = Date.now();
+    rpc('msg_bot_tick').then(function(r){
+      ((r && r.msgs) || []).forEach(botPush);
+    }).catch(botFail).then(function(){ botBusy = false; });
+    // 내가 넘긴(또는 클로슈 보기로 고른) 일의 넘김 알림이 아직 남아 있으면 다시 부른다 — 서버가 hand_push 로 한 번만 보낸다.
+    // 화면에 불러온 할 일(처음 1000건)만 보면 그 밖의 것을 놓치므로 서버에 직접 묻는다 (Codex 검토)
+    api('/msg_tasks?select=id&hand_by=eq.' + ME.id + '&hand_push=not.is.null&status=eq.' + encodeURIComponent('대기') + '&order=id&limit=50').then(function(rows){
+      (rows || []).forEach(function(r){
+        fn({ action: 'hand', task_id: r.id }, true).then(function(){ var t = TASKS.find(function(x){ return x.id === r.id; }); if (t) t.hand_push = null; }).catch(function(){});
+      });
+    }).catch(function(){});
   }
 
   // ── 출근·퇴근 (2026-10-19 원장님 "구성원이 어느 센터 on, off 상태를 표시") ─────────
@@ -1546,7 +1739,7 @@
       var work = row && row.work; if (row) delete row.work;
       PRES[ME.id] = row; renderPres(); renderBoard();
       status(on ? loc + '에 출근했습니다.' : '퇴근했습니다. 수고하셨어요.' + (work && work.event === 'out' ? ' 오늘 근무 ' + Math.floor(work.minutes / 60) + '시간' + (work.minutes % 60 ? ' ' + work.minutes % 60 + '분' : '') + '.' : ''), 4000);
-      if (work && work.message_id) pushAfterSend(work.message_id);   // 조기퇴근 확인 요청 글(202610200004)
+      if (work && work.message_id) pushAfterSend(work.message_id);   // 조기퇴근 확인 요청 글(202610200007)
       if (work && work.ask) workAsk(work);
       else if (!on && work && work.early) workEarly(work);
       else if (on && work && work.clipped) workNotice(work.start);

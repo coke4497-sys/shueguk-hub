@@ -33,20 +33,22 @@ const MEMBERS = [
   { user_id: '44444444-4444-4444-4444-444444444444', name: '김지원', role: 'teacher' },
 ];
 const NAME = { [ME]: '고희주', [EUNJI]: '이은지', [BOSS]: '이수경' };
-let missing = false, failSendOnce = false;
+let missing = false, failSendOnce = false, failHand = 0;
 let mid = 0, tid = 0, clock = 0;
 const ts = () => new Date(Date.now() + (clock++)).toISOString();
-const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [];
+const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [], READS = {};
+let noReads = false;
 let noPres = false, workClip = false, workAsk = false, workEarly = false;
 const TT = [], TTP = [], TTLOG = [], NOTES = [];
 let failTT = false;
+const BOT = { tick: { msgs: [], summary: false } };
 const STUDENTS = [
-  { name: '김민준', teacher: '이은지', enrolled: 'Y' }, { name: '박하늘', teacher: '김지원', enrolled: 'Y' },
-  { name: '이준A', teacher: '이은지', enrolled: 'Y' }, { name: '이준B', teacher: '김지원', enrolled: 'Y' },
+  { name: '김민준', school: '서정중', grade: '2026 중등 3학년', teacher: '이은지', enrolled: 'Y' }, { name: '박하늘', teacher: '김지원', enrolled: 'Y' },
+  { name: '이준A', school: '화정고', grade: '2026 고등 1학년', teacher: '이은지', enrolled: 'Y' }, { name: '이준B', school: '백양고', grade: '2026 고등 1학년', teacher: '김지원', enrolled: 'Y' },
   { name: '고은비', teacher: '고희주', enrolled: 'Y' }, { name: '최퇴원', teacher: '이은지', enrolled: '퇴원' }];   // 시간표·기간·주간 기록·수업 기록 (오늘 수업 줄)
 function addMsg(author, body, files, createdIso){
   const t = createdIso || ts();
-  const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null, reply_to: null };
+  const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null, reply_to: null, hearts: [] };
   MSGS.push(m); return m;
 }
 function addTask(m, assignee, text, createdIso){
@@ -74,6 +76,7 @@ function filterRows(rows, u){
       out = out.filter(r => parts.some(([f, op, val]) => op === 'is' ? r[f] == null : op === 'neq' ? String(r[f]) !== val : op === 'eq' ? String(r[f]) === val : false));
       return;
     }
+    if (v === 'not.is.null'){ out = out.filter(r => r[k] != null); return; }
     const m = v.match(/^(eq|neq|gt|gte|lt|in|is|ilike|like)\.(.*)$/); if (!m) return;
     const [, op, val] = m;
     if (op === 'eq') out = out.filter(r => String(r[k]) === val);
@@ -125,10 +128,19 @@ function filterRows(rows, u){
       if (url.includes('fonts.g')) return route.fulfill({ status: 200, contentType: 'text/css', body: '' });
       if (!url.startsWith(SB)) return route.continue();
       const u = new URL(url), p = u.pathname, auth = req.headers()['authorization'] || '';
+      if (/\/rpc\/msg_bot_/.test(p)) calls.push(['botrpc', p]);
       if (!/Bearer tok/.test(auth)) return json({ message: 'no auth' }, 401);
       if (p === '/rest/v1/teacher_accounts') return json([{ user_id: ME, login_id: 'heeju', display_name: '고희주', active: true, role: 'assistant' }]);
       if (missing && p.startsWith('/rest/v1/rpc/msg')) return json({ code: 'PGRST202', message: 'Could not find the function' }, 404);
       if (p === '/rest/v1/rpc/msg_members') return json(MEMBERS);
+      if (p === '/rest/v1/msg_reads') return noReads ? json({ code: 'PGRST205', message: 'Could not find the table public.msg_reads' }, 404) : json(Object.keys(READS).map(k => ({ user_id: k, last_id: READS[k] })));
+      if (p === '/rest/v1/rpc/msg_read_mark'){ const b = JSON.parse(req.postData()); calls.push(['readmark', b]); READS[ME] = Math.max(READS[ME] || 0, Math.min(b.p_id, mid)); return json(READS[ME]); }
+      if (p === '/rest/v1/rpc/msg_heart'){
+        const b = JSON.parse(req.postData()); calls.push(['heart', b]);
+        const m = MSGS.find(x => x.id === b.p_id); if (!m || m.deleted_at) return json({ message: 'deleted' }, 400);
+        m.hearts = (m.hearts || []).filter(x => x !== ME); if (b.p_on) m.hearts.push(ME); m.updated_at = ts();
+        return json(m);
+      }
       if (p === '/rest/v1/msg_presence') return noPres ? json({ code: 'PGRST205', message: 'Could not find the table' }, 404) : json(Object.values(PRESENCE));
       if (p === '/rest/v1/msg_presence_log') return json(filterRows(PLOGS, u).sort((a, b) => a.at < b.at ? -1 : 1));
       if (p === '/rest/v1/rpc/msg_presence_set'){
@@ -204,6 +216,8 @@ function filterRows(rows, u){
         const b = JSON.parse(req.postData()); calls.push(['fn', b]);
         if (b.action === 'key') return json({ key: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U' });
         if (b.action === 'test') return json({ devices: 1, sent: 1, gone: 0, failed: 0 });
+        if (b.action === 'hand' && failHand > 0){ failHand--; return json({ error: 'deliver_failed' }, 503); }
+        if (b.action === 'hand'){ const k = TASKS.find(x => x.id === b.task_id); if (k) k.hand_push = null; }
         if (b.action === 'send' && failSendOnce){ failSendOnce = false; return json({ error: 'lookup_failed' }, 503); }
         return json({ targets: 2, sent: 2 });
       }
@@ -214,16 +228,28 @@ function filterRows(rows, u){
         }
         return json(filterRows(MSGS, u));
       }
-      if (p === '/rest/v1/msg_tasks') return json(filterRows(TASKS, u));
+      if (p === '/rest/v1/msg_tasks'){ if (/status=eq/.test(u.search)) calls.push(['tasksq', u.search]); return json(filterRows(TASKS, u)); }
       if (failTT && /^\/rest\/v1\/(tt_|class_notes)/.test(p)){ calls.push(['ttfail', p]); return json({ message: 'boom' }, 500); }
       if (p === '/rest/v1/tt_classes'){
         calls.push(['tt', u.search]);
         const cid = u.searchParams.get('class_id') || '', day = (u.searchParams.get('day') || '').replace(/^eq\./, '');
+        if (cid.startsWith('in.(')){ const ids = decodeURIComponent(cid.slice(4, -1)).split(','); return json(TT.filter(c => ids.includes(c.class_id))); }
         return json(TT.filter(c => cid.startsWith('not.like.w') ? !/^w/.test(c.class_id) && (!day || c.day === day) : cid.startsWith('like.') ? c.class_id.startsWith(cid.slice(5).replace('*', '')) : true));
+      }
+      if (p === '/rest/v1/rpc/msg_bot_tick'){ calls.push(['tick']); const r = BOT.tick; BOT.tick = { msgs: [], summary: false }; return json(r); }
+      if (p === '/rest/v1/rpc/msg_bot_pick'){
+        const b = JSON.parse(req.postData()); calls.push(['pick', b]);
+        const ask = MSGS.find(x => x.id === b.p_ask), src = MSGS.find(x => x.id === ask.bot.for), to = MEMBERS.find(x => x.user_id === b.p_uid);
+        const k = addTask(src, to.user_id, src.body); k.assignee_name = to.name; k.ack_only = true; k.hand_push = to.user_id; k.hand_by = ME;
+        ask.bot = Object.assign({}, ask.bot, { done: { to: to.name, uid: to.user_id, by: '고희주', at: ts(), task: true } }); ask.updated_at = ts();
+        return json({ message: ask, tasks: [k] });
       }
       if (p === '/rest/v1/students'){ calls.push(['stu']); return json(STUDENTS); }
       if (p === '/rest/v1/tt_period') return json(TTP.filter(x => 'eq.' + x.week_wednesday === u.searchParams.get('week_wednesday')));
-      if (p === '/rest/v1/tt_log') return json(TTLOG.filter(x => 'eq.' + x.apply_date === u.searchParams.get('apply_date')));
+      if (p === '/rest/v1/tt_log'){
+        const ad = u.searchParams.getAll('apply_date');
+        return json(TTLOG.filter(x => ad.every(c => c.startsWith('eq.') ? x.apply_date === c.slice(3) : c.startsWith('gte.') ? x.apply_date >= c.slice(4) : c.startsWith('lte.') ? x.apply_date <= c.slice(4) : true)));
+      }
       if (p === '/rest/v1/class_notes') return json(NOTES.filter(x => 'eq.' + x.ymd === u.searchParams.get('ymd')));
       if (p.startsWith('/storage/v1/object/authenticated/msg-files/')){
         const key = decodeURIComponent(p.slice('/storage/v1/object/authenticated/msg-files/'.length));
@@ -884,7 +910,8 @@ function filterRows(rows, u){
   const t6 = addTask(m6, ME, '교재 주문해 주세요', m6.created_at);
   await page.waitForSelector('[data-cx="' + t6.id + '"]', { timeout: 7000 });
   await page.click('[data-cx="' + t6.id + '"]');
-  ok(await page.locator('#cxmodes [data-mode="defer"]').evaluate(e => e.classList.contains('on')), '내 할 일은 미루기부터');
+  ok(await page.locator('#cxmodes [data-mode="done"]').evaluate(e => e.classList.contains('on')) && (await page.locator('#cxtitle').textContent()) === '업무 체크리스트', '창 이름 업무 체크리스트 · 완료부터');
+  await page.click('#cxmodes [data-mode="defer"]');
   await page.click('#dfq [data-q="tmr"]');
   await page.fill('#dfNote', '내일 수업 끝나고');
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'defer-dialog.png') });
@@ -1076,23 +1103,138 @@ function filterRows(rows, u){
   ({ ctx, page } = await open());
   await page.waitForSelector('[data-cx="' + tpg.id + '"]');
   await page.click('[data-cx="' + tpg.id + '"]');
-  ok(await page.locator('#cxmodes [data-mode="prog"]').evaluate(e => e.classList.contains('on') && !e.hidden), '내 할 일 관리 창은 진행 중부터');
+  await page.click('#cxmodes [data-mode="prog"]');
+  ok(await page.locator('#cxmodes [data-mode="prog"]').evaluate(e => e.classList.contains('on') && !e.hidden), '관리 창에 진행 중');
   ok((await page.locator('#pgok').textContent()) === '진행 중으로 표시', '버튼: 진행 중으로 표시');
   await page.click('#pgok');
   await page.waitForFunction(() => document.querySelector('#cxback').hidden);
+  { // 관리 창의 [완료] (2026-10-20 원장님 "완료 버튼이 없어요")
+    const mdn = addMsg(BOSS, '출석부 정리 @고희주', [], ts()); const tdn = addTask(mdn, ME, '출석부 정리', mdn.created_at);
+    await page.waitForSelector('[data-cx="' + tdn.id + '"]', { timeout: 7000 });
+    await page.click('[data-cx="' + tdn.id + '"]');
+    ok(!(await page.locator('#cxmodes [data-mode="done"]').isHidden()) && (await page.locator('#dnok').textContent()) === '완료로 체크', '관리 창에 [완료] — 완료로 체크');
+    await page.click('#dnok');
+    await page.waitForFunction(() => document.querySelector('#cxback').hidden, null, { timeout: 5000 }).catch(() => {});
+    ok(calls.some(c => c[0] === 'task' && c[1].p_id === tdn.id && c[1].p_done === true) && await page.locator('#cxback').isHidden(), '[완료로 체크] → msg_task_set(완료) · 창 닫힘');
+  }
   const pc1 = calls.filter(c => c[0] === 'prog').pop();
   ok(pc1 && pc1[1].p_id === tpg.id && pc1[1].p_on === true, 'msg_task_progress(진행 중)');
   const pgRow = page.locator('[data-cx="' + tpg.id + '"]').locator('xpath=..');
   ok((await pgRow.textContent()).includes('진행 중') && (await pgRow.locator('.pg').count()) === 1, '카드에 진행 중 표시');
   ok((await page.locator('#m' + mpg.id + ' .tk').textContent()).includes('진행 중'), '메시지 아래 표시 = 진행 중');
   ok((await pgRow.textContent()).includes('고희주 · 진행 중'), '기록 리스트에 진행 중');
-  await page.click('[data-cx="' + tpg.id + '"]');
+  await page.click('[data-cx="' + tpg.id + '"]'); await page.click('#cxmodes [data-mode="prog"]');
   ok((await page.locator('#pgok').textContent()) === '진행 중 풀기', '다시 열면 진행 중 풀기');
   await page.click('#pgok'); await page.waitForFunction(() => document.querySelector('#cxback').hidden);
   ok(calls.filter(c => c[0] === 'prog').pop()[1].p_on === false && !(await page.locator('#m' + mpg.id + ' .tk').textContent()).includes('진행 중'), '진행 중 풀기');
   await page.click('[data-cx="' + tpg2.id + '"]');
   ok(await page.locator('#cxmodes [data-mode="prog"]').isHidden(), '내가 맡긴 남의 일은 진행 중 표시 못 함(맡은 사람만)');
   await ctx.close();
+
+  console.log('㉕ 클로슈 = 진짜 클로드 (2026-10-20 원장님)');
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#msgs .m');
+  const bot0 = calls.filter(c => c[0] === 'botrpc' && /msg_bot_(ask|post)/.test(c[1])).length;
+  // 화면은 클로슈 글을 만들지 않는다 — 클로드 세션이 몇 분마다 읽고 올린다
+  await page.click('#tags [data-tag="결석"]'); await page.fill('#inp', '중3 친구 병결입니다'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  const srcId = MSGS[MSGS.length - 1].id;
+  await page.focus('#inp'); await page.fill('#inp', '@클로'); await page.dispatchEvent('#inp', 'input');
+  await page.waitForSelector('#mention.on', { timeout: 5000 }).catch(() => {});
+  ok((await page.locator('#mention').textContent()).includes('클로슈'), '@ 목록에 클로슈');
+  await page.keyboard.press('Escape'); await page.fill('#inp', '@클로슈 김민준 담당이 누구야?'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#status').textContent.includes('몇 분 안에'), null, { timeout: 5000 }).catch(() => {});
+  ok((await page.locator('#status').textContent()).includes('클로슈가 몇 분 안에 대화를 읽고 답해요'), '@클로슈를 부르면 몇 분 안에 답한다고 안내');
+  ok(!calls.filter(c => c[0] === 'send').pop()[1].p_mentions.length, '@클로슈는 할 일을 만들지 않음');
+  await sleep(1500);
+  ok(calls.filter(c => c[0] === 'botrpc' && /msg_bot_(ask|post)/.test(c[1])).length === bot0, '화면은 클로슈 글(질문·답·정리)을 만들지 않음');
+  // 클로드가 올린 배정 질문 — 보기 버튼은 그대로
+  const am = addMsg(null, '어느 선생님 담당 학생인가요? 고르면 그 선생님께 [결석] 확인 요청을 올립니다.', []);
+  am.author_name = '클로슈'; am.reply_to = srcId; am.bot = { kind: 'ask', ai: true, for: srcId, options: [{ label: '이은지 선생님', uid: EUNJI }, { label: '김지원 선생님', uid: '44444444-4444-4444-4444-444444444444' }], to: [ME, EUNJI] };
+  await page.waitForFunction(() => document.querySelector('.botm .bopt'), null, { timeout: 8000 }).catch(() => {});
+  ok((await page.locator('.botm .nm').last().textContent()).startsWith('클로슈') && (await page.locator('.botm .av').last().textContent()) === '클', '클로슈 이름·동그라미');
+  ok(!(await page.locator('.botm').last().textContent()).includes('님 화면에서'), '클로드 글에는 화면 표시 없음');
+  failHand = 2;   // 고른 직후 넘김 알림이 두 번 다 실패해도 다음 tick 에 다시
+  await page.locator('.botm .bopt', { hasText: '이은지' }).last().click();
+  await page.waitForFunction(() => document.querySelector('.botm .bdone'), null, { timeout: 5000 }).catch(() => {});
+  const pk = calls.filter(c => c[0] === 'pick').pop();
+  ok(pk && pk[1].p_uid === EUNJI && pk[1].p_ask === am.id, 'msg_bot_pick(이은지)');
+  ok((await page.locator('.botm .bdone').last().textContent()).includes('이은지 선생님께 확인 요청을 올렸습니다'), '고른 결과가 질문 아래에');
+  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'hand'), '고른 선생님 휴대폰 알림(hand)');
+  ok((await page.locator('.pc[data-person="' + EUNJI + '"]').textContent()).includes('중3 친구 병결입니다'), '이은지 업무 카드에 확인 요청');
+  // 약속 지남 알림(규칙) · 못 보낸 클로슈 알림 — tick 이 돌려준 글을 보낸다
+  const dueMsg = addMsg(null, '@이은지 약속 시각(10/20 오후 3:00)이 지났어요 — 교재 주문', []); dueMsg.author_name = '클로슈'; dueMsg.bot = { kind: 'due', to: [EUNJI] };
+  BOT.tick = { msgs: [dueMsg.id, am.id], summary: true };
+  await page.evaluate(() => { const D = Date, off = 130000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
+  await page.waitForFunction(() => true); await sleep(5000);
+  ok(calls.filter(c => c[0] === 'fn' && c[1].action === 'hand').length >= 3, '넘김 알림이 실패하면 다음 tick 에 다시 (Codex 검토)');
+  ok(calls.some(c => c[0] === 'tasksq' && /hand_push=not\.is\.null/.test(c[1]) && /hand_by=eq\./.test(c[1])), '남은 넘김 알림은 서버에 직접 묻는다(1000건 밖도) (Codex 검토)');
+  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === dueMsg.id) && calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === am.id), 'tick 이 돌려준 클로슈 글 → 휴대폰 알림 요청');
+  ok(!calls.some(c => c[0] === 'botrpc' && /msg_bot_(ask|post)/.test(c[1])), '밤 9시 정리도 화면이 쓰지 않음(클로드가 씀)');
+  { // 카카오채널 학부모님 문의(202610200009)
+    const km = addMsg(null, '학부모님 문의 (#a1b2c3)\n내일 김민준 결석합니다', []); km.author_name = '카카오채널'; km.bot = { kind: 'kakao', who: 'a1b2c3', to: [ME] };
+    await page.waitForSelector('#m' + km.id, { timeout: 8000 }).catch(() => {});
+    const kr = page.locator('#m' + km.id);
+    ok((await kr.count()) === 1 && (await kr.locator('.av').textContent()) === '카' && (await kr.locator('.nm').textContent()).includes('학부모님 문의') && await kr.evaluate(e => e.classList.contains('kko')), '카카오채널 글 — 동그라미 카·학부모님 문의 표시');
+    ok(!(await kr.evaluate(e => e.classList.contains('cont'))), '클로슈 글 바로 뒤의 카카오채널 글도 이름·동그라미를 따로 보임 (Codex 검토)');
+  }
+  if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'bot.png') });
+  await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
+  await ctx.close();
+
+  { // 읽음 숫자 · 공감(하트) (202610200012) — 카톡처럼 안 읽은 사람 수, 누르면 목록
+    const rm = addMsg(BOSS, '내일 회의는 3시입니다', []);
+    Object.keys(READS).forEach(k => delete READS[k]);
+    READS[EUNJI] = rm.id - 1; READS[BOSS] = rm.id; READS['44444444-4444-4444-4444-444444444444'] = rm.id;
+    const { ctx: ctx2, page } = await open();
+    await page.waitForSelector('#m' + rm.id + ' .rc', { timeout: 8000 }).catch(() => {});
+    await page.waitForFunction(id => { const b = document.querySelector('#m' + id + ' .rc'); return b && !b.hidden && b.textContent === '1'; }, rm.id, { timeout: 8000 }).catch(() => {});
+    const rc = page.locator('#m' + rm.id + ' .rc');
+    ok((await rc.count()) === 1 && (await rc.textContent()) === '1' && !(await rc.evaluate(e => e.hidden)), '메시지 아래 안 읽은 사람 수(쓴 사람 빼고 — 이은지 1명)');
+    await page.waitForFunction(() => true); await sleep(800);
+    const mk = calls.filter(c => c[0] === 'readmark').pop();
+    ok(mk && mk[1].p_id >= rm.id, '대화를 끝까지 보면 읽은 자리를 서버에 적음(msg_read_mark)');
+    await rc.click();
+    await page.waitForSelector('#rdback:not([hidden])');
+    ok((await page.locator('#rdtitle').textContent()).includes('전체 3명'), '읽음 확인 창 — 전체 인원(쓴 사람 빼고)');
+    ok((await page.locator('#rdbody').textContent()).includes('이은지') && !(await page.locator('#rdbody').textContent()).includes('김지원'), '안 읽은 사람 목록');
+    await page.locator('#rdtabs button[data-rdtab="read"]').click();
+    const rdTxt = await page.locator('#rdbody').textContent();
+    ok(rdTxt.includes('고희주') && rdTxt.includes('김지원') && !rdTxt.includes('이은지'), '읽은 사람 목록');
+    READS[EUNJI] = rm.id;   // 이은지가 읽으면 3초 폴링으로 숫자가 사라짐
+    await page.waitForFunction(id => document.querySelector('#m' + id + ' .rc').hidden, rm.id, { timeout: 8000 }).catch(() => {});
+    ok(await rc.evaluate(e => e.hidden), '모두 읽으면 숫자가 사라짐');
+    ok((await page.locator('#rdtabs').textContent()).includes('안 읽음 0'), '열린 창도 바로 고쳐짐');
+    await page.keyboard.press('Escape');
+    ok(await page.locator('#rdback').evaluate(e => e.hidden), 'Esc로 닫힘');
+    const hb = page.locator('#m' + rm.id + ' .hrt');
+    ok((await hb.count()) === 1 && (await hb.getAttribute('aria-pressed')) === 'false', '공감(하트) 버튼');
+    ok((await hb.innerHTML()).includes('<svg'), '하트는 라인 SVG(이모지 아님)');
+    await hb.click();
+    await page.waitForFunction(id => document.querySelector('#m' + id + ' .hrt.on'), rm.id, { timeout: 5000 }).catch(() => {});
+    const hc = calls.filter(c => c[0] === 'heart').pop();
+    ok(hc && hc[1].p_id === rm.id && hc[1].p_on === true, '누르면 msg_heart(켜기)');
+    ok((await page.locator('#m' + rm.id + ' .hrt').textContent()).trim() === '1', '공감 수 1');
+    MSGS.find(x => x.id === rm.id).hearts.push(EUNJI); MSGS.find(x => x.id === rm.id).updated_at = ts();
+    await page.waitForFunction(id => (document.querySelector('#m' + id + ' .hrt') || {}).textContent === '2', rm.id, { timeout: 8000 }).catch(() => {});
+    ok((await page.locator('#m' + rm.id + ' .hrt').textContent()).trim() === '2', '다른 사람 공감도 폴링으로 반영');
+    await page.locator('#m' + rm.id + ' .rc').evaluate(e => { e.hidden = false; e.click(); });
+    await page.locator('#rdtabs button[data-rdtab="heart"]').click();
+    const hTxt = await page.locator('#rdbody').textContent();
+    ok(hTxt.includes('고희주') && hTxt.includes('이은지'), '읽음 확인 창의 공감 탭에 누른 사람');
+    await page.locator('#rdclose').click();
+    await page.locator('#m' + rm.id + ' .hrt').click();
+    await page.waitForFunction(id => !document.querySelector('#m' + id + ' .hrt.on'), rm.id, { timeout: 5000 }).catch(() => {});
+    ok(calls.filter(c => c[0] === 'heart').pop()[1].p_on === false, '한 번 더 누르면 공감 풀기');
+    if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'read-heart.png') });
+    await ctx2.close();
+    // 표가 없으면(0012 전) 숫자 없이
+    noReads = true;
+    const { ctx: ctx3, page: p3 } = await open();
+    await p3.waitForSelector('#m' + rm.id); await sleep(1500);
+    ok((await p3.locator('.rc').count()) === 0, '읽은 자리 표가 없으면 숫자를 그리지 않음');
+    await ctx3.close(); noReads = false;
+  }
 
   await browser.close(); server.close();
   console.log(`\n${n - bad} / ${n} 통과`);

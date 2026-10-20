@@ -15,6 +15,7 @@ P >/dev/null <<'SQL'
 do $$ begin
   if not exists (select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;
   if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
+  if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin bypassrls; end if;
 end $$;
 create schema auth;
 create table auth.users (id uuid primary key);
@@ -28,7 +29,7 @@ alter table storage.objects enable row level security;
 grant usage on schema storage to authenticated;
 grant all on storage.objects to authenticated;
 grant usage on all sequences in schema storage to authenticated;
-grant usage on schema public to anon, authenticated;
+grant usage on schema public to anon, authenticated, service_role;
 SQL
 P -f supabase/migrations/202609290001_teacher_accounts.sql >/dev/null
 P -f supabase/migrations/202609290003_teacher_admin.sql >/dev/null
@@ -57,6 +58,13 @@ P -f supabase/migrations/202610200005_staff_manage.sql >/dev/null || { echo "강
 P -f supabase/migrations/202610200005_staff_manage.sql >/dev/null && ok y y "강사 관리 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610200007_messenger_group_mention.sql >/dev/null || { echo "@조교·@선생님 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200007_messenger_group_mention.sql >/dev/null && ok y y "@조교·@선생님 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610200007_messenger_bot.sql >/dev/null || { echo "클로슈 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200007_messenger_bot.sql >/dev/null && ok y y "클로슈 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610200008_messenger_closhu.sql >/dev/null || { echo "클로슈(진짜 클로드) 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200008_messenger_closhu.sql >/dev/null && ok y y "클로슈(진짜 클로드) 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610200009_messenger_kakao.sql >/dev/null || { echo "카카오채널 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200010_messenger_push_retry.sql >/dev/null || { echo "알림 다시 보내기 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200011_messenger_hand_gen.sql >/dev/null || { echo "위임 세대 마이그레이션 실패"; exit 1; }
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
 B=bbbbbbbb-0000-0000-0000-000000000002   # 이은지 선생님
@@ -73,6 +81,7 @@ SQL
 # 사용자로 실행: as <uid> <sql>
 last(){ local o; o=$(cat); if grep -q 'ERROR' <<<"$o"; then grep -m1 'ERROR' <<<"$o"; else tail -n 1 <<<"$o"; fi; }
 as(){ local uid=$1; shift; psql -X -A -t -q -d $DB -c "set role authenticated; set request.jwt.claim.sub='$uid';" -c "$1" 2>&1 | last; }
+svc(){ psql -X -A -t -q -d $DB -c "set role service_role;" -c "$1" 2>&1 | last; }
 anon(){ psql -X -A -t -q -d $DB -c "set role anon;" -c "$1" 2>&1 | last; }
 
 ok "$(as $B "select count(*) from public.msg_members()")" 3 "사람 목록 = 활성 교사 3명"
@@ -286,6 +295,131 @@ MT2=$(as $A "select (public.msg_send('@선생님 회의합니다', '[]', '{}')->
 ok "$(as $A "select string_agg(assignee_name, ',' order by assignee_name)||'' from public.msg_tasks where message_id=$MT2")" "박언호,이은지" "@선생님도 보낸 사람(원장님)은 뺌"
 MN=$(as $C "select (public.msg_send('@이은지 선생님 확인 부탁드려요', '[]', array['$B']::uuid[])->'message'->>'id')")
 ok "$(as $C "select count(*)||'|'||bool_and(ack_only)::text from public.msg_tasks where message_id=$MN")" "1|false" "'@이은지 선생님'은 @선생님이 아님(보통 할 일 한 명)"
+echo "── 클로슈 (202610200007)"
+MQ=$(as $C "select (public.msg_send('[결석] 중3 민준 결석', '[]', '{}')->'message'->>'id')")
+ok "$(as $C "select public.msg_bot_say('note', 'x')" | grep -c 'permission denied')" 1 "교사 화면은 클로슈 이름으로 글을 못 씀"
+ok "$(as $C "select 1 from pg_proc where proname in ('msg_bot_ask','msg_bot_post')" | grep -c 1)" 0 "화면이 글을 만들던 함수는 지움"
+ok "$(anon "select public.msg_bot_say('note', 'x')" | grep -c 'permission denied')" 1 "공개 키도 클로슈 글 불가"
+ok "$(svc "select public.msg_bot_say('ask', '누구?', $MQ, null, '[{\"label\":\"퇴사\",\"uid\":\"$D\"}]')" | grep -c bad_options)" 1 "보기에 비활성 교사 불가"
+ok "$(svc "select public.msg_bot_say('answer', '답')" | grep -c need_reply)" 1 "답은 원글이 있어야"
+ok "$(svc "select public.msg_bot_say('shout', '답')" | grep -c bad_kind)" 1 "정해진 종류만"
+ok "$(svc "select public.msg_bot_say('note', 'x', null, array['$D']::uuid[])" | grep -c bad_person)" 1 "알림 받을 사람은 활성 교사만"
+AQ=$(svc "select (public.msg_bot_say('ask', '민준 학생이 두 명이에요. 누구인가요?', $MQ, null, '[{\"label\":\"민준A · 이은지T\",\"uid\":\"$B\"},{\"label\":\"민준B · 원장\",\"uid\":\"$A\"}]', 'ask:$MQ')).id")
+ok "$(as $C "select author is null and author_name='클로슈' and bot->>'kind'='ask' and (bot->>'ai')::boolean and reply_to=$MQ and (bot->'to') @> '[\"$B\",\"$A\",\"$C\"]' from public.msg_messages where id=$AQ")" "t" "클로드가 클로슈 이름으로 질문(원글에 답장, 알림은 글쓴이·보기 선생님)"
+ok "$(svc "select public.msg_bot_say('ask', 'x', $MQ, null, '[{\"label\":\"a\",\"uid\":\"$B\"}]', 'ask:$MQ')" | grep -c exists)" 1 "같은 열쇠로는 한 번만"
+ok "$(as $B "select public.msg_bot_pick($AQ, '$A')" | grep -c not_allowed)" 1 "보기의 다른 선생님 대신 고르기 불가"
+ok "$(as $C "select public.msg_bot_pick($AQ, '$C')" | grep -c bad_pick)" 1 "보기에 없는 사람 불가"
+ok "$(as $B "select jsonb_array_length(public.msg_bot_pick($AQ, '$B')->'tasks')")" "1" "보기에 있는 선생님 본인이 '내 학생'으로 고름"
+ok "$(as $B "select assignee_name||'|'||ack_only||'|'||requester_name||'|'||hand_push||'|'||hand_by from public.msg_tasks where message_id=$MQ")" "이은지|true|고희주|$B|$B" "고른 선생님에게 확인만 할 일 + 넘김 알림 자리"
+ok "$(as $C "select bot->'done'->>'to' from public.msg_messages where id=$AQ")" "이은지" "질문에 고른 결과 남김"
+ok "$(as $C "select public.msg_bot_pick($AQ, '$A')" | grep -c already)" 1 "이미 고른 질문은 다시 못 고름"
+MQ2=$(as $C "select (public.msg_send('[지각] 중3 친구 지각', '[]', '{}')->'message'->>'id')")
+AQ2=$(svc "select (public.msg_bot_say('ask', '누구?', $MQ2, null, '[{\"label\":\"이은지T\",\"uid\":\"$B\"}]')).id")
+as $C "select public.msg_delete($MQ2)" >/dev/null
+ok "$(as $B "select public.msg_bot_pick($AQ2, '$B')" | grep -c msg_deleted)" 1 "지운 원글엔 배정 할 일을 만들지 않음"
+ok "$(svc "select public.msg_bot_say('answer', '답', $MQ2)" | grep -c msg_deleted)" 1 "지운 글엔 답하지 않음"
+MQ3=$(as $C "select (public.msg_send('[이동] 중3 친구 이동', '[]', '{}')->'message'->>'id')")
+AQ3=$(svc "select (public.msg_bot_say('ask', '누구?', $MQ3, null, '[{\"label\":\"이은지T\",\"uid\":\"$B\"}]')).id")
+as $A "select public.msg_delete($AQ3)" >/dev/null
+ok "$(as $B "select public.msg_bot_pick($AQ3, '$B')" | grep -c msg_deleted)" 1 "지운 배정 질문으로는 고르지 못함"
+MA2=$(as $C "select (public.msg_send('@클로슈 김민준 담당이 누구야?', '[]', '{}')->'message'->>'id')")
+ok "$(svc "select (public.msg_bot_say('answer', '김민준 · 담당 이은지 선생님', $MA2, array['$C']::uuid[], null, 'answer:$MA2')).author_name")" "클로슈" "@클로슈 질문에 클로드 답"
+ok "$(svc "select public.msg_bot_say('answer', '또', $MA2, null, null, 'answer:$MA2')" | grep -c exists)" 1 "질문마다 답 한 번"
+ok "$(psql -X -A -t -q -d $DB -c "select bot->'to' from public.msg_messages where reply_to=$MA2 and bot->>'kind'='answer'")" "[\"$C\"]" "답 알림은 물어본 사람에게만"
+MA4=$(as $C "select (public.msg_send('@클로슈 오늘 휴강 반 있어?', '[]', '{}')->'message'->>'id')")
+ok "$(svc "select (public.msg_bot_say('answer', '없습니다', $MA4, array['$A','$B']::uuid[])).bot->'to'")" "[\"$C\"]" "받는 사람을 다르게 줘도 답은 물어본 사람에게만 (Codex 검토)"
+as $A "select public.msg_delete((select id from public.msg_messages where reply_to=$MA2 and bot->>'kind'='answer'))" >/dev/null
+ok "$(svc "select (public.msg_bot_say('answer', '다시 답', $MA2, array['$C']::uuid[], null, 'answer:$MA2')).body")" "다시 답" "지운 답의 열쇠는 다시 쓸 수 있음"
+ok "$(svc "select public.msg_bot_say('answer', '또또', $MA2, null, null, 'answer:$MA2')" | grep -c exists)" 1 "다시 단 답도 한 번만"
+ok "$(as $C "select (bot->'to'->>0)||'|'||(bot->>'ai') from public.msg_messages where reply_to=$MA2 and bot is not null")" "$C|true" "답 알림은 물어본 사람에게만"
+MA3=$(as $C "select (public.msg_send('@클로슈 오늘 출근 누구?', '[]', '{}')->'message'->>'id')")
+svc "select public.msg_bot_say('note', '약속 알림 같은 다른 글', $MA3)" >/dev/null
+ok "$(svc "select string_agg(id::text, ',' order by id) from public.msg_bot_unanswered(50) where id in ($MA2, $MA3)")" "$MA3" "답 안 한 @클로슈만(다른 클로슈 글은 답이 아님)"
+ok "$(as $C "select count(*) from public.msg_bot_unanswered(5)" | grep -c 'permission denied')" 1 "교사는 답 안 한 질문 함수를 못 부름"
+ok "$(svc "select (public.msg_bot_say('summary', '오늘 정리', null, null, null, 'summary:x')).bot->>'to'")" "" "오늘 정리는 모두에게"
+ok "$(svc "select message_id is not null from public.msg_bot_runs where key='summary:x'")" "t" "열쇠에 올린 글 번호를 남김"
+MD=$(as $A "select (public.msg_send('교재 주문 @이은지', '[]', array['$B']::uuid[])->'message'->>'id')")
+TD=$(as $A "select id from public.msg_tasks where message_id=$MD")
+as $B "select public.msg_task_defer($TD, now() + interval '1 hour', '저녁에')" >/dev/null
+psql -X -q -d $DB -c "update public.msg_tasks set due_at = now() - interval '5 minutes' where id=$TD" >/dev/null
+ok "$(as $C "select jsonb_array_length(public.msg_bot_tick()->'msgs') >= 1")" "t" "약속 지난 할 일에 클로슈 알림"
+ok "$(as $C "select (body ~ '^@이은지 약속 시각\(\d+/\d+ 오[전후] \d+:\d\d\)이 지났어요 — 교재 주문 \(저녁에\)$')||'|'||(bot->'to'->>0) from public.msg_messages where bot->>'kind'='due' and (bot->>'task')::bigint=$TD")" "true|$B" "알림 글·받는 사람"
+ok "$(as $C "select (public.msg_bot_tick()->'msgs') @> to_jsonb(array[(select id from public.msg_messages where bot->>'kind'='due' and (bot->>'task')::bigint=$TD)])")" "t" "알림을 못 보낸 클로슈 글은 다음 tick에 다시 돌려줌"
+ok "$(as $C "select count(*) from public.msg_messages where bot->>'kind'='due' and (bot->>'task')::bigint=$TD")" "1" "같은 약속엔 글 한 번만"
+psql -X -q -d $DB -c "update public.msg_messages set pushed_at = now() where bot is not null" >/dev/null
+ok "$(as $C "select jsonb_array_length(public.msg_bot_tick()->'msgs')")" "0" "알림을 보낸 글은 다시 돌려주지 않음"
+as $B "select public.msg_task_defer($TD, now() + interval '2 hours', '')" >/dev/null
+ok "$(as $C "select due_alerted_at is null from public.msg_tasks where id=$TD")" "t" "다시 미루면 알림 자리 비움"
+psql -X -q -d $DB -c "update public.msg_tasks set due_at = now() - interval '1 minute' where id=$TD" >/dev/null
+ok "$(svc "select coalesce(array_length(public.msg_bot_due(), 1), 0)")" "1" "클로슈 순찰(service_role)도 약속 지남 알림을 만듦"
+ok "$(svc "select coalesce(array_length(public.msg_bot_due(), 1), 0)")" "0" "순찰에서도 한 번만"
+ok "$(as $C "select public.msg_bot_due()" | grep -c 'permission denied')" 1 "교사는 순찰용 함수를 못 부름"
+ok "$(as $E "select public.msg_bot_tick()" | grep -c not_teacher)" 1 "계정 없는 로그인은 못 부름"
+ok "$(anon "select public.msg_bot_tick()" | grep -c 'permission denied')" 1 "공개 키는 클로슈 함수 실행 불가"
+ok "$(as $C "select count(*) from public.msg_bot_runs" 2>&1 | grep -c 'permission denied')" 1 "중복 방지 표는 직접 못 읽음"
+
+# 카카오채널 문의(202610200009)
+SQ(){ psql -X -A -t -q -d $DB -c "$1" 2>&1 | last; }
+KM=$(svc "select (public.kakao_inbound('a1b2c3', '내일 김민준 결석합니다')).id")
+ok "$(SQ "select author_name||'|'||(author is null)::text||'|'||(bot->>'kind')||'|'||(bot->'to'->>0) from public.msg_messages where id=$KM")" "카카오채널|true|kakao|$A" "카카오채널 글 — 작성자 없음·알림은 관리자"
+ok "$(SQ "select count(*)||'|'||min(assignee_name)||'|'||min(requester_name) from public.msg_tasks where message_id=$KM")" "1|이수경|카카오채널" "관리자 업무 카드에 문의 확인 할 일 하나"
+ok "$(SQ "select replace(body, chr(10), '/') from public.msg_messages where id=$KM")" "학부모님 문의 (#a1b2c3)/내일 김민준 결석합니다" "본문에 보낸 사람 구분과 글"
+ok "$(svc "select replace((public.kakao_inbound('a1b2c3', '')).body, chr(10), '/')")" "학부모님 문의 (#a1b2c3)/(글 없이 보낸 메시지)" "빈 글도 받음"
+SQ "insert into public.msg_messages (author, author_name, body, files, bot) select null, '카카오채널', 'x', '[]', '{\"kind\":\"kakao\",\"who\":\"zzzzzz\"}' from generate_series(1,30)" >/dev/null
+ok "$(svc "select public.kakao_inbound('zzzzzz', '또')" | grep -c too_many)" 1 "같은 사람은 하루 30개까지"
+ok "$(svc "select public.msg_bot_say('note', '받는 사람 없는 알림')" | grep -c need_to)" 1 "원글 없는 note 는 받는 사람이 꼭 있어야 (Codex 검토)"
+NQ=$(as $C "select (public.msg_send('교재 주문 누가 해요?', '[]', '{}')->'message'->>'id')")
+ok "$(svc "select (public.msg_bot_say('note', '@로 부르면 업무 카드에 올라가요', $NQ)).bot->'to'->>0")" "$C" "받는 사람을 빠뜨린 note 는 원글 쓴 사람에게만"
+ok "$(SQ "select count(*) from information_schema.columns where table_name='msg_messages' and column_name='push_retry'")" "1" "일부 실패 기기 목록 열(push_retry)"
+SQ "update public.msg_messages set push_retry='[7,9]' where id=$NQ" >/dev/null
+ok "$(svc "select public.msg_push_retry_claim($NQ)")" "[7, 9]" "다시 보낼 기기 목록을 비우며 옛 값을 돌려줌 (Codex 검토)"
+ok "$(svc "select coalesce(public.msg_push_retry_claim($NQ)::text, 'null')")" "null" "두 번째는 빈 값(한쪽만 잡음)"
+ok "$(SQ "select coalesce(push_retry::text, 'null') from public.msg_messages where id=$NQ")" "null" "잡은 뒤 목록은 비워짐"
+HT=$(SQ "select id from public.msg_tasks order by id limit 1")
+SQ "update public.msg_tasks set hand_retry='{\"to\":\"$B\",\"by\":\"이수경\",\"subs\":[3]}' where id=$HT" >/dev/null
+ok "$(svc "select public.msg_hand_retry_claim($HT)->'subs'")" "[3]" "넘김 알림도 일부 실패 기기만 다시 잡음"
+SQ "update public.msg_tasks set hand_retry='{\"to\":\"$B\",\"subs\":[3]}', hand_push=null where id=$HT" >/dev/null
+SQ "update public.msg_tasks set hand_push='$C' where id=$HT" >/dev/null
+ok "$(SQ "select coalesce(hand_retry::text, 'null') from public.msg_tasks where id=$HT")" "null" "다시 넘기면 앞 넘김 재시도 정보는 버림 (Codex 검토)"
+G0=$(SQ "select hand_gen from public.msg_tasks where id=$HT")
+GA=$(SQ "select assignee from public.msg_tasks where id=$HT"); GX=$C; [ "$GA" = "$C" ] && GX=$B
+SQ "update public.msg_tasks set assignee='$GX' where id=$HT" >/dev/null
+SQ "update public.msg_tasks set assignee='$GA' where id=$HT" >/dev/null
+ok "$(SQ "select hand_gen - $G0 from public.msg_tasks where id=$HT")" "2" "맡은 사람이 바뀔 때마다 위임 세대가 오름 — B→C→B 도 갈림 (Codex 검토)"
+SQ "update public.msg_tasks set seen_at=now() where id=$HT" >/dev/null
+ok "$(SQ "select hand_gen - $G0 from public.msg_tasks where id=$HT")" "2" "확인 등 다른 변경은 세대를 바꾸지 않음"
+ok "$(as $A "select public.msg_push_retry_claim($NQ)" | grep -c 'permission denied')" 1 "교사는 다시 보내기 잡기 함수를 못 부름"
+SQ "update public.teacher_accounts set role='teacher' where user_id='$A'" >/dev/null
+ok "$(svc "select (public.kakao_inbound('noadm1', '관리자 없음')).bot->>'to'")" "[]" "관리자가 없어도 모두에게 보내지 않음(빈 받는 사람) (Codex 검토)"
+SQ "update public.teacher_accounts set role='admin' where user_id='$A'" >/dev/null
+ok "$(as $A "select public.kakao_inbound('x', 'y')" | grep -c 'permission denied')" 1 "교사는 카카오 함수를 못 부름"
+ok "$(psql -X -A -t -q -d $DB -c "set role anon;" -c "select public.kakao_inbound('x', 'y')" 2>&1 | grep -c 'permission denied')" 1 "공개 키도 못 부름"
+
+echo "── 읽음 숫자 · 공감(하트) (202610200012)"
+P -f supabase/migrations/202610200012_messenger_read_heart.sql >/dev/null || { echo "읽음·공감 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200012_messenger_read_heart.sql >/dev/null && ok y y "읽음·공감 마이그레이션 다시 실행해도 오류 없음"
+MX=$(SQ "select max(id) from public.msg_messages")
+ok "$(SQ "select count(*) from public.msg_reads r join public.teacher_accounts t using (user_id) where t.active and r.last_id=$MX")" "$(SQ "select count(*) from public.teacher_accounts where active")" "처음 적용 때 활성 교사는 지금까지 모두 읽은 것으로"
+ok "$(SQ "select count(*) from public.msg_reads where user_id='$D'")" "0" "비활성 교사는 넣지 않음"
+SQ "update public.msg_reads set last_id=1 where user_id='$B'" >/dev/null
+ok "$(as $B "select public.msg_read_mark(3)")" "3" "읽은 자리 앞으로"
+ok "$(as $B "select public.msg_read_mark(2)")" "3" "뒤로는 가지 않음"
+ok "$(as $B "select public.msg_read_mark(99999999)")" "$MX" "없는 번호보다 크게는 못 적음"
+ok "$(as $C "select count(*) from public.msg_reads")" "$(SQ "select count(*) from public.msg_reads")" "활성 교사는 모든 사람의 읽은 자리를 봄"
+ok "$(as $C "insert into public.msg_reads (user_id, last_id) values ('$C', 0) on conflict (user_id) do update set last_id=0" | grep -c 'permission denied')" 1 "표에 직접 쓰지 못함"
+ok "$(anon "select public.msg_read_mark(1)" | grep -c 'permission denied')" 1 "공개 키는 읽은 자리를 못 적음"
+ok "$(anon "select count(*) from public.msg_reads" | grep -c 'permission denied')" 1 "공개 키는 읽은 자리를 못 봄"
+HM=$(as $B "select (public.msg_send('하트 시험', '[]', '{}')->'message'->>'id')")
+U0=$(SQ "select updated_at from public.msg_messages where id=$HM")
+ok "$(as $C "select (public.msg_heart($HM, true))->'hearts'")" "[\"$C\"]" "공감 누르기"
+ok "$(as $C "select jsonb_array_length((public.msg_heart($HM, true))->'hearts')")" "1" "두 번 눌러도 한 번"
+ok "$(as $A "select jsonb_array_length((public.msg_heart($HM, true))->'hearts')")" "2" "다른 사람 공감도 더해짐"
+ok "$(SQ "select updated_at > '$U0' from public.msg_messages where id=$HM")" "t" "공감하면 updated_at 이 바뀌어 다른 화면도 받음"
+ok "$(as $C "select (public.msg_heart($HM, false))->'hearts'")" "[\"$A\"]" "공감 풀기는 내 것만"
+ok "$(as $C "update public.msg_messages set hearts='{}' where id=$HM" | grep -c 'permission denied')" 1 "표의 공감 목록을 직접 못 고침"
+as $B "select public.msg_delete($HM)" >/dev/null
+ok "$(as $A "select public.msg_heart($HM, true)" | grep -c deleted)" 1 "지운 메시지에는 공감 불가"
+ok "$(anon "select public.msg_heart($HM, true)" | grep -c 'permission denied')" 1 "공개 키는 공감 불가"
 
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null
