@@ -146,7 +146,7 @@ export async function retryPush(admin: any, id: number) {
   if (c.error) return { status: 503 }
   const ids = c.data
   if (!Array.isArray(ids) || !ids.length) return { status: 200, skipped: true }
-  const restore = async (v: unknown) => { await admin.from('msg_messages').update({ push_retry: v }).eq('id', id).is('push_retry', null) }
+  const restore = (v: unknown) => keepRetry(admin, 'msg_messages', id, 'push_retry', v)
   const [m, t, s, a] = await Promise.all([
     admin.from('msg_messages').select('id,author,author_name,body,files,deleted_at,bot').eq('id', id).maybeSingle(),
     admin.from('msg_tasks').select('assignee,text').eq('message_id', id),
@@ -157,8 +157,20 @@ export async function retryPush(admin: any, id: number) {
   if (!m.data || m.data.deleted_at) return { status: 200, skipped: true }
   const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
   const r = await deliver(admin, onlySubs(plan(m.data, t.data || [], s.data || [], active), ids))
-  if (r.failedIds.length) await restore(r.failedIds)
+  if (r.failedIds.length && !(await restore(r.failedIds))) return { status: 503, lost: r.failedIds }
   return { status: r.failed ? 503 : 200 }
+}
+
+// 잡아 비운 목록을 되돌려 적기 — 결과를 확인하며 세 번까지 (Codex 검토). 그 사이 새 목록이 생겼으면 그대로 둔다
+// deno-lint-ignore no-explicit-any
+async function keepRetry(admin: any, table: string, id: number, col: string, v: unknown) {
+  for (let i = 0; i < 3; i++) {
+    const { error } = await admin.from(table).update({ [col]: v }).eq('id', id).is(col, null)
+    if (!error) return true
+    await new Promise((r) => setTimeout(r, 300 * (i + 1)))
+  }
+  console.error('keepRetry failed', table, id)
+  return false
 }
 
 // 넘김 알림도 같은 방식 — hand_retry = {to, by, subs:[id…]} 의 기기에만 다시 (Codex 검토)
@@ -168,7 +180,7 @@ export async function retryHand(admin: any, id: number) {
   if (c.error) return { status: 503 }
   const h = c.data as { to?: string; by?: string; subs?: number[] } | null
   if (!h || !Array.isArray(h.subs) || !h.subs.length || !h.to) return { status: 200, skipped: true }
-  const restore = async (v: unknown) => { await admin.from('msg_tasks').update({ hand_retry: v }).eq('id', id).is('hand_retry', null) }
+  const restore = (v: unknown) => keepRetry(admin, 'msg_tasks', id, 'hand_retry', v)
   const [t, s, a] = await Promise.all([
     admin.from('msg_tasks').select('id,message_id,text,status,assignee').eq('id', id).maybeSingle(),
     admin.from('msg_push_subs').select('*').in('id', h.subs),
@@ -179,6 +191,6 @@ export async function retryHand(admin: any, id: number) {
   if (!t.data || t.data.assignee !== h.to) return { status: 200, skipped: true }
   const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
   const r = await deliver(admin, onlySubs(handPlan({ ...t.data, to: h.to }, h.by || '', s.data || [], active), h.subs))
-  if (r.failedIds.length) await restore({ ...h, subs: r.failedIds })
+  if (r.failedIds.length && !(await restore({ ...h, subs: r.failedIds }))) return { status: 503, lost: r.failedIds }
   return { status: r.failed ? 503 : 200 }
 }
