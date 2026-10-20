@@ -6,3 +6,6 @@ verify_jwt = true
 
 [functions.clochu]
 verify_jwt = false
+
+[functions.kakao-skill]
+verify_jwt = false

@@ -1141,6 +1141,12 @@ function filterRows(rows, u){
   ok(calls.some(c => c[0] === 'tasksq' && /hand_push=not\.is\.null/.test(c[1]) && /hand_by=eq\./.test(c[1])), '남은 넘김 알림은 서버에 직접 묻는다(1000건 밖도) (Codex 검토)');
   ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === dueMsg.id) && calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === am.id), 'tick 이 돌려준 클로슈 글 → 휴대폰 알림 요청');
   ok(!calls.some(c => c[0] === 'botrpc' && /msg_bot_(ask|post)/.test(c[1])), '밤 9시 정리도 화면이 쓰지 않음(클로드가 씀)');
+  { // 카카오채널 학부모님 문의(202610200009)
+    const km = addMsg(null, '학부모님 문의 (#a1b2c3)\n내일 김민준 결석합니다', []); km.author_name = '카카오채널'; km.bot = { kind: 'kakao', who: 'a1b2c3', to: [ME] };
+    await page.waitForSelector('#m' + km.id, { timeout: 8000 }).catch(() => {});
+    const kr = page.locator('#m' + km.id);
+    ok((await kr.count()) === 1 && (await kr.locator('.av').textContent()) === '카' && (await kr.locator('.nm').textContent()).includes('학부모님 문의') && await kr.evaluate(e => e.classList.contains('kko')), '카카오채널 글 — 동그라미 카·학부모님 문의 표시');
+  }
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'bot.png') });
   await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
   await ctx.close();

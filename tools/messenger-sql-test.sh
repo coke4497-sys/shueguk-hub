@@ -60,6 +60,7 @@ P -f supabase/migrations/202610200007_messenger_bot.sql >/dev/null || { echo "�
 P -f supabase/migrations/202610200007_messenger_bot.sql >/dev/null && ok y y "클로슈 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610200008_messenger_clochu.sql >/dev/null || { echo "클로슈(진짜 클로드) 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200008_messenger_clochu.sql >/dev/null && ok y y "클로슈(진짜 클로드) 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610200009_messenger_kakao.sql >/dev/null || { echo "카카오채널 마이그레이션 실패"; exit 1; }
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
 B=bbbbbbbb-0000-0000-0000-000000000002   # 이은지 선생님
@@ -343,6 +344,18 @@ ok "$(as $C "select public.msg_bot_due()" | grep -c 'permission denied')" 1 "교
 ok "$(as $E "select public.msg_bot_tick()" | grep -c not_teacher)" 1 "계정 없는 로그인은 못 부름"
 ok "$(anon "select public.msg_bot_tick()" | grep -c 'permission denied')" 1 "공개 키는 클로슈 함수 실행 불가"
 ok "$(as $C "select count(*) from public.msg_bot_runs" 2>&1 | grep -c 'permission denied')" 1 "중복 방지 표는 직접 못 읽음"
+
+# 카카오채널 문의(202610200009)
+SQ(){ psql -X -A -t -q -d $DB -c "$1" 2>&1 | last; }
+KM=$(svc "select (public.kakao_inbound('a1b2c3', '내일 김민준 결석합니다')).id")
+ok "$(SQ "select author_name||'|'||(author is null)::text||'|'||(bot->>'kind')||'|'||(bot->'to'->>0) from public.msg_messages where id=$KM")" "카카오채널|true|kakao|$A" "카카오채널 글 — 작성자 없음·알림은 관리자"
+ok "$(SQ "select count(*)||'|'||min(assignee_name)||'|'||min(requester_name) from public.msg_tasks where message_id=$KM")" "1|이수경|카카오채널" "관리자 업무 카드에 문의 확인 할 일 하나"
+ok "$(SQ "select replace(body, chr(10), '/') from public.msg_messages where id=$KM")" "학부모님 문의 (#a1b2c3)/내일 김민준 결석합니다" "본문에 보낸 사람 구분과 글"
+ok "$(svc "select replace((public.kakao_inbound('a1b2c3', '')).body, chr(10), '/')")" "학부모님 문의 (#a1b2c3)/(글 없이 보낸 메시지)" "빈 글도 받음"
+SQ "insert into public.msg_messages (author, author_name, body, files, bot) select null, '카카오채널', 'x', '[]', '{\"kind\":\"kakao\",\"who\":\"zzzzzz\"}' from generate_series(1,30)" >/dev/null
+ok "$(svc "select public.kakao_inbound('zzzzzz', '또')" | grep -c too_many)" 1 "같은 사람은 하루 30개까지"
+ok "$(as $A "select public.kakao_inbound('x', 'y')" | grep -c 'permission denied')" 1 "교사는 카카오 함수를 못 부름"
+ok "$(psql -X -A -t -q -d $DB -c "set role anon;" -c "select public.kakao_inbound('x', 'y')" 2>&1 | grep -c 'permission denied')" 1 "공개 키도 못 부름"
 
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null
