@@ -148,8 +148,8 @@ function filterRows(rows, u){
         const m = addMsg(ME, b.p_body, b.p_files);
         if (b.p_reply) m.reply_to = b.p_reply;
         let text = b.p_body; (b.p_mentions || []).forEach(id => { text = text.split('@' + NAME[id]).join(''); });
-        const all = /@(모두|전체)/.test(b.p_body) || /^\[(결석|지각|이동)\]/.test(b.p_body);   // 결석·지각·이동도 확인만(202610200003)
-        text = text.replace(/@(모두|전체)/g, '').replace(/\s+/g, ' ').trim() || '메시지 확인';
+        const all = /@(모두|전체|조교|선생님)/.test(b.p_body) || /^\[(결석|지각|이동)\]/.test(b.p_body);   // 결석·지각·이동도 확인만(202610200003)
+        text = text.replace(/@(모두|전체|조교|선생님)/g, '').replace(/\s+/g, ' ').trim() || '메시지 확인';
         const tasks = [...new Set(b.p_mentions || [])].map(id => { const k = addTask(m, id, text); k.ack_only = all; return k; });
         return json({ message: m, tasks });
       }
@@ -610,6 +610,27 @@ function filterRows(rows, u){
   const allId = MSGS[MSGS.length - 1].id;
   ok(await page.locator('#m' + allId + ' .bb .at').textContent() === '@모두', '@모두 강조');
   ok(await page.locator('#m' + allId + ' .tk').count() === 3, '3명이면 사람마다 표시');
+  // @조교 · @선생님 (202610200007)
+  await page.click('#inp'); await page.keyboard.type('@조');
+  await page.waitForSelector('#mention.on');
+  const astN = MEMBERS.filter(m => m.role === 'assistant' && m.user_id !== ME).length;
+  ok((await page.locator('#mention button').first().textContent()).includes('조교 모두 · 나 빼고 ' + astN + '명'), '@ 목록에 \'조교 모두\' (' + (await page.locator('#mention button').first().textContent()) + ')');
+  await page.keyboard.press('Enter'); await page.keyboard.type('복사기 정리해 주세요'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  const sGa = calls.filter(c => c[0] === 'send').pop();
+  const astIds = MEMBERS.filter(m => m.role === 'assistant' && m.user_id !== ME).map(m => m.user_id).sort();
+  ok(sGa[1].p_body === '@조교 복사기 정리해 주세요' && JSON.stringify([...sGa[1].p_mentions].sort()) === JSON.stringify(astIds), '@조교 → 나 빼고 조교만 (' + sGa[1].p_mentions.length + '명)');
+  await page.click('#inp'); await page.keyboard.type('@선');
+  await page.waitForSelector('#mention.on');
+  ok((await page.locator('#mention button').first().textContent()).includes('선생님 모두'), '@ 목록에 \'선생님 모두\'');
+  await page.keyboard.press('Enter'); await page.keyboard.type('회의록 확인 부탁드립니다'); await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  const sGt = calls.filter(c => c[0] === 'send').pop();
+  const tchIds = MEMBERS.filter(m => (m.role === 'teacher' || m.role === 'admin') && m.user_id !== ME).map(m => m.user_id).sort();
+  ok(sGt[1].p_body === '@선생님 회의록 확인 부탁드립니다' && JSON.stringify([...sGt[1].p_mentions].sort()) === JSON.stringify(tchIds), '@선생님 → 선생님·원장님 (' + sGt[1].p_mentions.length + '명)');
+  const stId = MSGS[MSGS.length - 1].id;
+  ok(await page.locator('#m' + stId + ' .bb .at').textContent() === '@선생님', '@선생님 강조');
+  ok(TASKS.filter(k => k.message_id === stId).every(k => k.ack_only), '@선생님 할 일은 확인만');
   // 6명 넘는 @모두 — 접어서 '확인 n / m'
   const many = addMsg(BOSS, '@모두 회의합니다', [], ts());
   const extra = ['55555555-5555-5555-5555-55555555555', '66666666-6666-6666-6666-66666666666'];

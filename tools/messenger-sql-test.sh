@@ -56,6 +56,8 @@ P -f supabase/migrations/202610200006_task_progress.sql >/dev/null && ok y y "�
 for w in 202610200001_work_log 202610200002_work_overtime_approval 202610200003_work_early_out 202610200004_work_early_confirm; do P -f supabase/migrations/$w.sql >/dev/null || { echo "근무 일지 마이그레이션 실패 $w"; exit 1; }; done
 P -f supabase/migrations/202610200005_staff_manage.sql >/dev/null || { echo "강사 관리 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200005_staff_manage.sql >/dev/null && ok y y "강사 관리 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610200007_messenger_group_mention.sql >/dev/null || { echo "@조교·@선생님 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200007_messenger_group_mention.sql >/dev/null && ok y y "@조교·@선생님 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610200007_messenger_bot.sql >/dev/null || { echo "클로슈 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200007_messenger_bot.sql >/dev/null && ok y y "클로슈 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610200008_messenger_closhu.sql >/dev/null || { echo "클로슈(진짜 클로드) 마이그레이션 실패"; exit 1; }
@@ -284,6 +286,15 @@ ok "$(as $PK "select count(*) from public.staff_usage('$D0', '$D0')")" 2 "대표
 ok "$(as $A "select count(*) from public.staff_usage('$D0', '2020-01-01')" | grep -c bad_range)" 1 "거꾸로 된 기간 거절"
 ok "$(anon "select public.usage_tick('shueguk-hub/ops.html')" | grep -c 'permission denied')" 1 "공개 키는 사용 시간 함수 실행 불가"
 
+echo "── @조교 · @선생님"
+MG=$(as $B "select (public.msg_send('내일 시험지 배부합니다 @조교들에게', '[]', '{}')->'message'->>'id')")
+ok "$(as $B "select string_agg(assignee_name, ',' order by assignee_name)||'|'||bool_and(ack_only)||'|'||min(text) from public.msg_tasks where message_id=$MG")" "고희주|true|내일 시험지 배부합니다" "@조교 = 활성 조교 모두 · 확인만 · 글에서 @조교들에게 뺌"
+MT=$(as $C "select (public.msg_send('@선생님 리포트 작성 부탁드립니다', '[]', '{}')->'message'->>'id')")
+ok "$(as $C "select string_agg(assignee_name, ',' order by assignee_name)||'|'||bool_and(ack_only)||'|'||min(text) from public.msg_tasks where message_id=$MT")" "박언호,이수경,이은지|true|리포트 작성 부탁드립니다" "@선생님 = 선생님·원장님·대표님(비활성 제외) · 확인만"
+MT2=$(as $A "select (public.msg_send('@선생님 회의합니다', '[]', '{}')->'message'->>'id')")
+ok "$(as $A "select string_agg(assignee_name, ',' order by assignee_name)||'' from public.msg_tasks where message_id=$MT2")" "박언호,이은지" "@선생님도 보낸 사람(원장님)은 뺌"
+MN=$(as $C "select (public.msg_send('@이은지 선생님 확인 부탁드려요', '[]', array['$B']::uuid[])->'message'->>'id')")
+ok "$(as $C "select count(*)||'|'||bool_and(ack_only)::text from public.msg_tasks where message_id=$MN")" "1|false" "'@이은지 선생님'은 @선생님이 아님(보통 할 일 한 명)"
 echo "── 클로슈 (202610200007)"
 MQ=$(as $C "select (public.msg_send('[결석] 중3 민준 결석', '[]', '{}')->'message'->>'id')")
 ok "$(as $C "select public.msg_bot_say('note', 'x')" | grep -c 'permission denied')" 1 "교사 화면은 클로슈 이름으로 글을 못 씀"
