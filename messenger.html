@@ -733,7 +733,7 @@
   function mentionRe(){
     if (MENTION_CACHE) return MENTION_CACHE;
     var names = MEMBERS.map(function(m){ return m.name; }).filter(Boolean).sort(function(a, b){ return b.length - a.length; });
-    names = names.map(function(n){ return n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).concat(['모두', '전체']);
+    names = names.map(function(n){ return n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).concat(['모두', '전체', '조교', '선생님']);
     MENTION_CACHE = new RegExp('@(' + names.join('|') + ')(T|선생님|쌤|조교|님)?', 'g');
     return MENTION_CACHE;
   }
@@ -771,7 +771,7 @@
     return stuP;
   }
   function attTagOf(body){ var t = tagSplit(body).tag || curTag; return ATT_TAGS[t] ? t : ''; }
-  function hasMention(body){ return /@(모두|전체)/.test(body) || MEMBERS.some(function(m){ return body.indexOf('@' + m.name) >= 0; }); }
+  function hasMention(body){ return /@(모두|전체|조교|선생님)/.test(body) || MEMBERS.some(function(m){ return body.indexOf('@' + m.name) >= 0; }); }
   // 글 속 학생 이름(끝 A·B 뗀 이름, 앞은 한글이 아니고 뒤는 띄어쓰기·조사) — 이름이 겹치면 담당 선생님이 하나일 때만 쓴다
   function attAuto(body){
     var text = tagSplit(body).rest, by = {}, out = { ids: [], found: [], miss: [], self: [] };
@@ -835,6 +835,7 @@
     return '<button class="tk ' + (cx ? 'cx' : done ? 'ok' : pg ? 'pg' : seen ? 'seen' : 'wait') + '" type="button" data-card="' + esc(t.assignee || t.assignee_name) + '"' + (cx ? ' title="취소 사유: ' + esc(t.cancel_reason || '') + '"' : '') + '>'
       + (t.ack_only ? '' : '할 일 → ') + esc(t.assignee_name) + ' · ' + (cx ? '취소 ' + hm(t.done_at) : done ? (t.ack_only ? '확인 ' : '완료 ') + hm(t.done_at) : pg ? '진행 중' : seen ? '확인 ' + hm(t.seen_at) : '아직') + '</button>';
   }
+  function grpWord(id){ var b = (MSGS.get(id) || {}).body || ''; return /@(모두|전체)/.test(b) ? '모두' : /@조교/.test(b) ? '조교' : /@선생님/.test(b) ? '선생님' : '모두'; }
   function chipsHtml(id){
     var ts = tasksOf(id);
     if (!ts.length) return '';
@@ -842,7 +843,7 @@
     var ack = mine ? '<button class="ack" type="button" data-ack="' + mine.id + '">확인했습니다</button>' : '';
     if (ts.length <= 5) return '<div class="tks">' + ts.map(chipOne).join('') + '</div>' + ack;
     var n = ts.filter(seenOf).length, open = openChips[id];
-    return '<div class="tks"><button class="tk sum ' + (n === ts.length ? 'ok' : 'wait') + '" type="button" data-expand="' + id + '">' + (ts[0].ack_only ? '모두' : ts.length + '명') + ' · 확인 ' + n + ' / ' + ts.length + (open ? ' ▴' : ' ▾') + '</button>'
+    return '<div class="tks"><button class="tk sum ' + (n === ts.length ? 'ok' : 'wait') + '" type="button" data-expand="' + id + '">' + (ts[0].ack_only ? grpWord(id) : ts.length + '명') + ' · 확인 ' + n + ' / ' + ts.length + (open ? ' ▴' : ' ▾') + '</button>'
       + (open ? ts.map(chipOne).join('') : '') + '</div>' + ack;
   }
 
@@ -1057,15 +1058,18 @@
     return mm ? { q: mm[2], start: pos - mm[2].length - 1, end: pos } : null;
   }
   var ALL_PICK = { id: '*all', name: '모두', role: 'all' };
+  // @조교·@선생님 — 그 역할의 활성 계정 모두(나 빼고), @모두처럼 확인만 받으면 끝 (2026-10-20 원장님, 202610200007)
+  var GROUP_PICKS = [ALL_PICK, { id: '*ast', name: '조교', role: 'grp', roles: ['assistant'] }, { id: '*tch', name: '선생님', role: 'grp', roles: ['teacher', 'admin'] }];
+  function groupMembers(g){ return MEMBERS.filter(function(m){ return m.id !== ME.id && (g === ALL_PICK || g.roles.indexOf(m.role) >= 0); }); }
   function updateMention(){
     var q = mentionQuery(), box = $('mention');
     if (!q){ box.classList.remove('on'); mList = []; return; }
     mList = MEMBERS.filter(function(m){ return m.name.indexOf(q.q) >= 0; })
       .sort(function(a, b){ return (b.name.indexOf(q.q) === 0) - (a.name.indexOf(q.q) === 0) || a.name.localeCompare(b.name, 'ko'); }).slice(0, 8);
-    if ('모두'.indexOf(q.q) === 0 || '전체'.indexOf(q.q) === 0) mList.unshift(ALL_PICK);   // @모두 — 나를 뺀 모두
+    mList = GROUP_PICKS.filter(function(g){ return g.name.indexOf(q.q) === 0 || (g === ALL_PICK && '전체'.indexOf(q.q) === 0); }).concat(mList);   // @모두·@조교·@선생님
     if (!mList.length){ box.classList.remove('on'); return; }
     mIdx = Math.min(mIdx, mList.length - 1);
-    box.innerHTML = mList.map(function(m, i){ return '<button type="button" role="option" data-mi="' + i + '" class="' + (i === mIdx ? 'on' : '') + '">' + esc(m.name) + ' <small>' + (m === ALL_PICK ? '나 빼고 ' + (MEMBERS.length - 1) + '명 · 확인만 받으면 끝' : roleLabel(m.role) + (presOk ? ' · ' + (presLoc(m.id) ? esc(presLoc(m.id)) + ' ON' : 'OFF') : '')) + '</small></button>'; }).join('');
+    box.innerHTML = mList.map(function(m, i){ return '<button type="button" role="option" data-mi="' + i + '" class="' + (i === mIdx ? 'on' : '') + '">' + esc(m.name) + ' <small>' + (m === ALL_PICK ? '나 빼고 ' + (MEMBERS.length - 1) + '명 · 확인만 받으면 끝' : m.role === 'grp' ? m.name + ' 모두 · 나 빼고 ' + groupMembers(m).length + '명 · 확인만 받으면 끝' : roleLabel(m.role) + (presOk ? ' · ' + (presLoc(m.id) ? esc(presLoc(m.id)) + ' ON' : 'OFF') : '')) + '</small></button>'; }).join('');
     box.classList.add('on');
   }
   function pickMention(i){
@@ -1103,6 +1107,7 @@
       names[name].forEach(function(m){ ids.push(m.id); });
     });
     if (/@(모두|전체)/.test(body)){ ids = ids.filter(function(x){ return x !== ME.id; }); MEMBERS.forEach(function(m){ if (m.id !== ME.id && ids.indexOf(m.id) < 0) ids.push(m.id); }); }   // 서버도 같은 일을 한다(0005) — 나는 늘 뺀다
+    GROUP_PICKS.forEach(function(g){ if (g !== ALL_PICK && body.indexOf('@' + g.name) >= 0){ ids = ids.filter(function(x){ return x !== ME.id; }); groupMembers(g).forEach(function(m){ if (ids.indexOf(m.id) < 0) ids.push(m.id); }); } });   // @조교·@선생님 — 서버도 같은 일(0007)
     lastAmbig = ambiguous.length > 0;
     if (ambiguous.length) status('같은 이름이 여럿이라 모두에게 보냈습니다: ' + ambiguous.join(', ') + ' — 계정 이름 뒤에 A·B를 붙여 구분해 주세요.', 6000);
     return ids;
