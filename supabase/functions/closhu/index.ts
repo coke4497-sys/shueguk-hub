@@ -54,7 +54,7 @@ async function repush() {
 // deno-lint-ignore no-explicit-any
 async function allRows(make: () => any) {
   const out: unknown[] = []
-  for (let from = 0; from < 20000; from += 1000) {
+  for (let from = 0; ; from += 1000) {   // 마지막 쪽(1000줄 미만)까지 — 한도를 두지 않는다 (Codex 검토)
     const { data, error } = await make().range(from, from + 999)
     if (error) return { data: null, error }
     out.push(...(data || []))
