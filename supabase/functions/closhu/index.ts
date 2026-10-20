@@ -9,7 +9,7 @@
 // 지침: docs/클로슈-지침.md
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { setup, pushMessage } from '../_shared/push.ts'
+import { setup, pushMessage, retryPush } from '../_shared/push.ts'
 import { sameToken, safeQuery, TABLES } from './lib.ts'
 
 const URL0 = Deno.env.get('SUPABASE_URL') || ''
@@ -37,7 +37,11 @@ async function repush() {
   if (error || !setup()) return { tried: 0, failed: error ? 'lookup' : 'no_vapid' }
   let failed = 0
   for (const m of data || []) { const r = await pushMessage(admin, m.id); if (r.status !== 200) failed++ }
-  return { tried: (data || []).length, failed }
+  // 일부 기기만 못 받은 메시지(사람 글 포함)는 그 기기에만 다시 (Codex 검토)
+  const part = await admin.from('msg_messages').select('id').not('push_retry', 'is', null).is('deleted_at', null).gte('created_at', since).order('id').limit(20)
+  let retried = 0
+  for (const m of part.data || []) { retried++; const r = await retryPush(admin, m.id); if (r.status !== 200) failed++ }
+  return { tried: (data || []).length, retried, failed }
 }
 
 // 표를 1000줄씩 끝까지 받는다 — 앞쪽 몇백 줄만 보고 판단하지 않게 (Codex 검토)

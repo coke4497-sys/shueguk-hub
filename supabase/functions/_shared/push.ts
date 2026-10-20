@@ -65,6 +65,7 @@ export function setup() {
 // deno-lint-ignore no-explicit-any
 export async function deliver(admin: any, items: { sub: Sub; payload: Record<string, unknown> }[]) {
   let sent = 0, gone = 0, failed = 0
+  const failedIds: number[] = []
   await Promise.all(items.map(async ({ sub, payload }) => {
     try {
       await webpush.sendNotification(
@@ -80,12 +81,19 @@ export async function deliver(admin: any, items: { sub: Sub; payload: Record<str
       if (code === 404 || code === 410) { gone++; await admin.from('msg_push_subs').delete().eq('id', sub.id) }
       else {
         failed++
+        failedIds.push(sub.id)
         if (sub.fail_count >= 9) await admin.from('msg_push_subs').delete().eq('id', sub.id)
         else await admin.from('msg_push_subs').update({ fail_count: sub.fail_count + 1 }).eq('id', sub.id)
       }
     }
   }))
-  return { sent, gone, failed }
+  return { sent, gone, failed, failedIds }
+}
+
+// 다시 보낼 기기만 남긴다 — 이미 받은 기기에는 두 번 보내지 않게 (Codex 검토)
+export function onlySubs<T extends { sub: Sub }>(items: T[], ids: unknown): T[] {
+  const want = new Set((Array.isArray(ids) ? ids : []).map(Number))
+  return items.filter((x) => want.has(Number(x.sub.id)))
 }
 
 // 메시지 한 건 알림 — 아직 안 보냈고 안 지운 메시지만, 보낼 자리(pushed_at)를 잡고 보낸다.
@@ -107,9 +115,35 @@ export async function pushMessage(admin: any, id: number, extra?: (q: any) => an
   const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
   const items = plan(claimed[0], t.data || [], s.data || [], active)
   const r = await deliver(admin, items)
+  const { failedIds, ...cnt } = r
   if (!r.sent && r.failed) {
     await admin.from('msg_messages').update({ pushed_at: null }).eq('id', id).eq('pushed_at', at)
-    return { status: 503, body: { error: 'deliver_failed', targets: items.length, ...r } }
+    return { status: 503, body: { error: 'deliver_failed', targets: items.length, ...cnt } }
   }
-  return { status: 200, body: { targets: items.length, ...r } }
+  // 일부 기기만 실패 — 그 기기만 적어 두고 순찰이 다시 보낸다(retryPush)
+  if (failedIds.length) await admin.from('msg_messages').update({ push_retry: failedIds }).eq('id', id)
+  return { status: 200, body: { targets: items.length, ...cnt } }
+}
+
+// 일부 실패한 메시지를 그 기기에만 다시 — 적어 둔 목록을 비우며 잡고(동시에 두 번 안 가게), 또 실패한 기기만 다시 적는다
+// deno-lint-ignore no-explicit-any
+export async function retryPush(admin: any, id: number) {
+  const { data: claimed, error: ce } = await admin.from('msg_messages').update({ push_retry: null }).eq('id', id)
+    .not('push_retry', 'is', null).is('deleted_at', null).select('id,author,author_name,body,files,deleted_at,bot,push_retry')
+  if (ce) return { status: 503 }
+  if (!claimed || !claimed.length) return { status: 200, skipped: true }
+  const m = claimed[0]
+  const [t, s, a] = await Promise.all([
+    admin.from('msg_tasks').select('assignee,text').eq('message_id', id),
+    admin.from('msg_push_subs').select('*'),
+    admin.from('teacher_accounts').select('user_id').eq('active', true),
+  ])
+  if (t.error || s.error || a.error) {
+    await admin.from('msg_messages').update({ push_retry: m.push_retry }).eq('id', id).is('push_retry', null)
+    return { status: 503 }
+  }
+  const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
+  const r = await deliver(admin, onlySubs(plan(m, t.data || [], s.data || [], active), m.push_retry))
+  if (r.failedIds.length) await admin.from('msg_messages').update({ push_retry: r.failedIds }).eq('id', id).is('push_retry', null)
+  return { status: r.failed ? 503 : 200 }
 }

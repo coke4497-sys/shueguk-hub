@@ -68,3 +68,10 @@ Deno.test('Deno에서 web-push 암호화가 되고 받는 기기가 풀 수 있�
   const plain = ece.decrypt(req.body, { version: 'aes128gcm', privateKey: ua, authSecret })
   assertEquals(new TextDecoder().decode(plain), body)
 })
+
+Deno.test('일부 실패 다시 보내기는 적어 둔 기기에만 (Codex 검토)', async () => {
+  const { onlySubs } = await import('../_shared/push.ts')
+  const items = [1, 2, 3].map((id) => ({ sub: { id } as unknown as import('../_shared/push.ts').Sub, payload: {} }))
+  assertEquals(onlySubs(items, [2, 3]).map((x) => Number(x.sub.id)), [2, 3])
+  assertEquals(onlySubs(items, null).length, 0)
+})

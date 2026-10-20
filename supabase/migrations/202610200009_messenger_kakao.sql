@@ -15,6 +15,8 @@ declare
   v_to uuid[];
   v_m public.msg_messages;
 begin
+  -- 같은 사람 글은 차례로 — 동시에 여러 개가 와도 하루 30개를 넘지 않게 (Codex 검토)
+  perform pg_advisory_xact_lock(hashtext('kakao_inbound:' || v_who));
   if (select count(*) from public.msg_messages m
       where m.bot->>'kind' = 'kakao' and m.bot->>'who' = v_who and m.created_at > now() - interval '1 day') >= 30 then
     raise exception 'too_many';

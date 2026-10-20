@@ -56,6 +56,13 @@ begin
     end if;
     v_to := array[v_src.author];
   end if;
+  -- note 는 관계있는 사람에게만 — 받는 사람을 빠뜨리면 원글 쓴 사람, 원글도 없으면 거절(모두에게 가지 않게) (Codex 검토)
+  if p_kind = 'note' and v_to is null then
+    if v_src.author is null then
+      raise exception 'need_to';
+    end if;
+    v_to := array[v_src.author];
+  end if;
   if p_kind = 'ask' then
     if jsonb_typeof(p_options) is distinct from 'array' or jsonb_array_length(p_options) not between 1 and 8 then
       raise exception 'bad_options';

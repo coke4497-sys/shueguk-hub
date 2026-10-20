@@ -61,6 +61,7 @@ P -f supabase/migrations/202610200007_messenger_bot.sql >/dev/null && ok y y "�
 P -f supabase/migrations/202610200008_messenger_closhu.sql >/dev/null || { echo "클로슈(진짜 클로드) 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200008_messenger_closhu.sql >/dev/null && ok y y "클로슈(진짜 클로드) 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610200009_messenger_kakao.sql >/dev/null || { echo "카카오채널 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200010_messenger_push_retry.sql >/dev/null || { echo "알림 다시 보내기 마이그레이션 실패"; exit 1; }
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
 B=bbbbbbbb-0000-0000-0000-000000000002   # 이은지 선생님
@@ -354,6 +355,10 @@ ok "$(SQ "select replace(body, chr(10), '/') from public.msg_messages where id=$
 ok "$(svc "select replace((public.kakao_inbound('a1b2c3', '')).body, chr(10), '/')")" "학부모님 문의 (#a1b2c3)/(글 없이 보낸 메시지)" "빈 글도 받음"
 SQ "insert into public.msg_messages (author, author_name, body, files, bot) select null, '카카오채널', 'x', '[]', '{\"kind\":\"kakao\",\"who\":\"zzzzzz\"}' from generate_series(1,30)" >/dev/null
 ok "$(svc "select public.kakao_inbound('zzzzzz', '또')" | grep -c too_many)" 1 "같은 사람은 하루 30개까지"
+ok "$(svc "select public.msg_bot_say('note', '받는 사람 없는 알림')" | grep -c need_to)" 1 "원글 없는 note 는 받는 사람이 꼭 있어야 (Codex 검토)"
+NQ=$(as $C "select (public.msg_send('교재 주문 누가 해요?', '[]', '{}')->'message'->>'id')")
+ok "$(svc "select (public.msg_bot_say('note', '@로 부르면 업무 카드에 올라가요', $NQ)).bot->'to'->>0")" "$C" "받는 사람을 빠뜨린 note 는 원글 쓴 사람에게만"
+ok "$(SQ "select count(*) from information_schema.columns where table_name='msg_messages' and column_name='push_retry'")" "1" "일부 실패 기기 목록 열(push_retry)"
 SQ "update public.teacher_accounts set role='teacher' where user_id='$A'" >/dev/null
 ok "$(svc "select (public.kakao_inbound('noadm1', '관리자 없음')).bot->>'to'")" "[]" "관리자가 없어도 모두에게 보내지 않음(빈 받는 사람) (Codex 검토)"
 SQ "update public.teacher_accounts set role='admin' where user_id='$A'" >/dev/null
