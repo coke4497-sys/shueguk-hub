@@ -50,6 +50,8 @@ Deno.test('클로슈 메시지 — 받을 사람이 정해지면 그 사람 기�
   assertEquals(plan(bot, [], [sub(1, A), sub(2, B), sub(3, C)], new Set([A, B, C])).map((i) => i.sub.id), [2])
   const all = { ...bot, bot: {} }
   assertEquals(plan(all, [], [sub(1, A), sub(2, B)], new Set([A, B])).map((i) => i.sub.id), [1, 2])
+  // 옛 'mention' 범위로 저장된 기기도 bot.to 대상이면 받는다
+  assertEquals(plan(bot, [], [{ ...sub(2, B), mode: 'mention' }, { ...sub(3, C), mode: 'mention' }], new Set([A, B, C])).map((i) => i.sub.id), [2])
 })
 
 Deno.test('Deno에서 web-push 암호화가 되고 받는 기기가 풀 수 있다', () => {

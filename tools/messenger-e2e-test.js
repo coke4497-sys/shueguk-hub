@@ -216,7 +216,7 @@ function filterRows(rows, u){
         }
         return json(filterRows(MSGS, u));
       }
-      if (p === '/rest/v1/msg_tasks') return json(filterRows(TASKS, u));
+      if (p === '/rest/v1/msg_tasks'){ if (/status=eq/.test(u.search)) calls.push(['tasksq', u.search]); return json(filterRows(TASKS, u)); }
       if (failTT && /^\/rest\/v1\/(tt_|class_notes)/.test(p)){ calls.push(['ttfail', p]); return json({ message: 'boom' }, 500); }
       if (p === '/rest/v1/tt_classes'){
         calls.push(['tt', u.search]);
@@ -1183,6 +1183,34 @@ function filterRows(rows, u){
   await page.waitForFunction(() => true); await sleep(5000);
   bp = calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'answer').pop();
   ok(bp && calls.filter(c => c[0] === 'bpost').length > bp1 && /^지금 출근: /.test(bp[1].p_text), '출근 현황이 오면 다음 순찰에서 출근 답 (' + (bp && bp[1].p_text.split('\n')[0]) + ')');
+  // 한 번 읽은 뒤 이번 출근 조회가 실패해도 옛 출근 현황으로 답하지 않음 (Codex 검토)
+  failPres = true;
+  const bp2 = calls.filter(c => c[0] === 'bpost').length;
+  await page.fill('#inp', '@클로슈 출근 다시 알려줘'); await page.click('#send'); await sleep(2500);
+  ok(calls.filter(c => c[0] === 'bpost').length === bp2, '이번 출근 조회가 실패하면 옛 현황으로 답하지 않음');
+  failPres = false;
+  await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
+  await page.evaluate(() => { const D = Date, off = 200000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
+  await page.waitForFunction(() => true); await sleep(5000);
+  ok(calls.filter(c => c[0] === 'bpost').length > bp2 && /^지금 출근: /.test(calls.filter(c => c[0] === 'bpost').pop()[1].p_text), '출근 조회가 되면 다음 순찰에서 답');
+  // 남은 일은 질문할 때 대기 중 할 일을 새로 받는다 (Codex 검토)
+  const tq0 = calls.length;
+  await page.fill('#inp', '@클로슈 내 남은 일'); await page.click('#send'); await sleep(2000);
+  const tqi = calls.findIndex((c, i) => i >= tq0 && c[0] === 'bpost');
+  ok(tqi > 0 && calls.slice(tq0, tqi).some(c => c[0] === 'tasksq'), '남은 일 답 전에 대기 할 일을 다시 받음');
+  // 오늘 정리: 시간표를 못 읽으면 쓰지 않고 다음 tick에 (Codex 검토)
+  const sm0 = calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'summary').length;
+  failTT = true; BOT.tick = { msgs: [], summary: true };
+  await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
+  await page.evaluate(() => { const D = Date, off = 330000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
+  await page.waitForFunction(() => true); await sleep(5000);
+  ok(calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'summary').length === sm0, '시간표를 못 읽으면 오늘 정리를 미룸');
+  failTT = false; BOT.tick = { msgs: [], summary: true };
+  await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
+  await page.evaluate(() => { const D = Date, off = 460000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
+  await page.waitForFunction(() => true); await sleep(5000);
+  ok(calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'summary').length === sm0 + 1, '다음 tick에 오늘 정리를 씀');
+  await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
   await ctx.close();
 
   await browser.close(); server.close();

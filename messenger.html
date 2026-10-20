@@ -1550,6 +1550,8 @@
       api('/msg_tasks?select=*&status=eq.' + encodeURIComponent('대기') + '&order=id.asc&limit=1000').then(addTasks),
       api('/msg_tasks?select=*&done_at=gte.' + encodeURIComponent(start0) + '&order=id.asc&limit=1000').then(addTasks)
     ]).then(function(){
+      // 시간표·출근을 이번에 못 읽었으면 쓰지 않는다 — 하루 한 번뿐이라, 1분 뒤 tick 이 다시 부른다 (Codex 검토)
+      if (!LES.ok || LES.fail || (!presOk && !presNone) || presFail) return;
       var now = new Date().toISOString(), start = dayStartMs(), lines = ['오늘 정리 · ' + dayLabel(now)];
       if (presOk){
         var by = {}, off = 0;
@@ -1596,10 +1598,12 @@
   }
   function botAnswer(msg){
     var q = String(msg.body || '').replace(/@클로슈/g, ' ').replace(/\s+/g, ' ').trim();
-    var askPres = /출근/.test(q);
-    Promise.all([loadStudents(), loadLessons(true), askPres ? loadPres() : null]).then(function(){
+    var askPres = /출근/.test(q), askTask = /남은 ?일|할 ?일|업무/.test(q);
+    Promise.all([loadStudents(), loadLessons(true), askPres ? loadPres() : null,
+      // 남은 일은 3초 폴링을 기다리지 않고 지금 대기 중인 할 일을 새로 받는다 (Codex 검토)
+      askTask ? api('/msg_tasks?select=*&status=eq.' + encodeURIComponent('대기') + '&order=id.asc&limit=1000').then(function(r){ addTasks(r); return r || []; }) : null]).then(function(res){
       // 명단·시간표·출근 현황을 못 읽은 채로 답하면 틀린 답이 남는다 — 답을 미루고 다음 순찰(1분 뒤)에서 다시 (Codex 검토)
-      if (!stuP || !LES.ok || LES.fail || (askPres && !presOk && !presNone)) throw botSoon();
+      if (!stuP || !LES.ok || LES.fail || (askPres && ((!presOk && !presNone) || presFail))) throw botSoon();
       var hits = scanNames(q);
       return (hits.length ? loadWeekClasses() : Promise.resolve([])).then(function(wk){
         var out = [];
@@ -1617,9 +1621,9 @@
           ls = ls.filter(function(x){ return (!g || x.l.name.indexOf(g) >= 0) && (!who || x.uid === who.id); }).sort(function(a, b){ return minsOf(a.l.start) - minsOf(b.l.start); });
           out.push('오늘' + (g ? ' ' + g : '') + (who ? ' ' + who.name + ' 선생님' : '') + ' 수업 ' + ls.length + '개' + (ls.length ? ':\n' + ls.slice(0, 15).map(function(x){ return '  ' + x.l.start + '~' + x.l.end + ' ' + x.l.name + ' (' + (MBY[x.uid] ? MBY[x.uid].name : '') + ', ' + (x.l.done ? '기록 완료' : '기록 전') + ')'; }).join('\n') : ''));
         }
-        if (/남은 ?일|할 ?일|업무/.test(q)){
+        if (askTask){
           var tgt = MEMBERS.filter(function(m){ return q.indexOf(m.name) >= 0; })[0] || MBY[ME.id];
-          var ts = []; TASKS.forEach(function(t){ if (t.status === '대기' && t.assignee === tgt.id) ts.push(t); });
+          var ts = (res[3] || []).filter(function(t){ return t.assignee === tgt.id; });   // 방금 받은 대기 목록만 — 다른 화면에서 끝낸 일이 남지 않게
           ts.sort(function(a, b){ return a.id - b.id; });
           out.push(tgt.name + ' 남은 일 ' + ts.length + '건' + (ts.length ? ':\n' + ts.slice(0, 8).map(function(t){ var over = t.due_at && Date.parse(t.due_at) < Date.now(); return '  · ' + t.text + (t.due_at ? (over ? ' (약속 지남)' : ' (' + whenLabel(t.due_at) + '까지)') : ''); }).join('\n') : ''));
         }
@@ -1636,7 +1640,7 @@
 
   // ── 출근·퇴근 (2026-10-19 원장님 "구성원이 어느 센터 on, off 상태를 표시") ─────────
   // 표 msg_presence(사람마다 한 줄) — 쓰기는 msg_presence_set 함수로만. 오늘 출근한 것만 ON(날짜가 바뀌면 OFF에서 시작).
-  var PRES = {}, presOk = false, presNone = false, presDay = '', PRES_LOCS = ['본원', '화정센터', '민초센터', '정리정독'];
+  var PRES = {}, presOk = false, presNone = false, presFail = false, presDay = '', PRES_LOCS = ['본원', '화정센터', '민초센터', '정리정독'];
   function presLoc(uid){
     var r = PRES[uid];
     return r && r.is_on && ymd(r.changed_at) === ymd(new Date().toISOString()) ? r.loc : '';
@@ -1652,11 +1656,12 @@
       // 날짜가 바뀌어도 다시 그린다 — 자정 넘어 열어 둔 화면에서 어제 출근이 ON으로 남지 않게 (Codex 검토)
       var day = ymd(new Date().toISOString());
       var changed = !presOk || presDay !== day || JSON.stringify(next) !== JSON.stringify(PRES);
-      PRES = next; presOk = true; presNone = false; presDay = day;
+      PRES = next; presOk = true; presNone = false; presFail = false; presDay = day;
       if (changed){ renderPres(); if (ready) renderBoard(); if (!$('plback').hidden) loadPresLog(); }
     }).catch(function(e){
       // 표가 아직 없으면(마이그레이션 202610190004 전) 출근 기능만 숨긴다
-      if (e && (e.status === 404 || (e.data && e.data.code === 'PGRST205'))){ presOk = false; presNone = true; renderPres(); }
+      if (e && (e.status === 404 || (e.data && e.data.code === 'PGRST205'))){ presOk = false; presNone = true; renderPres(); return; }
+      presFail = true;   // 이번 조회가 실패 — 클로슈는 옛 출근 현황으로 답·정리를 확정하지 않는다 (Codex 검토)
     });
   }
   function renderPres(){

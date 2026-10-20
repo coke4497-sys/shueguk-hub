@@ -42,7 +42,8 @@ export function plan(msg: Msg, tasks: Task[], subs: Sub[], active: Set<string>) 
   return subs
     .filter((s) => s.user_id !== msg.author && active.has(s.user_id))
     .filter((s) => !only || only.has(s.user_id))
-    .filter((s) => s.mode !== 'mention' || mine.has(s.user_id))
+    // bot.to 로 정한 사람은 옛 'mention' 범위로 저장된 기기여도 받는다 — 클로슈 글에는 그 사람 할 일이 없다 (Codex 검토)
+    .filter((s) => !!only || s.mode !== 'mention' || mine.has(s.user_id))
     .map((s) => {
       const t = mine.get(s.user_id)
       return {
