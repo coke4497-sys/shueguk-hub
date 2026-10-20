@@ -33,19 +33,27 @@ async function members() {
 async function feed() {
   const run = await admin.from('msg_bot_runs').select('message_id').eq('key', CURSOR).maybeSingle()
   if (run.error) throw run.error
-  const cursor = run.data?.message_id || 0
+  // 처음 켤 때(읽은 곳 없음)는 지난 대화를 새 글로 보지 않는다 — 최근 문맥만 주고 지금 마지막 번호부터 읽는다 (Codex 검토)
+  const first = !run.data
+  let cursor = run.data?.message_id || 0
+  if (first) {
+    const top = await admin.from('msg_messages').select('id').order('id', { ascending: false }).limit(1)
+    if (top.error) throw top.error
+    cursor = top.data?.[0]?.id || 0
+  }
   const sel = 'id,created_at,author_name,body,reply_to,files,bot,deleted_at'
   const since = new Date(Date.now() - 2 * 86400e3).toISOString()
   const dayStart = new Date(Date.parse(kst().slice(0, 10) + 'T00:00:00+09:00')).toISOString()
   const [fresh, before, pend, today, mem, pres, ments, asks] = await Promise.all([
     admin.from('msg_messages').select(sel).gt('id', cursor).order('id').limit(200),
-    admin.from('msg_messages').select(sel).lte('id', cursor).is('deleted_at', null).order('id', { ascending: false }).limit(cursor ? 20 : 40),
+    admin.from('msg_messages').select(sel).lte('id', cursor).is('deleted_at', null).order('id', { ascending: false }).limit(first ? 40 : 20),
     admin.from('msg_tasks').select('id,message_id,assignee_name,requester_name,text,created_at,due_at,due_note,seen_at,ack_only,progress_at,history').eq('status', '대기').order('id').limit(500),
     admin.from('msg_tasks').select('id,message_id,assignee_name,text,status,done_by_name,done_at,cancel_reason').neq('status', '대기').gte('done_at', dayStart).order('id').limit(500),
     members(),
     admin.from('msg_presence').select('name,loc,is_on,changed_at'),
     admin.from('msg_messages').select('id,created_at,author_name,body').like('body', '%@클로슈%').is('deleted_at', null).is('bot', null).gte('created_at', since).order('id').limit(50),
-    admin.from('msg_messages').select('id,created_at,body,bot').eq('bot->>kind', 'ask').is('deleted_at', null).gte('created_at', since).order('id').limit(50),
+    // 고르기 전 배정 질문은 날짜로 버리지 않는다 — 고를 때까지 계속 보인다 (Codex 검토)
+    admin.from('msg_messages').select('id,created_at,body,bot,reply_to').eq('bot->>kind', 'ask').is('bot->done', null).is('deleted_at', null).order('id', { ascending: false }).limit(50),
   ])
   for (const r of [fresh, before, pend, today, pres, ments, asks]) if (r.error) throw r.error
   // 이미 답한 @클로슈(그 글에 답장한 클로슈 글이 있으면)는 빼고 준다
@@ -59,7 +67,7 @@ async function feed() {
   const today0 = kst().slice(0, 10)
   const short = (m: Record<string, unknown>) => ({ ...m, files: Array.isArray(m.files) ? (m.files as unknown[]).length : 0 })
   return {
-    now_kst: kst(), cursor,
+    now_kst: kst(), cursor, first_run: first,
     last_id: Math.max(cursor, ...((fresh.data || []).map((m: { id: number }) => m.id))),
     new_messages: (fresh.data || []).map(short),
     earlier_messages: (before.data || []).reverse().map(short),
@@ -94,9 +102,9 @@ Deno.serve(async (request) => {
   try {
     if (input.action === 'feed') return reply(200, await feed())
     if (input.action === 'get') {
-      const qs = safeQuery(String(input.table || ''), String(input.query || ''))
-      if (qs === null) return reply(400, { error: 'bad_table', tables: Object.keys(TABLES) })
-      const r = await fetch(URL0 + '/rest/v1/' + input.table + '?' + qs, { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY } })
+      const sq = safeQuery(String(input.table || ''), String(input.query || ''))
+      if (sq === null) return reply(400, { error: 'bad_table', tables: Object.keys(TABLES) })
+      const r = await fetch(URL0 + '/rest/v1/' + sq.table + '?' + sq.qs, { headers: { apikey: KEY, Authorization: 'Bearer ' + KEY } })
       const body = await r.text()
       return new Response(body, { status: r.status, headers: { 'Content-Type': 'application/json; charset=utf-8' } })
     }
