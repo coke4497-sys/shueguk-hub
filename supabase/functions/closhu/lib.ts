@@ -1,4 +1,4 @@
-// clochu 의 순수 함수 — 시험용으로 따로 둔다
+// closhu 의 순수 함수 — 시험용으로 따로 둔다
 // 같은 길이일 때 끝까지 비교 — 비밀값을 한 글자씩 맞혀 보지 못하게
 export function sameToken(a: string, b: string) {
   if (!a || !b || a.length !== b.length) return false

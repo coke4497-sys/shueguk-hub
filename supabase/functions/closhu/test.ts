@@ -1,4 +1,4 @@
-// clochu 로컬 검사 — deno test supabase/functions/clochu/test.ts
+// closhu 로컬 검사 — deno test supabase/functions/closhu/test.ts
 import { sameToken, safeQuery } from './lib.ts'
 import { assertEquals } from 'jsr:@std/assert@1'
 

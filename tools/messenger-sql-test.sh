@@ -58,8 +58,8 @@ P -f supabase/migrations/202610200005_staff_manage.sql >/dev/null || { echo "강
 P -f supabase/migrations/202610200005_staff_manage.sql >/dev/null && ok y y "강사 관리 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610200007_messenger_bot.sql >/dev/null || { echo "클로슈 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200007_messenger_bot.sql >/dev/null && ok y y "클로슈 마이그레이션 다시 실행해도 오류 없음"
-P -f supabase/migrations/202610200008_messenger_clochu.sql >/dev/null || { echo "클로슈(진짜 클로드) 마이그레이션 실패"; exit 1; }
-P -f supabase/migrations/202610200008_messenger_clochu.sql >/dev/null && ok y y "클로슈(진짜 클로드) 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610200008_messenger_closhu.sql >/dev/null || { echo "클로슈(진짜 클로드) 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200008_messenger_closhu.sql >/dev/null && ok y y "클로슈(진짜 클로드) 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610200009_messenger_kakao.sql >/dev/null || { echo "카카오채널 마이그레이션 실패"; exit 1; }
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)

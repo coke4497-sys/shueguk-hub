@@ -4,7 +4,7 @@ verify_jwt = true
 [functions.msg-push]
 verify_jwt = true
 
-[functions.clochu]
+[functions.closhu]
 verify_jwt = false
 
 [functions.kakao-skill]

@@ -4,14 +4,14 @@
 --
 -- 202610200007(규칙형)에서 바뀌는 것
 --   · 화면이 글을 만들어 올리던 함수 msg_bot_ask·msg_bot_post 를 지운다 — 이제 교사 화면은 클로슈 이름으로 글을 쓸 수 없다.
---   · 클로슈 글은 엣지 함수 clochu(클로드 세션 전용 비밀값 CLOCHU_TOKEN)만 msg_bot_say 로 올린다 — service_role 만 실행.
+--   · 클로슈 글은 엣지 함수 closhu(클로드 세션 전용 비밀값 CLOSHU_TOKEN)만 msg_bot_say 로 올린다 — service_role 만 실행.
 --   · 남는 것: 배정 질문 보기 버튼(msg_bot_pick), 약속 지남 알림(msg_bot_tick — 규칙), 못 보낸 클로슈 알림 다시 보내기.
 -- 다시 돌려도 된다. 202610200007 을 다시 돌리면 지운 두 함수가 되살아나니 그 뒤 이 파일도 다시 돌릴 것.
 
 drop function if exists public.msg_bot_ask(bigint, text, jsonb);
 drop function if exists public.msg_bot_post(text, text, bigint);
 
--- 클로슈 글 올리기 — 엣지 함수 clochu 만 부른다(service_role).
+-- 클로슈 글 올리기 — 엣지 함수 closhu 만 부른다(service_role).
 --   p_kind  : 'note'(업무 배정·진행 알림) | 'answer'(@클로슈 질문 답 — p_reply 필수) | 'ask'(배정 질문 — p_reply·p_options 필수) | 'summary'(오늘 정리)
 --   p_to    : 휴대폰 알림 받을 사람(비우면 모두). ask 는 비우면 원글 쓴 사람 + 보기 선생님.
 --   p_options: ask 보기 [{label, uid}] (활성 교사, 1~8개) — 고르면 msg_bot_pick 이 그 선생님께 확인 요청을 만든다.
@@ -95,7 +95,7 @@ $$;
 revoke all on function public.msg_bot_say(text, text, bigint, uuid[], jsonb, text) from public, anon, authenticated;
 grant execute on function public.msg_bot_say(text, text, bigint, uuid[], jsonb, text) to service_role;
 
--- 엣지 함수 clochu 는 읽은 곳(열쇠 'clochu:cursor')을 이 표에 적는다 — service_role 만(교사·공개 키는 그대로 못 읽음)
+-- 엣지 함수 closhu 는 읽은 곳(열쇠 'closhu:cursor')을 이 표에 적는다 — service_role 만(교사·공개 키는 그대로 못 읽음)
 grant select, insert, update on table public.msg_bot_runs to service_role;
 
 -- 답 안 한 @클로슈 질문 — 진짜 답(bot.kind='answer', 안 지움)이 없는 것만, 오래된 순. 개수 제한은 거른 뒤에 건다 (Codex 검토)
@@ -113,7 +113,7 @@ $$;
 revoke all on function public.msg_bot_unanswered(int) from public, anon, authenticated;
 grant execute on function public.msg_bot_unanswered(int) to service_role;
 
--- 약속 지남 알림 만들기 — 화면(msg_bot_tick)과 클로슈 순찰(엣지 함수 clochu → msg_bot_due) 둘 다 부른다.
+-- 약속 지남 알림 만들기 — 화면(msg_bot_tick)과 클로슈 순찰(엣지 함수 closhu → msg_bot_due) 둘 다 부른다.
 -- 슈톡을 아무도 열어 두지 않아도 몇 분마다 도는 순찰이 만든다 (Codex 검토). 할 일마다 한 번(due_alerted_at).
 create or replace function private.msg_bot_due_make()
 returns bigint[]

@@ -1,7 +1,7 @@
 // 슈톡 클로슈 = 진짜 클로드 (2026-10-20 원장님 "몇분마다 이 대화를 읽고 업무 배정이나 진행에 부족한 부분이 있을 때만 알려주고
 // 진행하도록 도와주면 돼. 클로슈를 태그해 질문하면 깨어나 답해주고" — 원장님 선택: 수정 요청함처럼 클로드 세션, 하루 종일)
 // 클로드 세션(예약 순찰)만 부르는 출입구. 교사 로그인이 아니라 비밀값으로 들어온다(verify_jwt 끔).
-//   헤더 x-clochu-token = 함수 비밀값 CLOCHU_TOKEN (클로드 환경의 같은 이름 비밀값) — 저장소·대화에 넣지 않는다.
+//   헤더 x-closhu-token = 함수 비밀값 CLOSHU_TOKEN (클로드 환경의 같은 이름 비밀값) — 저장소·대화에 넣지 않는다.
 // POST { action: 'feed' }                       → 지난번 읽은 곳 뒤 새 메시지 + 남은 일·사람·출근·답 안 한 @클로슈·고르기 전 질문
 // POST { action: 'get', table, query }          → 읽기 전용 조회(허용 표만, 학생 연락처는 안 나감)
 // POST { action: 'say', kind, text, reply_to?, to?, options?, key? } → 클로슈 글 올리기(msg_bot_say) + 휴대폰 알림
@@ -15,7 +15,7 @@ import { sameToken, safeQuery, TABLES } from './lib.ts'
 const URL0 = Deno.env.get('SUPABASE_URL') || ''
 const KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 const admin = createClient(URL0, KEY, { auth: { persistSession: false } })
-const CURSOR = 'clochu:cursor'
+const CURSOR = 'closhu:cursor'
 
 function reply(status: number, body: unknown) {
   return new Response(JSON.stringify(body), { status, headers: { 'Cache-Control': 'no-store', 'Content-Type': 'application/json; charset=utf-8' } })
@@ -144,8 +144,8 @@ async function uidsOf(list: unknown) {
 
 Deno.serve(async (request) => {
   if (request.method !== 'POST') return reply(405, { error: 'method' })
-  const secret = Deno.env.get('CLOCHU_TOKEN') || ''
-  if (!sameToken(request.headers.get('x-clochu-token') || '', secret)) return reply(401, { error: 'token' })
+  const secret = Deno.env.get('CLOSHU_TOKEN') || ''
+  if (!sameToken(request.headers.get('x-closhu-token') || '', secret)) return reply(401, { error: 'token' })
   // deno-lint-ignore no-explicit-any
   let input: any = {}
   try { input = await request.json() } catch (_) { /* 빈 본문 */ }

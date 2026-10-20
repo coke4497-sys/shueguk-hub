@@ -1,4 +1,4 @@
-// 슈톡 휴대폰 푸시 공용 — msg-push · clochu 가 함께 쓴다 (2026-10-20 클로슈 = 진짜 클로드)
+// 슈톡 휴대폰 푸시 공용 — msg-push · closhu 가 함께 쓴다 (2026-10-20 클로슈 = 진짜 클로드)
 import webpush from 'npm:web-push@3.6.7'
 
 export const SUBJECT = 'https://coke4497-sys.github.io/shueguk-hub/messenger.html'

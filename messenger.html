@@ -1461,7 +1461,7 @@
 
   // ── 클로슈 = 진짜 클로드 (2026-10-20 원장님 "슈톡 클로슈도 진짜 클로드가 답해야해. 몇분마다 이 대화를 읽고 업무 배정이나 진행에 부족한 부분이
   //    있을 때만 알려주고 진행하도록 도와주면 돼. 클로슈를 태그해 질문하면 깨어나 답해주고", 202610200008) ──
-  // 글은 클로드 세션이 몇 분마다 대화를 읽고 엣지 함수 clochu 로 올린다 — 화면은 클로슈 글을 만들지 않는다(지침: docs/클로슈-지침.md).
+  // 글은 클로드 세션이 몇 분마다 대화를 읽고 엣지 함수 closhu 로 올린다 — 화면은 클로슈 글을 만들지 않는다(지침: docs/클로슈-지침.md).
   // 화면이 하는 일: 클로슈 글 그리기 · 배정 질문 보기 버튼(msg_bot_pick) · 약속 지남 알림(msg_bot_tick — 규칙, 1분마다) · 못 보낸 클로슈 알림 보내기.
   var botOk = true, BOT_TICK_MS = 60000, botAt = 0, botBusy = false;
   function botFail(e){ if (e && /msg_bot|PGRST202/.test(String(e.message) + JSON.stringify(e.data || ''))) botOk = false; }
