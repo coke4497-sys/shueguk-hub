@@ -62,6 +62,7 @@ P -f supabase/migrations/202610200008_messenger_closhu.sql >/dev/null || { echo 
 P -f supabase/migrations/202610200008_messenger_closhu.sql >/dev/null && ok y y "클로슈(진짜 클로드) 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610200009_messenger_kakao.sql >/dev/null || { echo "카카오채널 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200010_messenger_push_retry.sql >/dev/null || { echo "알림 다시 보내기 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200011_messenger_hand_gen.sql >/dev/null || { echo "위임 세대 마이그레이션 실패"; exit 1; }
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
 B=bbbbbbbb-0000-0000-0000-000000000002   # 이은지 선생님
@@ -369,6 +370,13 @@ ok "$(svc "select public.msg_hand_retry_claim($HT)->'subs'")" "[3]" "넘김 알�
 SQ "update public.msg_tasks set hand_retry='{\"to\":\"$B\",\"subs\":[3]}', hand_push=null where id=$HT" >/dev/null
 SQ "update public.msg_tasks set hand_push='$C' where id=$HT" >/dev/null
 ok "$(SQ "select coalesce(hand_retry::text, 'null') from public.msg_tasks where id=$HT")" "null" "다시 넘기면 앞 넘김 재시도 정보는 버림 (Codex 검토)"
+G0=$(SQ "select hand_gen from public.msg_tasks where id=$HT")
+GA=$(SQ "select assignee from public.msg_tasks where id=$HT"); GX=$C; [ "$GA" = "$C" ] && GX=$B
+SQ "update public.msg_tasks set assignee='$GX' where id=$HT" >/dev/null
+SQ "update public.msg_tasks set assignee='$GA' where id=$HT" >/dev/null
+ok "$(SQ "select hand_gen - $G0 from public.msg_tasks where id=$HT")" "2" "맡은 사람이 바뀔 때마다 위임 세대가 오름 — B→C→B 도 갈림 (Codex 검토)"
+SQ "update public.msg_tasks set seen_at=now() where id=$HT" >/dev/null
+ok "$(SQ "select hand_gen - $G0 from public.msg_tasks where id=$HT")" "2" "확인 등 다른 변경은 세대를 바꾸지 않음"
 ok "$(as $A "select public.msg_push_retry_claim($NQ)" | grep -c 'permission denied')" 1 "교사는 다시 보내기 잡기 함수를 못 부름"
 SQ "update public.teacher_accounts set role='teacher' where user_id='$A'" >/dev/null
 ok "$(svc "select (public.kakao_inbound('noadm1', '관리자 없음')).bot->>'to'")" "[]" "관리자가 없어도 모두에게 보내지 않음(빈 받는 사람) (Codex 검토)"
