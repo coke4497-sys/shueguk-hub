@@ -901,7 +901,7 @@
       + '<div class="line">' + bb + '<span class="t">' + hm(m.created_at) + '</span>'
       + (m.deleted_at || !('reply_to' in m) ? '' : '<button class="mact" type="button" data-reply="' + m.id + '">답장</button>')   // reply_to 열이 없으면(0006 전) 답장 버튼을 숨김
       + (canDel ? '<button class="mact" type="button" data-del="' + m.id + '">지우기</button>' : '') + '</div>'
-      + (m.deleted_at ? '' : filesHtml(m.files)) + (m.bot ? botAskHtml(m) + botByHtml(m) : '') + chipsHtml(m.id) + '</div></div>';
+      + (m.deleted_at ? '' : filesHtml(m.files)) + (m.bot ? botAskHtml(m) : '') + chipsHtml(m.id) + '</div></div>';
   }
   function atBottom(){ var el = $('msgs'); return el.scrollHeight - el.scrollTop - el.clientHeight < 80; }
   function renderMsgs(mode){
@@ -1164,7 +1164,7 @@
         addMsgs([res.message]); addTasks(res.tasks);
         renderMsgs('bottom'); renderBoard();
         pushAfterSend(res.message.id);
-        botAfterSend(res.message, res.tasks || []);
+        if (/@클로슈/.test(res.message.body || '') && !lastAmbig) status('클로슈가 몇 분 안에 대화를 읽고 답해요.', 6000);
       })
       .catch(function(e){
         if (up.length) fetch(STO + '/object/' + BUCKET, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefixes: up.map(function(x){ return x.path; }) }) }).catch(function(){});
@@ -1235,9 +1235,9 @@
       });
       Object.keys(by).forEach(function(k){ by[k].sort(function(a, b){ return minsOf(a.start) - minsOf(b.start) || String(a.name).localeCompare(String(b.name), 'ko'); }); });
       var changed = !LES.ok || LES.day !== day || JSON.stringify(by) !== JSON.stringify(LES.by);
-      LES.by = by; LES.ok = true; LES.day = day; LES.at = Date.now(); LES.book0 = book0; LES.ov = ov; LES.fail = 0;
+      LES.by = by; LES.ok = true; LES.day = day; LES.at = Date.now(); LES.book0 = book0; LES.ov = ov;
       if (changed && ready) renderBoard();
-    }).catch(function(){ LES.at = Date.now(); LES.fail = Date.now(); })   // 시간표를 못 읽으면 수업 줄 없이 그대로(1분 뒤 다시)
+    }).catch(function(){ LES.at = Date.now(); })   // 시간표를 못 읽으면 수업 줄 없이 그대로(1분 뒤 다시)
       .then(function(){ LES.busy = false; }));
   }
   function lessonsOf(uid){ return (LES.ok && LES.day === todayYmd() && LES.by[uid]) || []; }
@@ -1445,59 +1445,13 @@
     }).catch(function(e){ if (btn) btn.disabled = false; status(errText(e)); });
   }
 
-  // ── 클로슈 — 규칙형 도우미 (2026-10-20 원장님 "슈톡에 클로슈가 들어와서 담당 선생님 배정에 부족한 정보를 추가 질문하고 업무를 도와줘", 202610200007) ──
-  // AI 없이 정해진 규칙으로만 답한다(원장님 선택). ① 배정 질문 ② 약속 지남 알림 ③ 밤 9시 오늘 정리 ④ @클로슈 질문에 답하기.
-  // 글은 화면이 만들고 서버 함수(msg_bot_*)가 누가 언제 쓸 수 있는지·한 번만인지 확인한다. 메시지는 author 없이 '클로슈'.
+  // ── 클로슈 = 진짜 클로드 (2026-10-20 원장님 "슈톡 클로슈도 진짜 클로드가 답해야해. 몇분마다 이 대화를 읽고 업무 배정이나 진행에 부족한 부분이
+  //    있을 때만 알려주고 진행하도록 도와주면 돼. 클로슈를 태그해 질문하면 깨어나 답해주고", 202610200008) ──
+  // 글은 클로드 세션이 몇 분마다 대화를 읽고 엣지 함수 clochu 로 올린다 — 화면은 클로슈 글을 만들지 않는다(지침: docs/클로슈-지침.md).
+  // 화면이 하는 일: 클로슈 글 그리기 · 배정 질문 보기 버튼(msg_bot_pick) · 약속 지남 알림(msg_bot_tick — 규칙, 1분마다) · 못 보낸 클로슈 알림 보내기.
   var botOk = true, BOT_TICK_MS = 60000, botAt = 0, botBusy = false;
   function botFail(e){ if (e && /msg_bot|PGRST202/.test(String(e.message) + JSON.stringify(e.data || ''))) botOk = false; }
   function botPush(id){ fn({ action: 'send', message_id: id }, true).catch(function(){ setTimeout(function(){ fn({ action: 'send', message_id: id }, true).catch(function(){}); }, 5000); }); }
-  function gradeLabel(g){ g = String(g || ''); var lv = /고/.test(g) ? '고' : /중/.test(g) ? '중' : ''; var n = (g.match(/([1-3])\s*학년/) || g.match(/[고중]\s*([1-3])/) || [])[1]; return lv && n ? lv + n : ''; }
-  // 글 속 학생 이름 찾기 — attAuto 와 같은 규칙(앞은 한글 아님, 뒤는 띄어쓰기·조사)
-  function scanNames(text){
-    var by = {}, hits = [];
-    (STU || []).forEach(function(x){ var b = String(x.name).replace(/\s+/g, '').replace(/[A-Z]$/, ''); if (b.length >= 2) (by[b] = by[b] || []).push(x); });
-    Object.keys(by).sort(function(a, b){ return b.length - a.length; }).forEach(function(b){
-      for (var i = text.indexOf(b); i >= 0; i = text.indexOf(b, i + 1)){
-        var rest = text.slice(i + b.length);
-        if (i > 0 && /[가-힣]/.test(text.charAt(i - 1))) continue;
-        if (/^[가-힣]/.test(rest) && !PARTICLE.test(rest)) continue;
-        hits.push({ base: b, list: by[b] });
-        text = text.slice(0, i) + ' ' + rest;
-        break;
-      }
-    });
-    return hits;
-  }
-  function teacherUid(t){ t = String(t || '').trim(); if (!t) return ''; var ex = MEMBERS.filter(function(m){ return m.name === t; }); return ex.length === 1 ? ex[0].id : lessonUid(t); }
-
-  // ① 배정 질문 — [결석]·[지각]·[이동] 글에 @도 없고 담당 선생님도 못 찾았으면 클로슈가 보기를 주고 묻는다
-  function botAfterSend(msg, tasks){
-    if (!botOk || !msg || msg.bot) return;
-    botTried[msg.id] = botTried[msg.id] || 1;
-    var body = msg.body || '';
-    if (/@클로슈/.test(body)){ botAnswer(msg); return; }
-    if (!attTagOf(body) || hasMention(body) || tasks.length) return;
-    loadStudents().then(function(){
-      var a = attAuto(body), hits = scanNames(tagSplit(body).rest), opts = [], seen = {}, text;
-      if (a.ids.length || (a.self.length && !a.miss.length)) return;   // 이미 보냈거나 내 담당 학생
-      hits.filter(function(h){ return a.miss.indexOf(h.base) >= 0; }).forEach(function(h){
-        h.list.forEach(function(x){
-          var uid = teacherUid(x.teacher); if (!uid) return;
-          var label = x.name + ' · ' + [String(x.school || '').trim(), gradeLabel(x.grade)].filter(Boolean).join(' ') + ' · ' + (MBY[uid] ? MBY[uid].name : x.teacher) + ' 선생님';
-          if (seen[label]) return; seen[label] = 1; opts.push({ label: label, uid: uid });
-        });
-      });
-      if (opts.length) text = '\'' + a.miss.join(', ') + '\' 학생이 여러 명이거나 담당 선생님을 정하지 못했어요. 누구인가요? 고르면 그 선생님께 [' + attTagOf(body) + '] 확인 요청을 올릴게요.';
-      else {
-        MEMBERS.filter(function(m){ return m.role !== 'assistant'; }).slice(0, 12).forEach(function(m){ opts.push({ label: m.name + ' 선생님', uid: m.id }); });
-        text = '글에서 학생 이름을 찾지 못했어요. 어느 선생님 담당 학생인가요? 고르면 그 선생님께 [' + attTagOf(body) + '] 확인 요청을 올릴게요.';
-      }
-      if (!opts.length) return;
-      return rpc('msg_bot_ask', { p_msg: msg.id, p_text: text, p_options: opts.slice(0, 12) }).then(function(row){
-        addMsgs([row]); renderMsgs('bottom'); botPush(row.id);
-      });
-    }).catch(function(e){ if (/exists/.test(String(e && e.message))) botTried[msg.id] = 9; botFail(e); });
-  }
   function botAskHtml(m){
     var b = m.bot || {};
     if (b.kind !== 'ask' || m.deleted_at) return '';
@@ -1508,8 +1462,6 @@
     }).join('');
     return btns ? '<div class="bopts">' + btns + '</div>' : '<div class="bwait">글쓴 사람이나 보기의 선생님이 고를 수 있어요.</div>';
   }
-  // 클로슈 글은 누구 화면에서 만들어졌는지 함께 보인다(서버가 bot.by 를 정함 — 글을 화면이 만드는 대신 책임을 남김, Codex 검토)
-  function botByHtml(m){ var b = m.bot || {}; return b.by && (b.kind === 'answer' || b.kind === 'summary') && !m.deleted_at ? '<div class="bwait">' + esc(b.by) + (b.kind === 'answer' ? ' 님 질문에 답함' : ' 님 화면에서 정리') + '</div>' : ''; }
   function botPick(v, btn){
     var p = v.split('|'), ask = Number(p[0]), uid = p[1];
     if (btn) btn.disabled = true;
@@ -1519,153 +1471,18 @@
     }).catch(function(e){ if (btn) btn.disabled = false; status(/already/.test(String(e.message)) ? '이미 다른 분이 골랐습니다.' : errText(e)); });
   }
 
-  // ② 약속 지남 알림 · ③ 오늘 정리 — 1분마다(폴링 때) 서버에 물어본다
+  // 약속 지남 알림 — 1분마다(폴링 때) 서버에 물어본다. 아직 알림을 못 보낸 클로슈 글도 함께 돌려받아 보낸다
   function botTick(){
     if (!botOk || botBusy || Date.now() - botAt < BOT_TICK_MS) return;
     botBusy = true; botAt = Date.now();
-    botSweep();
     rpc('msg_bot_tick').then(function(r){
       ((r && r.msgs) || []).forEach(botPush);
-      if (r && r.summary) return botSummary();
     }).catch(botFail).then(function(){ botBusy = false; });
-  }
-  // 보낸 직후 탭이 닫히거나 클로슈 요청만 실패했으면 다음 tick에 다시 한다 — 최근 10분 내 내 글, 글마다 3번까지 (Codex 검토)
-  var botTried = {};
-  function botSweep(){
-    var since = Date.now() - 10 * 60e3, answered = {};
-    MSGS.forEach(function(m){ if (m.bot && m.reply_to) answered[m.reply_to] = 1; });
-    MSGS.forEach(function(m){
-      if (m.bot || m.deleted_at || m.author !== ME.id || Date.parse(m.created_at) < since || answered[m.id]) return;
-      var need = /@클로슈/.test(m.body || '') || (attTagOf(m.body || '') && !hasMention(m.body || '') && !tasksOf(m.id).length);
-      if (!need || (botTried[m.id] || 0) >= 3) return;
-      botTried[m.id] = (botTried[m.id] || 0) + 1;
-      botAfterSend(m, tasksOf(m.id));
-    });
-  }
-  // 오늘 정리는 하루 한 번이라, 쓰기 직전에 할 일·출근·수업을 새로 받아 최신으로 쓴다 (Codex 검토)
-  function botSummary(){
-    var start0 = new Date(dayStartMs()).toISOString();
-    return Promise.all([
-      loadLessons(true), loadPres(),
-      api('/msg_tasks?select=*&status=eq.' + encodeURIComponent('대기') + '&order=id.asc&limit=1000').then(addTasks),
-      api('/msg_tasks?select=*&done_at=gte.' + encodeURIComponent(start0) + '&order=id.asc&limit=1000').then(addTasks)
-    ]).then(function(){
-      // 시간표·출근을 이번에 못 읽었으면 쓰지 않는다 — 하루 한 번뿐이라, 1분 뒤 tick 이 다시 부른다 (Codex 검토)
-      if (!LES.ok || LES.fail || (!presOk && !presNone) || presFail) return;
-      var now = new Date().toISOString(), start = dayStartMs(), lines = ['오늘 정리 · ' + dayLabel(now)];
-      if (presOk){
-        var by = {}, off = 0;
-        MEMBERS.forEach(function(m){ var l = presLoc(m.id); if (l) (by[l] = by[l] || []).push(m.name); else off++; });
-        var pl = PRES_LOCS.filter(function(l){ return by[l]; }).map(function(l){ return l + ' ' + by[l].join('·'); });
-        lines.push('출근: ' + (pl.length ? pl.join(' / ') : '없음') + (off ? ' (OFF ' + off + '명)' : ''));
-      }
-      var done = 0, left = {}, leftN = 0;
-      TASKS.forEach(function(t){
-        if (t.status === '완료' && t.done_at && Date.parse(t.done_at) >= start) done++;
-        if (t.status === '대기'){ leftN++; var k = t.assignee_name; left[k] = left[k] || { n: 0, over: 0 }; left[k].n++; if (t.due_at && Date.parse(t.due_at) < Date.now()) left[k].over++; }
-      });
-      lines.push('할 일: 오늘 완료 ' + done + '건 · 남은 일 ' + leftN + '건');
-      var lk = Object.keys(left).sort(function(a, b){ return left[b].n - left[a].n; });
-      if (lk.length) lines.push('남은 일: ' + lk.map(function(k){ return k + ' ' + left[k].n + (left[k].over ? '(약속 지남 ' + left[k].over + ')' : ''); }).join(' · '));
-      var all = [], fin = 0;
-      Object.keys(LES.by || {}).forEach(function(uid){ (LES.by[uid] || []).forEach(function(l){ all.push({ l: l, uid: uid }); if (l.done) fin++; }); });
-      if (all.length){
-        lines.push('수업 기록: ' + fin + ' / ' + all.length + ' 완료');
-        var not = all.filter(function(x){ return !x.l.done; }).sort(function(a, b){ return minsOf(a.l.start) - minsOf(b.l.start); });
-        if (not.length) lines.push('아직 기록 전: ' + not.slice(0, 10).map(function(x){ return x.l.start + ' ' + x.l.name + '(' + (MBY[x.uid] ? MBY[x.uid].name : '') + ')'; }).join(', ') + (not.length > 10 ? ' 외 ' + (not.length - 10) + '개' : ''));
-      }
-      return rpc('msg_bot_post', { p_kind: 'summary', p_text: lines.join('\n') }).then(function(row){ addMsgs([row]); renderMsgs('keep'); botPush(row.id); }).catch(function(){});
-    });
-  }
-
-  // ④ @클로슈 질문에 답하기 — 학생 이름(담당·이번 주 수업) · 오늘 수업 · 남은 일 · 출근
-  // 이번 주(수업 주차 — 월·화는 그 주 수요일 직전 날짜) 반 + 이번 주 휴강·옮긴 수업 (Codex 검토).
-  // 묻는 때마다 새로 읽는다. 못 읽으면 실패를 그대로 넘긴다 — 수업 줄이 빠진 답을 확정하지 않게 (Codex 검토)
-  var WK_OFF = { '월': -2, '화': -1, '수': 0, '목': 1, '금': 2, '토': 3, '일': 4 };
-  function loadWeekClasses(){
-    var wed = weekWed(todayYmd()), from = addDay(wed, -2), to = addDay(wed, 4);
-    return Promise.all([
-      api('/tt_classes?select=book,class_id,name,day,start_time,end_time,teacher,roster&class_id=not.like.w*&limit=2000'),
-      api('/tt_log?select=kind,from_class_id,to_class_id,apply_date&kind=in.(' + encodeURIComponent('주간반휴강,주간반이동') + ')&apply_date=gte.' + from + '&apply_date=lte.' + to + '&limit=500')
-    ]).then(function(r){
-      var b0 = LES.book0 || '정규', ov = LES.ov || {}, logs = r[1] || [];
-      var list = (r[0] || []).filter(function(c){ var g = gradeOfName(c.name); return c.book === ((g && ov[g]) ? ov[g] : b0) && String(c.roster || '').trim(); });
-      var ids = logs.filter(function(l){ return l.to_class_id; }).map(function(l){ return l.to_class_id; });
-      return (ids.length ? api('/tt_classes?select=class_id,day,start_time&class_id=in.(' + ids.map(encodeURIComponent).join(',') + ')') : Promise.resolve([])).then(function(cp){
-        var copy = {}; (cp || []).forEach(function(c){ copy[c.class_id] = c; });
-        list.forEach(function(c){
-          var d = addDay(wed, WK_OFF[c.day] || 0), lg = logs.filter(function(l){ return l.from_class_id === c.class_id && l.apply_date === d; })[0];
-          c.note = '';
-          if (!lg) return;
-          if (lg.kind === '주간반휴강') { c.note = '이번 주 휴강'; return; }
-          var k = copy[lg.to_class_id], m = /^w(\d\d)(\d\d)(\d\d)/.exec(lg.to_class_id || '');
-          c.note = m && k ? '이번 주는 ' + (+m[2]) + '/' + (+m[3]) + ' (' + k.day + ') ' + k.start_time + '로 옮김' : '이번 주는 다른 날로 옮김';
-        });
-        return list;
-      });
-    });
-  }
-  function botSoon(){ var e = new Error('잠시 못 읽음'); e.soon = true; return e; }
-  function rosterHas(c, x, only){
-    var name = String(x.name).replace(/\s+/g, ''), base = name.replace(/[A-Z]$/, '');
-    return String(c.roster || '').split(/\s+/).some(function(tok){
-      var p = tok.replace(/^\([^)]*\)/, '').replace(/\([^)]*\)$/, '');
-      return p === name || (only && p.replace(/[A-Z]$/, '') === base);
-    });
-  }
-  // 글 속 선생님 — 전체 이름이 먼저(긴 이름 먼저), 짧은 이름('은지')은 한 사람과만 맞을 때만 (Codex 검토)
-  function memberIn(q, short){
-    var full = MEMBERS.filter(function(m){ return m.name && q.indexOf(m.name) >= 0; }).sort(function(a, b){ return b.name.length - a.name.length; });
-    if (full.length) return full[0];
-    if (!short) return null;
-    var sh = MEMBERS.filter(function(m){ return m.name.length >= 3 && q.indexOf(m.name.slice(1)) >= 0; });
-    return sh.length === 1 ? sh[0] : null;
-  }
-  function botAnswer(msg){
-    var q = String(msg.body || '').replace(/@클로슈/g, ' ').replace(/\s+/g, ' ').trim();
-    var askPres = /출근/.test(q), askTask = /남은 ?일|할 ?일|업무/.test(q);
-    Promise.all([loadStudents(), loadLessons(true), askPres ? loadPres() : null,
-      // 남은 일은 3초 폴링을 기다리지 않고 지금 대기 중인 할 일을 새로 받는다 (Codex 검토)
-      askTask ? api('/msg_tasks?select=*&status=eq.' + encodeURIComponent('대기') + '&order=id.asc&limit=1000').then(function(r){ addTasks(r); return r || []; }) : null]).then(function(res){
-      // 명단·시간표·출근 현황을 못 읽은 채로 답하면 틀린 답이 남는다 — 답을 미루고 다음 순찰(1분 뒤)에서 다시 (Codex 검토)
-      if (!stuP || !LES.ok || LES.fail || (askPres && ((!presOk && !presNone) || presFail))) throw botSoon();
-      var hits = scanNames(q);
-      return (hits.length ? loadWeekClasses() : Promise.resolve([])).then(function(wk){
-        var out = [];
-        hits.slice(0, 3).forEach(function(h){
-          h.list.forEach(function(x){
-            var uid = teacherUid(x.teacher), cls = wk.filter(function(c){ return rosterHas(c, x, h.list.length === 1); })
-              .sort(function(a, b){ return '월화수목금토일'.indexOf(a.day) - '월화수목금토일'.indexOf(b.day) || minsOf(a.start_time) - minsOf(b.start_time); });
-            out.push(x.name + ' · ' + [String(x.school || '').trim(), gradeLabel(x.grade)].filter(Boolean).join(' ') + ' · 담당 ' + (uid && MBY[uid] ? MBY[uid].name : (x.teacher || '미정')) + ' 선생님'
-              + (cls.length ? '\n  이번 주 수업: ' + cls.map(function(c){ return c.day + ' ' + c.start_time + ' ' + c.name + '(' + c.teacher + 'T)' + (c.note ? ' — ' + c.note : ''); }).join(' · ') : ''));
-          });
-        });
-        if (/수업/.test(q) && !hits.length){
-          var g = (q.match(/[중고]\s*[1-3]/) || [''])[0].replace(/\s/g, ''), who = memberIn(q, true);
-          var ls = []; Object.keys(LES.by || {}).forEach(function(uid){ (LES.by[uid] || []).forEach(function(l){ ls.push({ l: l, uid: uid }); }); });
-          ls = ls.filter(function(x){ return (!g || x.l.name.indexOf(g) >= 0) && (!who || x.uid === who.id); }).sort(function(a, b){ return minsOf(a.l.start) - minsOf(b.l.start); });
-          out.push('오늘' + (g ? ' ' + g : '') + (who ? ' ' + who.name + ' 선생님' : '') + ' 수업 ' + ls.length + '개' + (ls.length ? ':\n' + ls.slice(0, 15).map(function(x){ return '  ' + x.l.start + '~' + x.l.end + ' ' + x.l.name + ' (' + (MBY[x.uid] ? MBY[x.uid].name : '') + ', ' + (x.l.done ? '기록 완료' : '기록 전') + ')'; }).join('\n') : ''));
-        }
-        if (askTask){
-          var tgt = memberIn(q, false) || MBY[ME.id];
-          var ts = (res[3] || []).filter(function(t){ return t.assignee === tgt.id; });   // 방금 받은 대기 목록만 — 다른 화면에서 끝낸 일이 남지 않게
-          ts.sort(function(a, b){ return a.id - b.id; });
-          out.push(tgt.name + ' 남은 일 ' + ts.length + '건' + (ts.length ? ':\n' + ts.slice(0, 8).map(function(t){ var over = t.due_at && Date.parse(t.due_at) < Date.now(); return '  · ' + t.text + (t.due_at ? (over ? ' (약속 지남)' : ' (' + whenLabel(t.due_at) + '까지)') : ''); }).join('\n') : ''));
-        }
-        if (/출근/.test(q) && presOk){
-          var byL = {}, offN = [];
-          MEMBERS.forEach(function(m){ var l = presLoc(m.id); if (l) (byL[l] = byL[l] || []).push(m.name); else offN.push(m.name); });
-          out.push('지금 출근: ' + (PRES_LOCS.filter(function(l){ return byL[l]; }).map(function(l){ return l + ' ' + byL[l].join('·'); }).join(' / ') || '아직 없음') + (offN.length ? '\n  OFF: ' + offN.join(', ') : ''));
-        }
-        if (!out.length) out.push('이렇게 물어보세요.\n  · 학생 이름 — 담당 선생님·이번 주 수업 (예: @클로슈 김민준)\n  · 오늘 수업 — 학년·선생님으로 좁히기 (예: @클로슈 오늘 고2 수업)\n  · 남은 일 — 나 또는 그 사람 (예: @클로슈 이은지 남은 일)\n  · 출근 — 지금 출근한 사람');
-        return rpc('msg_bot_post', { p_kind: 'answer', p_text: out.join('\n').slice(0, 3900), p_reply: msg.id }).then(function(row){ addMsgs([row]); renderMsgs('bottom'); botPush(row.id); });
-      });
-    }).catch(function(e){ if (/exists/.test(String(e && e.message))){ botTried[msg.id] = 9; return; } if (!(e && e.soon)) botFail(e); status('클로슈가 답하지 못했습니다. 잠시 뒤 다시 해 볼게요.'); });
   }
 
   // ── 출근·퇴근 (2026-10-19 원장님 "구성원이 어느 센터 on, off 상태를 표시") ─────────
   // 표 msg_presence(사람마다 한 줄) — 쓰기는 msg_presence_set 함수로만. 오늘 출근한 것만 ON(날짜가 바뀌면 OFF에서 시작).
-  var PRES = {}, presOk = false, presNone = false, presFail = false, presDay = '', PRES_LOCS = ['본원', '화정센터', '민초센터', '정리정독'];
+  var PRES = {}, presOk = false, presDay = '', PRES_LOCS = ['본원', '화정센터', '민초센터', '정리정독'];
   function presLoc(uid){
     var r = PRES[uid];
     return r && r.is_on && ymd(r.changed_at) === ymd(new Date().toISOString()) ? r.loc : '';
@@ -1681,12 +1498,11 @@
       // 날짜가 바뀌어도 다시 그린다 — 자정 넘어 열어 둔 화면에서 어제 출근이 ON으로 남지 않게 (Codex 검토)
       var day = ymd(new Date().toISOString());
       var changed = !presOk || presDay !== day || JSON.stringify(next) !== JSON.stringify(PRES);
-      PRES = next; presOk = true; presNone = false; presFail = false; presDay = day;
+      PRES = next; presOk = true; presDay = day;
       if (changed){ renderPres(); if (ready) renderBoard(); if (!$('plback').hidden) loadPresLog(); }
     }).catch(function(e){
       // 표가 아직 없으면(마이그레이션 202610190004 전) 출근 기능만 숨긴다
-      if (e && (e.status === 404 || (e.data && e.data.code === 'PGRST205'))){ presOk = false; presNone = true; renderPres(); return; }
-      presFail = true;   // 이번 조회가 실패 — 클로슈는 옛 출근 현황으로 답·정리를 확정하지 않는다 (Codex 검토)
+      if (e && (e.status === 404 || (e.data && e.data.code === 'PGRST205'))){ presOk = false; renderPres(); }
     });
   }
   function renderPres(){

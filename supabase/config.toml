@@ -3,3 +3,6 @@ verify_jwt = true
 
 [functions.msg-push]
 verify_jwt = true
+
+[functions.clochu]
+verify_jwt = false

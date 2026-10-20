@@ -15,6 +15,7 @@ P >/dev/null <<'SQL'
 do $$ begin
   if not exists (select 1 from pg_roles where rolname='anon') then create role anon nologin; end if;
   if not exists (select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin; end if;
+  if not exists (select 1 from pg_roles where rolname='service_role') then create role service_role nologin bypassrls; end if;
 end $$;
 create schema auth;
 create table auth.users (id uuid primary key);
@@ -28,7 +29,7 @@ alter table storage.objects enable row level security;
 grant usage on schema storage to authenticated;
 grant all on storage.objects to authenticated;
 grant usage on all sequences in schema storage to authenticated;
-grant usage on schema public to anon, authenticated;
+grant usage on schema public to anon, authenticated, service_role;
 SQL
 P -f supabase/migrations/202609290001_teacher_accounts.sql >/dev/null
 P -f supabase/migrations/202609290003_teacher_admin.sql >/dev/null
@@ -57,6 +58,8 @@ P -f supabase/migrations/202610200005_staff_manage.sql >/dev/null || { echo "강
 P -f supabase/migrations/202610200005_staff_manage.sql >/dev/null && ok y y "강사 관리 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610200007_messenger_bot.sql >/dev/null || { echo "클로슈 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610200007_messenger_bot.sql >/dev/null && ok y y "클로슈 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610200008_messenger_clochu.sql >/dev/null || { echo "클로슈(진짜 클로드) 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610200008_messenger_clochu.sql >/dev/null && ok y y "클로슈(진짜 클로드) 마이그레이션 다시 실행해도 오류 없음"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin)
 B=bbbbbbbb-0000-0000-0000-000000000002   # 이은지 선생님
@@ -73,6 +76,7 @@ SQL
 # 사용자로 실행: as <uid> <sql>
 last(){ local o; o=$(cat); if grep -q 'ERROR' <<<"$o"; then grep -m1 'ERROR' <<<"$o"; else tail -n 1 <<<"$o"; fi; }
 as(){ local uid=$1; shift; psql -X -A -t -q -d $DB -c "set role authenticated; set request.jwt.claim.sub='$uid';" -c "$1" 2>&1 | last; }
+svc(){ psql -X -A -t -q -d $DB -c "set role service_role;" -c "$1" 2>&1 | last; }
 anon(){ psql -X -A -t -q -d $DB -c "set role anon;" -c "$1" 2>&1 | last; }
 
 ok "$(as $B "select count(*) from public.msg_members()")" 3 "사람 목록 = 활성 교사 3명"
@@ -279,11 +283,16 @@ ok "$(anon "select public.usage_tick('shueguk-hub/ops.html')" | grep -c 'permiss
 
 echo "── 클로슈 (202610200007)"
 MQ=$(as $C "select (public.msg_send('[결석] 중3 민준 결석', '[]', '{}')->'message'->>'id')")
-ok "$(as $B "select public.msg_bot_ask($MQ, '누구인가요?', '[{\"label\":\"이은지T\",\"uid\":\"$B\"}]')" | grep -c not_allowed)" 1 "배정 질문은 글쓴이만"
-ok "$(as $C "select public.msg_bot_ask($MQ, 'x', '[{\"label\":\"퇴사\",\"uid\":\"$D\"}]')" | grep -c bad_options)" 1 "보기에 비활성 교사 불가"
-AQ=$(as $C "select (public.msg_bot_ask($MQ, '민준 학생이 두 명이에요. 누구인가요?', '[{\"label\":\"민준A · 이은지T\",\"uid\":\"$B\"},{\"label\":\"민준B · 원장\",\"uid\":\"$A\"}]')->>'id')")
-ok "$(as $C "select author is null and author_name='클로슈' and bot->>'kind'='ask' and reply_to=$MQ from public.msg_messages where id=$AQ")" "t" "클로슈 이름으로 질문(원글에 답장)"
-ok "$(as $C "select public.msg_bot_ask($MQ, 'x', '[{\"label\":\"a\",\"uid\":\"$B\"}]')" | grep -c exists)" 1 "같은 글엔 한 번만 묻기"
+ok "$(as $C "select public.msg_bot_say('note', 'x')" | grep -c 'permission denied')" 1 "교사 화면은 클로슈 이름으로 글을 못 씀"
+ok "$(as $C "select 1 from pg_proc where proname in ('msg_bot_ask','msg_bot_post')" | grep -c 1)" 0 "화면이 글을 만들던 함수는 지움"
+ok "$(anon "select public.msg_bot_say('note', 'x')" | grep -c 'permission denied')" 1 "공개 키도 클로슈 글 불가"
+ok "$(svc "select public.msg_bot_say('ask', '누구?', $MQ, null, '[{\"label\":\"퇴사\",\"uid\":\"$D\"}]')" | grep -c bad_options)" 1 "보기에 비활성 교사 불가"
+ok "$(svc "select public.msg_bot_say('answer', '답')" | grep -c need_reply)" 1 "답은 원글이 있어야"
+ok "$(svc "select public.msg_bot_say('shout', '답')" | grep -c bad_kind)" 1 "정해진 종류만"
+ok "$(svc "select public.msg_bot_say('note', 'x', null, array['$D']::uuid[])" | grep -c bad_person)" 1 "알림 받을 사람은 활성 교사만"
+AQ=$(svc "select (public.msg_bot_say('ask', '민준 학생이 두 명이에요. 누구인가요?', $MQ, null, '[{\"label\":\"민준A · 이은지T\",\"uid\":\"$B\"},{\"label\":\"민준B · 원장\",\"uid\":\"$A\"}]', 'ask:$MQ')).id")
+ok "$(as $C "select author is null and author_name='클로슈' and bot->>'kind'='ask' and (bot->>'ai')::boolean and reply_to=$MQ and (bot->'to') @> '[\"$B\",\"$A\",\"$C\"]' from public.msg_messages where id=$AQ")" "t" "클로드가 클로슈 이름으로 질문(원글에 답장, 알림은 글쓴이·보기 선생님)"
+ok "$(svc "select public.msg_bot_say('ask', 'x', $MQ, null, '[{\"label\":\"a\",\"uid\":\"$B\"}]', 'ask:$MQ')" | grep -c exists)" 1 "같은 열쇠로는 한 번만"
 ok "$(as $B "select public.msg_bot_pick($AQ, '$A')" | grep -c not_allowed)" 1 "보기의 다른 선생님 대신 고르기 불가"
 ok "$(as $C "select public.msg_bot_pick($AQ, '$C')" | grep -c bad_pick)" 1 "보기에 없는 사람 불가"
 ok "$(as $B "select jsonb_array_length(public.msg_bot_pick($AQ, '$B')->'tasks')")" "1" "보기에 있는 선생님 본인이 '내 학생'으로 고름"
@@ -291,15 +300,16 @@ ok "$(as $B "select assignee_name||'|'||ack_only||'|'||requester_name||'|'||hand
 ok "$(as $C "select bot->'done'->>'to' from public.msg_messages where id=$AQ")" "이은지" "질문에 고른 결과 남김"
 ok "$(as $C "select public.msg_bot_pick($AQ, '$A')" | grep -c already)" 1 "이미 고른 질문은 다시 못 고름"
 MQ2=$(as $C "select (public.msg_send('[지각] 중3 친구 지각', '[]', '{}')->'message'->>'id')")
-AQ2=$(as $C "select (public.msg_bot_ask($MQ2, '누구?', '[{\"label\":\"이은지T\",\"uid\":\"$B\"}]')->>'id')")
+AQ2=$(svc "select (public.msg_bot_say('ask', '누구?', $MQ2, null, '[{\"label\":\"이은지T\",\"uid\":\"$B\"}]')).id")
 as $C "select public.msg_delete($MQ2)" >/dev/null
 ok "$(as $B "select public.msg_bot_pick($AQ2, '$B')" | grep -c msg_deleted)" 1 "지운 원글엔 배정 할 일을 만들지 않음"
-ok "$(as $C "select public.msg_bot_post('answer', '답', $MQ)" | grep -c not_allowed)" 1 "@클로슈 없는 글엔 답 불가"
+ok "$(svc "select public.msg_bot_say('answer', '답', $MQ2)" | grep -c msg_deleted)" 1 "지운 글엔 답하지 않음"
 MA2=$(as $C "select (public.msg_send('@클로슈 김민준 담당이 누구야?', '[]', '{}')->'message'->>'id')")
-ok "$(as $B "select public.msg_bot_post('answer', '답', $MA2)" | grep -c not_allowed)" 1 "남의 질문엔 답을 올릴 수 없음"
-ok "$(as $C "select (public.msg_bot_post('answer', '김민준 · 담당 이은지 선생님', $MA2)->>'author_name')")" "클로슈" "내 질문에 클로슈 답"
-ok "$(as $C "select public.msg_bot_post('answer', '또', $MA2)" | grep -c exists)" 1 "질문마다 답 한 번"
-ok "$(as $C "select bot->>'by' from public.msg_messages where reply_to=$MA2 and bot is not null")" "고희주" "클로슈 답에 누구 화면에서 만들었는지 남음"
+ok "$(svc "select (public.msg_bot_say('answer', '김민준 · 담당 이은지 선생님', $MA2, array['$C']::uuid[], null, 'answer:$MA2')).author_name")" "클로슈" "@클로슈 질문에 클로드 답"
+ok "$(svc "select public.msg_bot_say('answer', '또', $MA2, null, null, 'answer:$MA2')" | grep -c exists)" 1 "질문마다 답 한 번"
+ok "$(as $C "select (bot->'to'->>0)||'|'||(bot->>'ai') from public.msg_messages where reply_to=$MA2 and bot is not null")" "$C|true" "답 알림은 물어본 사람에게만"
+ok "$(svc "select (public.msg_bot_say('summary', '오늘 정리', null, null, null, 'summary:x')).bot->>'to'")" "" "오늘 정리는 모두에게"
+ok "$(svc "select message_id is not null from public.msg_bot_runs where key='summary:x'")" "t" "열쇠에 올린 글 번호를 남김"
 MD=$(as $A "select (public.msg_send('교재 주문 @이은지', '[]', array['$B']::uuid[])->'message'->>'id')")
 TD=$(as $A "select id from public.msg_tasks where message_id=$MD")
 as $B "select public.msg_task_defer($TD, now() + interval '1 hour', '저녁에')" >/dev/null

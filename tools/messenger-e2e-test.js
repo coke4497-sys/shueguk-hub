@@ -37,10 +37,10 @@ let missing = false, failSendOnce = false;
 let mid = 0, tid = 0, clock = 0;
 const ts = () => new Date(Date.now() + (clock++)).toISOString();
 const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [];
-let noPres = false, failPres = false, workClip = false, workAsk = false, workEarly = false;
+let noPres = false, workClip = false, workAsk = false, workEarly = false;
 const TT = [], TTP = [], TTLOG = [], NOTES = [];
 let failTT = false;
-const BOT = { tick: { msgs: [], summary: false }, failAsk: 0 };
+const BOT = { tick: { msgs: [], summary: false } };
 const STUDENTS = [
   { name: '김민준', school: '서정중', grade: '2026 중등 3학년', teacher: '이은지', enrolled: 'Y' }, { name: '박하늘', teacher: '김지원', enrolled: 'Y' },
   { name: '이준A', school: '화정고', grade: '2026 고등 1학년', teacher: '이은지', enrolled: 'Y' }, { name: '이준B', school: '백양고', grade: '2026 고등 1학년', teacher: '김지원', enrolled: 'Y' },
@@ -126,11 +126,11 @@ function filterRows(rows, u){
       if (url.includes('fonts.g')) return route.fulfill({ status: 200, contentType: 'text/css', body: '' });
       if (!url.startsWith(SB)) return route.continue();
       const u = new URL(url), p = u.pathname, auth = req.headers()['authorization'] || '';
+      if (/\/rpc\/msg_bot_/.test(p)) calls.push(['botrpc', p]);
       if (!/Bearer tok/.test(auth)) return json({ message: 'no auth' }, 401);
       if (p === '/rest/v1/teacher_accounts') return json([{ user_id: ME, login_id: 'heeju', display_name: '고희주', active: true, role: 'assistant' }]);
       if (missing && p.startsWith('/rest/v1/rpc/msg')) return json({ code: 'PGRST202', message: 'Could not find the function' }, 404);
       if (p === '/rest/v1/rpc/msg_members') return json(MEMBERS);
-      if (p === '/rest/v1/msg_presence' && failPres) return json({ message: 'boom' }, 500);
       if (p === '/rest/v1/msg_presence') return noPres ? json({ code: 'PGRST205', message: 'Could not find the table' }, 404) : json(Object.values(PRESENCE));
       if (p === '/rest/v1/msg_presence_log') return json(filterRows(PLOGS, u).sort((a, b) => a.at < b.at ? -1 : 1));
       if (p === '/rest/v1/rpc/msg_presence_set'){
@@ -225,23 +225,12 @@ function filterRows(rows, u){
         return json(TT.filter(c => cid.startsWith('not.like.w') ? !/^w/.test(c.class_id) && (!day || c.day === day) : cid.startsWith('like.') ? c.class_id.startsWith(cid.slice(5).replace('*', '')) : true));
       }
       if (p === '/rest/v1/rpc/msg_bot_tick'){ calls.push(['tick']); const r = BOT.tick; BOT.tick = { msgs: [], summary: false }; return json(r); }
-      if (p === '/rest/v1/rpc/msg_bot_ask'){
-        const b = JSON.parse(req.postData()); calls.push(['ask', b]);
-        if (BOT.failAsk > 0){ BOT.failAsk--; return json({ message: 'temporary' }, 503); }
-        const m = addMsg(null, b.p_text, []); m.author_name = '클로슈'; m.reply_to = b.p_msg; m.bot = { kind: 'ask', for: b.p_msg, options: b.p_options };
-        return json(m);
-      }
       if (p === '/rest/v1/rpc/msg_bot_pick'){
         const b = JSON.parse(req.postData()); calls.push(['pick', b]);
         const ask = MSGS.find(x => x.id === b.p_ask), src = MSGS.find(x => x.id === ask.bot.for), to = MEMBERS.find(x => x.user_id === b.p_uid);
         const k = addTask(src, to.user_id, src.body); k.assignee_name = to.name; k.ack_only = true; k.hand_push = to.user_id;
         ask.bot = Object.assign({}, ask.bot, { done: { to: to.name, uid: to.user_id, by: '고희주', at: ts(), task: true } }); ask.updated_at = ts();
         return json({ message: ask, tasks: [k] });
-      }
-      if (p === '/rest/v1/rpc/msg_bot_post'){
-        const b = JSON.parse(req.postData()); calls.push(['bpost', b]);
-        const m = addMsg(null, b.p_text, []); m.author_name = '클로슈'; m.reply_to = b.p_reply || null; m.bot = { kind: b.p_kind, by: '고희주' };
-        return json(m);
       }
       if (p === '/rest/v1/students'){ calls.push(['stu']); return json(STUDENTS); }
       if (p === '/rest/v1/tt_period') return json(TTP.filter(x => 'eq.' + x.week_wednesday === u.searchParams.get('week_wednesday')));
@@ -1098,137 +1087,46 @@ function filterRows(rows, u){
   ok(await page.locator('#cxmodes [data-mode="prog"]').isHidden(), '내가 맡긴 남의 일은 진행 중 표시 못 함(맡은 사람만)');
   await ctx.close();
 
-  console.log('㉕ 클로슈 (2026-10-20 원장님)');
-  TT.push({ book: '내신', class_id: 'n201', name: '중3 진도', day: dn, start_time: '6:00', end_time: '7:30', teacher: '은지', roster: '박하늘 김민준(병결)' });
+  console.log('㉕ 클로슈 = 진짜 클로드 (2026-10-20 원장님)');
   ({ ctx, page } = await open());
   await page.waitForSelector('#msgs .m');
-  // ① 학생 이름이 없으면 선생님 보기로 묻기
+  const bot0 = calls.filter(c => c[0] === 'botrpc' && /msg_bot_(ask|post)/.test(c[1])).length;
+  // 화면은 클로슈 글을 만들지 않는다 — 클로드 세션이 몇 분마다 읽고 올린다
   await page.click('#tags [data-tag="결석"]'); await page.fill('#inp', '중3 친구 병결입니다'); await page.click('#send');
-  await page.waitForFunction(() => document.querySelector('.botm .bopt'), null, { timeout: 6000 }).catch(() => {});
-  let ask = calls.filter(c => c[0] === 'ask').pop();
-  ok(ask && /학생 이름을 찾지 못했어요/.test(ask[1].p_text) && ask[1].p_options.some(o => o.uid === EUNJI) && !ask[1].p_options.some(o => o.uid === ME), '학생을 못 찾으면 클로슈가 선생님 보기로 질문(조교 제외)');
-  ok((await page.locator('.botm .nm').last().textContent()).startsWith('클로슈') && (await page.locator('.botm .av').last().textContent()) === '클', '클로슈 이름·동그라미');
-  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === MSGS[MSGS.length - 1].id), '클로슈 질문도 휴대폰 알림 요청');
-  await page.locator('.botm .bopt', { hasText: '이은지' }).last().click();
-  await page.waitForFunction(() => document.querySelector('.botm .bdone'), null, { timeout: 5000 }).catch(() => {});
-  const pk = calls.filter(c => c[0] === 'pick').pop();
-  ok(pk && pk[1].p_uid === EUNJI, 'msg_bot_pick(이은지)');
-  ok((await page.locator('.botm .bdone').last().textContent()).includes('이은지 선생님께 확인 요청을 올렸습니다'), '고른 결과가 질문 아래에');
-  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'hand'), '고른 선생님 휴대폰 알림(hand)');
-  ok((await page.locator('.pc[data-person="' + EUNJI + '"]').textContent()).includes('중3 친구 병결입니다'), '이은지 업무 카드에 확인 요청');
-  // 같은 이름(이준A·이준B)
-  await page.click('#tags [data-tag="지각"]'); await page.fill('#inp', '고1 이준 10분 지각'); await page.click('#send');
-  await page.waitForFunction(n => document.querySelectorAll('.botm').length > n, await page.locator('.botm').count(), { timeout: 6000 }).catch(() => {});
-  ask = calls.filter(c => c[0] === 'ask').pop();
-  ok(ask && ask[1].p_options.length === 2 && /이준A · 화정고 고1 · 이은지 선생님/.test(ask[1].p_options.map(o => o.label).join('|')) && /이준B · 백양고 고1 · 김지원 선생님/.test(ask[1].p_options.map(o => o.label).join('|')), '같은 이름이면 학생별(학교·학년·담당) 보기로 질문');
-  // ④ 질문에 답하기
+  await page.waitForFunction(() => document.querySelector('#inp').value === '');
+  const srcId = MSGS[MSGS.length - 1].id;
   await page.focus('#inp'); await page.fill('#inp', '@클로'); await page.dispatchEvent('#inp', 'input');
   await page.waitForSelector('#mention.on', { timeout: 5000 }).catch(() => {});
   ok((await page.locator('#mention').textContent()).includes('클로슈'), '@ 목록에 클로슈');
   await page.keyboard.press('Escape'); await page.fill('#inp', '@클로슈 김민준 담당이 누구야?'); await page.click('#send');
-  await page.waitForFunction(() => [...document.querySelectorAll('.botm .bb')].some(e => e.textContent.includes('담당 이은지')), null, { timeout: 6000 }).catch(() => {});
-  let bp = calls.filter(c => c[0] === 'bpost').pop();
-  ok(bp && bp[1].p_kind === 'answer' && /김민준 · 서정중 중3 · 담당 이은지 선생님/.test(bp[1].p_text) && /이번 주 수업: .* 6:00 중3 진도\(은지T\)/.test(bp[1].p_text), '학생 이름 → 담당·이번 주 수업 (' + (bp && bp[1].p_text) + ')');
+  await page.waitForFunction(() => document.querySelector('#status').textContent.includes('몇 분 안에'), null, { timeout: 5000 }).catch(() => {});
+  ok((await page.locator('#status').textContent()).includes('클로슈가 몇 분 안에 대화를 읽고 답해요'), '@클로슈를 부르면 몇 분 안에 답한다고 안내');
   ok(!calls.filter(c => c[0] === 'send').pop()[1].p_mentions.length, '@클로슈는 할 일을 만들지 않음');
-  ok((await page.locator('.botm').last().textContent()).includes('고희주 님 질문에 답함'), '클로슈 답에 누구 질문인지 표시');
-  await page.fill('#inp', '@클로슈 오늘 수업'); await page.click('#send');
-  await page.waitForFunction(n => document.querySelectorAll('.botm').length > n, await page.locator('.botm').count() - 1, { timeout: 6000 }).catch(() => {});
-  await sleep(800); bp = calls.filter(c => c[0] === 'bpost').pop();
-  ok(bp && /^오늘 수업 \d+개:\n/.test(bp[1].p_text) && bp[1].p_text.includes('고2 화정A (이은지'), '오늘 수업 목록 (' + (bp && bp[1].p_text.split('\n')[0]) + ')');
-  await page.fill('#inp', '@클로슈 이은지 남은 일'); await page.click('#send'); await sleep(1200);
-  bp = calls.filter(c => c[0] === 'bpost').pop();
-  ok(bp && /^이은지 남은 일 \d+건/.test(bp[1].p_text), '남은 일 답');
-  await page.fill('#inp', '@클로슈 안녕'); await page.click('#send'); await sleep(1200);
-  bp = calls.filter(c => c[0] === 'bpost').pop();
-  ok(bp && /이렇게 물어보세요/.test(bp[1].p_text), '모르는 질문엔 쓰는 법 안내');
-  // 클로슈 요청이 한 번 실패하면 다음 tick에 다시 (Codex 검토)
-  BOT.failAsk = 1;
-  const asks0 = calls.filter(c => c[0] === 'ask').length;
-  await page.click('#tags [data-tag="결석"]'); await page.fill('#inp', '중2 친구 결석'); await page.click('#send');
-  await page.waitForFunction(() => document.querySelector('#inp').value === '');
   await sleep(1500);
-  ok(calls.filter(c => c[0] === 'ask').length === asks0 + 1 && !BOT.failAsk, '첫 배정 질문 실패');
-  await page.evaluate(() => { const D = Date, off = 61000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
-  await page.waitForFunction(n => true, null); await sleep(4500);
-  ok(calls.filter(c => c[0] === 'ask').length === asks0 + 2, '다음 tick에 배정 질문을 다시 올림');
-  await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
-  // ②·③ 약속 지남 알림 · 오늘 정리
+  ok(calls.filter(c => c[0] === 'botrpc' && /msg_bot_(ask|post)/.test(c[1])).length === bot0, '화면은 클로슈 글(질문·답·정리)을 만들지 않음');
+  // 클로드가 올린 배정 질문 — 보기 버튼은 그대로
+  const am = addMsg(null, '어느 선생님 담당 학생인가요? 고르면 그 선생님께 [결석] 확인 요청을 올립니다.', []);
+  am.author_name = '클로슈'; am.reply_to = srcId; am.bot = { kind: 'ask', ai: true, for: srcId, options: [{ label: '이은지 선생님', uid: EUNJI }, { label: '김지원 선생님', uid: '44444444-4444-4444-4444-444444444444' }], to: [ME, EUNJI] };
+  await page.waitForFunction(() => document.querySelector('.botm .bopt'), null, { timeout: 8000 }).catch(() => {});
+  ok((await page.locator('.botm .nm').last().textContent()).startsWith('클로슈') && (await page.locator('.botm .av').last().textContent()) === '클', '클로슈 이름·동그라미');
+  ok(!(await page.locator('.botm').last().textContent()).includes('님 화면에서'), '클로드 글에는 화면 표시 없음');
+  await page.locator('.botm .bopt', { hasText: '이은지' }).last().click();
+  await page.waitForFunction(() => document.querySelector('.botm .bdone'), null, { timeout: 5000 }).catch(() => {});
+  const pk = calls.filter(c => c[0] === 'pick').pop();
+  ok(pk && pk[1].p_uid === EUNJI && pk[1].p_ask === am.id, 'msg_bot_pick(이은지)');
+  ok((await page.locator('.botm .bdone').last().textContent()).includes('이은지 선생님께 확인 요청을 올렸습니다'), '고른 결과가 질문 아래에');
+  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'hand'), '고른 선생님 휴대폰 알림(hand)');
+  ok((await page.locator('.pc[data-person="' + EUNJI + '"]').textContent()).includes('중3 친구 병결입니다'), '이은지 업무 카드에 확인 요청');
+  // 약속 지남 알림(규칙) · 못 보낸 클로슈 알림 — tick 이 돌려준 글을 보낸다
   const dueMsg = addMsg(null, '@이은지 약속 시각(10/20 오후 3:00)이 지났어요 — 교재 주문', []); dueMsg.author_name = '클로슈'; dueMsg.bot = { kind: 'due', to: [EUNJI] };
-  BOT.tick = { msgs: [dueMsg.id], summary: true };
+  BOT.tick = { msgs: [dueMsg.id, am.id], summary: true };
   await page.evaluate(() => { const D = Date, off = 130000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
   await page.waitForFunction(() => true); await sleep(5000);
-  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === dueMsg.id), '약속 지남 알림 → 휴대폰 알림 요청');
-  bp = calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'summary').pop();
-  ok(calls.filter(c => c[0] === 'tick').length >= 1 && calls.some(c => c[0] === 'bpost' && c[1].p_kind === 'summary'), '오늘 정리 전 최신 할 일을 다시 받음');
-  ok(bp && /^오늘 정리 · /.test(bp[1].p_text) && /할 일: 오늘 완료 \d+건 · 남은 일 \d+건/.test(bp[1].p_text) && /수업 기록: \d+ \/ \d+ 완료/.test(bp[1].p_text), '밤 9시 오늘 정리 (' + (bp && bp[1].p_text.replace(/\n/g, ' / ')) + ')');
-  await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
-  // 시간표를 못 읽으면 수업 줄이 빠진 답을 올리지 않고 다음 순찰에서 다시 (Codex 검토)
-  failTT = true;
-  const bp0 = calls.filter(c => c[0] === 'bpost').length;
-  await page.fill('#inp', '@클로슈 박하늘 수업'); await page.click('#send'); await sleep(2000);
-  ok(calls.filter(c => c[0] === 'bpost').length === bp0, '시간표를 못 읽으면 답을 미룸');
-  failTT = false;
-  await page.evaluate(() => { const D = Date, off = 260000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
-  await page.waitForFunction(() => true); await sleep(5000);
-  bp = calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'answer').pop();
-  ok(bp && calls.filter(c => c[0] === 'bpost').length > bp0 && /박하늘 · .*담당 김지원 선생님/.test(bp[1].p_text), '다음 순찰에서 답을 올림 (' + (bp && bp[1].p_text.split('\n')[0]) + ')');
-  await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
+  ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === dueMsg.id) && calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === am.id), 'tick 이 돌려준 클로슈 글 → 휴대폰 알림 요청');
+  ok(!calls.some(c => c[0] === 'botrpc' && /msg_bot_(ask|post)/.test(c[1])), '밤 9시 정리도 화면이 쓰지 않음(클로드가 씀)');
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'bot.png') });
-  await ctx.close();
-  // 출근 현황을 아직 못 읽었으면 출근 질문에 답하지 않고 다음 순찰에서 (Codex 검토)
-  failPres = true;
-  MEMBERS.splice(1, 0, { user_id: '55555555-5555-5555-5555-555555555555', name: '김은지', role: 'teacher' });   // 끝 두 글자가 같은 선생님
-  ({ ctx, page } = await open());
-  await page.waitForSelector('#msgs .m');
-  const bp1 = calls.filter(c => c[0] === 'bpost').length;
-  await page.fill('#inp', '@클로슈 지금 출근한 사람'); await page.click('#send'); await sleep(2000);
-  ok(calls.filter(c => c[0] === 'bpost').length === bp1, '출근 현황을 못 읽으면 출근 답을 미룸');
-  failPres = false;
-  await page.evaluate(() => { const D = Date, off = 61000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
-  await page.waitForFunction(() => true); await sleep(5000);
-  bp = calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'answer').pop();
-  ok(bp && calls.filter(c => c[0] === 'bpost').length > bp1 && /^지금 출근: /.test(bp[1].p_text), '출근 현황이 오면 다음 순찰에서 출근 답 (' + (bp && bp[1].p_text.split('\n')[0]) + ')');
-  // 한 번 읽은 뒤 이번 출근 조회가 실패해도 옛 출근 현황으로 답하지 않음 (Codex 검토)
-  failPres = true;
-  const bp2 = calls.filter(c => c[0] === 'bpost').length;
-  await page.fill('#inp', '@클로슈 출근 다시 알려줘'); await page.click('#send'); await sleep(2500);
-  ok(calls.filter(c => c[0] === 'bpost').length === bp2, '이번 출근 조회가 실패하면 옛 현황으로 답하지 않음');
-  failPres = false;
-  await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
-  await page.evaluate(() => { const D = Date, off = 200000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
-  await page.waitForFunction(() => true); await sleep(5000);
-  ok(calls.filter(c => c[0] === 'bpost').length > bp2 && /^지금 출근: /.test(calls.filter(c => c[0] === 'bpost').pop()[1].p_text), '출근 조회가 되면 다음 순찰에서 답');
-  // 남은 일은 질문할 때 대기 중 할 일을 새로 받는다 (Codex 검토)
-  const tq0 = calls.length;
-  await page.fill('#inp', '@클로슈 내 남은 일'); await page.click('#send'); await sleep(2000);
-  const tqi = calls.findIndex((c, i) => i >= tq0 && c[0] === 'bpost');
-  ok(tqi > 0 && calls.slice(tq0, tqi).some(c => c[0] === 'tasksq'), '남은 일 답 전에 대기 할 일을 다시 받음');
-  // 오늘 정리: 시간표를 못 읽으면 쓰지 않고 다음 tick에 (Codex 검토)
-  const sm0 = calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'summary').length;
-  failTT = true; BOT.tick = { msgs: [], summary: true };
-  await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
-  await page.evaluate(() => { const D = Date, off = 330000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
-  await page.waitForFunction(() => true); await sleep(5000);
-  ok(calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'summary').length === sm0, '시간표를 못 읽으면 오늘 정리를 미룸');
-  failTT = false; BOT.tick = { msgs: [], summary: true };
-  await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
-  await page.evaluate(() => { const D = Date, off = 460000; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
-  await page.waitForFunction(() => true); await sleep(5000);
-  ok(calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'summary').length === sm0 + 1, '다음 tick에 오늘 정리를 씀');
-  // 전체 이름을 짧은 이름보다 먼저 (Codex 검토)
-  await page.fill('#inp', '@클로슈 오늘 이은지 수업'); await page.click('#send'); await sleep(2000);
-  bp = calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'answer').pop();
-  ok(bp && /^오늘 이은지 선생님 수업/.test(bp[1].p_text), '이름이 비슷한 선생님이 있어도 전체 이름으로 (' + (bp && bp[1].p_text.split('\n')[0]) + ')');
-  // 이번 주 휴강·옮김을 학생 수업 답에 (Codex 검토)
-  const today0 = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
-  TTLOG.push({ kind: '주간반휴강', from_class_id: 'n201', to_class_id: null, apply_date: today0 });
-  await page.fill('#inp', '@클로슈 김민준 이번 주'); await page.click('#send'); await sleep(2000);
-  bp = calls.filter(c => c[0] === 'bpost' && c[1].p_kind === 'answer').pop();
-  ok(bp && /중3 진도\(은지T\) — 이번 주 휴강/.test(bp[1].p_text), '이번 주 휴강을 학생 수업 답에 (' + (bp && bp[1].p_text.replace(/\n/g, ' / ')) + ')');
-  TTLOG.pop();
   await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
   await ctx.close();
-  MEMBERS.splice(1, 1);
 
   await browser.close(); server.close();
   console.log(`\n${n - bad} / ${n} 통과`);
