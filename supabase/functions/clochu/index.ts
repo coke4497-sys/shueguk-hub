@@ -75,14 +75,24 @@ async function feed() {
     admin.from('msg_presence').select('name,loc,is_on,changed_at'),
     // 답할 때까지 남는다 — 서버 함수가 답 안 한 것만 먼저 거른 뒤 50개 (Codex 검토)
     admin.rpc('msg_bot_unanswered', { p_limit: 50 }),
-    // 고르기 전 배정 질문은 날짜로 버리지 않는다 — 고를 때까지 계속 보인다 (Codex 검토)
-    admin.from('msg_messages').select('id,created_at,body,bot,reply_to').eq('bot->>kind', 'ask').is('bot->done', null).is('deleted_at', null).order('id', { ascending: false }).limit(50),
+    // 고르기 전 배정 질문은 날짜·개수로 버리지 않는다 — 오래된 것부터 끝까지, 고를 때까지 계속 보인다 (Codex 검토)
+    allRows(() => admin.from('msg_messages').select('id,created_at,body,bot,reply_to').eq('bot->>kind', 'ask').is('bot->done', null).is('deleted_at', null).order('id')),
   ])
   for (const r of [fresh, before, pend, today, pres, ments, asks]) if (r.error) throw r.error
   // 새 메시지에 이미 생긴 할 일(상태 상관없이) — 확인 요청이 이미 갔는지 판단할 때 쓴다
   const freshIds = (fresh.data || []).map((m: { id: number }) => m.id)
   const ft = freshIds.length ? await admin.from('msg_tasks').select('id,message_id,assignee_name,status,ack_only').in('message_id', freshIds) : { data: [], error: null }
   if (ft.error) throw ft.error
+  // 원글을 지운 배정 질문은 고를 수 없으니(msg_bot_pick 이 거절) 열린 목록에서 뺀다 (Codex 검토)
+  type Ask = { id: number; bot: { done?: unknown } | null; reply_to: number | null }
+  const askRows = (asks.data || []) as Ask[]
+  const askSrc = [...new Set(askRows.map((m) => m.reply_to).filter((x): x is number => !!x))]
+  const goneSrc = new Set<number>()
+  for (let i = 0; i < askSrc.length; i += 200) {
+    const g = await admin.from('msg_messages').select('id').in('id', askSrc.slice(i, i + 200)).not('deleted_at', 'is', null)
+    if (g.error) throw g.error
+    for (const r of g.data || []) goneSrc.add(r.id)
+  }
   const today0 = kst().slice(0, 10)
   const short = (m: Record<string, unknown>) => ({ ...m, files: Array.isArray(m.files) ? (m.files as unknown[]).length : 0 })
   return {
@@ -97,7 +107,7 @@ async function feed() {
     members: mem,
     presence_today: (pres.data || []).filter((p: { is_on: boolean; changed_at: string }) => p.is_on && kst(Date.parse(p.changed_at)).slice(0, 10) === today0),
     unanswered_mentions: (ments.data || []).map((m: { id: number; created_at: string; author_name: string; body: string }) => ({ id: m.id, created_at: m.created_at, author_name: m.author_name, body: m.body })),
-    open_asks: (asks.data || []).filter((m: { bot: { done?: unknown } }) => !m.bot?.done),
+    open_asks: askRows.filter((m) => !m.bot?.done && !(m.reply_to && goneSrc.has(m.reply_to))),
   }
 }
 
