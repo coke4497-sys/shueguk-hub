@@ -27,3 +27,15 @@ Deno.test('시간표 — 기본 반과 이 주만 반을 서버가 갈라 준다
   assertEquals(w.table, 'tt_classes')
   assertEquals(new URLSearchParams(w.qs).getAll('class_id'), ['like.w2610*', 'like.w*'])
 })
+
+Deno.test('학생 조회는 숨긴 열을 조건·정렬에 못 쓴다 (Codex 검토)', () => {
+  const r = safeQuery('students', 'name=eq.김민준&phone_parent1=like.0101*&code=eq.x&or=(code.eq.x)&order=code.asc&limit=5')!
+  const q = new URLSearchParams(r.qs)
+  assertEquals(q.get('name'), 'eq.김민준')
+  assertEquals(q.get('phone_parent1'), null)
+  assertEquals(q.get('code'), null)
+  assertEquals(q.get('or'), null)
+  assertEquals(q.get('order'), null)
+  assertEquals(q.get('limit'), '5')
+  assertEquals(new URLSearchParams(safeQuery('students', 'order=name.asc')!.qs).get('order'), 'name.asc')
+})
