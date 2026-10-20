@@ -105,3 +105,62 @@ as $$
 $$;
 revoke all on function public.msg_bot_unanswered(int) from public, anon, authenticated;
 grant execute on function public.msg_bot_unanswered(int) to service_role;
+
+-- 약속 지남 알림 만들기 — 화면(msg_bot_tick)과 클로슈 순찰(엣지 함수 clochu → msg_bot_due) 둘 다 부른다.
+-- 슈톡을 아무도 열어 두지 않아도 몇 분마다 도는 순찰이 만든다 (Codex 검토). 할 일마다 한 번(due_alerted_at).
+create or replace function private.msg_bot_due_make()
+returns bigint[]
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  t record;
+  v_m public.msg_messages;
+  v_ids bigint[] := '{}';
+begin
+  for t in
+    select k.* from public.msg_tasks k
+    where k.status = '대기' and k.due_at is not null and k.due_at < now() and k.due_alerted_at is null
+    order by k.due_at limit 10
+    for update skip locked
+  loop
+    v_m := private.msg_bot_insert(
+      '@' || t.assignee_name || ' 약속 시각(' || private.msg_when(t.due_at) || ')이 지났어요 — ' || left(t.text, 120)
+        || case when coalesce(t.due_note, '') <> '' then ' (' || left(t.due_note, 60) || ')' else '' end,
+      jsonb_build_object('kind', 'due', 'task', t.id, 'to', jsonb_build_array(t.assignee)), t.message_id);
+    update public.msg_tasks set due_alerted_at = now() where id = t.id;
+    v_ids := v_ids || v_m.id;
+  end loop;
+  return v_ids;
+end;
+$$;
+revoke all on function private.msg_bot_due_make() from public, anon, authenticated;
+
+create or replace function public.msg_bot_tick()
+returns jsonb
+language plpgsql security definer set search_path = ''
+as $$
+declare
+  v_me public.teacher_accounts := private.msg_me();
+  v_ids bigint[];
+begin
+  if v_me.user_id is null then
+    raise exception 'not_teacher' using errcode = '42501';
+  end if;
+  v_ids := private.msg_bot_due_make();
+  -- 아직 휴대폰 알림을 못 보낸 클로슈 글(하루 안)도 돌려준다 — msg-push 가 pushed_at 으로 한 번만 보낸다
+  v_ids := v_ids || coalesce(array(
+    select m.id from public.msg_messages m
+    where m.bot is not null and m.pushed_at is null and m.deleted_at is null
+      and m.created_at > now() - interval '1 day' and not (m.id = any(v_ids))
+    order by m.id limit 20), '{}');
+  -- 오늘 정리는 이제 클로드 순찰이 쓴다(화면은 쓰지 않음)
+  return jsonb_build_object('msgs', to_jsonb(v_ids), 'summary', false);
+end;
+$$;
+
+create or replace function public.msg_bot_due()
+returns bigint[]
+language sql security definer set search_path = ''
+as $$ select private.msg_bot_due_make(); $$;
+revoke all on function public.msg_bot_due() from public, anon, authenticated;
+grant execute on function public.msg_bot_due() to service_role;

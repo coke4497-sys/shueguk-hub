@@ -333,6 +333,10 @@ psql -X -q -d $DB -c "update public.msg_messages set pushed_at = now() where bot
 ok "$(as $C "select jsonb_array_length(public.msg_bot_tick()->'msgs')")" "0" "알림을 보낸 글은 다시 돌려주지 않음"
 as $B "select public.msg_task_defer($TD, now() + interval '2 hours', '')" >/dev/null
 ok "$(as $C "select due_alerted_at is null from public.msg_tasks where id=$TD")" "t" "다시 미루면 알림 자리 비움"
+psql -X -q -d $DB -c "update public.msg_tasks set due_at = now() - interval '1 minute' where id=$TD" >/dev/null
+ok "$(svc "select coalesce(array_length(public.msg_bot_due(), 1), 0)")" "1" "클로슈 순찰(service_role)도 약속 지남 알림을 만듦"
+ok "$(svc "select coalesce(array_length(public.msg_bot_due(), 1), 0)")" "0" "순찰에서도 한 번만"
+ok "$(as $C "select public.msg_bot_due()" | grep -c 'permission denied')" 1 "교사는 순찰용 함수를 못 부름"
 ok "$(as $E "select public.msg_bot_tick()" | grep -c not_teacher)" 1 "계정 없는 로그인은 못 부름"
 ok "$(anon "select public.msg_bot_tick()" | grep -c 'permission denied')" 1 "공개 키는 클로슈 함수 실행 불가"
 ok "$(as $C "select count(*) from public.msg_bot_runs" 2>&1 | grep -c 'permission denied')" 1 "중복 방지 표는 직접 못 읽음"

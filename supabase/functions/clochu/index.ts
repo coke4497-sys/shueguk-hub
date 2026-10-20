@@ -121,7 +121,12 @@ Deno.serve(async (request) => {
   let input: any = {}
   try { input = await request.json() } catch (_) { /* 빈 본문 */ }
   try {
-    if (input.action === 'feed') { const push_retry = await repush(); return reply(200, { ...(await feed()), push_retry }) }
+    if (input.action === 'feed') {
+      // 약속 지남 알림을 먼저 만든다 — 슈톡을 아무도 열어 두지 않아도 순찰이 만든다 (Codex 검토). 만든 글은 아래 repush 가 보낸다
+      const due = await admin.rpc('msg_bot_due')
+      const push_retry = await repush()
+      return reply(200, { ...(await feed()), push_retry, due_alerts: due.error ? { error: due.error.message } : (due.data || []).length })
+    }
     if (input.action === 'get') {
       const sq = safeQuery(String(input.table || ''), String(input.query || ''))
       if (sq === null) return reply(400, { error: 'bad_table', tables: Object.keys(TABLES) })
