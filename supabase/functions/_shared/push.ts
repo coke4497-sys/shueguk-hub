@@ -123,10 +123,22 @@ export async function pushMessage(admin: any, id: number, extra?: (q: any) => an
   // 일부 기기만 실패 — 그 기기만 적어 두고 순찰이 다시 보낸다(retryPush).
   // 적기마저 실패하면 보낼 자리(pushed_at)를 되돌려 전체를 다시 보내게 한다 — 같은 tag 라 받은 기기에는 알림이 겹쳐 쌓이지 않는다 (Codex 검토)
   if (failedIds.length && !(await saveRetry(admin, 'msg_messages', id, { push_retry: failedIds }))) {
-    await admin.from('msg_messages').update({ pushed_at: null }).eq('id', id).eq('pushed_at', at)
+    await checked(() => admin.from('msg_messages').update({ pushed_at: null }).eq('id', id).eq('pushed_at', at), 'unclaim msg ' + id)
     return { status: 503, body: { error: 'retry_save_failed', targets: items.length, ...cnt } }
   }
   return { status: 200, body: { targets: items.length, ...cnt } }
+}
+
+// 되돌림 같은 마지막 갱신 — 결과를 확인하며 세 번까지, 끝내 안 되면 로그에 남긴다(DB 가 계속 안 되면 더 할 수 있는 일이 없다)
+// deno-lint-ignore no-explicit-any
+export async function checked(run: () => any, what: string) {
+  for (let i = 0; i < 3; i++) {
+    const { error } = await run()
+    if (!error) return true
+    await new Promise((r) => setTimeout(r, 300 * (i + 1)))
+  }
+  console.error('update failed', what)
+  return false
 }
 
 // 다시 보낼 목록 적기 — 한 번 더 해 보고 결과를 돌려준다
