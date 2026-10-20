@@ -178,9 +178,11 @@ export async function retryPush(admin: any, id: number) {
 
 // 잡아 비운 목록을 되돌려 적기 — 결과를 확인하며 세 번까지 (Codex 검토). 그 사이 새 목록이 생겼으면 그대로 둔다
 // deno-lint-ignore no-explicit-any
-async function keepRetry(admin: any, table: string, id: number, col: string, v: unknown) {
+async function keepRetry(admin: any, table: string, id: number, col: string, v: unknown, same?: [string, unknown]) {
   for (let i = 0; i < 3; i++) {
-    const { error } = await admin.from(table).update({ [col]: v }).eq('id', id).is(col, null)
+    let q = admin.from(table).update({ [col]: v }).eq('id', id).is(col, null)
+    if (same) q = q.eq(same[0], same[1])
+    const { error } = await q
     if (!error) return true
     await new Promise((r) => setTimeout(r, 300 * (i + 1)))
   }
@@ -197,7 +199,7 @@ export async function retryHand(admin: any, id: number) {
   if (!h || !Array.isArray(h.subs) || !h.subs.length || !h.to) return { status: 200, skipped: true }
   const restore = (v: unknown) => keepRetry(admin, 'msg_tasks', id, 'hand_retry', v)
   const [t, s, a] = await Promise.all([
-    admin.from('msg_tasks').select('id,message_id,text,status,assignee').eq('id', id).maybeSingle(),
+    admin.from('msg_tasks').select('id,message_id,text,status,assignee,updated_at').eq('id', id).maybeSingle(),
     admin.from('msg_push_subs').select('*').in('id', h.subs),
     admin.from('teacher_accounts').select('user_id').eq('active', true),
   ])
@@ -206,6 +208,43 @@ export async function retryHand(admin: any, id: number) {
   if (!t.data || t.data.assignee !== h.to) return { status: 200, skipped: true }
   const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
   const r = await deliver(admin, onlySubs(handPlan({ ...t.data, to: h.to }, h.by || '', s.data || [], active), h.subs))
-  if (r.failedIds.length && !(await restore({ ...h, subs: r.failedIds }))) return { status: 503, lost: r.failedIds }
+  // 보내는 사이 다시 넘겼으면(updated_at 이 바뀜) 옛 정보를 되살리지 않는다 (Codex 검토)
+  if (r.failedIds.length && !(await keepRetry(admin, 'msg_tasks', id, 'hand_retry', { ...h, subs: r.failedIds }, ['updated_at', t.data.updated_at]))) return { status: 503, lost: r.failedIds }
   return { status: r.failed ? 503 : 200 }
+}
+
+// 넘김 알림 처음 보내기 — msg-push hand(넘긴 사람 화면)와 클로슈 순찰(화면이 못 부른 것)이 함께 쓴다 (Codex 검토)
+// 다 읽고 → hand_push 를 비우며 잡고 → 보냄. 전체 실패면 자리를 되돌리고, 일부 실패면 그 기기만 hand_retry 에. by 가 있으면 그 사람이 넘긴 일만.
+// deno-lint-ignore no-explicit-any
+export async function pushHand(admin: any, id: number, by?: string) {
+  let tq = admin.from('msg_tasks').select('id,message_id,text,status,hand_push,hand_by').eq('id', id).not('hand_push', 'is', null)
+  if (by) tq = tq.eq('hand_by', by)
+  const [t, a] = await Promise.all([tq.maybeSingle(), admin.from('teacher_accounts').select('user_id,display_name').eq('active', true)])
+  if (t.error || a.error) return { status: 503, body: { error: 'lookup_failed' } }
+  if (!t.data) return { status: 200, body: { skipped: true } }
+  const to = t.data.hand_push as string
+  const byName = ((a.data || []).find((r: { user_id: string }) => r.user_id === t.data.hand_by) || {}).display_name
+    || (await admin.from('teacher_accounts').select('display_name').eq('user_id', t.data.hand_by).maybeSingle()).data?.display_name || ''
+  const s = await admin.from('msg_push_subs').select('*').eq('user_id', to)
+  if (s.error) return { status: 503, body: { error: 'lookup_failed' } }
+  // 새 넘김 알림을 잡을 때 앞 넘김의 재시도 정보도 비운다 — A→B→A 처럼 다시 넘겼을 때 낡은 알림이 가지 않게
+  let cq = admin.from('msg_tasks').update({ hand_push: null, hand_retry: null }).eq('id', id).eq('hand_push', to)
+  if (by) cq = cq.eq('hand_by', by)
+  const { data: claimed, error: ce } = await cq.select('id,message_id,text,status,updated_at')
+  if (ce) return { status: 503, body: { error: 'claim_failed' } }
+  if (!claimed || !claimed.length) return { status: 200, body: { skipped: true } }
+  const gen: [string, unknown] = ['updated_at', claimed[0].updated_at]
+  const unclaim = () => checked(() => admin.from('msg_tasks').update({ hand_push: to }).eq('id', id).is('hand_push', null).eq(gen[0], gen[1]), 'unclaim hand ' + id)
+  const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
+  const items = handPlan({ ...claimed[0], to }, byName, s.data || [], active)
+  const r = await deliver(admin, items)
+  const { failedIds, ...cnt } = r
+  // 한 기기에도 못 보냈고 일시적 실패가 있으면 자리를 되돌린다(보내는 사이 다시 넘겼으면 그대로 둠)
+  if (!r.sent && r.failed) { await unclaim(); return { status: 503, body: { error: 'deliver_failed', targets: items.length, ...cnt } } }
+  // 일부 기기만 실패 — 그 기기만 적어 두고 순찰이 retryHand 로. 적기마저 실패하면 자리를 되돌린다(같은 tag 라 겹쳐 쌓이지 않음)
+  if (failedIds.length && !(await saveRetry(admin, 'msg_tasks', id, { hand_retry: { to, by: byName, subs: failedIds } }, gen))) {
+    await unclaim()
+    return { status: 503, body: { error: 'retry_save_failed', targets: items.length, ...cnt } }
+  }
+  return { status: 200, body: { targets: items.length, ...cnt } }
 }

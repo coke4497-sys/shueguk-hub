@@ -10,7 +10,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { withSupabase } from 'jsr:@supabase/server@^1'
 
-import { PAGE, cut, plan, handPlan, setup, deliver, pushMessage, saveRetry, checked, type Sub } from '../_shared/push.ts'
+import { PAGE, cut, plan, handPlan, setup, deliver, pushMessage, pushHand, type Sub } from '../_shared/push.ts'
 export { cut, plan, handPlan }
 
 function reply(status: number, body: Record<string, unknown>) {
@@ -55,38 +55,9 @@ const handler = withSupabase({ auth: 'user' }, async (request, context) => {
   if (input.action === 'hand') {
     const id = Number(input.task_id)
     if (!Number.isInteger(id) || id <= 0) return reply(400, { error: 'bad_id' })
-    // send 와 같은 순서 — 다 읽고, 성공했을 때만 알림 자리(hand_push)를 비워 한 번만 보낸다
-    const [t, a] = await Promise.all([
-      admin.from('msg_tasks').select('id,message_id,text,status,hand_push').eq('id', id).eq('hand_by', uid).not('hand_push', 'is', null).maybeSingle(),
-      admin.from('teacher_accounts').select('user_id').eq('active', true),
-    ])
-    if (t.error || a.error) return reply(503, { error: 'lookup_failed' })
-    if (!t.data) return reply(200, { skipped: true })
-    const to = t.data.hand_push as string
-    const s = await admin.from('msg_push_subs').select('*').eq('user_id', to)
-    if (s.error) return reply(503, { error: 'lookup_failed' })
-    // 새 넘김 알림을 잡을 때 앞 넘김의 재시도 정보도 비운다 — A→B→A 처럼 다시 넘겼을 때 낡은 알림이 가지 않게 (Codex 검토)
-    const { data: claimed, error: ce } = await admin.from('msg_tasks').update({ hand_push: null, hand_retry: null })
-      .eq('id', id).eq('hand_by', uid).eq('hand_push', to).select('id,message_id,text,status,updated_at')
-    if (ce) return reply(503, { error: 'claim_failed' })
-    if (!claimed || !claimed.length) return reply(200, { skipped: true })
-    const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
-    const items = handPlan({ ...claimed[0], to }, me.display_name, s.data || [], active)
-    const r = await deliver(admin, items)
-    // 한 기기에도 못 보냈고 일시적 실패가 있으면 자리를 되돌려 화면이 5초 뒤 다시 부르게 한다 (Codex 검토)
-    if (!r.sent && r.failed) {
-      await checked(() => admin.from('msg_tasks').update({ hand_push: to }).eq('id', id).is('hand_push', null).eq('updated_at', claimed[0].updated_at), 'unclaim hand ' + id)
-      return reply(503, { error: 'deliver_failed', targets: items.length, ...r })
-    }
-    // 일부 기기만 실패 — 그 기기만 적어 두고 클로슈 순찰(closhu feed)이 retryHand 로 다시 보낸다 (Codex 검토)
-    // 되돌림·재시도 정보 모두 잡은 뒤 그대로일 때만 — 보내는 사이 다시 넘겼으면 옛 사람을 되살리지 않는다 (Codex 검토)
-    // 잡은 뒤 그대로일 때만 적는다 — 보내는 사이 다시 넘겼으면(updated_at 이 바뀜) 낡은 재시도 정보를 남기지 않는다 (Codex 검토)
-    // 적기마저 실패하면 알림 자리(hand_push)를 되돌려 화면이 다시 부르게 한다 — 같은 tag 라 받은 기기에는 겹쳐 쌓이지 않는다 (Codex 검토)
-    if (r.failedIds.length && !(await saveRetry(admin, 'msg_tasks', id, { hand_retry: { to, by: me.display_name, subs: r.failedIds } }, ['updated_at', claimed[0].updated_at]))) {
-      await checked(() => admin.from('msg_tasks').update({ hand_push: to }).eq('id', id).is('hand_push', null).eq('updated_at', claimed[0].updated_at), 'unclaim hand ' + id)
-      return reply(503, { error: 'retry_save_failed', targets: items.length, ...r })
-    }
-    return reply(200, { targets: items.length, ...r })
+    // 다 읽고 → hand_push 를 비우며 잡고 → 보냄(공용 pushHand — 클로슈 순찰도 같은 함수로 화면이 못 부른 것을 보낸다)
+    const r = await pushHand(admin, id, uid)
+    return reply(r.status, r.body)
   }
   return reply(400, { error: 'bad_action' })
 })
