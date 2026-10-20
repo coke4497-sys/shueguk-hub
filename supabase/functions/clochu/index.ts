@@ -40,6 +40,19 @@ async function repush() {
   return { tried: (data || []).length, failed }
 }
 
+// 표를 1000줄씩 끝까지 받는다 — 앞쪽 몇백 줄만 보고 판단하지 않게 (Codex 검토)
+// deno-lint-ignore no-explicit-any
+async function allRows(make: () => any) {
+  const out: unknown[] = []
+  for (let from = 0; from < 20000; from += 1000) {
+    const { data, error } = await make().range(from, from + 999)
+    if (error) return { data: null, error }
+    out.push(...(data || []))
+    if (!data || data.length < 1000) break
+  }
+  return { data: out, error: null }
+}
+
 async function feed() {
   const run = await admin.from('msg_bot_runs').select('message_id').eq('key', CURSOR).maybeSingle()
   if (run.error) throw run.error
@@ -56,8 +69,8 @@ async function feed() {
   const [fresh, before, pend, today, mem, pres, ments, asks] = await Promise.all([
     admin.from('msg_messages').select(sel).gt('id', cursor).order('id').limit(200),
     admin.from('msg_messages').select(sel).lte('id', cursor).is('deleted_at', null).order('id', { ascending: false }).limit(first ? 40 : 20),
-    admin.from('msg_tasks').select('id,message_id,assignee_name,requester_name,text,created_at,due_at,due_note,seen_at,ack_only,progress_at,history').eq('status', '대기').order('id').limit(500),
-    admin.from('msg_tasks').select('id,message_id,assignee_name,text,status,done_by_name,done_at,cancel_reason').neq('status', '대기').gte('done_at', dayStart).order('id').limit(500),
+    allRows(() => admin.from('msg_tasks').select('id,message_id,assignee_name,requester_name,text,created_at,due_at,due_note,seen_at,ack_only,progress_at,history').eq('status', '대기').order('id')),
+    allRows(() => admin.from('msg_tasks').select('id,message_id,assignee_name,text,status,done_by_name,done_at,cancel_reason').neq('status', '대기').gte('done_at', dayStart).order('id')),
     members(),
     admin.from('msg_presence').select('name,loc,is_on,changed_at'),
     // 답할 때까지 날짜로 버리지 않는다 — 최근 1000개를 받아 답 안 한 것만 오래된 순으로 50개 (Codex 검토)
@@ -66,11 +79,16 @@ async function feed() {
     admin.from('msg_messages').select('id,created_at,body,bot,reply_to').eq('bot->>kind', 'ask').is('bot->done', null).is('deleted_at', null).order('id', { ascending: false }).limit(50),
   ])
   for (const r of [fresh, before, pend, today, pres, ments, asks]) if (r.error) throw r.error
+  // 새 메시지에 이미 생긴 할 일(상태 상관없이) — 확인 요청이 이미 갔는지 판단할 때 쓴다
+  const freshIds = (fresh.data || []).map((m: { id: number }) => m.id)
+  const ft = freshIds.length ? await admin.from('msg_tasks').select('id,message_id,assignee_name,status,ack_only').in('message_id', freshIds) : { data: [], error: null }
+  if (ft.error) throw ft.error
   // 이미 답한 @클로슈(그 글에 답장한 클로슈 글이 있으면)는 빼고 준다
   const ids = (ments.data || []).map((m: { id: number }) => m.id)
   let answered = new Set<number>()
   if (ids.length) {
-    const a = await admin.from('msg_messages').select('reply_to').in('reply_to', ids).not('bot', 'is', null)
+    // 진짜 답(bot.kind='answer', 안 지움)만 답한 것으로 센다 — 약속 지남 알림 같은 다른 클로슈 글은 아니다 (Codex 검토)
+    const a = await admin.from('msg_messages').select('reply_to').in('reply_to', ids).eq('bot->>kind', 'answer').is('deleted_at', null)
     if (a.error) throw a.error
     answered = new Set((a.data || []).map((x: { reply_to: number }) => x.reply_to))
   }
@@ -83,6 +101,7 @@ async function feed() {
     new_messages: (fresh.data || []).filter((m: { deleted_at: string | null }) => !m.deleted_at).map(short),
     earlier_messages: (before.data || []).reverse().map(short),
     open_tasks: pend.data || [],
+    new_message_tasks: ft.data || [],
     closed_today: today.data || [],
     members: mem,
     presence_today: (pres.data || []).filter((p: { is_on: boolean; changed_at: string }) => p.is_on && kst(Date.parse(p.changed_at)).slice(0, 10) === today0),
