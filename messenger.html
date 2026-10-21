@@ -542,7 +542,9 @@
     .mb,.m.mine .mb{max-width:86%;}
     .m.mine .mb{max-width:82%;}
     .av{width:30px;height:30px;font-size:14px;}
-    .bb{padding:11px 14px;}
+    .bb{padding:11px 14px;max-width:100%;}
+    .line{flex-wrap:wrap;row-gap:2px;}
+    .line .bb{flex:0 1 auto;}
     .tags{flex-wrap:nowrap;}
     .tg{padding:7px 12px;}
     #composer{padding:10px 12px calc(12px + env(safe-area-inset-bottom));}
@@ -573,7 +575,6 @@
     .plbtn{font-size:13px;padding:7px 10px;}
     .plbtn .w{display:none;}
     .me{display:none;}
-    #reloadBtn{display:none;}
   }
   @media (prefers-reduced-motion:reduce){.hrt.beat svg,.burst i{animation:none;}}
   @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto !important;}}
@@ -1453,6 +1454,7 @@
 
   // ── 쓰기 · @부르기 · 파일 ──────────────────────────
   var inp = $('inp');
+  if (window.matchMedia && matchMedia('(max-width:520px)').matches) inp.placeholder = '메시지 쓰기';   // 휴대폰은 짧게(말줄임)
   function grow(){ inp.style.height = 'auto'; inp.style.height = Math.min(inp.scrollHeight, 160) + 'px'; }
   var mList = [], mIdx = 0;
   function mentionQuery(){
