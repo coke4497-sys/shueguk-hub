@@ -1314,7 +1314,7 @@ async function showTask(pg, sel){
   console.log('㉔ 리디자인 — 메뉴 · 오늘의 슈국 · 출근 스위치 (2026-10-21)');
   {
     const kd2 = new Date(Date.now() + 9 * 3600e3), today2 = kd2.toISOString().slice(0, 10), dn2 = '일월화수목금토'[kd2.getUTCDay()];
-    delete PRESENCE[ME]; workClip = workAsk = workEarly = false;
+    Object.keys(PRESENCE).forEach(k => delete PRESENCE[k]); PLOGS.length = 0; TT.length = 0; TTLOG.length = 0; workClip = workAsk = workEarly = false;   // 앞 검사의 출근·시간표를 비우고 시작
     PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, changed_at: NOWISO() };
     SHIFTS.push({ ymd: today2, user_id: ME, loc: '화정센터', start_hm: '16:00', end_hm: '22:00' });
     TT.push({ book: '내신', class_id: 'n201', name: '고1 민트반', day: dn2, start_time: '3:00', end_time: '4:30', teacher: '지원', location: '민트초코', roster: '가' });
