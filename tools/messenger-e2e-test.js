@@ -34,6 +34,7 @@ const MEMBERS = [
 ];
 const NAME = { [ME]: '고희주', [EUNJI]: '이은지', [BOSS]: '이수경' };
 let missing = false, failSendOnce = false, failHand = 0;
+let slowUpload = 0, loseSendResp = 0;   // 올리기를 늦춤(ms) · 저장한 뒤 응답만 끊음(횟수)
 let mid = 0, tid = 0, clock = 0;
 const ts = () => new Date(Date.now() + (clock++)).toISOString();
 const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [], READS = {};
@@ -71,6 +72,11 @@ function filterRows(rows, u){
   let out = rows.slice();
   u.searchParams.forEach((v, k) => {
     if (['select', 'order', 'limit'].includes(k)) return;
+    if (k === 'or' && /^\(updated_at\.gt\./.test(v)){   // (updated_at, id) 커서: (updated_at.gt."T",and(updated_at.eq."T",id.gt.N))
+      const mm = v.match(/^\(updated_at\.gt\."([^"]+)",and\(updated_at\.eq\."[^"]+",id\.gt\.(\d+)\)\)$/);
+      out = out.filter(r => r.updated_at > mm[1] || (r.updated_at === mm[1] && r.id > Number(mm[2])));
+      return;
+    }
     if (k === 'or'){   // or=(author.is.null,author.neq.X) 꼴만
       const parts = v.replace(/^\(|\)$/g, '').split(',').map(x => x.split('.'));
       out = out.filter(r => parts.some(([f, op, val]) => op === 'is' ? r[f] == null : op === 'neq' ? String(r[f]) !== val : op === 'eq' ? String(r[f]) === val : false));
@@ -89,7 +95,9 @@ function filterRows(rows, u){
     if (op === 'in') { const set = val.replace(/[()]/g, '').split(',').map(Number); out = out.filter(r => set.includes(r[k])); }
   });
   const ord = u.searchParams.get('order');
-  if (ord === 'id.desc') out.sort((a, b) => b.id - a.id); else out.sort((a, b) => a.id - b.id);
+  if (ord === 'id.desc') out.sort((a, b) => b.id - a.id);
+  else if (ord === 'updated_at.asc,id.asc') out.sort((a, b) => a.updated_at < b.updated_at ? -1 : a.updated_at > b.updated_at ? 1 : a.id - b.id);
+  else out.sort((a, b) => a.id - b.id);
   const lim = Number(u.searchParams.get('limit') || 0); if (lim) out = out.slice(0, lim);
   return out;
 }
@@ -138,7 +146,7 @@ async function showTask(pg, sel){
       if (p === '/rest/v1/teacher_accounts') return json([{ user_id: ME, login_id: 'heeju', display_name: '고희주', active: true, role: 'assistant' }]);
       if (missing && p.startsWith('/rest/v1/rpc/msg')) return json({ code: 'PGRST202', message: 'Could not find the function' }, 404);
       if (p === '/rest/v1/rpc/msg_members') return json(MEMBERS);
-      if (p === '/rest/v1/msg_reads') return noReads ? json({ code: 'PGRST205', message: 'Could not find the table public.msg_reads' }, 404) : json(Object.keys(READS).map(k => ({ user_id: k, last_id: READS[k] })));
+      if (p === '/rest/v1/msg_reads') return noReads ? json({ code: 'PGRST205', message: 'Could not find the table public.msg_reads' }, 404) : json(filterRows(Object.keys(READS).map(k => ({ id: 0, user_id: k, last_id: READS[k] })), u));
       if (p === '/rest/v1/rpc/msg_read_mark'){ const b = JSON.parse(req.postData()); calls.push(['readmark', b]); READS[ME] = Math.max(READS[ME] || 0, Math.min(b.p_id, mid)); return json(READS[ME]); }
       if (p === '/rest/v1/rpc/msg_heart'){
         const b = JSON.parse(req.postData()); calls.push(['heart', b]);
@@ -165,6 +173,7 @@ async function showTask(pg, sel){
         const all = /@(모두|전체|조교|선생님)/.test(b.p_body) || /^\[(결석|지각|이동)\]/.test(b.p_body);   // 결석·지각·이동도 확인만(202610200003)
         text = text.replace(/@(모두|전체|조교|선생님)/g, '').replace(/\s+/g, ' ').trim() || '메시지 확인';
         const tasks = [...new Set(b.p_mentions || [])].map(id => { const k = addTask(m, id, text); k.ack_only = all; return k; });
+        if (loseSendResp > 0){ loseSendResp--; return route.abort('connectionreset'); }   // 저장은 됐는데 응답이 끊김
         return json({ message: m, tasks });
       }
       if (p === '/rest/v1/rpc/msg_task_seen'){
@@ -263,6 +272,7 @@ async function showTask(pg, sel){
       }
       if (p.startsWith('/storage/v1/object/msg-files/') && req.method() === 'POST'){
         const key = p.slice('/storage/v1/object/msg-files/'.length);
+        if (slowUpload) await sleep(slowUpload);
         OBJECTS[key] = req.postDataBuffer(); calls.push(['up', key, req.headers()['content-type']]);
         return json({ Key: 'msg-files/' + key });
       }
@@ -523,6 +533,86 @@ async function showTask(pg, sel){
   ok(!(await page.locator('#pon').isVisible()), '켜기 버튼은 숨김');
   await ctx.close();
 
+  console.log('⑬-2 보내는 동안 쓴 글 보존 · 응답 끊김 · 기기 사이 읽은 자리 · 건수 한도 (2026-10-21 검토)');
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id);
+  slowUpload = 1500;
+  await page.setInputFiles('#file', { name: 'first.txt', mimeType: 'text/plain', buffer: Buffer.from('one') });
+  await page.click('#inp'); await page.keyboard.type('첫 글입니다');
+  const sb0 = calls.filter(c => c[0] === 'send').length;
+  await page.click('#send');
+  await sleep(300);
+  await page.locator('#inp').focus(); await page.keyboard.press('End'); await page.keyboard.type(' 둘째 글');
+  await page.setInputFiles('#file', { name: 'second.txt', mimeType: 'text/plain', buffer: Buffer.from('two') });
+  await page.locator('#m' + m3.id).hover(); await page.locator('#m' + m3.id + ' [data-reply]').click();
+  for (let i = 0; i < 40 && calls.filter(c => c[0] === 'send').length === sb0; i++) await sleep(150);
+  await sleep(500);
+  slowUpload = 0;
+  const ps1 = calls.filter(c => c[0] === 'send').pop()[1];
+  ok(ps1.p_body === '첫 글입니다' && ps1.p_files.length === 1 && ps1.p_files[0].name === 'first.txt' && !('p_reply' in ps1), '보낸 것 = 누른 순간의 글·첨부(나중 첨부·답장 대상 안 섞임)');
+  ok((await page.inputValue('#inp')) === '둘째 글', '올리는 동안 이어 쓴 글은 입력칸에 남음');
+  ok((await page.locator('#pend .pf').count()) === 1 && (await page.locator('#pend').textContent()).includes('second.txt'), '올리는 동안 붙인 파일은 남음');
+  ok(await page.locator('#rbar').isVisible() && (await page.locator('#rtext').textContent()).includes('이은지'), '올리는 동안 고른 답장 대상은 남음');
+  await page.click('#rcancel'); await page.fill('#inp', ''); await page.click('#pend [data-rm]');
+
+  // 저장은 됐는데 응답만 끊김 → 서버에서 찾아 성공으로, 첨부는 지우지 않음, 한 번만
+  const rm0 = calls.filter(c => c[0] === 'rm').length;
+  loseSendResp = 1;
+  await page.setInputFiles('#file', { name: 'lost.txt', mimeType: 'text/plain', buffer: Buffer.from('lost') });
+  await page.fill('#inp', '응답 끊김 시험 첨부');
+  await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '', null, { timeout: 8000 }).catch(() => {});
+  ok((await page.inputValue('#inp')) === '', '응답이 끊겨도 저장된 것을 찾아 보낸 것으로 처리');
+  ok(calls.filter(c => c[0] === 'rm').length === rm0, '저장됐을 수 있는 글의 첨부는 지우지 않음');
+  ok(MSGS.filter(m => m.body === '응답 끊김 시험 첨부').length === 1 && (await page.locator('.m', { hasText: '응답 끊김 시험 첨부' }).count()) === 1, '글은 한 번만 저장·표시');
+  loseSendResp = 1;
+  await page.fill('#inp', '응답 끊김 시험 글만');
+  await page.click('#send');
+  await page.waitForFunction(() => document.querySelector('#inp').value === '', null, { timeout: 8000 }).catch(() => {});
+  ok((await page.inputValue('#inp')) === '' && MSGS.filter(m => m.body === '응답 끊김 시험 글만').length === 1, '첨부 없는 글도 같은 글·최근 2분으로 찾아 한 번만');
+  await ctx.close();
+
+  // 다른 기기에서 읽음 → 이 기기(처음 여는 브라우저) 숫자도 0
+  READS[ME] = mid;
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id);
+  await page.evaluate(() => { document.querySelector('#msgs').scrollTop = 0; });
+  await sleep(800);
+  ok(Number(await page.evaluate(id => localStorage.getItem('msg_read_' + id), ME)) === mid, '서버의 읽은 자리가 크면 이 기기 기록도 올림');
+  ok(await page.locator('#chatBadge').isHidden(), '다른 기기에서 읽은 메시지는 대화 탭 숫자에 안 셈');
+  ok((await page.locator('#newline').count()) === 0, "'여기부터 새 메시지' 줄도 다른 기기에서 읽은 데까지");
+  await ctx.close();
+  ({ ctx, page } = await open());
+  await page.evaluate(id => localStorage.setItem('msg_read_' + id, '1'), ME);
+  await page.goto(`http://127.0.0.1:${PORT}/index.html`);
+  await page.waitForFunction(id => Number(localStorage.getItem('msg_read_' + id)) > 1, ME, { timeout: 8000 }).catch(() => {});
+  await sleep(500);
+  ok(await page.locator('#msgBadge').isHidden(), '티쳐스 첫 화면 숫자도 서버 읽은 자리 기준(다른 기기에서 읽음)');
+  await ctx.close();
+  READS[ME] = 1;   // 서버가 작으면 이 기기 기록을 되돌리지 않음
+  ({ ctx, page } = await open());
+  await page.evaluate(([id, v]) => localStorage.setItem('msg_read_' + id, String(v)), [ME, mid]);
+  await page.reload(); await page.waitForSelector('#m' + m3.id); await sleep(800);
+  ok(Number(await page.evaluate(id => localStorage.getItem('msg_read_' + id), ME)) === mid, '서버 기록이 작아도 이 기기 기록을 줄이지 않음');
+  await ctx.close();
+
+  // 대기 중 할 일 1,001건 넘게 · 한 번의 변경 한도를 넘김
+  const bulkM = addMsg(BOSS, '대량 할 일 @고희주', [], ago(1));
+  for (let i = 0; i < 1005; i++) addTask(bulkM, ME, '대량 ' + i, ago(1));
+  ({ ctx, page } = await open());
+  await page.waitForSelector('#m' + m3.id);
+  const sumOf = async () => { const m = ((await page.locator('#sum').textContent()) || '').match(/(\d+) \/ (\d+)/); return m ? [Number(m[1]), Number(m[2])] : [0, 0]; };
+  const s0 = await sumOf();
+  ok(s0[1] >= 1005, '대기 중 할 일이 1,000건을 넘어도 끝까지 받음 (전체 ' + s0[1] + ')');
+  ok(calls.filter(c => c[0] === 'tasksq' && /id=gt\./.test(c[1])).length >= 1, '1,000건씩 이어 받음(id 커서)');
+  // 접속 중 한 번에 1,005건이 바뀜(한 번 한도 1,000) — (updated_at, id) 커서로 끝까지 받는지
+  for (const t of TASKS.filter(x => x.message_id === bulkM.id)){ t.status = '완료'; t.done_at = ts(); t.done_by_name = '이수경'; t.updated_at = t.done_at; }
+  await page.waitForFunction(n => { const m = (document.querySelector('#sum').textContent || '').match(/(\d+) \//); return m && Number(m[1]) >= n; }, s0[0] + 1005, { timeout: 9000 }).catch(() => {});
+  const s1 = await sumOf();
+  ok(s1[0] - s0[0] === 1005, '한 번에 1,000건 넘게 바뀌어도 늦게 바뀐 줄까지 받음 (완료 +' + (s1[0] - s0[0]) + ')');
+  await ctx.close();
+  for (let i = TASKS.length - 1; i >= 0; i--) if (TASKS[i].message_id === bulkM.id) TASKS.splice(i, 1);
+
   console.log('⑭ 서비스 워커(msg-sw.js) — 알림 띄우기');
   ({ ctx, page } = await open(null, { realPush: true }));
   await ctx.grantPermissions(['notifications'], { origin: `http://127.0.0.1:${PORT}` });
@@ -585,6 +675,7 @@ async function showTask(pg, sel){
   await ctx.close();
 
   console.log('⑮ 티쳐스 첫 화면');
+  delete READS[ME];   // 어느 기기에서도 읽은 적 없음 — 첫 화면 숫자는 서버 읽은 자리도 본다(⑬-2)
   ({ ctx, page } = await open());
   await page.goto(`http://127.0.0.1:${PORT}/index.html`);
   await page.waitForSelector('a.card');

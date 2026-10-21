@@ -797,6 +797,31 @@
   function hm(ts){ var d = kst(ts), h = d.getUTCHours(), m = d.getUTCMinutes(); return (h < 12 ? '오전 ' : '오후 ') + ((h % 12) || 12) + ':' + (m < 10 ? '0' : '') + m; }
   function md(ts){ var d = kst(ts); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate(); }
   function dayLabel(ts){ var d = kst(ts); return (d.getUTCMonth() + 1) + '월 ' + d.getUTCDate() + '일 (' + '일월화수목금토'[d.getUTCDay()] + ')'; }
+  // 한 번에 받는 줄 수에 한도가 있어 끝까지 나눠 받는다(2026-10-21 검토 — 대기 중 할 일 1,000건·한 번의 변경 500/1,000건을 넘으면 뒤쪽이 빠졌다)
+  var PAGE_MAX = 20;
+  function allById(path, size){
+    var out = [];
+    function step(after, n){
+      return api(path + (after ? '&id=gt.' + after : '') + '&order=id.asc&limit=' + size).then(function(rows){
+        rows = rows || []; out = out.concat(rows);
+        return rows.length < size || n + 1 >= PAGE_MAX ? out : step(rows[rows.length - 1].id, n + 1);
+      });
+    }
+    return step(0, 0);
+  }
+  // 바뀐 줄 — (updated_at, id) 순서로 커서를 이어 간다. id 순서로 자르면 한도를 넘었을 때 늦게 바뀐 줄을 건너뛸 수 있다
+  function changedSince(table, since, size){
+    var out = [];
+    function step(cur, n){
+      var f = cur ? 'or=' + encodeURIComponent('(updated_at.gt."' + cur.updated_at + '",and(updated_at.eq."' + cur.updated_at + '",id.gt.' + cur.id + '))')
+                  : 'updated_at=gt.' + encodeURIComponent(since);
+      return api('/' + table + '?select=*&' + f + '&order=updated_at.asc,id.asc&limit=' + size).then(function(rows){
+        rows = rows || []; out = out.concat(rows);
+        return rows.length < size || n + 1 >= PAGE_MAX ? out : step(rows[rows.length - 1], n + 1);
+      });
+    }
+    return step(null, 0);
+  }
   function back30(ts){ return ts ? new Date(Date.parse(ts) - 30000).toISOString() : '1970-01-01T00:00:00Z'; }
   function roleLabel(r){ return r === 'assistant' ? '조교' : (r === 'admin' ? '관리자' : '선생님'); }
   var TONES = [['#E9EDF8','#3E4E78'],['#F7E2DE','#83413A'],['#DCE8E5','#2F5148'],['#F9EFD0','#6E5718'],['#EDE4F4','#5A4A6A']];
@@ -834,13 +859,17 @@
       $('cnt').textContent = MEMBERS.length + '명';
       return Promise.all([
         api('/msg_messages?select=*&order=id.desc&limit=' + PAGE),
-        api('/msg_tasks?select=*&status=eq.' + encodeURIComponent('대기') + '&order=id.asc&limit=1000'),
-        api('/msg_tasks?select=*&done_at=gte.' + encodeURIComponent(new Date(dayStartMs()).toISOString()) + '&order=id.asc&limit=1000')
+        allById('/msg_tasks?select=*&status=eq.' + encodeURIComponent('대기'), 1000),
+        allById('/msg_tasks?select=*&done_at=gte.' + encodeURIComponent(new Date(dayStartMs()).toISOString()), 1000),
+        api('/msg_reads?select=last_id&user_id=eq.' + ME.id).catch(function(){ return null; })   // 다른 기기에서 읽은 자리
       ]);
     }).then(function(res){
       var rows = res[0] || [];
       hasOlder = rows.length === PAGE;
       addMsgs(rows); addTasks(res[1]); addTasks(res[2]);
+      var srv = res[3] && res[3][0] ? Number(res[3][0].last_id) || 0 : 0;
+      if (srv > readMark) readMark = srv;   // '여기부터 새 메시지' 줄도 다른 기기에서 읽은 데까지
+      syncMyMark(srv);
       return loadTasksFor(rows);
     }).then(function(){
       ready = true;
@@ -894,8 +923,8 @@
     polling = true;
     var lastBefore = lastMsgId();
     Promise.all([
-      api('/msg_messages?select=*&updated_at=gt.' + encodeURIComponent(back30(maxMsgTs)) + '&order=id.asc&limit=500'),
-      api('/msg_tasks?select=*&updated_at=gt.' + encodeURIComponent(back30(maxTaskTs)) + '&order=id.asc&limit=1000')
+      changedSince('msg_messages', back30(maxMsgTs), 500),
+      changedSince('msg_tasks', back30(maxTaskTs), 1000)
     ]).then(function(res){
       setLive(true);
       // 화면 밖(불러오지 않은 구간)의 인용 원글이 바뀌었으면(지움 등) 인용도 고친다 — Codex 검토
@@ -1375,6 +1404,15 @@
     if (rdOpen) renderReadList();
   }
   // 읽은 자리 표가 없으면(0012 전) 숫자 칸을 걷어 내고 다시 그리지 않는다
+  // 서버의 내 읽은 자리(다른 기기에서 읽은 것)가 이 기기 기록보다 크면 이 기기 기록을 올린다 — 작은 값으로 되돌리지 않는다
+  function syncMyMark(srv){
+    if (!ME || !srv) return false;
+    if (srv > readSent) readSent = srv;
+    var key = 'msg_read_' + ME.id;
+    if (srv <= Number(localStorage.getItem(key) || 0)) return false;
+    localStorage.setItem(key, String(srv));
+    return true;
+  }
   function noReads(){ readsOk = false; Array.prototype.forEach.call($('msgs').querySelectorAll('.rc'), function(b){ b.remove(); }); }
   function loadReads(){
     if (!readsOk || !ME) return;
@@ -1384,6 +1422,7 @@
       if (READS) Object.keys(READS).forEach(function(k){ if (!(k in nx)) changed = true; });
       READS = nx;
       if (changed) paintReads();
+      if (syncMyMark(nx[ME.id] || 0)) updateBadges();
     }).catch(function(e){ if (e && (e.status === 404 || /msg_reads/.test(String(e.message)))) noReads(); });
   }
   // 여기까지 읽음 — 커질 때만 서버에 적는다(실패하면 다음 읽음 때 다시)
@@ -1584,23 +1623,31 @@
     });
   }
   var sending = false;
+  // 보내기 = 누른 순간의 글·첨부·꼬리표·답장을 한 묶음(pack)으로 고정한다(2026-10-21 검토 — 올리는 동안 새로 쓴 글·첨부·답장 대상은 남긴다)
   function send(){
     if (sending || !ready) return;
-    var body = inp.value.trim();
+    var raw = inp.value, body = raw.trim();
     if (!body && !pending.length) return;
     if (curTag && tagSplit(body).tag !== curTag) body = '[' + curTag + '] ' + body;
+    var pack = { raw: raw, tag: curTag, reply: replyTo ? replyTo.id : null, files: pending.slice(), since: new Date(Date.now() - 120000).toISOString() };
     sending = true; $('send').disabled = true;
-    var files = pending.slice(), up = [];
+    var files = pack.files, up = [], sent = false;
     status(files.length ? '파일을 올리는 중…' : '', 30000);
-    var att = attTagOf(body) && !hasMention(body);   // 결석·지각·이동인데 @가 없으면 학생 이름으로 담당 선생님을 찾는다
+    var att = !!(ATT_TAGS[tagSplit(body).tag]) && !hasMention(body);   // 결석·지각·이동인데 @가 없으면 학생 이름으로 담당 선생님을 찾는다
     files.reduce(function(p, f){ return p.then(function(){ return upload(f).then(function(x){ up.push(x); }); }); }, att ? loadStudents() : Promise.resolve())
       .then(function(){
         var ids = att ? attAuto(body).ids : mentionsIn(body);
-        if (attTagOf(body)) ids = ids.filter(function(x){ return x !== ME.id; });   // 서버도 나를 뺀다
-        var a = { p_body: body, p_files: up, p_mentions: ids }; if (replyTo) a.p_reply = replyTo.id; return rpc('msg_send', a);
+        if (ATT_TAGS[tagSplit(body).tag]) ids = ids.filter(function(x){ return x !== ME.id; });   // 서버도 나를 뺀다
+        var a = { p_body: body, p_files: up, p_mentions: ids }; if (pack.reply) a.p_reply = pack.reply;
+        sent = true;
+        return rpc('msg_send', a).catch(function(e){
+          // 응답을 못 받은 실패(인터넷 끊김·서버 5xx)는 저장됐을 수도 있다 — 내 최근 메시지에서 이 글을 찾아 본다
+          if (e && e.status && e.status < 500) throw e;
+          return sentCheck(body, up, pack.since).then(function(res){ if (res) return res; throw e; }, function(){ e.unsure = true; throw e; });
+        });
       })
       .then(function(res){
-        inp.value = ''; grow(); pending = []; drawPending(); curTag = ''; drawTags(); setReply(null); attHint();
+        clearPack(pack);
         if (!lastAmbig) status('');
         addMsgs([res.message]); addTasks(res.tasks);
         renderMsgs('bottom'); renderBoard();
@@ -1608,10 +1655,32 @@
         if (/@클로슈/.test(res.message.body || '') && !lastAmbig) status('클로슈가 몇 분 안에 대화를 읽고 답해요.', 6000);
       })
       .catch(function(e){
-        if (up.length) fetch(STO + '/object/' + BUCKET, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefixes: up.map(function(x){ return x.path; }) }) }).catch(function(){});
-        status(/upload/.test(String(e.message)) ? '파일을 올리지 못했습니다. 다시 보내 주세요.' : errText(e), 6000);
+        // 저장됐는지 모르는 경우(e.unsure)에는 올린 파일을 지우지 않는다 — 저장된 글의 첨부가 깨지지 않게
+        if (up.length && (!sent || (e && e.status && e.status < 500))) fetch(STO + '/object/' + BUCKET, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefixes: up.map(function(x){ return x.path; }) }) }).catch(function(){});
+        status(e && e.unsure ? '보냈는지 확인하지 못했습니다. 대화에 글이 보이지 않으면 다시 보내 주세요.' : /upload/.test(String(e.message)) ? '파일을 올리지 못했습니다. 다시 보내 주세요.' : errText(e), 8000);
       })
       .then(function(){ sending = false; $('send').disabled = false; inp.focus(); });
+  }
+  // 보낸 묶음만 정리한다 — 그 사이 새로 쓴 글·붙인 파일·바꾼 꼬리표·답장 대상은 그대로 둔다
+  function clearPack(pack){
+    if (inp.value === pack.raw){ inp.value = ''; grow(); }
+    else if (pack.raw && inp.value.indexOf(pack.raw) === 0){ inp.value = inp.value.slice(pack.raw.length).replace(/^\s+/, ''); grow(); }
+    pending = pending.filter(function(f){ return pack.files.indexOf(f) < 0; }); drawPending();
+    if (curTag === pack.tag){ curTag = ''; drawTags(); }
+    if ((replyTo ? replyTo.id : null) === pack.reply) setReply(null);
+    attHint();
+  }
+  // 응답을 못 받았을 때 — 서버에 이미 저장됐는지 확인(첨부가 있으면 올린 파일 경로로, 없으면 같은 글·최근 2분)
+  function sentCheck(body, up, since){
+    var q = '/msg_messages?select=*&author=eq.' + ME.id + '&deleted_at=is.null&created_at=gte.' + encodeURIComponent(since) + '&order=id.desc&limit=20';
+    return api(q).then(function(rows){
+      var m = (rows || []).filter(function(r){
+        if (up.length) return (r.files || []).some(function(f){ return f && f.path === up[0].path; });
+        return r.body === body && !MSGS.has(r.id);
+      })[0];
+      if (!m) return null;
+      return api('/msg_tasks?select=*&message_id=eq.' + m.id).then(function(ts){ return { message: m, tasks: ts || [] }; });
+    });
   }
   $('send').onclick = send;
 

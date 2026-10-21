@@ -169,7 +169,7 @@
     grid.appendChild(el);
   });
 
-  // 슈톡 안 읽은 메시지 수 — 슈톡 화면이 이 기기에 적어 둔 '읽은 자리'(msg_read_<사람>) 뒤의, 남이 쓴 메시지 수.
+  // 슈톡 안 읽은 메시지 수 — 읽은 자리(이 기기 msg_read_<사람>과 서버 msg_reads 중 큰 쪽) 뒤의, 남이 쓴 메시지 수.
   // 30초마다 다시 센다. 표가 없거나 실패하면 숫자를 감춘다.
   (function(){
     if (!window.TeacherAuth) return;
@@ -178,13 +178,20 @@
       const uid = ctx && ctx.profile && ctx.profile.user_id;
       if (!uid) return;
       const el = document.getElementById("msgBadge");
+      // 읽은 자리 = 이 기기 기록과 서버 기록(msg_reads — 다른 기기에서 읽은 것) 중 큰 쪽. 서버가 크면 이 기기 기록도 올린다
+      function myMark(){
+        const key = "msg_read_" + uid, local = Number(localStorage.getItem(key) || 0);
+        return fetch(SB + "/rest/v1/msg_reads?select=last_id&user_id=eq." + uid)
+          .then(r => r.ok ? r.json() : [])
+          .then(rows => { const srv = Number(rows && rows[0] && rows[0].last_id) || 0; if (srv > local){ localStorage.setItem(key, String(srv)); return srv; } return local; })
+          .catch(() => local);
+      }
       function count(){
-        const mark = Number(localStorage.getItem("msg_read_" + uid) || 0);
-        fetch(SB + "/rest/v1/msg_messages?select=id&id=gt." + mark + "&or=(author.is.null,author.neq." + uid + ")&deleted_at=is.null",
+        myMark().then(mark => fetch(SB + "/rest/v1/msg_messages?select=id&id=gt." + mark + "&or=(author.is.null,author.neq." + uid + ")&deleted_at=is.null",
           { headers: { Prefer: "count=exact", Range: "0-0" } })
           .then(r => { if (!r.ok && r.status !== 206) throw 0; const cr = r.headers.get("content-range") || ""; return Number(cr.split("/")[1]) || 0; })
           .then(n => { el.hidden = !n; el.textContent = n > 99 ? "99+" : String(n); el.setAttribute("aria-label", "새 메시지 " + n + "개"); })
-          .catch(() => { el.hidden = true; });
+          .catch(() => { el.hidden = true; }));
       }
       count();
       setInterval(() => { if (!document.hidden) count(); }, 30000);
