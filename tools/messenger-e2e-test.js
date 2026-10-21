@@ -39,7 +39,7 @@ const ts = () => new Date(Date.now() + (clock++)).toISOString();
 const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [], READS = {};
 let noReads = false;
 let noPres = false, workClip = false, workAsk = false, workEarly = false;
-const TT = [], TTP = [], TTLOG = [], NOTES = [];
+const TT = [], TTP = [], TTLOG = [], NOTES = [], SHIFTS = [];
 let failTT = false;
 const BOT = { tick: { msgs: [], summary: false } };
 const STUDENTS = [
@@ -94,6 +94,44 @@ function filterRows(rows, u){
   return out;
 }
 
+
+// 2026-10-21 리디자인 — 컴퓨터도 채팅과 업무 진행 상황을 메뉴로 바꿔 본다. 검사가 누르거나 입력하는 곳이
+// 다른 보기에 있으면 그 메뉴를 먼저 누른다(사람이 하는 그대로). 보이는지 묻는 검사(isHidden 등)는 건드리지 않는다
+const BOARD_RE = /#cards|\.pc\b|#pchips|\.pchip|\.ci\b|\.bx\b|#sum\b|\.fl\b|#flsel|\.pcnt|data-cx|data-uncx|data-open|\.det\b|\.gomsg|\.cxb|data-person|data-pick|data-tk|\.lk\b|\.more\b/;
+const CHAT_RE = /#m\d|#msgs|#inp|#send\b|#tags|#composer|#mention|#results|#find\b|#fq|#ftags|#fclose|#rbar|#pend|#attach|#jump|#rcancel|#ctag|#ahint|\.tk\b|\.hrt|\.rc\b|data-reply|data-del|\.quote|#older|\.bopt|data-ack|#file\b/;
+const STAFF_RE = /#staff|\.sw\b|data-sw|\.chloc|#presListBtn/;
+async function ensureTab(pg, sel){
+  if (typeof sel !== 'string' || /^#tab/.test(sel)) return;
+  const want = BOARD_RE.test(sel) ? 'board' : CHAT_RE.test(sel) ? 'chat' : STAFF_RE.test(sel) ? 'staff' : '';
+  if (!want) return;
+  const st = await pg.evaluate(w => {
+    const phone = matchMedia('(max-width:900px)').matches, t = document.body.dataset.tab;
+    if (w === 'staff' && !phone) return '';
+    return t === w ? '' : ({ chat: '#tabChat', board: '#tabBoard', staff: '#tabStaff' })[w];
+  }, want).catch(() => '');
+  if (st) await pg.click(st).catch(() => {});
+}
+const ACT = ['click', 'fill', 'type', 'press', 'check', 'hover', 'dblclick', 'focus', 'tap', 'setInputFiles', 'scrollIntoViewIfNeeded', 'selectOption', 'pressSequentially'];
+function wrapLoc(pg, loc, sel){
+  return new Proxy(loc, { get(t, k){
+    const v = t[k];
+    if (typeof v !== 'function') return v;
+    if (['first', 'last', 'nth', 'filter'].includes(k)) return (...a) => wrapLoc(pg, v.apply(t, a), sel);
+    if (k === 'locator') return (s2, ...a) => wrapLoc(pg, v.call(t, s2, ...a), sel + ' ' + s2);
+    if (ACT.includes(k) || (k === 'waitFor' )) return async (...a) => { if (k !== 'waitFor' || !a[0] || !a[0].state || a[0].state === 'visible') await ensureTab(pg, sel); return v.apply(t, a); };
+    return v.bind(t);
+  } });
+}
+function autoTab(pg){
+  return new Proxy(pg, { get(t, k){
+    const v = t[k];
+    if (typeof v !== 'function') return v;
+    if (k === 'locator') return (sel, ...a) => wrapLoc(t, v.call(t, sel, ...a), sel);
+    if (ACT.includes(k)) return async (sel, ...a) => { await ensureTab(t, sel); return v.call(t, sel, ...a); };
+    if (k === 'waitForSelector') return async (sel, o) => { if (!o || !o.state || o.state === 'visible') await ensureTab(t, sel); return v.call(t, sel, o); };
+    return v.bind(t);
+  } });
+}
 // 업무 목록은 고른 사람만 보인다(2026-10-21 화면 개선안) — 그 할 일의 사람 칩을 먼저 누른다
 async function showTask(pg, sel){
   const k = await pg.locator(sel).first().evaluate(e => { const c = e.closest('.pc'); return c && !c.classList.contains('sel') ? c.dataset.person : ''; }).catch(() => '');
@@ -147,6 +185,8 @@ async function showTask(pg, sel){
         return json(m);
       }
       if (p === '/rest/v1/msg_presence') return noPres ? json({ code: 'PGRST205', message: 'Could not find the table' }, 404) : json(Object.values(PRESENCE));
+      if (p === '/rest/v1/rpc/work_ensure'){ calls.push(['ensure', JSON.parse(req.postData())]); return json(null, 204); }
+      if (p === '/rest/v1/work_shifts') return json(filterRows(SHIFTS, u));
       if (p === '/rest/v1/msg_presence_log') return json(filterRows(PLOGS, u).sort((a, b) => a.at < b.at ? -1 : 1));
       if (p === '/rest/v1/rpc/msg_presence_set'){
         const b = JSON.parse(req.postData()); calls.push(['pres', b]);
@@ -269,10 +309,10 @@ async function showTask(pg, sel){
       if (p === '/storage/v1/object/msg-files' && req.method() === 'DELETE'){ calls.push(['rm', JSON.parse(req.postData())]); return json([]); }
       return json({ message: 'unexpected ' + p }, 400);
     });
-    const page = await ctx.newPage();
-    page.on('pageerror', e => { bad++; console.error('  ✗ 페이지 오류', e.message); });
-    await page.goto(`http://127.0.0.1:${PORT}/messenger.html`);
-    return { ctx, page };
+    const raw = await ctx.newPage();
+    raw.on('pageerror', e => { bad++; console.error('  ✗ 페이지 오류', e.message); });
+    await raw.goto(`http://127.0.0.1:${PORT}/messenger.html`);
+    return { ctx, page: autoTab(raw) };
   }
 
   console.log('① 처음 화면');
@@ -285,14 +325,14 @@ async function showTask(pg, sel){
   ok((await page.locator('#m' + m3.id + ' .at').textContent()) === '@고희주', '@이름 강조');
   ok((await page.locator('#m' + m2.id + ' .tk').textContent()).includes('이은지 · 아직'), '메시지 아래 할 일 표시');
   ok(await page.locator('#live').textContent() === '실시간', '실시간 표시');
-  ok((await page.locator('#m' + m1.id + ' .av').textContent()) === '슈', '이수경 원장님 동그라미 글자는 \'슈\'');
-  ok((await page.locator('#m' + m3.id + ' .av').textContent()) === '은', '다른 사람은 이름 가운데 글자');
+  ok((await page.locator('#m' + m1.id + ' .av').textContent()) === '티', '선생님·원장님 동그라미는 \'티\' (2026-10-21 리디자인)');
+  ok((await page.locator('#m' + m3.id + ' .av').textContent()) === '티' && (await page.locator('#m' + m3.id + ' .nmc').textContent()) === '이은지', '이름 칩 + 동그라미 \'티\'');
 
   console.log('② 업무 카드');
   const firstCard = page.locator('.pc').first();
   ok((await firstCard.locator('.pn').textContent()) === '고희주', '내 카드가 맨 앞');
   ok((await firstCard.locator('.pcnt').textContent()) === '0 / 2', '내 카드 0 / 2');
-  ok((await firstCard.textContent()).includes('2일째') && (await firstCard.locator('.age').first().getAttribute('title')).includes('부터 남음'), '어제 남은 일 = 호박색 \'2일째\' 알약');
+  ok((await firstCard.textContent()).includes('일째') && (await firstCard.locator('.age').first().getAttribute('title')).includes('부터 남음'), '어제 남은 일 = 호박색 \'2일째\' 알약');
   const eunji = page.locator('.pc[data-person="' + EUNJI + '"]');
   const et = await eunji.textContent();
   ok(et.includes('4시간 지남') || et.includes('일째'), '3시간 넘은 일은 지남 표시(자정 넘으면 M/D부터 남음)');
@@ -301,7 +341,7 @@ async function showTask(pg, sel){
   ok(await jiwon.locator('.bx').first().isDisabled(), '남끼리의 일은 체크 불가');
   ok((await page.locator('#sum').textContent()) === '0 / 4 완료', '전체 진행');
   ok(await page.locator('.pc').count() === 4, '모든 사람에게 카드 (4장)');
-  ok((await page.locator('.pc[data-person="' + BOSS + '"]').textContent()).includes('오늘 할 일이 없습니다'), '할 일 없는 사람도 카드');
+  ok((await page.locator('.pc[data-person="' + BOSS + '"]').textContent()).includes('오늘 배정된 업무가 없어요.'), '할 일 없는 사람도 카드');
 
   console.log('③ 체크');
   await firstCard.locator('.bx').last().click();
@@ -406,7 +446,7 @@ async function showTask(pg, sel){
   await page.waitForSelector('#m' + m3.id);
   ok(await page.locator('.tabs').isVisible(), '탭 보임');
   ok(!(await page.locator('#board').isVisible()), '처음엔 대화만');
-  ok((await page.locator('#tabBoard').textContent()).startsWith('오늘 업무') && !(await page.locator('#boardBadge').isHidden()), '탭에 남은 업무 수 배지');
+  ok((await page.locator('#tabBoard').textContent()).includes('업무 진행') && !(await page.locator('#boardBadge').isHidden()), '탭에 남은 업무 수 배지');
   await page.click('#tabBoard');
   ok(await page.locator('#board').isVisible() && !(await page.locator('#chat').isVisible()), '업무 카드 탭');
   await page.locator('.pc').first().locator('.ctx').first().click();
@@ -602,7 +642,7 @@ async function showTask(pg, sel){
   console.log('⑰ 꼬리표 알약');
   ({ ctx, page } = await open());
   await page.waitForSelector('#m' + m3.id);
-  ok(await page.locator('#tags .tg').count() === 8 && (await page.locator('#tags').textContent()) === '입학상담결석지각이동상담요청공지요청질문' && await page.locator('#tags [data-tag="기타요청"]').textContent() === '요청', '알약 8개(기타요청은 화면에 \'요청\')');
+  ok(await page.locator('#tags .tg').count() === 7 && (await page.locator('#tags').textContent()) === '결석지각이동입학상담요청공지질문' && await page.locator('#tags [data-tag="기타요청"]').textContent() === '요청', '알약 7개 — 시안 순서, 상담요청은 입력에서 뺌(기타요청은 화면에 \'요청\')');
   await page.click('#tags [data-tag="지각"]'); await page.click('#tags [data-tag="지각"]');
   ok(await page.locator('#tags .tg.on').count() === 0, '같은 알약을 다시 누르면 빠짐');
   await page.click('#tags [data-tag="결석"]');
@@ -611,7 +651,7 @@ async function showTask(pg, sel){
   await page.waitForFunction(() => document.querySelector('#inp').value === '');
   const tsend = calls.filter(c => c[0] === 'send').pop();
   if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'tags.png') });
-    const pg = await ctx.newPage(); await pg.setViewportSize({ width: 390, height: 844 }); await pg.goto('http://127.0.0.1:' + PORT + '/messenger.html'); await pg.waitForSelector('#msgs .m'); await pg.click('#tags [data-tag="상담요청"]'); await pg.screenshot({ path: path.join(process.env.SHOT, 'tags-phone.png') }); await pg.close(); }
+    const pg = await ctx.newPage(); await pg.setViewportSize({ width: 390, height: 844 }); await pg.goto('http://127.0.0.1:' + PORT + '/messenger.html'); await pg.waitForSelector('#msgs .m'); await pg.click('#tags [data-tag="질문"]'); await pg.screenshot({ path: path.join(process.env.SHOT, 'tags-phone.png') }); await pg.close(); }
   ok(tsend[1].p_body === '[결석] 중3 박하늘 병결입니다 @이은지', '본문 앞에 [결석] (' + tsend[1].p_body + ')');
   const lastM = MSGS[MSGS.length - 1];
   const bb = page.locator('#m' + lastM.id + ' .bb');
@@ -1267,6 +1307,67 @@ async function showTask(pg, sel){
     await p3.waitForSelector('#m' + rm.id); await sleep(1500);
     ok((await p3.locator('.rc').count()) === 0, '읽은 자리 표가 없으면 숫자를 그리지 않음');
     await ctx3.close(); noReads = false;
+  }
+
+  console.log('㉔ 리디자인 — 메뉴 · 오늘의 슈국 · 출근 스위치 (2026-10-21)');
+  {
+    const kd2 = new Date(Date.now() + 9 * 3600e3), today2 = kd2.toISOString().slice(0, 10), dn2 = '일월화수목금토'[kd2.getUTCDay()];
+    delete PRESENCE[ME]; workClip = workAsk = workEarly = false;
+    PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, changed_at: NOWISO() };
+    SHIFTS.push({ ymd: today2, user_id: ME, loc: '화정센터', start_hm: '16:00', end_hm: '22:00' });
+    TT.push({ book: '내신', class_id: 'n201', name: '고1 민트반', day: dn2, start_time: '3:00', end_time: '4:30', teacher: '지원', location: '민트초코', roster: '가' });
+    TTP.length = 0; TTP.push({ week_wednesday: (y => { const d = new Date(y + 'T00:00:00Z'), k = d.getUTCDay(); d.setUTCDate(d.getUTCDate() + (k === 1 || k === 2 ? 3 - k : -((k - 3 + 7) % 7))); return d.toISOString().slice(0, 10); })(today2), book: '내신' });
+    ({ ctx, page } = await open());
+    await page.waitForSelector('#m' + m3.id);
+    ok(await page.locator('#board').isHidden() && await page.locator('#chat').isVisible(), '컴퓨터도 채팅과 업무를 나란히 두지 않음(처음은 채팅)');
+    ok((await page.locator('#vtitle').textContent()) === '채팅' && await page.locator('#tabStaff').isHidden(), '머리 제목 \'채팅\' · 컴퓨터에는 오늘의 슈국 탭이 없음');
+    await page.click('#tabBoard');
+    ok(await page.locator('#board').isVisible() && await page.locator('#chat').isHidden() && (await page.locator('#vtitle').textContent()) === '업무 진행 상황', '메뉴를 누르면 업무 진행 상황으로');
+    ok((await page.locator('#pchips .pchip').first().locator('.pcv').textContent()) === '조' && await page.locator('#pchips .pchip.r-t .pcv').first().textContent() === '티', '사람 칩에 티/조 동그라미');
+    await page.click('#tabChat');
+    await page.waitForFunction(() => document.querySelector('#staffList .cc[data-loc="화정센터"]') && document.querySelector('#staffList .cc[data-loc="민초센터"]'), null, { timeout: 8000 }).catch(() => {});
+    const locs = await page.locator('#staffList .cc').evaluateAll(es => es.map(e => e.dataset.loc));
+    ok(locs.join(',') === '본원,화정센터,민초센터', '센터 순서 본원 → 화정센터 → 민트초코 (' + locs.join(',') + ')');
+    const myRow = page.locator('#staffList .pr[data-uid="' + ME + '"]');
+    ok((await myRow.locator('.prs').textContent()).startsWith('오후 4:00 출근 예정'), '근무표 시작 시각 \'출근 예정\' (' + (await myRow.locator('.prs').textContent()) + ')');
+    ok(await page.locator('#staffList .cc[data-loc="민초센터"] .ccn').textContent() === '민트초코 센터' && (await page.locator('#staffList .pr[data-uid="44444444-4444-4444-4444-444444444444"] .prs').textContent()) === '오후 3:00 출근 예정', '선생님은 오늘 첫 수업 위치·시각');
+    const eRow = page.locator('#staffList .pr[data-uid="' + EUNJI + '"]');
+    ok(await eRow.locator('.prn.on.r-t').count() === 1 && (await eRow.locator('.prs').textContent()).includes('근무 중') && await eRow.locator('.sw.on').isDisabled(), '출근한 선생님 — 이름 칩 색·근무 중·스위치는 본인만');
+    ok(await page.locator('#staffList .pr[data-uid="' + BOSS + '"]').count() === 0, '일정도 출근도 없는 사람은 목록에 없음');
+    ok((await page.locator('#presListBtn').textContent()) === '출근 1 / 3', '머리에 \'출근 1 / 3\' (' + (await page.locator('#presListBtn').textContent()) + ')');
+    ok(calls.some(c => c[0] === 'ensure' && c[1].p_from === today2), '오늘 근무표를 채워 달라고 요청(work_ensure)');
+    await myRow.locator('[data-sw="me"]').click();
+    await page.waitForFunction(() => document.querySelector('.oburst'), null, { timeout: 4000 }).catch(() => {});
+    const pc0 = calls.filter(c => c[0] === 'pres').pop();
+    ok(pc0 && pc0[1].p_loc === '화정센터' && pc0[1].p_on === true, '내 스위치 → 그 줄 센터로 출근(msg_presence_set)');
+    ok(await page.locator('.oburst .osh').count() === 34 && await page.locator('.oburst .ori').count() === 2 && await page.locator('.oburst .oh').count() === 1, '출근 하트 터짐 — 가운데 하트·고리 2개·작은 하트 34개');
+    await page.waitForFunction(() => document.querySelector('#staffList [data-sw="me"].on'));
+    ok((await page.locator('#staffList .pr[data-uid="' + ME + '"] .prs').textContent()).includes('근무 중') && (await page.locator('#presListBtn').textContent()) === '출근 2 / 3', '켜면 근무 중 · 출근 수 2');
+    await sleep(2900);
+    ok(await page.locator('.oburst').count() === 0, '하트는 2.6초쯤 뒤 사라짐');
+    await page.locator('#staffList .pr[data-uid="' + ME + '"] [data-chloc]').click();
+    ok(await page.locator('#presMenu').isVisible() && await page.locator('#presMenu [data-loc="도래울센터"]').textContent() === '도래울 센터', '[센터 바꾸기] → 센터 고르기(도래울 센터 포함)');
+    await page.click('#presMenu [data-loc="본원"]');
+    await page.waitForFunction(() => document.querySelector('#staffList .cc[data-loc="본원"] .pr[data-uid="11111111-1111-1111-1111-111111111111"]'));
+    ok(calls.filter(c => c[0] === 'pres').pop()[1].p_loc === '본원' && await page.locator('.oburst').count() === 0, '센터만 바꾸면 본원 카드로 옮기고 하트는 다시 안 터짐');
+    await page.locator('#staffList [data-sw="me"]').click();
+    await page.waitForFunction(() => document.querySelector('#staffList [data-sw="me"]') && !document.querySelector('#staffList [data-sw="me"]').classList.contains('on'));
+    ok(calls.filter(c => c[0] === 'pres').pop()[1].p_on === false && (await page.locator('#staffList .pr[data-uid="' + ME + '"] .prs').textContent()).includes('퇴근'), '한 번 더 누르면 퇴근 — \'hh:mm 퇴근\'');
+    if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'redesign-pc-chat.png') }); await page.click('#tabBoard'); await page.screenshot({ path: path.join(process.env.SHOT, 'redesign-pc-board.png') }); }
+    await ctx.close();
+    // 휴대폰 — 위 탭 세 개
+    ({ ctx, page } = await open({ width: 390, height: 844 }));
+    await page.waitForSelector('#m' + m3.id);
+    ok(await page.locator('#tabStaff').isVisible() && (await page.locator('.tabs').evaluate(e => getComputedStyle(e).display)) === 'grid', '휴대폰은 위 탭 세 개(채팅 · 오늘의 슈국 · 업무 진행)');
+    ok(await page.locator('#staff').isHidden(), '채팅 탭에서는 오늘의 슈국을 숨김');
+    await page.click('#tabStaff');
+    ok(await page.locator('#staff').isVisible() && await page.locator('#chat').isHidden() && await page.locator('#board').isHidden(), '오늘의 슈국 탭');
+    await page.waitForSelector('#staffList [data-sw="me"]');
+    const sw = await page.locator('#staffList [data-sw="me"]').boundingBox();
+    ok(sw && Math.round(sw.width) === 68, '휴대폰 스위치 68px');
+    ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), '가로 넘침 없음');
+    if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'redesign-phone-staff.png') }); await page.click('#tabChat'); await page.screenshot({ path: path.join(process.env.SHOT, 'redesign-phone-chat.png') }); await page.click('#tabBoard'); await page.screenshot({ path: path.join(process.env.SHOT, 'redesign-phone-board.png') }); }
+    await ctx.close();
   }
 
   await browser.close(); server.close();
