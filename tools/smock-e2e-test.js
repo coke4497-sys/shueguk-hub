@@ -8,6 +8,8 @@ const { chromium } = require('playwright');
 const ROOT = path.resolve(__dirname, '..');
 const SB = 'https://bangdbhqpphqqdwcledg.supabase.co';
 let pass = 0, fail = 0;
+const SHOT = process.env.SHOT || '';
+const shot = (pg, n, sel) => SHOT ? pg.locator(sel).screenshot({ path: path.join(SHOT, n + '.png') }) : Promise.resolve();   // SHOT=폴더면 화면 캡처
 const ok = (c, m) => { c ? (pass++, console.log('  ✓ ' + m)) : (fail++, console.log('  ✗ ' + m)); };
 
 const STUS = [
@@ -109,6 +111,7 @@ let EXAMS = [], ENTRIES = [], CALLS = [];
   ok(/같은 학생의 다른 응답/.test(out), '같은 학생 중복 응답은 최신 것만');
   ok(/→ 김민재/.test(out), '같은 이름은 휴대전화 뒤 4자리로 가림');
   ok(/범위 밖 번호 1개 뺌/.test(out), '범위 밖 번호(50) 빼고 안내');
+  await shot(pg, '5-선생님-설문옮기기', 'section.card:nth-of-type(3)');
   await pg.click('#impGo'); await pg.waitForTimeout(500);
   const ins = CALLS.find(c => c.m === 'POST' && c.p.startsWith('/rest/v1/smock_entries'));
   ok(ins && /on_conflict=exam_key,code/.test(ins.p) && /ignore-duplicates/.test(ins.prefer), '이미 있는 줄은 덮지 않게(ignore-duplicates)');
@@ -132,6 +135,7 @@ let EXAMS = [], ENTRIES = [], CALLS = [];
   ok(await pg.$eval('.qgrid .q:nth-child(1)', e => e.className) === 'q', '아무도 안 틀린 칸은 색 없음');
   ok(/아직입력하지않은고1재원생2명/.test(res.replace(/\s+/g, '')) && /안온학생/.test(res) && !/고2학생/.test(res), '입력 안 한 고1 재원생(고2 제외)');
   ok(/입력 4명/.test(await pg.textContent('#exams')), '목록의 입력 수');
+  if (SHOT){ await pg.waitForTimeout(3000); await shot(pg, '4-선생님-회차와결과', 'main'); }
   ok(perr === 0, '페이지 오류 없음');
   await browser.close(); server.close();
   console.log('\n' + pass + ' passed, ' + fail + ' failed');
