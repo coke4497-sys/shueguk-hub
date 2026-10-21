@@ -261,6 +261,9 @@
   #pend{display:flex;flex-wrap:wrap;gap:6px;}
   #pend:empty{display:none;}
   .pf{display:inline-flex;align-items:center;gap:6px;background:#fff;border-radius:999px;padding:4px 6px 4px 12px;font-size:13px;}
+  .pf.pimg{padding-left:4px;}
+  .pf img{width:40px;height:40px;object-fit:cover;border-radius:8px;display:block;}
+  #composer.drop{outline:2px dashed #B9A5CC;outline-offset:-4px;}
   .pf button{border:0;background:var(--soft);border-radius:50%;width:22px;height:22px;font-size:13px;line-height:1;}
   #mention{position:absolute;left:18px;bottom:100%;margin-bottom:-2px;background:#fff;border-radius:12px;box-shadow:0 8px 24px rgba(42,51,47,.16);padding:6px;min-width:220px;max-height:260px;overflow:auto;display:none;}
   #mention.on{display:block;}
@@ -380,7 +383,7 @@
           <button class="ibtn" id="attach" type="button" aria-label="파일 첨부"><svg viewBox="0 0 24 24" fill="none" stroke="#4F5C56" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11l-8.5 8.5a5 5 0 0 1-7-7L14 4a3.5 3.5 0 0 1 5 5l-8.5 8.5a2 2 0 0 1-3-3L15 7"/></svg></button>
           <button class="ibtn" id="send" type="button">보내기</button>
         </div>
-        <div class="hint">메시지에 <b>@이름</b>을 넣으면 그 사람의 할 일로 업무 카드에 올라갑니다.</div>
+        <div class="hint">메시지에 <b>@이름</b>을 넣으면 그 사람의 할 일로 업무 카드에 올라갑니다. 캡처한 그림은 입력칸에 붙여 넣으면(Ctrl+V) 바로 들어가요.</div>
       </div>
     </section>
 
@@ -1256,19 +1259,57 @@
   }
 
   $('attach').onclick = function(){ $('file').click(); };
-  $('file').onchange = function(){
-    var skipped = [];
-    Array.prototype.forEach.call(this.files, function(f){
-      if (!f.size || f.size > MAX_FILE) skipped.push(f.name);
-      else if (pending.length < MAX_FILES) pending.push(f);
+  // 캡처한 그림 붙여넣기·끌어 놓기(2026-10-21 원장님 "캡쳐한 이미지가 바로 들어가지 않아요. 카톡 창에서처럼 바로") — 파일 첨부와 같은 줄(pending)로 들어간다
+  function pad2(n){ return (n < 10 ? '0' : '') + n; }
+  function pasteName(f, i){
+    var d = new Date(), ext = ((f.type || '').split('/')[1] || 'png').replace('jpeg', 'jpg').replace(/[^a-z0-9]/gi, '').slice(0, 5) || 'png';
+    return '캡처_' + pad2(d.getMonth() + 1) + pad2(d.getDate()) + '_' + pad2(d.getHours()) + pad2(d.getMinutes()) + pad2(d.getSeconds()) + (i ? '_' + (i + 1) : '') + '.' + ext;
+  }
+  function addFiles(list, pasted){
+    var skipped = [], n = 0;
+    Array.prototype.forEach.call(list, function(f, i){
+      // 클립보드 그림은 이름이 'image.png' 같은 것이라 언제 찍은 캡처인지 알 수 있게 이름을 붙인다
+      if (pasted && /^image\//.test(f.type || '') && (!f.name || /^image\.\w+$/i.test(f.name))){
+        try { f = new File([f], pasteName(f, i), { type: f.type }); } catch(e){}
+      }
+      if (!f.size || f.size > MAX_FILE) skipped.push(f.name || '이름 없는 파일');
+      else if (pending.length < MAX_FILES){ pending.push(f); n++; }
       else skipped.push(f.name);
     });
-    this.value = '';
     if (skipped.length) status('20MB가 넘거나 빈 파일, 10개를 넘는 파일은 뺐습니다: ' + skipped.join(', '), 6000);
+    else if (pasted && n) status('그림을 붙였습니다. [보내기]를 누르면 함께 갑니다.', 3000);
     drawPending();
-  };
+    return n;
+  }
+  $('file').onchange = function(){ addFiles(this.files); this.value = ''; };
+  function clipFiles(e){
+    var dt = e.clipboardData, out = [];
+    if (!dt) return out;
+    if (dt.files && dt.files.length) return Array.prototype.slice.call(dt.files);
+    Array.prototype.forEach.call(dt.items || [], function(it){ if (it.kind === 'file'){ var f = it.getAsFile(); if (f) out.push(f); } });
+    return out;
+  }
+  document.addEventListener('paste', function(e){
+    if (!ready) return;
+    var t = e.target, other = t && t !== inp && /^(INPUT|TEXTAREA)$/.test(t.tagName || '') ;
+    if (other || (t && t.closest && t.closest('[role="dialog"], .mback'))) return;   // 다른 칸(찾기·사유 등)에서는 건드리지 않는다
+    var fs = clipFiles(e);
+    if (!fs.length) return;   // 글만 붙여 넣으면 그대로
+    e.preventDefault();
+    if (addFiles(fs, true)) inp.focus();
+  });
+  var comp = $('composer');
+  ['dragenter', 'dragover'].forEach(function(k){ comp.addEventListener(k, function(e){ if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0){ e.preventDefault(); comp.classList.add('drop'); } }); });
+  comp.addEventListener('dragleave', function(e){ if (!comp.contains(e.relatedTarget)) comp.classList.remove('drop'); });
+  comp.addEventListener('drop', function(e){ comp.classList.remove('drop'); if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){ e.preventDefault(); addFiles(e.dataTransfer.files); inp.focus(); } });
+  var pendUrls = [];
   function drawPending(){
-    $('pend').innerHTML = pending.map(function(f, i){ return '<span class="pf">' + esc(f.name) + ' · ' + size(f.size) + '<button type="button" data-rm="' + i + '" aria-label="' + esc(f.name) + ' 빼기">×</button></span>'; }).join('');
+    pendUrls.forEach(function(u){ URL.revokeObjectURL(u); }); pendUrls = [];
+    $('pend').innerHTML = pending.map(function(f, i){
+      var img = '';
+      if (/^image\//.test(f.type || '')){ var u = URL.createObjectURL(f); pendUrls.push(u); img = '<img src="' + u + '" alt="">'; }
+      return '<span class="pf' + (img ? ' pimg' : '') + '">' + img + esc(f.name) + ' · ' + size(f.size) + '<button type="button" data-rm="' + i + '" aria-label="' + esc(f.name) + ' 빼기">×</button></span>';
+    }).join('');
   }
   $('pend').addEventListener('click', function(e){ var b = e.target.closest('[data-rm]'); if (b){ pending.splice(Number(b.dataset.rm), 1); drawPending(); } });
 

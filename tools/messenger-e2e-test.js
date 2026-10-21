@@ -354,6 +354,34 @@ function filterRows(rows, u){
   ok(calls.some(c => c[0] === 'del' && c[1].p_id === fm.id), 'msg_delete 호출');
   ok(await page.locator('#m' + m3.id + ' [data-del]').count() === 0, '남의 메시지엔 지우기 없음');
 
+  console.log('⑦-2 캡처 그림 붙여넣기 (2026-10-21)');
+  {
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64').toString('base64');
+    const paste = (sel, withText) => page.evaluate(([sel, b64, withText]) => {
+      const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+      const dt = new DataTransfer();
+      if (b64) dt.items.add(new File([u], 'image.png', { type: 'image/png' }));
+      if (withText) dt.setData('text/plain', withText);
+      const ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true });
+      const el = document.querySelector(sel); el.focus(); el.dispatchEvent(ev); return ev.defaultPrevented;
+    }, [sel, png, withText || '']);
+    ok(await paste('#inp'), '입력칸에 그림 붙여넣기 = 기본 동작 막음');
+    const pf = page.locator('.pf');
+    ok((await pf.count()) === 1 && /^캡처_\d{4}_\d{6}\.png/.test((await pf.textContent()).trim()), '보낼 파일에 캡처 이름 (' + (await pf.textContent()).trim() + ')');
+    ok((await page.locator('.pf img').count()) === 1, '그림 미리보기');
+    const textOnly = await page.evaluate(() => { const dt = new DataTransfer(); dt.setData('text/plain', '글만'); const ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }); document.querySelector('#inp').dispatchEvent(ev); return ev.defaultPrevented; });
+    ok(!textOnly && (await pf.count()) === 1, '글만 붙여 넣으면 그대로(파일 안 늘어남)');
+    await page.fill('#inp', '캡처 보냅니다');
+    await page.click('#send');
+    await page.waitForFunction(() => !document.querySelector('.pf'));
+    const pu = calls.filter(c => c[0] === 'up').pop();
+    ok(pu && /\.png$/.test(pu[1]) && pu[2] === 'image/png', '그림 올림(png)');
+    const ps = calls.filter(c => c[0] === 'send').pop();
+    ok(ps[1].p_body === '캡처 보냅니다' && ps[1].p_files.length === 1 && /^캡처_/.test(ps[1].p_files[0].name) && ps[1].p_files[0].mime === 'image/png', '글과 그림이 한 메시지로');
+    await page.waitForSelector('.thumb');
+    ok(true, '대화에 그림 칸');
+  }
+
   console.log('⑧ 할 일 → 메시지로');
   await page.locator('.pc').first().locator('.ctx', { hasText: '허은재' }).click();
   await page.waitForFunction(id => document.querySelector('#m' + id).classList.contains('flash'), m1.id);
