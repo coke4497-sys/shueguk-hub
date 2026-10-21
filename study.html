@@ -11,55 +11,60 @@
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet" />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23DCE9E4'/%3E%3C/svg%3E" />
 <style>
+  /* 2026-10-21 원장님 시안 3b·3c(묶음별 목록 — 한 화면에 모두 보이는 밀도) */
   :root{
     --bg:#C6D5D2; --surface:#FFFFFF;
-    --ink:#2A332F; --ink-soft:#65726B;
-    --accent:#4C6E66; --btn:#628C83; --icon:#3F4541; --icon-bg:#EBF0ED;
-    --line:#D7E3DD; --line-soft:#E5EDE8; --radius:18px;
+    --ink:#2b3a33; --ink-soft:#54655c; --dim:#7a8a82;
+    --accent:#4C6E66; --radius:18px;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
     background:var(--bg); color:var(--ink);
     font-family:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",-apple-system,BlinkMacSystemFont,system-ui,sans-serif;
-    font-size:16px; line-height:1.75; -webkit-font-smoothing:antialiased; padding:0 0 88px;
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased; padding:0 0 64px;
   }
-  .wrap{max-width:600px;margin:0 auto;padding:0 22px;}
+  .wrap{max-width:828px;margin:0 auto;padding:0 22px;}
 
   .back{display:inline-flex;align-items:center;gap:6px;margin:26px 0 0;color:var(--ink-soft);text-decoration:none;font-size:.86rem;}
   .back svg{width:16px;height:16px;}
   .back:hover{color:var(--accent);}
 
-  header{padding:18px 4px 30px;text-align:center;}
-  .tagline{font-family:"Gowun Batang",serif;font-size:1.5rem;font-weight:700;color:var(--accent);margin:0;letter-spacing:.01em;}
-  .intro{color:var(--ink-soft);font-size:.94rem;margin:10px auto 0;max-width:25em;line-height:1.85;}
+  header{padding:22px 20px 22px;}
+  .tagline{font-family:"Gowun Batang",serif;font-size:1.75rem;font-weight:700;color:var(--ink);margin:0;letter-spacing:-.01em;line-height:1.3;}
+  .intro{color:var(--ink-soft);font-size:.94rem;margin:6px 0 0;}
 
-  .list{display:grid;grid-template-columns:1fr 1fr;gap:12px;}   /* 2칸 4줄 (좁은 화면은 1칸) */
-  @media (max-width:560px){ .list{grid-template-columns:1fr;gap:14px;} }
-  .card{
-    display:flex;align-items:center;gap:14px;
-    background:var(--surface);border:1px solid var(--line-soft);border-radius:var(--radius);
-    padding:18px 18px;text-decoration:none;color:inherit;
-    transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease;
-  }
-  .card:hover{transform:translateY(-2px);border-color:var(--line);box-shadow:0 10px 26px rgba(42,51,47,.07);}
-  .icon{width:48px;height:48px;flex:none;border-radius:13px;display:flex;align-items:center;justify-content:center;background:var(--icon-bg);color:var(--icon);}
-  .icon svg{width:24px;height:24px;}
-  /* 파스텔 포인트 — 아이콘 타일에만 색, 도구 성격별 묶음 (2026-08-22 사용자 확정) */
-  .card.t-yel .icon{background:#F9EFD0;color:#9B8046;}
-  .card.t-pnk .icon{background:#F7E2DE;color:#B0736A;}
-  .card.t-lav .icon{background:#EDE4F4;color:#8D83A8;}
-  .card.t-mnt .icon{background:#E3EDE7;color:#4C6E66;}
-  .card.t-sky .icon{background:#E9EDF8;color:#64749E;}
+  .groups{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px 14px;align-items:start;}
+  .grp{min-width:0;background:var(--surface);border-radius:var(--radius);padding:18px 16px 10px;}
+  .gh{display:flex;align-items:center;gap:8px;margin:0 2px 6px;font-size:.84rem;font-weight:700;color:var(--ink);letter-spacing:.02em;}
+  .gh i{width:7px;height:7px;border-radius:50%;flex:none;}
+  .row{display:flex;align-items:center;gap:14px;padding:10px 2px;text-decoration:none;color:inherit;border-radius:12px;transition:background .15s ease;}
+  .row:hover{background:#F4F7F5;}
+  .row + .row{margin-top:2px;}
+  .icon{width:32px;height:32px;flex:none;border-radius:9px;display:flex;align-items:center;justify-content:center;}
+  .icon svg{width:16px;height:16px;}
   .body{flex:1;min-width:0;}
-  .card h2{font-family:"Gowun Batang",serif;font-size:1.16rem;font-weight:700;margin:0;letter-spacing:-.01em;}
-  .card .desc{margin:3px 0 0;color:var(--ink-soft);font-size:.88rem;line-height:1.5;}
-  .go{margin-top:8px;display:inline-flex;align-items:center;gap:5px;font-size:.82rem;color:var(--accent);}
-  .go svg{width:15px;height:15px;transition:transform .16s ease;}
-  .card:hover .go svg{transform:translateX(4px);}
+  .row h2{font-size:1rem;font-weight:700;margin:0;line-height:1.4;color:var(--ink);}
+  .row .desc{margin:1px 0 0;color:var(--ink-soft);font-size:.78rem;line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .chev{flex:none;color:#A6B1AB;}
+  .chev svg{width:15px;height:15px;transition:transform .15s ease;}
+  .row:hover .chev svg{transform:translateX(3px);}
+  /* 묶음 색 — 점과 아이콘 타일 */
+  .g-test .gh i{background:#8A6A35;} .g-test .icon{background:#F7ECC4;color:#806423;}
+  .g-work .gh i{background:#3d6870;} .g-work .icon{background:#DBEEF0;color:#3d6870;}
+  .g-class .gh i{background:#4a4266;} .g-class .icon{background:#E6E2F2;color:#4a4266;}
+  .g-mock .gh i{background:#6E5A8C;} .g-mock .icon{background:#ECE4F3;color:#6E5A8C;}
+  .g-clinic .gh i{background:#9a4a55;} .g-clinic .icon{background:#F6DDE0;color:#9a4a55;}
 
-  footer{text-align:center;margin-top:46px;color:var(--ink-soft);font-size:.82rem;line-height:2;}
-
+  footer{text-align:center;margin-top:40px;color:var(--ink-soft);font-size:.82rem;line-height:2;}
+  @media (max-width:640px){
+    .wrap{padding:0 14px;}
+    header{padding:18px 6px 16px;}
+    .tagline{font-size:1.5rem;}
+    .groups{grid-template-columns:minmax(0,1fr);gap:12px;}
+    .grp{padding:14px 12px 6px;}
+    .row{padding:8px 2px;}
+  }
   @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
 </style>
 </head>
@@ -71,11 +76,11 @@
   </a>
 
   <header>
-    <p class="tagline">학습 관리</p>
+    <h1 class="tagline">학습 관리</h1>
     <p class="intro">테스트·과제·모의고사·리포트 관리 메뉴를 선택하세요.</p>
   </header>
 
-  <div class="list" id="list"></div>
+  <div class="groups" id="list"></div>
 
   <footer>
     <p>이수경국어 Shueguk · 교사용</p>
@@ -88,32 +93,38 @@
     pencil:'<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>',
     clipboard:'<path d="M9 3h6a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M16 5h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/><path d="M9 14l2 2 4-4"/>',
     paper:'<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/>',
-    ask:'<path d="M21 11.5a8.4 8.4 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.5 8.5 0 1 1 21 11.5z"/><path d="M9.8 9.3a2.4 2.4 0 0 1 4.7.8c0 1.6-2.4 2.1-2.4 3.4"/><line x1="12.1" y1="16.6" x2="12.1" y2="16.7"/>',
     pulse:'<path d="M22 12h-4l-3 8L9 4l-3 8H2"/>',
     chart:'<line x1="6" y1="21" x2="6" y2="15"/><line x1="12" y1="21" x2="12" y2="9"/><line x1="18" y1="21" x2="18" y2="4"/>',
-    play:'<rect x="2.5" y="4.5" width="19" height="15" rx="3"/><path d="M10 9.2v5.6l4.8-2.8z"/>',
-    check:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>'
+    play:'<rect x="2.5" y="4.5" width="19" height="15" rx="3"/><path d="M10 9.2v5.6l4.8-2.8z"/>'
   };
   const REPORT = "https://coke4497-sys.github.io/shueguk-report/";
-  const menus = [
-    { title:"어휘 테스트",       icon:"book",      tone:"yel",      url:"voca.html",           desc:"링크 발송 · 결과 확인" },
-    { title:"문법 테스트",       icon:"pencil",    tone:"yel",    url:"gramma.html",         desc:"링크 발송 · 결과 확인" },
-    { title:"H WORK",            icon:"clipboard", tone:"sky", url:"hwork.html",          desc:"출제 · 제출 확인" },
-    { title:"복습 영상",         icon:"play",      tone:"mnt",     url:"review.html",         desc:"유튜브 복습 영상 배정 · 학생별 시청 시간" },
-    { title:"수업 기록 보기",    icon:"paper",     tone:"sky",     url:REPORT+"classlog.html", desc:"반별 수업 기록·과제 검사 · 칭찬·요주의 슈퍼스타" },
-    { title:"내신대비 피드백",   icon:"pencil",    tone:"lav",    url:REPORT+"naeshin.html", desc:"내신반 주차별 진도·과제 · 학생 피드백" },
-    { title:"주말 실전모의고사", icon:"paper",     tone:"lav",     url:"weekend.html",        desc:"출제 · 응시 · 성적" },
-    { title:"교육청, 평가원 모의고사 리포트", icon:"chart",     tone:"lav",     url:"smock.html",          desc:"학교 모의고사 회차 열기 · 학생 입력 결과 · 설문 응답 옮겨 오기" },
-    { title:"지필고사 리포트",   icon:"chart",     tone:"pnk",     url:"report.html",         desc:"제작 · 수정·배정 · 학생작성 확인 · 제출 분석" },
-    { title:"클리닉",            icon:"pulse",     tone:"pnk",     url:"clinic.html",         desc:"배정 · 신청 확인 · 질문 대기열" },
+  // 묶음별 목록 (2026-10-21 원장님 시안) — 넓은 화면은 2열(테스트|과제·복습 / 수업·피드백|모의고사·리포트 / 클리닉), 휴대폰은 1열
+  const groups = [
+    { key:"test", name:"테스트", items:[
+      { title:"어휘 테스트", icon:"book", url:"voca.html", desc:"링크 발송 · 결과 확인" },
+      { title:"문법 테스트", icon:"pencil", url:"gramma.html", desc:"링크 발송 · 결과 확인" } ]},
+    { key:"work", name:"과제 · 복습", items:[
+      { title:"H WORK", icon:"clipboard", url:"hwork.html", desc:"출제 · 제출 확인" },
+      { title:"복습 영상", icon:"play", url:"review.html", desc:"유튜브 복습 영상 배정 · 학생별 시청 시간" } ]},
+    { key:"class", name:"수업 · 피드백", items:[
+      { title:"수업 기록 보기", icon:"paper", url:REPORT+"classlog.html", desc:"반별 수업 기록·과제 검사 · 칭찬·요주의 슈퍼스타" },
+      { title:"내신대비 피드백", icon:"pencil", url:REPORT+"naeshin.html", desc:"내신반 주차별 진도·과제 · 학생 피드백" } ]},
+    { key:"mock", name:"모의고사 · 리포트", items:[
+      { title:"주말 실전모의고사", icon:"paper", url:"weekend.html", desc:"출제 · 응시 · 성적" },
+      { title:"교육청, 평가원 모의고사 리포트", icon:"chart", url:"smock.html", desc:"학교 모의고사 회차 열기 · 학생 입력 결과 · 설문 응답 옮겨 오기" },
+      { title:"지필고사 리포트", icon:"chart", url:"report.html", desc:"제작 · 수정·배정 · 학생작성 확인 · 제출 분석" } ]},
+    { key:"clinic", name:"클리닉", items:[
+      { title:"클리닉", icon:"pulse", url:"clinic.html", desc:"배정 · 신청 확인 · 질문 대기열" } ]},
   ];
-  const svg = inner => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
-  const ARROW = svg('<path d="M5 12h14M13 6l6 6-6 6"/>');
-  document.getElementById("list").innerHTML = menus.map(m =>
-    `<a class="card${m.tone ? ' t-'+m.tone : ''}" href="${m.url}">
+  const svg = (inner, w) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w || 1.8}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+  const CHEV = svg('<path d="M9 6l6 6-6 6"/>', 2);
+  document.getElementById("list").innerHTML = groups.map(g =>
+    `<section class="grp g-${g.key}" aria-label="${g.name}"><div class="gh"><i></i>${g.name}</div>` +
+    g.items.map(m => `<a class="row" href="${m.url}">
       <span class="icon">${svg(ICON[m.icon])}</span>
-      <span class="body"><h2>${m.title}</h2><p class="desc">${m.desc}</p><span class="go">열기 ${ARROW}</span></span>
-    </a>`).join("");
+      <span class="body"><h2>${m.title}</h2><p class="desc" title="${m.desc}">${m.desc}</p></span>
+      <span class="chev">${CHEV}</span>
+    </a>`).join("") + `</section>`).join("");
 </script>
 </body>
 </html>
