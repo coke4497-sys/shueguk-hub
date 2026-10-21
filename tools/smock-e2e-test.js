@@ -72,8 +72,8 @@ let EXAMS = [], ENTRIES = [], CALLS = [];
   await pg.selectOption('#nYear', '2026'); await pg.selectOption('#nMonth', '9'); await pg.selectOption('#nGrade', '고1');
   await pg.click('#addExam'); await pg.waitForTimeout(400);
   const post = CALLS.find(c => c.m === 'POST' && c.p.startsWith('/rest/v1/smock_exams'));
-  ok(post && post.body.key === '2026-09-고1' && post.body.layout === '통합' && post.body.title === '2026년 9월 고1 학력평가' && post.body.open === false, '회차 본문(키·형식·제목·꺼짐)');
-  ok(/2026년 9월 고1 학력평가/.test(await pg.textContent('#exams')) && /입력 꺼짐/.test(await pg.textContent('#exams')), '목록에 새 회차');
+  ok(post && post.body.key === '2026-09-고1' && post.body.layout === '통합' && post.body.title === '2026년 9월 고1 모의고사' && post.body.open === false, '회차 본문(키·형식·제목·꺼짐)');
+  ok(/2026년 9월 고1 모의고사/.test(await pg.textContent('#exams')) && /입력 꺼짐/.test(await pg.textContent('#exams')), '목록에 새 회차');
   ok(await pg.isVisible('#resCard'), '새로 만든 회차 결과 창 열림');
   await pg.click('[data-open="2026-09-고1"]'); await pg.waitForTimeout(300);
   ok(EXAMS[0].open === true && /입력 받는 중/.test(await pg.textContent('#exams')), '입력 받기 켜기 PATCH');
@@ -87,7 +87,7 @@ let EXAMS = [], ENTRIES = [], CALLS = [];
 
   // ③ 설문 붙여 넣기
   await pg.click('[data-sel="2026-09-고1"]'); await pg.waitForTimeout(300);
-  ok(/2026년 9월 고1 학력평가/.test(await pg.textContent('#impExam')), '옮길 회차 표시');
+  ok(/2026년 9월 고1 모의고사/.test(await pg.textContent('#impExam')), '옮길 회차 표시');
   const H = ['타임스탬프', '이름', '학교', '010을 제외한 학부모님의 휴대전화 번호 8자리(본인 식별용)', '체감 난이도 ', '[필수입력] 채점 결과 본인의 "점수"를 적어주세요.',
     '1. [화법]에서 "틀린문제"를 체크해주세요.', '2. [언어]에서 "틀린문제"를 체크해주세요.', '3. [독서]에서 "틀린문제"를 체크해주세요.',
     '4. [작문]에서 "틀린문제"를 체크해주세요.', '5. [문학]에서 "틀린문제"를 체크해주세요.', '6. (선택)시험 후기를 들려주세요! 어떤 말이든 잘 듣겠습니다. '];

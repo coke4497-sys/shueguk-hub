@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>학력평가 성적 · 슈국 티쳐스</title>
+<title>모의고사 리포트 · 슈국 티쳐스</title>
 <script src="assets/teacher-auth.js" data-mode="protected"></script>
 <!-- 이수경국어 학습 관리 · 학력평가 성적 (2026-10-21 원장님 "구글 설문(○월 모의고사 리포트)을 학생 개인 페이지에서
      모의고사 성적데이터 메뉴를 만들고 거기에 입력하고 누적하고 싶어요" → 새 카드 · 지난 설문 응답 옮겨 오기 · 선생님 화면 · 입력하면 별 +1)
@@ -91,8 +91,8 @@
     학습 관리로 가기
   </a>
   <header>
-    <h1>학력평가 성적</h1>
-    <p class="intro">학교 모의고사(학력평가) 회차를 열면 그 학년 학생이 학생 페이지 [학력평가 성적]에서 점수와 틀린 문항을 입력합니다. 처음 입력한 회차마다 별 +1이에요.</p>
+    <h1>교육청, 평가원 모의고사 리포트</h1>
+    <p class="intro">교육청·평가원 모의고사 회차를 열면 그 학년 학생이 학생 페이지 [교육청, 평가원 모의고사 리포트]에서 점수와 틀린 문항을 입력합니다. 처음 입력한 회차마다 별 +1이에요.</p>
   </header>
 
   <section class="card">
@@ -183,7 +183,7 @@
     const y = +$('nYear').value, m = +$('nMonth').value, g = $('nGrade').value;
     const key = y + '-' + ('0' + m).slice(-2) + '-' + g;
     if (examByKey(key)){ toast('이미 있는 회차입니다.'); return; }
-    const row = { key, year: y, month: m, grade: g, layout: g === '고3' ? '고3' : '통합', title: y + '년 ' + m + '월 ' + g + ' 학력평가', open: false };
+    const row = { key, year: y, month: m, grade: g, layout: g === '고3' ? '고3' : '통합', title: y + '년 ' + m + '월 ' + g + ' 모의고사', open: false };
     $('addExam').disabled = true;
     sb('POST', '/smock_exams', row, 'return=minimal').then(() => { toast('회차를 만들었습니다. 입력 받기를 켜면 학생에게 보여요.'); SEL = key; return load(); })
       .catch(e => toast('만들지 못했습니다: ' + e.message)).finally(() => { $('addExam').disabled = false; });
