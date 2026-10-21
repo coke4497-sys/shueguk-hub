@@ -1152,7 +1152,7 @@ async function showTask(pg, sel){
   }
   const pc1 = calls.filter(c => c[0] === 'prog').pop();
   ok(pc1 && pc1[1].p_id === tpg.id && pc1[1].p_on === true, 'msg_task_progress(진행 중)');
-  const pgRow = page.locator('[data-cx="' + tpg.id + '"]').locator('xpath=..');
+  const pgRow = page.locator('[data-cx="' + tpg.id + '"]').locator('xpath=ancestor::div[contains(concat(" ", @class, " "), " ci ")][1]');
   ok((await pgRow.textContent()).includes('진행 중') && (await pgRow.locator('.pg').count()) === 1, '카드에 진행 중 표시');
   ok((await page.locator('#m' + mpg.id + ' .tk').textContent()).includes('진행 중'), '메시지 아래 표시 = 진행 중');
   ok((await pgRow.textContent()).includes('고희주 · 진행 중'), '기록 리스트에 진행 중');
