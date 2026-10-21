@@ -94,6 +94,11 @@ function filterRows(rows, u){
   return out;
 }
 
+// 업무 목록은 고른 사람만 보인다(2026-10-21 화면 개선안) — 그 할 일의 사람 칩을 먼저 누른다
+async function showTask(pg, sel){
+  const k = await pg.locator(sel).first().evaluate(e => { const c = e.closest('.pc'); return c && !c.classList.contains('sel') ? c.dataset.person : ''; }).catch(() => '');
+  if (k) await pg.click('#pchips [data-pick="' + k + '"]');
+}
 (async () => {
   const server = http.createServer((req, res) => {
     const f = path.join(ROOT, decodeURIComponent(req.url.split('?')[0]));
@@ -274,7 +279,7 @@ function filterRows(rows, u){
   let { ctx, page } = await open();
   await page.waitForSelector('#m' + m3.id);
   ok(await page.locator('#cnt').textContent() === '4명', '사람 수 4명');
-  ok((await page.locator('#me').textContent()).includes('고희주 조교'), '내 이름·역할');
+  ok((await page.locator('#me').textContent()).includes('고희주 · 조교'), '내 이름·역할');
   ok(await page.locator('.m').count() === 4, '메시지 4개');
   ok(await page.locator('#m' + m2.id).evaluate(e => e.classList.contains('mine')), '내 메시지는 오른쪽(mine)');
   ok((await page.locator('#m' + m3.id + ' .at').textContent()) === '@고희주', '@이름 강조');
@@ -287,14 +292,14 @@ function filterRows(rows, u){
   const firstCard = page.locator('.pc').first();
   ok((await firstCard.locator('.pn').textContent()) === '고희주', '내 카드가 맨 앞');
   ok((await firstCard.locator('.pcnt').textContent()) === '0 / 2', '내 카드 0 / 2');
-  ok((await firstCard.textContent()).includes('부터 남음'), '어제 남은 일 표시');
+  ok((await firstCard.textContent()).includes('2일째') && (await firstCard.locator('.age').first().getAttribute('title')).includes('부터 남음'), '어제 남은 일 = 호박색 \'2일째\' 알약');
   const eunji = page.locator('.pc[data-person="' + EUNJI + '"]');
   const et = await eunji.textContent();
-  ok(et.includes('4시간 지남') || et.includes('부터 남음'), '3시간 넘은 일은 지남 표시(자정 넘으면 M/D부터 남음)');
+  ok(et.includes('4시간 지남') || et.includes('일째'), '3시간 넘은 일은 지남 표시(자정 넘으면 M/D부터 남음)');
   ok(!(await eunji.locator('.bx').first().isDisabled()), '내가 맡긴 일은 체크 가능');
   const jiwon = page.locator('.pc[data-person="44444444-4444-4444-4444-444444444444"]');
   ok(await jiwon.locator('.bx').first().isDisabled(), '남끼리의 일은 체크 불가');
-  ok((await page.locator('#sum').textContent()) === '전체 0 / 4 완료', '전체 진행');
+  ok((await page.locator('#sum').textContent()) === '0 / 4 완료', '전체 진행');
   ok(await page.locator('.pc').count() === 4, '모든 사람에게 카드 (4장)');
   ok((await page.locator('.pc[data-person="' + BOSS + '"]').textContent()).includes('오늘 할 일이 없습니다'), '할 일 없는 사람도 카드');
 
@@ -304,7 +309,7 @@ function filterRows(rows, u){
   ok(calls.some(c => c[0] === 'task' && c[1].p_id === t3.id && c[1].p_done === true), 'msg_task_set(완료) 호출');
   await page.waitForFunction(id => (document.querySelector('#m' + id + ' .tk') || {}).textContent.includes('완료'), m3.id);
   ok(true, '메시지 아래 표시도 완료로');
-  ok((await page.locator('#sum').textContent()) === '전체 1 / 4 완료', '전체 진행 갱신');
+  ok((await page.locator('#sum').textContent()) === '1 / 4 완료', '전체 진행 갱신');
 
   console.log('④ @부르기 · 보내기');
   await page.click('#inp');
@@ -401,7 +406,7 @@ function filterRows(rows, u){
   await page.waitForSelector('#m' + m3.id);
   ok(await page.locator('.tabs').isVisible(), '탭 보임');
   ok(!(await page.locator('#board').isVisible()), '처음엔 대화만');
-  ok((await page.locator('#tabBoard').textContent()).includes('내 할 일'), '탭에 내 할 일 수');
+  ok((await page.locator('#tabBoard').textContent()).startsWith('오늘 업무') && !(await page.locator('#boardBadge').isHidden()), '탭에 남은 업무 수 배지');
   await page.click('#tabBoard');
   ok(await page.locator('#board').isVisible() && !(await page.locator('#chat').isVisible()), '업무 카드 탭');
   await page.locator('.pc').first().locator('.ctx').first().click();
@@ -597,7 +602,7 @@ function filterRows(rows, u){
   console.log('⑰ 꼬리표 알약');
   ({ ctx, page } = await open());
   await page.waitForSelector('#m' + m3.id);
-  ok(await page.locator('#tags .tg').count() === 8 && (await page.locator('#tags').textContent()) === '입학상담결석지각이동상담요청공지기타요청질문', '알약 8개');
+  ok(await page.locator('#tags .tg').count() === 8 && (await page.locator('#tags').textContent()) === '입학상담결석지각이동상담요청공지요청질문' && await page.locator('#tags [data-tag="기타요청"]').textContent() === '요청', '알약 8개(기타요청은 화면에 \'요청\')');
   await page.click('#tags [data-tag="지각"]'); await page.click('#tags [data-tag="지각"]');
   ok(await page.locator('#tags .tg.on').count() === 0, '같은 알약을 다시 누르면 빠짐');
   await page.click('#tags [data-tag="결석"]');
@@ -766,7 +771,7 @@ function filterRows(rows, u){
   await page.click('#presBtn');
   ok(await page.locator('#presMenu').isVisible() && await page.locator('#presMenu [data-out]').isHidden(), '센터 고르기 창 (출근 전엔 퇴근 없음)');
   await page.click('#presMenu [data-loc="화정센터"]');
-  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '화정센터 출근');
+  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '화정센터 출근 중');
   const pc = calls.filter(c => c[0] === 'pres').pop();
   ok(pc && pc[1].p_loc === '화정센터' && pc[1].p_on === true, 'msg_presence_set(화정센터, 출근)');
   if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'pres.png') }); await page.click('#presBtn'); await page.screenshot({ path: path.join(process.env.SHOT, 'pres-menu.png') }); await page.click('#presBtn');
@@ -808,7 +813,7 @@ function filterRows(rows, u){
   await page.click('#plclose');
   workClip = true;
   await page.click('#presBtn'); await page.click('#presMenu [data-loc="본원"]');
-  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근');
+  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근 중');
   await page.waitForSelector('#wnback:not([hidden])');
   ok((await page.locator('#wnTitle').textContent()) === '16:00부터 근무' && (await page.locator('#wnText').textContent()).includes('16:00부터 기록됩니다'), '근무표 시작보다 일찍 출근 → \'16:00부터 근무\' 안내 창');
   ok(await page.evaluate(() => document.activeElement && document.activeElement.id === 'wnOk'), '안내 창의 [확인]에 초점');
@@ -838,7 +843,7 @@ function filterRows(rows, u){
   ok(await page.locator('#wnback').isHidden() && calls.filter(c => c[0] === 'ot').length === nOt, '[아니요]는 근무표 끝까지 — 따로 저장하지 않음');
   workAsk = false;
   await page.click('#presBtn'); await page.click('#presMenu [data-loc="본원"]');
-  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근');
+  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근 중');
   // 60분 일찍 퇴근 → '조기퇴근인가요?' [아니요, 잘못 눌렀어요] = 퇴근 취소
   workEarly = true;
   await page.click('#presBtn'); await page.click('#presMenu [data-out]');
@@ -849,7 +854,7 @@ function filterRows(rows, u){
   await sleep(200);
   ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === 92), '조기퇴근 확인 요청 글 휴대폰 알림');
   await page.click('#wnOk');
-  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근');
+  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근 중');
   const e1 = calls.filter(c => c[0] === 'early').pop();
   ok(e1 && e1[1].p_id === 7 && e1[1].p_yes === false && (await page.locator('#status').textContent()).includes('퇴근을 취소했습니다'), '[아니요] → work_early(취소) · 다시 \'본원 출근\'');
   await page.click('#presBtn'); await page.click('#presMenu [data-out]');
@@ -862,7 +867,7 @@ function filterRows(rows, u){
   ok((await page.locator('#status').textContent()).includes('박언호 대표님이 확인해요'), '대표님 확인 안내');
   workEarly = false;
   await page.click('#presBtn'); await page.click('#presMenu [data-loc="본원"]');
-  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근');
+  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근 중');
   await page.setViewportSize({ width: 390, height: 844 });
   if ((await page.locator('#plback').isHidden())) await page.click('#presListBtn');
   await page.waitForFunction(() => [...document.querySelectorAll('#plbody .plrow')].some(r => r.textContent.includes('고희주') && r.offsetHeight > 0), null, { timeout: 5000 }).catch(() => {});
@@ -870,7 +875,7 @@ function filterRows(rows, u){
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.click('#plclose');
   await page.click('#presBtn'); await page.click('#presMenu [data-loc="화정센터"]');
-  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '화정센터 출근');
+  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '화정센터 출근 중');
   if ((await page.locator('#plback').isHidden())) await page.click('#presListBtn');
   await page.keyboard.press('Escape');
   ok(await page.locator('#plback').isHidden(), 'Esc로 닫힘');
@@ -918,7 +923,7 @@ function filterRows(rows, u){
   ok(calls.filter(c => c[0] === 'cancel').pop()[1].p_undo === true, '[되돌리기] → 다시 할 일');
   // 메시지를 지워도 취소 기록은 남고 되돌리기는 없다 (Codex 검토)
   const t2 = TASKS.find(x => x.message_id === m2.id);
-  await page.locator('[data-cx="' + t2.id + '"]').click();
+  await showTask(page, '[data-cx="' + t2.id + '"]'); await page.locator('[data-cx="' + t2.id + '"]').click();
   await page.click('#cxmodes [data-mode="cancel"]');
   await page.fill('#cxin', '학부모님이 등원 문의 철회');
   await page.click('#cxok');
@@ -936,8 +941,8 @@ function filterRows(rows, u){
   await page.waitForSelector('#m' + m3.id);
   const m6 = addMsg(BOSS, '교재 주문해 주세요 @고희주', [], ts());
   const t6 = addTask(m6, ME, '교재 주문해 주세요', m6.created_at);
-  await page.waitForSelector('[data-cx="' + t6.id + '"]', { timeout: 7000 });
-  await page.click('[data-cx="' + t6.id + '"]');
+  await page.waitForSelector('[data-cx="' + t6.id + '"]', { timeout: 7000, state: 'attached' });
+  await showTask(page, '[data-cx="' + t6.id + '"]'); await page.click('[data-cx="' + t6.id + '"]');
   ok(await page.locator('#cxmodes [data-mode="done"]').evaluate(e => e.classList.contains('on')) && (await page.locator('#cxtitle').textContent()) === '업무 체크리스트', '창 이름 업무 체크리스트 · 완료부터');
   await page.click('#cxmodes [data-mode="defer"]');
   await page.click('#dfq [data-q="tmr"]');
@@ -958,7 +963,7 @@ function filterRows(rows, u){
   await page.waitForFunction(id => (document.querySelector('[data-cx="' + id + '"]') || {}).closest && document.querySelector('[data-cx="' + id + '"]').closest('.ci').querySelector('.due.over'), t6.id, { timeout: 7000 }).catch(() => {});
   ok((await row6.locator('.due.over').count()) === 1 && (await row6.textContent()).includes('약속 지남'), '약속 시각이 지나면 \'약속 지남\'(빨강)');
   // 넘기기
-  await page.click('[data-cx="' + t6.id + '"]');
+  await showTask(page, '[data-cx="' + t6.id + '"]'); await page.click('[data-cx="' + t6.id + '"]');
   await page.click('#cxmodes [data-mode="deleg"]');
   ok(!(await page.locator('#dgTo option[value="' + ME + '"]').count()), '넘길 사람 목록에 지금 맡은 사람(나)은 없음');
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'deleg-dialog.png') });
@@ -1056,7 +1061,7 @@ function filterRows(rows, u){
   PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, changed_at: NOWISO() };
   delete PRESENCE[ME]; delete PRESENCE[BOSS];
   ({ ctx, page } = await open());
-  await page.waitForSelector('.pc[data-person="' + EUNJI + '"] .ls');
+  await page.waitForSelector('.pc[data-person="' + EUNJI + '"] .ls', { state: 'attached' });
   const ec = page.locator('.pc[data-person="' + EUNJI + '"]');
   const ls = await ec.locator('.ls').allTextContents();
   ok(ls.length === 3, '이은지 오늘 수업 3개 (' + ls.length + ')');
@@ -1089,7 +1094,7 @@ function filterRows(rows, u){
   TT.push({ book: '내신', class_id: 'n101', name: '고1 월요진도', day: '월', start_time: '5:00', end_time: '6:30', teacher: '은지', roster: '가' },
           { book: '정규', class_id: 'r101', name: '고1 월요가', day: '월', start_time: '5:00', end_time: '6:30', teacher: '은지', roster: '가' });
   ({ ctx, page } = await open(null, { now: Date.parse(monY + 'T18:00:00+09:00') }));
-  await page.waitForSelector('.pc[data-person="' + EUNJI + '"] .ls');
+  await page.waitForSelector('.pc[data-person="' + EUNJI + '"] .ls', { state: 'attached' });
   const monTxt = await page.locator('.pc[data-person="' + EUNJI + '"]').textContent();
   ok(monTxt.includes('고1 월요진도') && !monTxt.includes('고1 월요가'), '월요일은 다가오는 수요일 주차(내신) 시간표');
   await ctx.close();
@@ -1129,8 +1134,8 @@ function filterRows(rows, u){
   const mpg2 = addMsg(ME, '교재 확인 @이은지', [], ago(0.02));
   const tpg2 = addTask(mpg2, EUNJI, '교재 확인'); tpg2.progress_at = null; tpg2.progress_by = '';
   ({ ctx, page } = await open());
-  await page.waitForSelector('[data-cx="' + tpg.id + '"]');
-  await page.click('[data-cx="' + tpg.id + '"]');
+  await page.waitForSelector('[data-cx="' + tpg.id + '"]', { state: 'attached' });
+  await showTask(page, '[data-cx="' + tpg.id + '"]'); await page.click('[data-cx="' + tpg.id + '"]');
   await page.click('#cxmodes [data-mode="prog"]');
   ok(await page.locator('#cxmodes [data-mode="prog"]').evaluate(e => e.classList.contains('on') && !e.hidden), '관리 창에 진행 중');
   ok((await page.locator('#pgok').textContent()) === '진행 중으로 표시', '버튼: 진행 중으로 표시');
@@ -1138,8 +1143,8 @@ function filterRows(rows, u){
   await page.waitForFunction(() => document.querySelector('#cxback').hidden);
   { // 관리 창의 [완료] (2026-10-20 원장님 "완료 버튼이 없어요")
     const mdn = addMsg(BOSS, '출석부 정리 @고희주', [], ts()); const tdn = addTask(mdn, ME, '출석부 정리', mdn.created_at);
-    await page.waitForSelector('[data-cx="' + tdn.id + '"]', { timeout: 7000 });
-    await page.click('[data-cx="' + tdn.id + '"]');
+    await page.waitForSelector('[data-cx="' + tdn.id + '"]', { timeout: 7000, state: 'attached' });
+    await showTask(page, '[data-cx="' + tdn.id + '"]'); await page.click('[data-cx="' + tdn.id + '"]');
     ok(!(await page.locator('#cxmodes [data-mode="done"]').isHidden()) && (await page.locator('#dnok').textContent()) === '완료로 체크', '관리 창에 [완료] — 완료로 체크');
     await page.click('#dnok');
     await page.waitForFunction(() => document.querySelector('#cxback').hidden, null, { timeout: 5000 }).catch(() => {});
@@ -1147,15 +1152,15 @@ function filterRows(rows, u){
   }
   const pc1 = calls.filter(c => c[0] === 'prog').pop();
   ok(pc1 && pc1[1].p_id === tpg.id && pc1[1].p_on === true, 'msg_task_progress(진행 중)');
-  const pgRow = page.locator('[data-cx="' + tpg.id + '"]').locator('xpath=..');
+  const pgRow = page.locator('[data-cx="' + tpg.id + '"]').locator('xpath=ancestor::div[contains(concat(" ", @class, " "), " ci ")][1]');
   ok((await pgRow.textContent()).includes('진행 중') && (await pgRow.locator('.pg').count()) === 1, '카드에 진행 중 표시');
   ok((await page.locator('#m' + mpg.id + ' .tk').textContent()).includes('진행 중'), '메시지 아래 표시 = 진행 중');
   ok((await pgRow.textContent()).includes('고희주 · 진행 중'), '기록 리스트에 진행 중');
-  await page.click('[data-cx="' + tpg.id + '"]'); await page.click('#cxmodes [data-mode="prog"]');
+  await showTask(page, '[data-cx="' + tpg.id + '"]'); await page.click('[data-cx="' + tpg.id + '"]'); await page.click('#cxmodes [data-mode="prog"]');
   ok((await page.locator('#pgok').textContent()) === '진행 중 풀기', '다시 열면 진행 중 풀기');
   await page.click('#pgok'); await page.waitForFunction(() => document.querySelector('#cxback').hidden);
   ok(calls.filter(c => c[0] === 'prog').pop()[1].p_on === false && !(await page.locator('#m' + mpg.id + ' .tk').textContent()).includes('진행 중'), '진행 중 풀기');
-  await page.click('[data-cx="' + tpg2.id + '"]');
+  await showTask(page, '[data-cx="' + tpg2.id + '"]'); await page.click('[data-cx="' + tpg2.id + '"]');
   ok(await page.locator('#cxmodes [data-mode="prog"]').isHidden(), '내가 맡긴 남의 일은 진행 중 표시 못 함(맡은 사람만)');
   await ctx.close();
 
