@@ -601,7 +601,7 @@
   .tabs button svg{width:20px;height:20px;flex:none;}
   .tabs button.on{background:var(--pSage);color:var(--ink);font-weight:700;border:0;}
   .tabs .tl{flex:1;min-width:0;}
-  .tabs .ls{display:none;}
+  .tabs .lsh{display:none;}
   #tabStaff{display:none;}
   .tbadge{margin-left:auto;font-family:var(--fB);font-weight:700;font-size:13px;background:var(--pPink);color:var(--pPinkI);border-radius:999px;padding:2px 8px;}
   .nbadge{margin-left:auto;}
@@ -788,7 +788,7 @@
     .tabs button{height:40px;border-radius:11px;padding:0 6px;justify-content:center;gap:4px;font-size:13px;color:var(--sub);border:0;text-align:center;}
     .tabs button svg{display:none;}
     .tabs .tl{flex:none;}
-    .tabs .lf{display:none;} .tabs .ls{display:inline;}
+    .tabs .lf{display:none;} .tabs .lsh{display:inline;}
     .tabs button.on{background:#fff;color:var(--ink);box-shadow:0 1px 4px rgba(42,51,47,.12);border:0;}
     #tabStaff{display:flex;}
     .tbadge,.nbadge{margin-left:2px;}
@@ -842,7 +842,7 @@
     <div class="tabs" role="tablist">
       <button type="button" id="tabChat" class="on" role="tab" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg><span class="tl">채팅</span><span class="nbadge" id="chatBadge" hidden></span></button>
       <button type="button" id="tabStaff" role="tab" aria-selected="false"><span class="tl">오늘의 슈국</span></button>
-      <button type="button" id="tabBoard" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6v3H9zM7 5H5v16h14V5h-2M9 13l2 2 4-4"/></svg><span class="tl"><span class="lf">업무 진행 상황</span><span class="ls">업무 진행</span></span><span class="tbadge" id="boardBadge" hidden></span></button>
+      <button type="button" id="tabBoard" role="tab" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6v3H9zM7 5H5v16h14V5h-2M9 13l2 2 4-4"/></svg><span class="tl"><span class="lf">업무 진행 상황</span><span class="lsh">업무 진행</span></span><span class="tbadge" id="boardBadge" hidden></span></button>
     </div>
     <div class="sdiv"></div>
     <section id="staff" aria-label="오늘의 슈국">

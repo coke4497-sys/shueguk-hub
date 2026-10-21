@@ -1227,7 +1227,7 @@ async function showTask(pg, sel){
   const am = addMsg(null, '어느 선생님 담당 학생인가요? 고르면 그 선생님께 [결석] 확인 요청을 올립니다.', []);
   am.author_name = '클로슈'; am.reply_to = srcId; am.bot = { kind: 'ask', ai: true, for: srcId, options: [{ label: '이은지 선생님', uid: EUNJI }, { label: '김지원 선생님', uid: '44444444-4444-4444-4444-444444444444' }], to: [ME, EUNJI] };
   await page.waitForFunction(() => document.querySelector('.botm .bopt'), null, { timeout: 8000 }).catch(() => {});
-  ok((await page.locator('.botm .nm').last().textContent()).startsWith('클로슈') && (await page.locator('.botm .av').last().textContent()) === '클', '클로슈 이름·동그라미');
+  ok((await page.locator('.botm .nmc').last().textContent()) === '클로슈' && (await page.locator('.botm .av').last().textContent()) === '클', '클로슈 이름·동그라미');
   ok(!(await page.locator('.botm').last().textContent()).includes('님 화면에서'), '클로드 글에는 화면 표시 없음');
   failHand = 2;   // 고른 직후 넘김 알림이 두 번 다 실패해도 다음 tick 에 다시
   await page.locator('.botm .bopt', { hasText: '이은지' }).last().click();
@@ -1320,7 +1320,7 @@ async function showTask(pg, sel){
     TT.push({ book: '내신', class_id: 'n201', name: '고1 민트반', day: dn2, start_time: '3:00', end_time: '4:30', teacher: '지원', location: '민트초코', roster: '가' });
     TTP.length = 0; TTP.push({ week_wednesday: (y => { const d = new Date(y + 'T00:00:00Z'), k = d.getUTCDay(); d.setUTCDate(d.getUTCDate() + (k === 1 || k === 2 ? 3 - k : -((k - 3 + 7) % 7))); return d.toISOString().slice(0, 10); })(today2), book: '내신' });
     ({ ctx, page } = await open());
-    await page.waitForSelector('#m' + m3.id);
+    await page.waitForSelector('#msgs .m');
     ok(await page.locator('#board').isHidden() && await page.locator('#chat').isVisible(), '컴퓨터도 채팅과 업무를 나란히 두지 않음(처음은 채팅)');
     ok((await page.locator('#vtitle').textContent()) === '채팅' && await page.locator('#tabStaff').isHidden(), '머리 제목 \'채팅\' · 컴퓨터에는 오늘의 슈국 탭이 없음');
     await page.click('#tabBoard');
@@ -1359,7 +1359,7 @@ async function showTask(pg, sel){
     await ctx.close();
     // 휴대폰 — 위 탭 세 개
     ({ ctx, page } = await open({ width: 390, height: 844 }));
-    await page.waitForSelector('#m' + m3.id);
+    await page.waitForSelector('#msgs .m');
     ok(await page.locator('#tabStaff').isVisible() && (await page.locator('.tabs').evaluate(e => getComputedStyle(e).display)) === 'grid', '휴대폰은 위 탭 세 개(채팅 · 오늘의 슈국 · 업무 진행)');
     ok(await page.locator('#staff').isHidden(), '채팅 탭에서는 오늘의 슈국을 숨김');
     await page.click('#tabStaff');
