@@ -132,6 +132,11 @@ function autoTab(pg){
     return v.bind(t);
   } });
 }
+
+// 출근·퇴근 — 오늘의 슈국의 내 줄(2026-10-21 리디자인)
+async function presIn(pg, loc){ await pg.click('#staffList [data-chloc]'); await pg.click('#presMenu [data-loc="' + loc + '"]'); }
+async function presOut(pg){ await pg.click('#staffList [data-sw="me"]'); }
+function myLocIs(loc){ const sw = document.querySelector('#staffList [data-sw="me"]'); if (!sw) return false; const on = sw.classList.contains('on'); return loc ? on && sw.closest('.cc').dataset.loc === loc : !on; }
 // 업무 목록은 고른 사람만 보인다(2026-10-21 화면 개선안) — 그 할 일의 사람 칩을 먼저 누른다
 async function showTask(pg, sel){
   const k = await pg.locator(sel).first().evaluate(e => { const c = e.closest('.pc'); return c && !c.classList.contains('sel') ? c.dataset.person : ''; }).catch(() => '');
@@ -802,41 +807,38 @@ async function showTask(pg, sel){
   PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '화정센터', is_on: true, changed_at: ago(30) };   // 어제 출근 — 오늘은 OFF
   ({ ctx, page } = await open());
   await page.waitForSelector('#m' + m3.id);
-  await page.waitForFunction(() => !document.querySelector('#presBtn').hidden);
-  ok((await page.locator('#presBtn').textContent()) === '출근하기', '처음엔 [출근하기]');
-  const pres0 = await page.locator('#pres').textContent();
-  ok(pres0.includes('본원') && pres0.includes('이수경') && !pres0.includes('화정센터'), '업무 카드 위에 센터별 출근자 (어제 출근은 OFF)');
-  ok(pres0.includes('OFF3명'), 'OFF 인원 (' + pres0 + ')');
-  ok(await page.locator('.pc[data-person="' + EUNJI + '"] .pst').textContent() === 'OFF', '카드에 OFF 표시');
-  await page.click('#presBtn');
+  await page.waitForSelector('#staffList [data-sw="me"]');
+  ok(await page.evaluate(myLocIs, ''), '처음엔 내 스위치가 꺼짐(퇴근)');
+  const pres0 = await page.locator('#staffList').textContent();
+  ok(pres0.includes('본원') && pres0.includes('이수경') && !pres0.includes('화정센터'), '오늘의 슈국에 센터별 출근자 (어제 출근은 OFF — 목록에 없음)');
+  ok((await page.locator('#presListBtn').textContent()) === '출근 1 / 2', '출근 인원 (' + (await page.locator('#presListBtn').textContent()) + ')');
+  ok(await page.locator('.pc[data-person="' + EUNJI + '"] .psub').textContent() === '오늘 일정 없음', '업무 카드 머리에 \'오늘 일정 없음\'');
+  await page.click('#staffList [data-chloc]');
   ok(await page.locator('#presMenu').isVisible() && await page.locator('#presMenu [data-out]').isHidden(), '센터 고르기 창 (출근 전엔 퇴근 없음)');
   await page.click('#presMenu [data-loc="화정센터"]');
-  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '화정센터 출근 중');
+  await page.waitForFunction(myLocIs, '화정센터');
   const pc = calls.filter(c => c[0] === 'pres').pop();
   ok(pc && pc[1].p_loc === '화정센터' && pc[1].p_on === true, 'msg_presence_set(화정센터, 출근)');
-  if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'pres.png') }); await page.click('#presBtn'); await page.screenshot({ path: path.join(process.env.SHOT, 'pres-menu.png') }); await page.click('#presBtn');
-    const pg = await ctx.newPage(); await pg.setViewportSize({ width: 390, height: 844 }); await pg.goto('http://127.0.0.1:' + PORT + '/messenger.html'); await pg.waitForSelector('#presBtn:not([hidden])'); await pg.screenshot({ path: path.join(process.env.SHOT, 'pres-phone.png') }); await pg.click('#tabBoard'); await pg.screenshot({ path: path.join(process.env.SHOT, 'pres-phone-board.png') }); await pg.close(); }
-  ok((await page.locator('#pres').textContent()).includes('화정센터고희주'), '센터 줄에 내 이름');
-  ok(await page.locator('.pc[data-person="' + ME + '"] .pst.on').textContent() === '화정센터 ON', '내 카드에 화정센터 ON');
-  await page.click('#presBtn');
-  await page.click('#presMenu [data-out]');
-  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '출근하기');
+  ok((await page.locator('#staffList .cc[data-loc="화정센터"]').textContent()).includes('고희주'), '화정센터 카드에 내 이름');
+  ok((await page.locator('.pc[data-person="' + ME + '"] .psub.on').textContent()).startsWith('화정센터 · '), '내 업무 카드 머리에 화정센터 · 근무 중');
+  await presOut(page);
+  await page.waitForFunction(myLocIs, '');
   ok(calls.filter(c => c[0] === 'pres').pop()[1].p_on === false, '퇴근 → msg_presence_set(퇴근)');
   PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '정리정독', is_on: true, changed_at: NOWISO() };
-  await page.waitForFunction(() => document.querySelector('#pres').textContent.includes('정리정독'), null, { timeout: 7000 }).catch(() => {});
-  ok((await page.locator('#pres').textContent()).includes('정리정독이은지'), '다른 사람 출근이 3초 안팎에 보임');
+  await page.waitForFunction(() => document.querySelector('#staffList').textContent.includes('정리정독'), null, { timeout: 7000 }).catch(() => {});
+  ok((await page.locator('#staffList .cc[data-loc="정리정독"]').textContent()).includes('이은지'), '다른 사람 출근이 3초 안팎에 보임');
   // 자정을 넘기면(서버 줄은 그대로) 어제 출근이 OFF로 바뀐다
   await page.evaluate(() => { const D = Date, off = 86400e3; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
-  await page.waitForFunction(() => !document.querySelector('#pres').textContent.includes('정리정독'), null, { timeout: 7000 }).catch(() => {});
-  ok(!(await page.locator('#pres').textContent()).includes('정리정독'), '자정이 지나면 열어 둔 화면도 OFF로 바뀜');
+  await page.waitForFunction(() => !document.querySelector('#staffList').textContent.includes('정리정독'), null, { timeout: 7000 }).catch(() => {});
+  ok(!(await page.locator('#staffList').textContent()).includes('정리정독'), '자정이 지나면 열어 둔 화면도 OFF로 바뀜');
   await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
-  await page.waitForFunction(() => document.querySelector('#pres').textContent.includes('정리정독'), null, { timeout: 7000 }).catch(() => {});
+  await page.waitForFunction(() => document.querySelector('#staffList').textContent.includes('정리정독'), null, { timeout: 7000 }).catch(() => {});
   await page.click('#inp'); await page.keyboard.type('@이은');
   await page.waitForSelector('#mention.on');
   ok((await page.locator('#mention').textContent()).includes('정리정독 ON'), '@ 목록에 출근 상태');
   await page.keyboard.press('Escape'); await page.fill('#inp', '');
   // 출근 현황 목록
-  ok((await page.locator('#presListBtn').textContent()) === '출근 2명', '머리에 \'출근 2명\' 버튼 (' + (await page.locator('#presListBtn').textContent()) + ')');
+  ok((await page.locator('#presListBtn').textContent()) === '출근 2 / 3', '오늘의 슈국 머리에 \'출근 2 / 3\' (' + (await page.locator('#presListBtn').textContent()) + ')');
   await page.click('#presListBtn');
   await page.waitForSelector('#plback:not([hidden])');
   const pl = await page.locator('#plbody').textContent();
@@ -852,8 +854,8 @@ async function showTask(pg, sel){
   // 휴대폰에서도 내 줄이 보여야 한다(예전엔 '.me' 클래스라 휴대폰에서 숨겨졌다)
   await page.click('#plclose');
   workClip = true;
-  await page.click('#presBtn'); await page.click('#presMenu [data-loc="본원"]');
-  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근 중');
+  await presIn(page, '본원');
+  await page.waitForFunction(myLocIs, '본원');
   await page.waitForSelector('#wnback:not([hidden])');
   ok((await page.locator('#wnTitle').textContent()) === '16:00부터 근무' && (await page.locator('#wnText').textContent()).includes('16:00부터 기록됩니다'), '근무표 시작보다 일찍 출근 → \'16:00부터 근무\' 안내 창');
   ok(await page.evaluate(() => document.activeElement && document.activeElement.id === 'wnOk'), '안내 창의 [확인]에 초점');
@@ -862,7 +864,7 @@ async function showTask(pg, sel){
   workClip = false;
   // 30분 넘게 이른 출근 → '초과근무인가요?' [네]
   workAsk = true;
-  await page.click('#presBtn'); await page.click('#presMenu [data-loc="정리정독"]');
+  await presIn(page, '정리정독');
   await page.waitForSelector('#wnback:not([hidden])');
   ok((await page.locator('#wnTitle').textContent()) === '초과근무인가요?' && (await page.locator('#wnText').textContent()).includes('15:10') && (await page.locator('#wnText').textContent()).includes('50분 이릅니다'), '50분 일찍 출근 → \'초과근무인가요?\'');
   ok((await page.locator('#wnYes').textContent()) === '네, 초과근무예요 — 15:10부터' && (await page.locator('#wnOk').textContent()) === '아니요 — 16:00부터 기록', '버튼 두 개 — 네(15:10부터)·아니요(16:00부터)');
@@ -876,17 +878,17 @@ async function showTask(pg, sel){
   ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === 91), '승인 요청 글 휴대폰 알림(msg-push)');
   // 80분 늦은 퇴근 → [아니요]는 근무표 끝까지(서버 기본값) — 요청 없이 닫힘
   const nOt = calls.filter(c => c[0] === 'ot').length;
-  await page.click('#presBtn'); await page.click('#presMenu [data-out]');
+  await presOut(page);
   await page.waitForSelector('#wnback:not([hidden])');
   ok((await page.locator('#wnText').textContent()).includes('1시간 20분 늦습니다') && (await page.locator('#wnOk').textContent()) === '아니요 — 22:00까지 기록', '늦은 퇴근 → 1시간 20분 늦습니다 · 아니요(22:00까지)');
   await page.click('#wnOk');
   ok(await page.locator('#wnback').isHidden() && calls.filter(c => c[0] === 'ot').length === nOt, '[아니요]는 근무표 끝까지 — 따로 저장하지 않음');
   workAsk = false;
-  await page.click('#presBtn'); await page.click('#presMenu [data-loc="본원"]');
-  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근 중');
+  await presIn(page, '본원');
+  await page.waitForFunction(myLocIs, '본원');
   // 60분 일찍 퇴근 → '조기퇴근인가요?' [아니요, 잘못 눌렀어요] = 퇴근 취소
   workEarly = true;
-  await page.click('#presBtn'); await page.click('#presMenu [data-out]');
+  await presOut(page);
   await page.waitForSelector('#wnback:not([hidden])');
   ok((await page.locator('#wnTitle').textContent()) === '조기퇴근인가요?' && (await page.locator('#wnText').textContent()).includes('지금 퇴근(21:00)이 1시간 이릅니다'), '60분 일찍 퇴근 → \'조기퇴근인가요?\'');
   ok((await page.locator('#wnYes').textContent()) === '네, 조기퇴근이에요 — 21:00까지 기록' && (await page.locator('#wnOk').textContent()) === '아니요, 잘못 눌렀어요 — 퇴근 취소', '버튼 두 개 — 조기퇴근·퇴근 취소');
@@ -894,10 +896,10 @@ async function showTask(pg, sel){
   await sleep(200);
   ok(calls.some(c => c[0] === 'fn' && c[1].action === 'send' && c[1].message_id === 92), '조기퇴근 확인 요청 글 휴대폰 알림');
   await page.click('#wnOk');
-  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근 중');
+  await page.waitForFunction(myLocIs, '본원');
   const e1 = calls.filter(c => c[0] === 'early').pop();
   ok(e1 && e1[1].p_id === 7 && e1[1].p_yes === false && (await page.locator('#status').textContent()).includes('퇴근을 취소했습니다'), '[아니요] → work_early(취소) · 다시 \'본원 출근\'');
-  await page.click('#presBtn'); await page.click('#presMenu [data-out]');
+  await presOut(page);
   await page.waitForSelector('#wnback:not([hidden])');
   await page.fill('#wnNote', '병원 진료');
   await page.click('#wnYes');
@@ -906,27 +908,27 @@ async function showTask(pg, sel){
   ok(e2 && e2[1].p_yes === true && e2[1].p_note === '병원 진료' && await page.locator('#wnback').isHidden(), '[네] + 사유 → work_early(조기퇴근, 병원 진료)');
   ok((await page.locator('#status').textContent()).includes('박언호 대표님이 확인해요'), '대표님 확인 안내');
   workEarly = false;
-  await page.click('#presBtn'); await page.click('#presMenu [data-loc="본원"]');
-  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '본원 출근 중');
+  await presIn(page, '본원');
+  await page.waitForFunction(myLocIs, '본원');
   await page.setViewportSize({ width: 390, height: 844 });
   if ((await page.locator('#plback').isHidden())) await page.click('#presListBtn');
   await page.waitForFunction(() => [...document.querySelectorAll('#plbody .plrow')].some(r => r.textContent.includes('고희주') && r.offsetHeight > 0), null, { timeout: 5000 }).catch(() => {});
   ok(await page.evaluate(() => [...document.querySelectorAll('#plbody .plrow')].some(r => r.textContent.includes('고희주') && r.offsetHeight > 0)), '휴대폰에서도 내 출근 줄이 보임');
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.click('#plclose');
-  await page.click('#presBtn'); await page.click('#presMenu [data-loc="화정센터"]');
-  await page.waitForFunction(() => document.querySelector('#presBtn').textContent === '화정센터 출근 중');
+  await presIn(page, '화정센터');
+  await page.waitForFunction(myLocIs, '화정센터');
   if ((await page.locator('#plback').isHidden())) await page.click('#presListBtn');
   await page.keyboard.press('Escape');
   ok(await page.locator('#plback').isHidden(), 'Esc로 닫힘');
-  await page.click('#pres');
-  ok(await page.locator('#plback').isVisible(), '업무 카드 위 출근 줄을 눌러도 열림');
+  await page.click('#presListBtn');
+  ok(await page.locator('#plback').isVisible(), '출근 수를 다시 누르면 열림');
   await page.click('#plclose');
   await ctx.close();
   noPres = true;
   ({ ctx, page } = await open());
   await page.waitForSelector('#m' + m3.id); await sleep(500);
-  ok(await page.locator('#presBtn').isHidden() && await page.locator('#pres').isHidden() && await page.locator('#presListBtn').isHidden(), '표가 없으면(마이그레이션 전) 출근 기능만 숨김');
+  ok(await page.locator('#staffList .sw').count() === 0 && await page.locator('#presListBtn').isHidden(), '표가 없으면(마이그레이션 전) 출근 기능(스위치·출근 수)만 숨김');
   await ctx.close();
   noPres = false;
 

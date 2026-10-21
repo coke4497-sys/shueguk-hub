@@ -597,7 +597,7 @@
   .mlogo,.mname{display:none;}
   /* 메뉴 */
   .tabs{display:flex !important;flex-direction:column;gap:4px;padding:0 14px 16px;margin:0;background:none;border-radius:0;flex:none;}
-  .tabs button{display:flex;align-items:center;gap:10px;height:46px;border-radius:12px;padding:0 14px;border:0;background:transparent;color:var(--sub);font-family:var(--fB);font-weight:700;font-size:16px;text-align:left;justify-content:flex-start;}
+  .tabs button{flex:none;display:flex;align-items:center;gap:10px;height:46px;border-radius:12px;padding:0 14px;border:0;background:transparent;color:var(--sub);font-family:var(--fB);font-weight:700;font-size:16px;text-align:left;justify-content:flex-start;}
   .tabs button svg{width:20px;height:20px;flex:none;}
   .tabs button.on{background:var(--pSage);color:var(--ink);font-weight:700;border:0;}
   .tabs .tl{flex:1;min-width:0;}
@@ -660,7 +660,8 @@
   body[data-tab="board"] #chat{display:none;}
   /* 채팅 */
   #chat{background:var(--s3);}
-  #msgs{padding:26px max(32px, calc((100% - 860px) / 2));gap:0;}
+  /* 시안의 '가운데 860px 열'은 넣지 않았다 — 퍼센트 패딩이든 .m 의 max-width+auto 여백이든 크롬 화면 그리기가 멈췄다(검사 ⑭, 서비스 워커가 있는 화면). 말풍선은 70%로 제한 */
+  #msgs{padding:26px 32px;gap:0;}
   .day{font-family:var(--fB);font-weight:700;font-size:13px;color:var(--sub);background:#E8EFED;padding:5px 14px;margin:18px 0 6px;}
   .m{margin-top:16px;}
   .m.cont{margin-top:6px;}
@@ -694,7 +695,7 @@
   .newline{color:var(--dsage);} .newline::before,.newline::after{background:#B9CBC7;}
   .jump{background:var(--dsage);}
   /* 입력부 */
-  #composer{background:#fff;border-top:1px solid var(--ln);padding:12px max(32px, calc((100% - 860px) / 2)) 18px;}
+  #composer{background:#fff;border-top:1px solid var(--ln);padding:12px 32px 18px;}
   .tg{font-family:var(--fName);font-size:14px;padding:5px 12px;}
   button.tg.on{background:var(--dsage) !important;color:#fff !important;box-shadow:none;}
   .tg.c1{background:var(--pSage);color:var(--pSageI);}
@@ -816,7 +817,9 @@
     #send{height:44px;}
     #board{display:flex;flex-direction:column;gap:14px;padding:16px 14px 0;overflow-y:auto;}
     body[data-tab="board"] #board{display:flex;}
-    .bhead{max-height:none;overflow:visible;border-radius:16px;padding:16px;gap:12px;}
+    .bhead{max-height:none;overflow:visible;border-radius:16px;padding:16px;gap:12px;min-width:0;max-width:100%;}
+    #board{min-width:0;width:100%;}
+    .pchips{min-width:0;}
     .bhead .btitle{display:block;}
     .fls{display:none;} .flsel{display:block;}
     .pchips{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;}
