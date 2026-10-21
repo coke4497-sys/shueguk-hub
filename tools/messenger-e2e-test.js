@@ -941,7 +941,7 @@ async function showTask(pg, sel){
   await page.waitForSelector('#m' + m3.id);
   const m6 = addMsg(BOSS, '교재 주문해 주세요 @고희주', [], ts());
   const t6 = addTask(m6, ME, '교재 주문해 주세요', m6.created_at);
-  await page.waitForSelector('[data-cx="' + t6.id + '"]', { timeout: 7000 });
+  await page.waitForSelector('[data-cx="' + t6.id + '"]', { timeout: 7000, state: 'attached' });
   await showTask(page, '[data-cx="' + t6.id + '"]'); await page.click('[data-cx="' + t6.id + '"]');
   ok(await page.locator('#cxmodes [data-mode="done"]').evaluate(e => e.classList.contains('on')) && (await page.locator('#cxtitle').textContent()) === '업무 체크리스트', '창 이름 업무 체크리스트 · 완료부터');
   await page.click('#cxmodes [data-mode="defer"]');
@@ -1061,7 +1061,7 @@ async function showTask(pg, sel){
   PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, changed_at: NOWISO() };
   delete PRESENCE[ME]; delete PRESENCE[BOSS];
   ({ ctx, page } = await open());
-  await page.waitForSelector('.pc[data-person="' + EUNJI + '"] .ls');
+  await page.waitForSelector('.pc[data-person="' + EUNJI + '"] .ls', { state: 'attached' });
   const ec = page.locator('.pc[data-person="' + EUNJI + '"]');
   const ls = await ec.locator('.ls').allTextContents();
   ok(ls.length === 3, '이은지 오늘 수업 3개 (' + ls.length + ')');
@@ -1094,7 +1094,7 @@ async function showTask(pg, sel){
   TT.push({ book: '내신', class_id: 'n101', name: '고1 월요진도', day: '월', start_time: '5:00', end_time: '6:30', teacher: '은지', roster: '가' },
           { book: '정규', class_id: 'r101', name: '고1 월요가', day: '월', start_time: '5:00', end_time: '6:30', teacher: '은지', roster: '가' });
   ({ ctx, page } = await open(null, { now: Date.parse(monY + 'T18:00:00+09:00') }));
-  await page.waitForSelector('.pc[data-person="' + EUNJI + '"] .ls');
+  await page.waitForSelector('.pc[data-person="' + EUNJI + '"] .ls', { state: 'attached' });
   const monTxt = await page.locator('.pc[data-person="' + EUNJI + '"]').textContent();
   ok(monTxt.includes('고1 월요진도') && !monTxt.includes('고1 월요가'), '월요일은 다가오는 수요일 주차(내신) 시간표');
   await ctx.close();
@@ -1134,7 +1134,7 @@ async function showTask(pg, sel){
   const mpg2 = addMsg(ME, '교재 확인 @이은지', [], ago(0.02));
   const tpg2 = addTask(mpg2, EUNJI, '교재 확인'); tpg2.progress_at = null; tpg2.progress_by = '';
   ({ ctx, page } = await open());
-  await page.waitForSelector('[data-cx="' + tpg.id + '"]');
+  await page.waitForSelector('[data-cx="' + tpg.id + '"]', { state: 'attached' });
   await showTask(page, '[data-cx="' + tpg.id + '"]'); await page.click('[data-cx="' + tpg.id + '"]');
   await page.click('#cxmodes [data-mode="prog"]');
   ok(await page.locator('#cxmodes [data-mode="prog"]').evaluate(e => e.classList.contains('on') && !e.hidden), '관리 창에 진행 중');
@@ -1143,7 +1143,7 @@ async function showTask(pg, sel){
   await page.waitForFunction(() => document.querySelector('#cxback').hidden);
   { // 관리 창의 [완료] (2026-10-20 원장님 "완료 버튼이 없어요")
     const mdn = addMsg(BOSS, '출석부 정리 @고희주', [], ts()); const tdn = addTask(mdn, ME, '출석부 정리', mdn.created_at);
-    await page.waitForSelector('[data-cx="' + tdn.id + '"]', { timeout: 7000 });
+    await page.waitForSelector('[data-cx="' + tdn.id + '"]', { timeout: 7000, state: 'attached' });
     await showTask(page, '[data-cx="' + tdn.id + '"]'); await page.click('[data-cx="' + tdn.id + '"]');
     ok(!(await page.locator('#cxmodes [data-mode="done"]').isHidden()) && (await page.locator('#dnok').textContent()) === '완료로 체크', '관리 창에 [완료] — 완료로 체크');
     await page.click('#dnok');
