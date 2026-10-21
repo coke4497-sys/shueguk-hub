@@ -136,6 +136,18 @@ let EXAMS = [], ENTRIES = [], CALLS = [];
   ok(/아직입력하지않은고1재원생2명/.test(res.replace(/\s+/g, '')) && /안온학생/.test(res) && !/고2학생/.test(res), '입력 안 한 고1 재원생(고2 제외)');
   ok(/입력 4명/.test(await pg.textContent('#exams')), '목록의 입력 수');
   if (SHOT){ await pg.waitForTimeout(3000); await shot(pg, '4-선생님-회차와결과', 'main'); }
+  // ⑤ 정답·등급컷이 있는 회차(058)
+  const INFO = JSON.parse(fs.readFileSync(path.join(ROOT, '..', 'shueguk-report', 'supabase', 'smock-info', '2026-10-고1.json'), 'utf8'));
+  EXAMS.forEach(e => { if (e.key === '2026-09-고1') e.info = INFO; });
+  await pg.evaluate(() => load()); await pg.waitForTimeout(400);
+  const r2 = (await pg.textContent('#res')).replace(/\s+/g, '');
+  ok(/정답·등급컷 있음/.test(await pg.textContent('#exams')), '정답·등급컷 있음 표시');
+  ok(/등급분포/.test(r2) && /21등급/.test(r2) && /12등급/.test(r2), '등급 분포(91·96 → 1등급 2명, 80 → 2등급 1명)');
+  ok(/세부영역별우리학생오답률/.test(r2) && /독서\(과학\)11~14번/.test(r2), '세부 영역별 오답률');
+  ok(/많이틀린문항/.test(r2) && /번호영역출제의도배점정답우리오답률전국차이/.test(r2), '많이 틀린 문항 표(정답·전국 비교)');
+  ok(await pg.$eval('.qgrid .q:nth-child(14)', e => /전국 70/.test(e.textContent)), '문항 칸에 전국 오답률');
+  const tb = await pg.evaluate(() => [...document.querySelectorAll('#res table')].pop().textContent.replace(/\s+/g, ''));
+  ok(/961등급/.test(tb), '학생 줄에 등급: ' + tb.slice(0, 80));
   ok(perr === 0, '페이지 오류 없음');
   await browser.close(); server.close();
   console.log('\n' + pass + ' passed, ' + fail + ' failed');
