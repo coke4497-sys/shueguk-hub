@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>모의고사 리포트 · 슈국 티쳐스</title>
+<script src="assets/teacher-auth.js" data-mode="protected"></script>
+<!-- 이수경국어 학습 관리 · 학력평가 성적 (2026-10-21 원장님 "구글 설문(○월 모의고사 리포트)을 학생 개인 페이지에서
+     모의고사 성적데이터 메뉴를 만들고 거기에 입력하고 누적하고 싶어요" → 새 카드 · 지난 설문 응답 옮겨 오기 · 선생님 화면 · 입력하면 별 +1)
+     · 회차 만들기·입력 받기 켜고 끄기(smock_exams.open) — 켜진 회차는 그 학년 학생의 학생 페이지 [학력평가 성적]에 입력 칸으로 보인다.
+     · 회차별 결과: 입력 학생 목록(점수·체감 난이도·틀린 문항·후기), 영역·문항별 오답률, 아직 입력하지 않은 재원생.
+     · 구글 설문 응답 옮겨 오기: 응답 시트 탭을 통째로 복사해 붙여 넣으면 이름(+학교·번호)으로 학생을 찾아 smock_entries 에 넣는다(src '설문').
+       이미 학생이 입력한 줄은 덮어쓰지 않는다.
+     · 영역 범위(SMOCK_LAYOUT)는 학생 페이지(리포트 s.html)·DB smock_range_ 와 같은 표 — 고치면 셋 다.
+     · 수파베이스 057 마이그레이션. 교사 인증 조각으로 표를 직접 읽고 쓴다 — 학생이 여는 페이지에 이 조각을 넣지 말 것. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23EDE4F4'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#C6D5D2; --surface:#FFFFFF; --ink:#2A332F; --ink-soft:#4F5C56; --cap:#5C6A64;
+    --accent:#4C6E66; --line:#D7E3DD; --line-soft:#E5EDE8; --radius:18px;
+    --lilac:#EDE4F4; --lilac-hover:#E3D7EE; --lilac-ink:#5A4A6A;
+    --serif:"Gowun Batang",serif;
+    --sans:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",-apple-system,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased;padding:0 0 80px;}
+  .wrap{max-width:980px;margin:0 auto;padding:0 18px;}
+  .back{display:inline-flex;align-items:center;gap:6px;margin:24px 0 0;color:var(--ink-soft);text-decoration:none;font-size:.86rem;}
+  .back svg{width:16px;height:16px;}
+  header{padding:14px 2px 20px;}
+  h1{font-family:var(--serif);font-size:1.45rem;color:var(--accent);margin:0;}
+  .intro{color:var(--ink-soft);font-size:.9rem;margin:6px 0 0;}
+  .card{background:var(--surface);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(42,51,47,.05);}
+  .card h2{font-family:var(--serif);font-size:1.08rem;margin:0 0 12px;}
+  .card h2 small{font-family:var(--sans);font-weight:400;font-size:.8rem;color:var(--cap);margin-left:6px;}
+  select,input[type=text],textarea{font:inherit;font-size:.92rem;padding:8px 11px;border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--ink);}
+  textarea{width:100%;min-height:150px;font-size:.82rem;}
+  select:focus,input:focus,textarea:focus{outline:none;border-color:#B9A5CC;}
+  .btn{font:inherit;font-size:.88rem;border:none;border-radius:11px;padding:8px 14px;cursor:pointer;background:#F2F5F3;color:var(--ink);}
+  .btn:hover{background:#E8EEEA;}
+  .btn.lav{background:var(--lilac);color:var(--lilac-ink);font-weight:700;}
+  .btn.lav:hover{background:var(--lilac-hover);}
+  .btn.sm{font-size:.8rem;padding:5px 10px;border-radius:9px;}
+  .btn:disabled{opacity:.5;cursor:default;}
+  .bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .muted{color:var(--cap);font-size:.85rem;}
+  .warn{font-size:.84rem;background:#F9EFD0;color:#7A6330;border-radius:10px;padding:8px 12px;margin-top:10px;}
+  .exams{display:flex;flex-direction:column;gap:6px;margin-top:12px;}
+  .ex{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:#F7F9F8;flex-wrap:wrap;}
+  .ex.sel{background:#F3EDF8;outline:2px solid #D6C9E4;}
+  .ex .nm{font-weight:700;flex:1;min-width:180px;}
+  .ex .st{font-size:.78rem;border-radius:999px;padding:2px 10px;}
+  .ex .st.on{background:#E2F4EC;color:#2A6555;} .ex .st.off{background:#EEF1EF;color:var(--cap);}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:14px;}
+  .tile{background:#F7F9F8;border-radius:12px;padding:10px 12px;}
+  .tile .k{font-size:.76rem;color:var(--cap);}
+  .tile .v{font-family:"Do Hyeon",var(--sans);font-size:1.45rem;color:var(--lilac-ink);line-height:1.2;}
+  .areas{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-bottom:14px;}
+  .area{background:#F7F9F8;border-radius:12px;padding:10px 12px;font-size:.84rem;}
+  .area b{display:block;}
+  .qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(54px,1fr));gap:4px;margin:6px 0 14px;}
+  .q{border-radius:8px;padding:4px 0;text-align:center;font-size:.76rem;background:#F7F9F8;}
+  .q b{display:block;font-size:.84rem;}
+  .q.h1{background:#FBEDEA;} .q.h2{background:#F7DCD6;} .q.h3{background:#EFC4BA;color:#6E2E25;}
+  h3.sub{font-family:var(--serif);font-size:.98rem;margin:16px 0 6px;}
+  table{border-collapse:collapse;width:100%;font-size:.84rem;}
+  th,td{padding:7px 8px;text-align:left;border-bottom:1px solid var(--line-soft);vertical-align:top;}
+  th{color:var(--cap);font-weight:400;white-space:nowrap;}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  td.rv{max-width:280px;color:var(--ink-soft);font-size:.8rem;white-space:pre-wrap;}
+  .wr i{font-style:normal;display:inline-block;background:#F7E2DE;color:#8A4B42;border-radius:5px;padding:0 5px;margin:1px;font-size:.76rem;}
+  .wr .ak{color:var(--cap);font-size:.74rem;margin-right:2px;}
+  .tag{font-size:.72rem;border-radius:6px;padding:0 6px;background:#EEF1EF;color:var(--cap);margin-left:4px;}
+  .scroll{overflow-x:auto;}
+  .none-list{font-size:.84rem;color:var(--ink-soft);line-height:1.9;}
+  .imp-row td{font-size:.8rem;}
+  .ok{color:#2A6555;} .bad{color:#B0736A;}
+  .gdist{display:grid;grid-template-columns:repeat(9,1fr);gap:4px;margin:6px 0 14px;}
+  .gd{background:#F7F9F8;border-radius:10px;text-align:center;padding:6px 0;font-size:.76rem;color:var(--cap);}
+  .gd b{display:block;font-family:"Do Hyeon",var(--sans);font-weight:400;font-size:1.2rem;color:var(--lilac-ink);}
+  .q i{display:block;font-style:normal;font-size:.66rem;color:var(--cap);}
+  .q.up{outline:2px solid #E6A49A;}
+  td.up{color:#B0736A;font-weight:700;} td.dn{color:#2A6555;}
+  .info-ok{font-size:.74rem;border-radius:999px;padding:2px 9px;background:#F3EDF8;color:var(--lilac-ink);}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#2A332F;color:#fff;font-size:.86rem;padding:9px 16px;border-radius:20px;opacity:0;transition:.2s;pointer-events:none;z-index:9;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  @media (max-width:640px){ .card{padding:16px 14px;} td.rv{max-width:160px;} }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <a class="back" href="study.html">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+    학습 관리로 가기
+  </a>
+  <header>
+    <h1>교육청, 평가원 모의고사 리포트</h1>
+    <p class="intro">교육청·평가원 모의고사 회차를 열면 그 학년 학생이 학생 페이지 [교육청, 평가원 모의고사 리포트]에서 점수와 틀린 문항을 입력합니다. 처음 입력한 회차마다 별 +1이에요.</p>
+  </header>
+
+  <section class="card">
+    <h2>회차 <small>입력 받기를 켠 회차만 학생에게 보입니다</small></h2>
+    <div class="bar">
+      <select id="nYear"></select>
+      <select id="nMonth"></select>
+      <select id="nGrade"><option>고1</option><option>고2</option><option>고3</option></select>
+      <button class="btn lav" id="addExam">회차 만들기</button>
+      <span class="muted" id="nNote"></span>
+    </div>
+    <div class="exams" id="exams"><p class="muted">불러오는 중…</p></div>
+    <p class="muted" style="margin:10px 0 0">문제지·정답 해설·등급컷·전국 오답률을 클로슈에게 주면 회차에 정답·배점·등급컷을 넣어 드려요. 넣은 회차는 학생이 틀린 번호만 누르면 점수·등급이 자동으로 계산됩니다.</p>
+  </section>
+
+  <section class="card" id="resCard" style="display:none">
+    <h2 id="resTtl">결과</h2>
+    <div id="res"></div>
+  </section>
+
+  <section class="card">
+    <h2>구글 설문 응답 옮겨 오기 <small>지난 '○월 모의고사 리포트(응답)' 시트를 회차 기록으로</small></h2>
+    <ol class="muted" style="margin:0 0 10px;padding-left:20px">
+      <li>위에서 옮길 회차를 만들고 목록에서 고릅니다(입력 받기는 꺼 둬도 됩니다).</li>
+      <li>응답 시트에서 그 학년 탭을 열고 <b>Ctrl+A → Ctrl+C</b>로 머리글까지 통째로 복사합니다.</li>
+      <li>아래 칸에 붙여 넣고 [미리 보기] → [옮겨 오기]를 누릅니다.</li>
+    </ol>
+    <div class="bar" style="margin-bottom:8px"><span class="muted">옮길 회차:</span> <b id="impExam">— 위 목록에서 회차를 고르세요</b></div>
+    <textarea id="impText" placeholder="여기에 붙여 넣기"></textarea>
+    <div class="bar" style="margin-top:8px">
+      <button class="btn" id="impPrev">미리 보기</button>
+      <button class="btn lav" id="impGo" disabled>옮겨 오기</button>
+      <span class="muted" id="impNote"></span>
+    </div>
+    <div id="impOut"></div>
+  </section>
+</main>
+<div id="toast"></div>
+
+<script>
+  const SB_REST = 'https://bangdbhqpphqqdwcledg.supabase.co/rest/v1';
+  const SB_KEY  = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  // 영역 → 문항 범위 (학생 페이지 s.html·DB smock_range_ 와 같은 표 — 고치면 셋 다)
+  const SMOCK_LAYOUT = {
+    '통합': [['화법', 1, 6], ['언어', 7, 10], ['독서', 11, 23], ['작문', 24, 30], ['문학', 31, 45]],
+    '고3':  [['독서', 1, 17], ['문학', 18, 34], ['선택', 35, 45]]
+  };
+  let EXAMS = [], STUS = [], ENTRIES = [], SEL = '', IMP = null;
+
+  const $ = id => document.getElementById(id);
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
+  function toast(m){ const t = $('toast'); t.textContent = m; t.classList.add('show'); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2600); }
+  function sb(method, path, body, prefer){
+    const h = { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
+    if (prefer) h['Prefer'] = prefer;
+    return fetch(SB_REST + path, { method, headers: h, body: body == null ? undefined : JSON.stringify(body), cache: 'no-store' })
+      .then(r => r.text().then(t => { if (!r.ok) throw new Error('sb ' + r.status + ' ' + t.slice(0, 160)); return t ? JSON.parse(t) : null; }));
+  }
+  function sbAll(path){
+    const LIM = 1000, out = [];
+    const step = off => sb('GET', path + (path.indexOf('?') >= 0 ? '&' : '?') + 'limit=' + LIM + '&offset=' + off)
+      .then(rows => { rows.forEach(r => out.push(r)); return rows.length < LIM ? out : step(off + LIM); });
+    return step(0);
+  }
+  const LEFT_RE = /^(퇴원|n|no|off|x|중단|비재원)$/i;
+  function gradeOf(g){   // '2026 고등 1학년' → '고1' (학생 페이지 levelGrade·DB smock_grade_ 와 같은 뜻)
+    const s = String(g || '').replace(/20\d{2}/g, '');
+    if (/중/.test(s)) return '';
+    const m = s.match(/[1-3]/); return m ? '고' + m[0] : '';
+  }
+  function schBase(s){ return String(s || '').replace(/\s+/g, '').replace(/(고등학교|중학교|학교|고|중)$/, ''); }
+  function digits(s){ return String(s || '').replace(/\D/g, ''); }
+  function scoreOf(t){
+    const s = String(t || '').trim();
+    let m = /^(\d{1,3}(?:\.\d)?)\s*점?$/.exec(s);
+    if (!m) m = /^(\d{1,3}(?:\.\d)?)\s*점?\s*[\/,(]/.exec(s);
+    if (m && Number(m[1]) <= 100) return Number(m[1]);
+    return null;
+  }
+  function examByKey(k){ return EXAMS.find(e => e.key === k) || null; }
+  /* 등급·표준점수·백분위 — 학생 페이지(리포트 s.html) smCut 과 같은 계산(고치면 둘 다).
+     표준점수 = 100 + 20 × (원점수 − 평균) ÷ 표준편차, 백분위는 등급컷표 사이를 이어 추정. */
+  function smCut(c, raw){
+    const out = { raw, grade: null, std: null, pct: null };
+    if (!c || !c.rows) return out;
+    const rows = c.rows.filter(r => typeof r.grade === 'number').sort((a, b) => a.grade - b.grade);
+    if (rows.length){ out.grade = 9; for (const r of rows) if (raw >= r.raw){ out.grade = r.grade; break; } }
+    if (c.sd) out.std = Math.round(100 + 20 * (raw - c.avg) / c.sd);
+    const pts = c.rows.filter(r => r.pct != null && r.raw != null).map(r => [Number(r.raw), Number(r.pct)]);
+    pts.push([0, 0]); pts.sort((a, b) => a[0] - b[0]);
+    for (let j = 0; j < pts.length - 1; j++){
+      const a = pts[j], b = pts[j + 1];
+      if (raw >= a[0] && raw <= b[0]){ out.pct = Math.round(b[0] === a[0] ? b[1] : a[1] + (b[1] - a[1]) * (raw - a[0]) / (b[0] - a[0])); break; }
+    }
+    return out;
+  }
+  const CIRCLE = ['', '①', '②', '③', '④', '⑤'];
+
+  /* ── 회차 ── */
+  function fillNew(){
+    const now = new Date(Date.now() + 9 * 3600e3), y = now.getUTCFullYear();
+    $('nYear').innerHTML = [y - 1, y, y + 1].map(v => '<option' + (v === y ? ' selected' : '') + '>' + v + '</option>').join('');
+    $('nMonth').innerHTML = [3, 4, 5, 6, 7, 9, 10, 11].map(v => '<option value="' + v + '"' + (v === now.getUTCMonth() + 1 ? ' selected' : '') + '>' + v + '월</option>').join('');
+  }
+  function addExam(){
+    const y = +$('nYear').value, m = +$('nMonth').value, g = $('nGrade').value;
+    const key = y + '-' + ('0' + m).slice(-2) + '-' + g;
+    if (examByKey(key)){ toast('이미 있는 회차입니다.'); return; }
+    const row = { key, year: y, month: m, grade: g, layout: g === '고3' ? '고3' : '통합', title: y + '년 ' + m + '월 ' + g + ' 모의고사', open: false };
+    $('addExam').disabled = true;
+    sb('POST', '/smock_exams', row, 'return=minimal').then(() => { toast('회차를 만들었습니다. 입력 받기를 켜면 학생에게 보여요.'); SEL = key; return load(); })
+      .catch(e => toast('만들지 못했습니다: ' + e.message)).finally(() => { $('addExam').disabled = false; });
+  }
+  function toggleOpen(key){
+    const e = examByKey(key); if (!e) return;
+    if (!e.open && !confirm(e.title + '\n\n입력 받기를 켜면 ' + e.grade + ' 학생의 학생 페이지에 입력 칸이 보입니다. 켤까요?')) return;
+    sb('PATCH', '/smock_exams?key=eq.' + encodeURIComponent(key), { open: !e.open }, 'return=minimal')
+      .then(() => { e.open = !e.open; renderExams(); toast(e.open ? '입력 받기를 켰습니다.' : '입력 받기를 껐습니다.'); })
+      .catch(err => toast('바꾸지 못했습니다: ' + err.message));
+  }
+  function delExam(key){
+    const e = examByKey(key); if (!e) return;
+    if (!confirm(e.title + ' 회차를 지울까요? (입력한 학생이 없을 때만 지울 수 있어요)')) return;
+    sb('DELETE', '/smock_exams?key=eq.' + encodeURIComponent(key), null, 'return=minimal')
+      .then(() => { if (SEL === key) SEL = ''; return load(); }).catch(err => toast('지우지 못했습니다: ' + err.message));
+  }
+  function renderExams(){
+    if (!EXAMS.length){ $('exams').innerHTML = '<p class="muted">아직 회차가 없어요. 위에서 만들어 주세요.</p>'; return; }
+    $('exams').innerHTML = EXAMS.map(e => {
+      const n = ENTRIES.filter(x => x.exam_key === e.key).length;
+      return '<div class="ex' + (e.key === SEL ? ' sel' : '') + '"><span class="nm">' + esc(e.title || e.key) + '</span>' +
+        '<span class="st ' + (e.open ? 'on' : 'off') + '">' + (e.open ? '입력 받는 중' : '입력 꺼짐') + '</span>' +
+        '<span class="muted">입력 ' + n + '명</span>' + (e.info && e.info.points ? '<span class="info-ok" title="학생이 틀린 번호만 누르면 점수·등급이 자동으로 계산됩니다">정답·등급컷 있음</span>' : '') +
+        '<button class="btn sm lav" data-sel="' + esc(e.key) + '">결과 보기</button>' +
+        '<button class="btn sm" data-open="' + esc(e.key) + '">' + (e.open ? '입력 끄기' : '입력 받기 켜기') + '</button>' +
+        (n ? '' : '<button class="btn sm" data-del="' + esc(e.key) + '">지우기</button>') + '</div>';
+    }).join('');
+    $('impExam').textContent = SEL ? (examByKey(SEL) || {}).title || SEL : '— 위 목록에서 회차를 고르세요';
+  }
+
+  /* ── 결과 ── */
+  function wrongHtml(layout, w){
+    return (SMOCK_LAYOUT[layout] || SMOCK_LAYOUT['통합']).map(a => {
+      const ns = (w || {})[a[0]] || [];
+      return ns.length ? '<span class="ak">' + esc(a[0]) + '</span>' + ns.map(n => '<i>' + n + '</i>').join('') + ' ' : '';
+    }).join('') || '<span class="muted">없음</span>';
+  }
+  function renderRes(){
+    const e = examByKey(SEL);
+    if (!e){ $('resCard').style.display = 'none'; return; }
+    $('resCard').style.display = 'block';
+    $('resTtl').textContent = e.title + ' 결과';
+    const rows = ENTRIES.filter(x => x.exam_key === e.key).sort((a, b) => (b.score == null ? -1 : b.score) - (a.score == null ? -1 : a.score));
+    const nums = rows.filter(r => r.score != null).map(r => Number(r.score));
+    const avg = nums.length ? (nums.reduce((a, b) => a + b, 0) / nums.length) : null;
+    const areas = SMOCK_LAYOUT[e.layout] || SMOCK_LAYOUT['통합'];
+    const cnt = {};
+    rows.forEach(r => Object.keys(r.wrong || {}).forEach(k => (r.wrong[k] || []).forEach(n => { cnt[n] = (cnt[n] || 0) + 1; })));
+    const N = rows.length;
+    let html = '<div class="tiles">' +
+      '<div class="tile"><div class="k">입력</div><div class="v">' + N + '명</div></div>' +
+      '<div class="tile"><div class="k">평균</div><div class="v">' + (avg == null ? '—' : avg.toFixed(1)) + '</div></div>' +
+      '<div class="tile"><div class="k">최고</div><div class="v">' + (nums.length ? Math.max(...nums) : '—') + '</div></div>' +
+      '<div class="tile"><div class="k">최저</div><div class="v">' + (nums.length ? Math.min(...nums) : '—') + '</div></div></div>';
+    const info = e.info && e.info.points ? e.info : null;
+    if (N && info && info.cuts){
+      const gc = {}; nums.forEach(v => { const g = smCut(info.cuts, v).grade; gc[g] = (gc[g] || 0) + 1; });
+      html += '<h3 class="sub">등급 분포 <small class="muted">원점수를 이번 회차 등급컷에 대어 본 값</small></h3><div class="gdist">' +
+        [1,2,3,4,5,6,7,8,9].map(g => '<div class="gd"><b>' + (gc[g] || 0) + '</b>' + g + '등급</div>').join('') + '</div>';
+    }
+    if (N && info && info.items){
+      const subs = [];
+      info.items.forEach((it, i) => { let s0 = subs.find(x => x.sub === it.sub); if (!s0){ s0 = { sub: it.sub, q: [] }; subs.push(s0); } s0.q.push(i + 1); });
+      html += '<h3 class="sub">세부 영역별 우리 학생 오답률</h3><div class="areas">' + subs.map(x => {
+        let w = 0; x.q.forEach(n => { w += cnt[n] || 0; });
+        return '<div class="area"><b>' + esc(x.sub) + ' ' + x.q[0] + '~' + x.q[x.q.length - 1] + '번</b>오답률 ' + Math.round(w / (N * x.q.length) * 100) + '%</div>';
+      }).join('') + '</div>';
+    }
+    if (N){
+      html += '<h3 class="sub">영역별 오답</h3><div class="areas">' + areas.map(a => {
+        let s = 0; for (let n = a[1]; n <= a[2]; n++) s += cnt[n] || 0;
+        const q = a[2] - a[1] + 1;
+        return '<div class="area"><b>' + esc(a[0] === '선택' ? '선택과목' : a[0]) + ' ' + a[1] + '~' + a[2] + '번</b>학생 1명당 평균 ' + (s / N).toFixed(1) + '개 틀림 · 오답률 ' + Math.round(s / (N * q) * 100) + '%</div>';
+      }).join('') + '</div>';
+      html += '<h3 class="sub">문항별 오답률 <small class="muted">진할수록 많이 틀린 문항</small></h3><div class="qgrid">';
+      for (let n = 1; n <= 45; n++){
+        const p = Math.round((cnt[n] || 0) / N * 100);
+        const nt = info && info.nat && info.nat[String(n)];
+        html += '<div class="q' + (p >= 50 ? ' h3' : p >= 30 ? ' h2' : p >= 15 ? ' h1' : '') + (nt && p > nt.rate ? ' up' : '') + '" title="' + n + '번 · ' + (cnt[n] || 0) + '명 틀림' + (nt ? ' · 전국 ' + nt.rate + '%' : '') + '"><b>' + n + '</b>' + p + '%' + (nt ? '<i>전국 ' + Math.round(nt.rate) + '</i>' : '') + '</div>';
+      }
+      html += '</div>';
+      const top = Object.keys(cnt).map(Number).sort((a, b) => cnt[b] - cnt[a] || a - b).slice(0, 10);
+      if (info && info.items){
+        html += '<p class="muted">테두리가 붉은 칸은 전국 오답률보다 우리 학생이 더 많이 틀린 문항입니다(전국 오답률은 받은 문항만).</p>';
+        html += '<h3 class="sub">많이 틀린 문항</h3><div class="scroll"><table><thead><tr><th>번호</th><th>영역</th><th>출제 의도</th><th style="text-align:right">배점</th><th>정답</th><th style="text-align:right">우리 오답률</th><th style="text-align:right">전국</th><th style="text-align:right">차이</th></tr></thead><tbody>' +
+          top.map(n => {
+            const it = info.items[n - 1] || {}, nt = info.nat && info.nat[String(n)], p = Math.round(cnt[n] / N * 1000) / 10;
+            const d = nt ? Math.round((p - nt.rate) * 10) / 10 : null;
+            return '<tr><td class="num">' + n + '</td><td>' + esc(it.sub || '') + '</td><td>' + esc(it.intent || '') + '</td><td class="num">' + (info.points[n - 1] || '') + '</td><td>' + (CIRCLE[(info.answers || [])[n - 1]] || '') + '</td>' +
+              '<td class="num">' + p + '%</td><td class="num">' + (nt ? nt.rate + '%' : '—') + '</td><td class="num ' + (d == null ? '' : d > 0 ? 'up' : 'dn') + '">' + (d == null ? '' : (d > 0 ? '+' : '') + d) + '</td></tr>';
+          }).join('') + '</tbody></table></div>';
+      } else {
+        html += '<p class="muted">많이 틀린 문항: ' + top.map(n => n + '번(' + cnt[n] + '명)').join(', ') + '</p>';
+      }
+    }
+    html += '<div class="bar" style="justify-content:space-between;margin-top:14px"><h3 class="sub" style="margin:0">입력한 학생</h3><button class="btn sm" id="copyTbl">표 복사</button></div>';
+    html += '<div class="scroll"><table><thead><tr><th>이름</th><th>학교</th><th style="text-align:right">점수</th><th>체감</th>' + (e.layout === '고3' ? '<th>선택과목</th>' : '') + '<th>틀린 문항</th><th>후기</th></tr></thead><tbody>' +
+      (rows.length ? rows.map(r => '<tr><td>' + esc(r.name) + (r.src === '설문' ? '<span class="tag">설문</span>' : '') + '</td><td>' + esc(r.school) + '</td>' +
+        '<td class="num">' + esc(r.score != null ? Number(r.score) : r.score_text) + (info && info.cuts && r.score != null ? ' <span class="tag">' + smCut(info.cuts, Number(r.score)).grade + '등급</span>' : '') + '</td><td>' + esc(r.feel) + '</td>' +
+        (e.layout === '고3' ? '<td>' + esc(r.subject) + '</td>' : '') +
+        '<td class="wr">' + wrongHtml(e.layout, r.wrong) + '</td><td class="rv">' + esc(r.review) + '</td></tr>').join('')
+        : '<tr><td colspan="7" class="muted">아직 입력한 학생이 없어요.</td></tr>') + '</tbody></table></div>';
+    const done = {}; rows.forEach(r => { done[r.code] = true; });
+    const miss = STUS.filter(s => !LEFT_RE.test(String(s.enrolled || '').trim()) && gradeOf(s.grade) === e.grade && s.code && !done[s.code])
+      .sort((a, b) => String(a.school).localeCompare(String(b.school), 'ko') || String(a.name).localeCompare(String(b.name), 'ko'));
+    html += '<h3 class="sub">아직 입력하지 않은 ' + esc(e.grade) + ' 재원생 <small class="muted">' + miss.length + '명</small></h3>' +
+      '<p class="none-list">' + (miss.length ? miss.map(s => esc(s.name) + '<span class="muted">(' + esc(schBase(s.school)) + ')</span>').join(' · ') : '모두 입력했어요.') + '</p>';
+    $('res').innerHTML = html;
+    const cb = $('copyTbl');
+    if (cb) cb.onclick = () => {
+      const head = ['이름', '학교', '점수', '체감 난이도'].concat(e.layout === '고3' ? ['선택과목'] : []).concat(areas.map(a => a[0] === '선택' ? '선택과목 틀린 문항' : a[0] + ' 틀린 문항')).concat(['후기']);
+      const lines = [head.join('\t')].concat(rows.map(r => [r.name, r.school, r.score != null ? Number(r.score) : r.score_text, r.feel]
+        .concat(e.layout === '고3' ? [r.subject] : []).concat(areas.map(a => ((r.wrong || {})[a[0]] || []).join(', ')))
+        .concat([String(r.review || '').replace(/\s+/g, ' ')]).join('\t')));
+      navigator.clipboard.writeText(lines.join('\n')).then(() => toast('표를 복사했습니다. 시트에 붙여 넣으세요.'), () => toast('복사하지 못했습니다.'));
+    };
+  }
+
+  /* ── 구글 설문 응답 옮겨 오기 ── */
+  function parseTSV(text){   // 구글 시트 복사본: 탭 구분, 줄바꿈이 든 칸은 "…"로 감싼다
+    const rows = []; let row = [], cell = '', q = false;
+    for (let i = 0; i < text.length; i++){
+      const c = text[i];
+      if (q){
+        if (c === '"'){ if (text[i + 1] === '"'){ cell += '"'; i++; } else q = false; }
+        else cell += c;
+      } else if (c === '"' && cell === '') q = true;
+      else if (c === '\t'){ row.push(cell); cell = ''; }
+      else if (c === '\n' || c === '\r'){ if (c === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+      else cell += c;
+    }
+    if (cell !== '' || row.length){ row.push(cell); rows.push(row); }
+    return rows.filter(r => r.some(x => String(x).trim() !== ''));
+  }
+  function tsOf(s){   // '2026. 9. 2 오후 6:40:22' → ISO(+09:00)
+    const m = /(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.?\s*(오전|오후)?\s*(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(String(s || ''));
+    if (!m) return null;
+    let h = +m[5]; if (m[4] === '오후' && h < 12) h += 12; if (m[4] === '오전' && h === 12) h = 0;
+    const p = n => ('0' + n).slice(-2);
+    return m[1] + '-' + p(m[2]) + '-' + p(m[3]) + 'T' + p(h) + ':' + m[6] + ':' + (m[7] || '00') + '+09:00';
+  }
+  function colMap(head){
+    const f = re => head.findIndex(h => re.test(String(h).replace(/\s+/g, '')));
+    return { ts: f(/타임스탬프/), name: f(/^이름/), school: f(/^학교/), phone: f(/번호|휴대/), feel: f(/체감/), score: f(/점수/),
+             subj: f(/선택과목입력/), review: f(/후기/),
+             area: { '화법': f(/\[화법\]/), '언어': f(/\[언어\]/), '독서': f(/\[독서\]/), '작문': f(/\[작문\]/), '문학': f(/\[문학\]/), '선택': f(/\[선택과목\]/) } };
+  }
+  function findStu(name, school, phone, grade){
+    const nm = String(name || '').trim().replace(/\s+/g, '');
+    if (!nm) return { err: '이름 없음' };
+    const all = STUS.filter(s => String(s.name || '').trim() === nm || String(s.name || '').trim().replace(/[A-Za-z]$/, '') === nm);
+    if (!all.length) return { err: '명단에 없음' };
+    let c = all.filter(s => gradeOf(s.grade) === grade);
+    if (!c.length) c = all;
+    const ph = digits(phone);
+    if (c.length > 1 && ph.length >= 4){
+      const byPh = c.filter(s => (ph.length >= 8 && digits(s.student_id) && ph.slice(-8) === digits(s.student_id).slice(-8)) || (digits(s.phone_student).slice(-4) === ph.slice(-4)) || digits(s.student_id).slice(-4) === ph.slice(-4));
+      if (byPh.length === 1) return { s: byPh[0] };
+    }
+    if (c.length > 1 && school){
+      const bySc = c.filter(s => schBase(s.school) && schBase(s.school) === schBase(school));
+      if (bySc.length === 1) return { s: bySc[0] };
+      if (bySc.length) c = bySc;
+    }
+    if (c.length > 1){
+      const enr = c.filter(s => !LEFT_RE.test(String(s.enrolled || '').trim()));
+      if (enr.length === 1) return { s: enr[0] };
+      return { err: '같은 이름이 ' + c.length + '명' };
+    }
+    return { s: c[0] };
+  }
+  function impPreview(){   // 학생이 그 사이 입력했을 수 있어 그 회차 기록을 새로 받은 뒤 대조한다
+    const e = examByKey(SEL);
+    $('impGo').disabled = true; IMP = null;
+    if (!e){ $('impNote').textContent = '먼저 위 목록에서 회차를 고르세요.'; return; }
+    $('impNote').textContent = '확인하는 중…';
+    sbAll('/smock_entries?select=*&exam_key=eq.' + encodeURIComponent(e.key) + '&order=id')
+      .then(rows => { ENTRIES = ENTRIES.filter(x => x.exam_key !== e.key).concat(rows || []); impBuild(e); })
+      .catch(err => { $('impNote').textContent = '기록을 확인하지 못했습니다: ' + err.message; });
+  }
+  function impBuild(e){
+    const rows = parseTSV($('impText').value);
+    if (rows.length < 2){ $('impNote').textContent = '붙여 넣은 내용이 없어요. 머리글까지 통째로 복사해 주세요.'; return; }
+    const cm = colMap(rows[0]);
+    if (cm.name < 0 || cm.score < 0){ $('impNote').textContent = '머리글(이름·점수)을 찾지 못했어요. 시트 첫 줄까지 함께 복사해 주세요.'; return; }
+    const areas = SMOCK_LAYOUT[e.layout];
+    const want = areas.map(a => a[0]).filter(k => cm.area[k] < 0);
+    const have = {}; ENTRIES.filter(x => x.exam_key === e.key).forEach(x => { have[x.code] = x; });
+    const out = {}, list = [];
+    rows.slice(1).forEach((r, i) => {
+      const g = k => (k >= 0 ? String(r[k] == null ? '' : r[k]).trim() : '');
+      const name = g(cm.name), f = findStu(name, g(cm.school), g(cm.phone), e.grade);
+      const it = { i: i + 2, name, school: g(cm.school), scoreText: g(cm.score), at: tsOf(g(cm.ts)) };
+      if (!f.s){ it.st = f.err; list.push(it); return; }
+      const wrong = {}; let off = 0;
+      areas.forEach(a => {
+        const ns = [];
+        (g(cm.area[a[0]]).match(/\d+/g) || []).forEach(x => { const n = +x; if (n >= a[1] && n <= a[2]){ if (ns.indexOf(n) < 0) ns.push(n); } else off++; });
+        if (ns.length) wrong[a[0]] = ns.sort((p, q) => p - q);
+      });
+      let subj = g(cm.subj).replace(/\s+/g, '');
+      if (e.layout !== '고3') subj = ''; else if (!/^(화법과작문|언어와매체)$/.test(subj)) subj = /언어|매체/.test(subj) ? '언어와매체' : /화법|작문/.test(subj) ? '화법과작문' : '';
+      const feel = (g(cm.feel).match(/최상|상|중|하/g) || []).filter((v, j, a2) => a2.indexOf(v) === j).join(', ');
+      it.stu = f.s; it.off = off;
+      it.row = { exam_key: e.key, code: f.s.code, student_id: f.s.student_id || '', name: f.s.name || '', school: f.s.school || '', grade: f.s.grade || '',
+                 score: scoreOf(it.scoreText), score_text: it.scoreText.slice(0, 60), feel, subject: subj, wrong, review: g(cm.review).slice(0, 1000), src: '설문',
+                 submitted_at: it.at || new Date().toISOString() };
+      if (!f.s.code){ it.st = '접근코드 없음'; list.push(it); return; }
+      if (have[f.s.code]){ it.st = have[f.s.code].src === '설문' ? '이미 옮겨 옴' : '학생이 이미 입력함'; list.push(it); return; }
+      const prev = out[f.s.code];
+      if (prev && (prev.row.submitted_at || '') > (it.row.submitted_at || '')){ it.st = '같은 학생의 다른 응답(최신 것만)'; list.push(it); return; }
+      if (prev){ prev.st = '같은 학생의 다른 응답(최신 것만)'; delete prev.row; }
+      it.st = 'ok'; out[f.s.code] = it; list.push(it);
+    });
+    const go = list.filter(x => x.st === 'ok');
+    IMP = { exam: e.key, rows: go.map(x => x.row) };
+    $('impGo').disabled = !go.length;
+    $('impNote').textContent = '응답 ' + list.length + '건 중 옮길 수 있는 것 ' + go.length + '건';
+    $('impOut').innerHTML = (want.length ? '<p class="warn">이 시트에서 ' + want.join('·') + ' 칸을 찾지 못했어요. 회차의 학년(형식)이 맞는지 확인해 주세요.</p>' : '') +
+      '<div class="scroll" style="margin-top:10px"><table><thead><tr><th>줄</th><th>이름</th><th>학교</th><th>점수</th><th>연결</th></tr></thead><tbody>' +
+      list.map(x => '<tr class="imp-row"><td class="num">' + x.i + '</td><td>' + esc(x.name) + '</td><td>' + esc(x.school) + '</td><td>' + esc(x.scoreText) + '</td><td class="' + (x.st === 'ok' ? 'ok' : 'bad') + '">' +
+        (x.st === 'ok' ? '→ ' + esc(x.stu.name) + ' (' + esc(schBase(x.stu.school)) + ')' + (x.off ? ' · 범위 밖 번호 ' + x.off + '개 뺌' : '') : esc(x.st)) + '</td></tr>').join('') +
+      '</tbody></table></div>';
+  }
+  function impGo(){
+    if (!IMP || !IMP.rows.length) return;
+    const e = examByKey(IMP.exam);
+    if (!confirm((e ? e.title : IMP.exam) + '에 ' + IMP.rows.length + '명의 설문 응답을 옮깁니다. 학생마다 별 +1이 함께 들어가요. 진행할까요?')) return;
+    $('impGo').disabled = true;
+    const chunks = []; for (let i = 0; i < IMP.rows.length; i += 200) chunks.push(IMP.rows.slice(i, i + 200));
+    chunks.reduce((p, c) => p.then(() => sb('POST', '/smock_entries?on_conflict=exam_key,code', c, 'resolution=ignore-duplicates,return=minimal')), Promise.resolve())
+      .then(() => { toast(IMP.rows.length + '명을 옮겼습니다.'); $('impText').value = ''; $('impOut').innerHTML = ''; $('impNote').textContent = ''; IMP = null; return load(); })
+      .catch(err => { toast('옮기지 못했습니다: ' + err.message); $('impGo').disabled = false; });
+  }
+
+  function load(){
+    return Promise.all([
+      sb('GET', '/smock_exams?select=*&order=year.desc,month.desc,grade'),
+      sbAll('/smock_entries?select=*&order=id'),
+      STUS.length ? Promise.resolve(STUS) : sbAll('/students?select=name,school,grade,student_id,code,enrolled,phone_student&order=seq,id')
+    ]).then(([ex, en, st]) => {
+      EXAMS = ex || []; ENTRIES = en || []; STUS = st || [];
+      if (SEL && !examByKey(SEL)) SEL = '';
+      renderExams(); renderRes();
+    }).catch(e => {
+      $('exams').innerHTML = '<p class="warn">' + (/404|PGRST205|smock_/.test(e.message) ? '데이터베이스 057 마이그레이션을 적용해야 쓸 수 있어요.' : '불러오지 못했습니다: ' + esc(e.message)) + '</p>';
+    });
+  }
+  document.addEventListener('click', ev => {
+    const b = ev.target.closest('button'); if (!b) return;
+    if (b.dataset.sel){ SEL = b.dataset.sel; renderExams(); renderRes(); $('resCard').scrollIntoView({ behavior: 'smooth', block: 'start' }); IMP = null; $('impGo').disabled = true; }
+    else if (b.dataset.open) toggleOpen(b.dataset.open);
+    else if (b.dataset.del) delExam(b.dataset.del);
+  });
+  $('addExam').onclick = addExam;
+  $('impPrev').onclick = impPreview;
+  $('impGo').onclick = impGo;
+  fillNew();
+  (window.TeacherAuth && TeacherAuth.ready ? TeacherAuth.ready : Promise.resolve()).then(load, load);
+</script>
+</body>
+</html>
