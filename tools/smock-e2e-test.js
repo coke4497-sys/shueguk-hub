@@ -85,43 +85,14 @@ let EXAMS = [], ENTRIES = [], CALLS = [];
   // ② 학생이 이미 입력한 줄
   ENTRIES.push({ exam_key: '2026-09-고1', code: 'c-pjh', name: '박지현', school: '화수고', score: 80, score_text: '80', feel: '중', subject: '', wrong: { '독서': [12] }, review: '', src: '학생' });
 
-  // ③ 설문 붙여 넣기
+  // ③ 설문으로 옮겨 둔 기록(옮겨 오기 칸은 없음)
   await pg.click('[data-sel="2026-09-고1"]'); await pg.waitForTimeout(300);
-  ok(/2026년 9월 고1 모의고사/.test(await pg.textContent('#impExam')), '옮길 회차 표시');
-  const H = ['타임스탬프', '이름', '학교', '010을 제외한 학부모님의 휴대전화 번호 8자리(본인 식별용)', '체감 난이도 ', '[필수입력] 채점 결과 본인의 "점수"를 적어주세요.',
-    '1. [화법]에서 "틀린문제"를 체크해주세요.', '2. [언어]에서 "틀린문제"를 체크해주세요.', '3. [독서]에서 "틀린문제"를 체크해주세요.',
-    '4. [작문]에서 "틀린문제"를 체크해주세요.', '5. [문학]에서 "틀린문제"를 체크해주세요.', '6. (선택)시험 후기를 들려주세요! 어떤 말이든 잘 듣겠습니다. '];
-  const R = [
-    ['2026. 9. 2 오후 6:40:22', '김나연', '도래울고등학교', '62792773', '중', '91', '', '9', '18, 20', '', '36', ''],
-    ['2026. 9. 2 오후 6:58:11', '박지현', '화수고등학교', '55361348', '중', '77', '', '7', '11, 12', '28', '36, 37', ''],
-    ['2026. 9. 2 오후 7:00:00', '김민재', '화정고', '5967', '상', '65?', '', '', '13', '', '', '"첫 줄\n둘째 줄, ""따옴표"""'],
-    ['2026. 9. 2 오후 8:58:43', '이승준C', '화수고', '010 8908 7586', '중', '96', '4', '', '', '', '31, 50', '22개정으로 바뀌어서 어색해요'],
-    ['2026. 9. 2 오후 9:00:00', '이승준C', '화수고', '010 8908 7586', '중', '90', '4', '', '', '', '31', '먼저 낸 것'],
-    ['2026. 9. 2 오후 9:10:00', '없는학생', '화정고', '12345678', '중', '80', '', '', '', '', '', '']
-  ];
-  // 이승준C 두 번째 줄의 시각을 더 이르게 — 최신(첫째) 것이 남아야 한다
-  R[4][0] = '2026. 9. 2 오후 5:00:00';
-  const tsv = [H].concat(R).map(r => r.join('\t')).join('\n');
-  await pg.fill('#impText', tsv);
-  await pg.click('#impPrev'); await pg.waitForTimeout(200);
-  const out = await pg.textContent('#impOut');
-  ok(/옮길 수 있는 것 3건/.test(await pg.textContent('#impNote')), '옮길 수 있는 것 3건: ' + await pg.textContent('#impNote'));
-  ok(/학생이 이미 입력함/.test(out), '학생이 입력한 줄은 건너뜀');
-  ok(/명단에 없음/.test(out), '명단에 없는 이름 안내');
-  ok(/같은 학생의 다른 응답/.test(out), '같은 학생 중복 응답은 최신 것만');
-  ok(/→ 김민재/.test(out), '같은 이름은 휴대전화 뒤 4자리로 가림');
-  ok(/범위 밖 번호 1개 뺌/.test(out), '범위 밖 번호(50) 빼고 안내');
-  await shot(pg, '5-선생님-설문옮기기', 'section.card:nth-of-type(3)');
-  await pg.click('#impGo'); await pg.waitForTimeout(500);
-  const ins = CALLS.find(c => c.m === 'POST' && c.p.startsWith('/rest/v1/smock_entries'));
-  ok(ins && /on_conflict=exam_key,code/.test(ins.p) && /ignore-duplicates/.test(ins.prefer), '이미 있는 줄은 덮지 않게(ignore-duplicates)');
-  const rows = ins ? ins.body : [];
-  const kn = rows.find(r => r.code === 'c-kny'), km = rows.find(r => r.code === 'c-kmj1'), ls = rows.find(r => r.code === 'c-lsj');
-  ok(kn && kn.score === 91 && kn.feel === '중' && JSON.stringify(kn.wrong) === JSON.stringify({ '언어': [9], '독서': [18, 20], '문학': [36] }) && kn.src === '설문', '김나연 본문(점수·체감·틀린 문항·src)');
-  ok(kn && kn.submitted_at === '2026-09-02T18:40:22+09:00', '설문 타임스탬프 → 제출 시각');
-  ok(km && km.score === null && km.score_text === '65?' && km.review === '첫 줄\n둘째 줄, "따옴표"', '숫자 아닌 점수는 글로·여러 줄 후기');
-  ok(ls && ls.score === 96 && JSON.stringify(ls.wrong) === JSON.stringify({ '화법': [4], '문학': [31] }), '이승준C 최신 응답·범위 밖 번호 뺌');
-  ok(rows.length === 3 && !rows.some(r => r.code === 'c-pjh'), '3명만 옮김');
+  ok(!(await pg.$('#impText')) && !/구글 설문 응답 옮겨 오기/.test(await pg.textContent('main')), '설문 옮겨 오기 칸 없음');
+  ENTRIES.push(
+    { exam_key: '2026-09-고1', code: 'c-kny', name: '김나연', school: '도래울고', score: 91, score_text: '91', feel: '중', subject: '', wrong: { '언어': [9], '독서': [18, 20], '문학': [36] }, review: '', src: '설문' },
+    { exam_key: '2026-09-고1', code: 'c-kmj1', name: '김민재', school: '화정고', score: null, score_text: '65?', feel: '상', subject: '', wrong: { '독서': [13] }, review: '', src: '설문' },
+    { exam_key: '2026-09-고1', code: 'c-lsj', name: '이승준C', school: '화수고', score: 96, score_text: '96', feel: '중', subject: '', wrong: { '화법': [4], '문학': [31] }, review: '', src: '설문' });
+  await pg.evaluate(() => load());
 
   // ④ 결과
   await pg.waitForTimeout(300);
