@@ -692,9 +692,16 @@ async function showTask(pg, sel){
   ok(sc && sc[1].p_id === TASKS.find(x => x.message_id === mA.id).id, 'msg_task_seen 호출');
   const tkTxt = await page.locator('#m' + mA.id + ' .tks').textContent();
   ok(tkTxt.includes('확인 '), '표시가 \'확인 hh:mm\'로 (' + tkTxt + ')');
+  await page.waitForSelector('#cxback:not([hidden])', { timeout: 3000 }).catch(() => {});
+  const cxm = (await page.locator('#cxmodes button:visible').allTextContents()).join(',');
+  ok(await page.locator('#cxback').isVisible() && /완료/.test(cxm) && /미루기/.test(cxm) && /넘기기/.test(cxm) && /취소/.test(cxm), '[확인했습니다]를 누르면 업무 체크리스트 창(완료·미루기·넘기기·취소 — 진행 중은 열이 있는 DB에서) (' + cxm + ')');
+  await page.click('#cxclose');
   await m1Ack.click();
   await page.waitForFunction(id => !document.querySelector('.pc [data-ack="' + id + '"]'), TASKS.find(x => x.message_id === m1.id).id);
   ok((await page.locator('.pc[data-person="' + ME + '"]').textContent()).includes('확인함'), '카드에서 확인 → \'확인함\'');
+  await page.waitForSelector('#cxback:not([hidden])', { timeout: 3000 }).catch(() => {});
+  ok(await page.locator('#cxback').isVisible(), '카드의 [확인]도 업무 체크리스트 창을 엶');
+  await page.click('#cxclose');
   // @모두
   await page.click('#inp'); await page.keyboard.type('@모');
   await page.waitForSelector('#mention.on');
@@ -739,6 +746,8 @@ async function showTask(pg, sel){
   await page.click('#m' + many.id + ' [data-ack]');
   await page.waitForFunction(id => (document.querySelector('#m' + id + ' .tk.sum') || {}).textContent.includes('확인 2 / 6'), many.id);
   ok(TASKS.filter(k => k.message_id === many.id && k.assignee === ME)[0].status === '완료', '@모두는 확인하면 완료');
+  await sleep(700);
+  ok(await page.locator('#cxback').isHidden(), '확인만 하면 끝인 일(@모두)은 창을 열지 않음');
   await ctx.close();
 
   console.log('⑲ 찾기 · 꼬리표로 모아 보기');
@@ -819,7 +828,7 @@ async function showTask(pg, sel){
   await page.waitForSelector('#staffList [data-sw="me"]');
   ok(await page.evaluate(myLocIs, ''), '처음엔 내 스위치가 꺼짐(퇴근)');
   const pres0 = await page.locator('#staffList').textContent();
-  ok(pres0.includes('본원') && pres0.includes('이수경') && !pres0.includes('화정센터'), '오늘의 슈국에 센터별 출근자 (어제 출근은 OFF — 목록에 없음)');
+  ok(pres0.includes('본원') && pres0.includes('이수경') && !pres0.includes('이은지'), '오늘의 슈국에 센터별 출근자 (어제 출근은 OFF — 목록에 없음)');
   ok((await page.locator('#presListBtn').textContent()) === '출근 1 / 2', '출근 인원 (' + (await page.locator('#presListBtn').textContent()) + ')');
   ok(await page.locator('.pc[data-person="' + EUNJI + '"] .psub').textContent() === '오늘 일정 없음', '업무 카드 머리에 \'오늘 일정 없음\'');
   await page.click('#staffList [data-sw="me"]');
@@ -834,14 +843,14 @@ async function showTask(pg, sel){
   await page.waitForFunction(myLocIs, '');
   ok(calls.filter(c => c[0] === 'pres').pop()[1].p_on === false, '퇴근 → msg_presence_set(퇴근)');
   PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '정리정독', is_on: true, changed_at: NOWISO() };
-  await page.waitForFunction(() => document.querySelector('#staffList').textContent.includes('정리정독'), null, { timeout: 7000 }).catch(() => {});
+  await page.waitForFunction(() => !!document.querySelector('#staffList .cc[data-loc="정리정독"] .pr'), null, { timeout: 7000 }).catch(() => {});
   ok((await page.locator('#staffList .cc[data-loc="정리정독"]').textContent()).includes('이은지'), '다른 사람 출근이 3초 안팎에 보임');
   // 자정을 넘기면(서버 줄은 그대로) 어제 출근이 OFF로 바뀐다
   await page.evaluate(() => { const D = Date, off = 86400e3; window.Date = class extends D { constructor(...a){ super(...(a.length ? a : [D.now() + off])); } static now(){ return D.now() + off; } }; });
-  await page.waitForFunction(() => !document.querySelector('#staffList').textContent.includes('정리정독'), null, { timeout: 7000 }).catch(() => {});
-  ok(!(await page.locator('#staffList').textContent()).includes('정리정독'), '자정이 지나면 열어 둔 화면도 OFF로 바뀜');
+  await page.waitForFunction(() => !document.querySelector('#staffList .cc[data-loc="정리정독"] .pr'), null, { timeout: 7000 }).catch(() => {});
+  ok(await page.locator('#staffList .cc[data-loc="정리정독"] .pr').count() === 0, '자정이 지나면 열어 둔 화면도 OFF로 바뀜');
   await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
-  await page.waitForFunction(() => document.querySelector('#staffList').textContent.includes('정리정독'), null, { timeout: 7000 }).catch(() => {});
+  await page.waitForFunction(() => !!document.querySelector('#staffList .cc[data-loc="정리정독"] .pr'), null, { timeout: 7000 }).catch(() => {});
   await page.click('#inp'); await page.keyboard.type('@이은');
   await page.waitForSelector('#mention.on');
   ok((await page.locator('#mention').textContent()).includes('정리정독 ON'), '@ 목록에 출근 상태');
@@ -1328,6 +1337,8 @@ async function showTask(pg, sel){
     SHIFTS.push({ ymd: today2, user_id: ME, loc: '화정센터', start_hm: '16:00', end_hm: '22:00' });
     TT.push({ book: '내신', class_id: 'n201', name: '고1 민트반', day: dn2, start_time: '3:00', end_time: '4:30', teacher: '지원', location: '민트초코', roster: '가' });
     TTP.length = 0; TTP.push({ week_wednesday: (y => { const d = new Date(y + 'T00:00:00Z'), k = d.getUTCDay(); d.setUTCDate(d.getUTCDate() + (k === 1 || k === 2 ? 3 - k : -((k - 3 + 7) % 7))); return d.toISOString().slice(0, 10); })(today2), book: '내신' });
+    const kk = addMsg(BOSS, '[컴퓨터에서] 카카오채널 연결 — ① 안내 먼저 확인 ② 스킬 추가: 주소 https://x.example/f?k=(토큰 내용) ③ 폴백 블록에서 배포 @고희주', [], ts());
+    const kkT = addTask(kk, ME, '[컴퓨터에서] 카카오채널 연결 — ① 안내 먼저 확인 ② 스킬 추가: 주소 https://x.example/f?k=(토큰 내용) ③ 폴백 블록에서 배포');
     ({ ctx, page } = await open());
     await page.waitForSelector('#msgs .m');
     ok(await page.locator('#board').isHidden() && await page.locator('#chat').isVisible(), '컴퓨터도 채팅과 업무를 나란히 두지 않음(처음은 채팅)');
@@ -1338,10 +1349,15 @@ async function showTask(pg, sel){
     ok(await page.locator('#chat').isVisible() && await page.locator('#find').isVisible() && (await page.locator('#vtitle').textContent()) === '채팅', '업무 보기에서 찾기를 누르면 채팅으로 바뀌고 찾기 칸이 열림');
     await page.locator('#findBtn').click(); await page.click('#tabBoard');
     ok((await page.locator('#pchips .pchip').first().locator('.pcv').textContent()) === '조' && await page.locator('#pchips .pchip.r-t .pcv').first().textContent() === '티', '사람 칩에 티/조 동그라미');
+    await page.click('#pchips [data-pick="' + ME + '"]');
+    await page.click('.pc.sel [data-cx="' + kkT.id + '"]');
+    ok(await page.locator('#cxtask .steps li').count() === 3 && (await page.locator('#cxtask .steps li').nth(1).textContent()).includes('(토큰 내용)') && await page.locator('#cxtask .ilk').count() === 1, '업무 체크리스트 창 — ①②③ 단계를 줄로, 주소는 글 속 링크로(뒤 설명 그대로)');
+    await page.click('#cxclose');
     await page.click('#tabChat');
-    await page.waitForFunction(() => document.querySelector('#staffList .cc[data-loc="화정센터"]') && document.querySelector('#staffList .cc[data-loc="민초센터"]'), null, { timeout: 8000 }).catch(() => {});
+    await page.waitForFunction(() => document.querySelector('#staffList .cc[data-loc="민초센터"] .pr') && document.querySelector('#staffList .cc[data-loc="화정센터"] .pr'), null, { timeout: 8000 }).catch(() => {});
     const locs = await page.locator('#staffList .cc').evaluateAll(es => es.map(e => e.dataset.loc));
-    ok(locs.join(',') === '본원,화정센터,민초센터', '센터 순서 본원 → 화정센터 → 민트초코 (' + locs.join(',') + ')');
+    ok(locs.join(',') === '본원,화정센터,정리정독,민초센터,도래울센터', '다섯 센터가 늘 보임 — 본원 → 화정센터 → 정리정독 → 민트초코 → 도래울 (' + locs.join(',') + ')');
+    ok((await page.locator('#staffList .cc[data-loc="도래울센터"]').textContent()).includes('일정이 있는 사람이 없습니다'), '사람 없는 센터는 \'일정이 있는 사람이 없습니다\'');
     const myRow = page.locator('#staffList .pr[data-uid="' + ME + '"]');
     ok((await myRow.locator('.prs').textContent()).startsWith('오후 4:00 출근 예정'), '근무표 시작 시각 \'출근 예정\' (' + (await myRow.locator('.prs').textContent()) + ')');
     ok(await page.locator('#staffList .cc[data-loc="민초센터"] .ccn').textContent() === '민트초코 센터' && (await page.locator('#staffList .pr[data-uid="44444444-4444-4444-4444-444444444444"] .prs').textContent()) === '오후 3:00 출근 예정', '선생님은 오늘 첫 수업 위치·시각');
