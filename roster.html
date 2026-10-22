@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이수경국어 · 학생 명단</title>
+<script src="assets/teacher-auth.js" data-mode="protected"></script>
+<!-- 이수경국어 슈국 운영 · 학생 명단 (2026-10-22 수정 요청함 최예나 "예전 출석부처럼 학교 별 명단, 학년 별 명단" → 원장님 "새 화면으로")
+     재원생을 학교별·학년별로 묶어 이름·학교·학년·담당·시간표(정규 가/나, 내신 진도/확인)·연락처를 보여 준다.
+     · 원본: 수파베이스 students 표 (교사 신분으로 직접 읽음 — 백엔드 변경 없음). 퇴원(LEFT_RE)은 뺀다.
+     · 학년 표기 '2026 고등 1학년' → '고1' (gradeShort). 묶음 안은 학년 → 이름 가나다순.
+     · [표 복사] = 지금 보이는 목록을 탭 구분으로 복사(구글 시트에 붙여 넣기), [인쇄] = 출석부처럼 종이로. -->
+<link rel="preconnect" href="https://bangdbhqpphqqdwcledg.supabase.co">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-d:#64749E; --sky-bg:#E9EDF8;
+    --ink:#2A332F; --muted:#65726B;
+    --line:#E5EDE8; --paper:#F4F6F5; --card:#ffffff;
+    --shadow:0 2px 12px rgba(42,51,47,.07);
+  }
+  *{box-sizing:border-box;}
+  body{ font-family:'Gowun Dodum',-apple-system,sans-serif; background:var(--paper); color:var(--ink);
+    max-width:1080px; margin:0 auto; padding:0 0 60px; line-height:1.5; }
+  a{color:inherit;}
+  button,input,select{font-family:inherit;}
+  .brand{ background:linear-gradient(135deg,#d3dbec 0%,#c4d4cc 100%);
+    padding:20px 24px 16px; border-radius:0 0 22px 22px; box-shadow:var(--shadow);
+    display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .brand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:#3B4660; }
+  .brand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#4F5A74; letter-spacing:2px; }
+  .brand .links{ margin-left:auto; display:flex; gap:14px; font-size:13px; }
+  .brand .links a{ color:#3B4660; text-decoration:none; border-bottom:1px solid rgba(59,70,96,.35); }
+  .title-bar{ background:var(--card); margin:16px; padding:11px 18px; border-radius:10px; box-shadow:var(--shadow);
+    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:#3B4660; text-align:center; }
+
+  .views{ margin:0 16px 10px; display:flex; gap:10px 12px; flex-wrap:wrap; align-items:center; }
+  .seg{ display:inline-flex; background:#fff; border-radius:11px; box-shadow:var(--shadow); padding:4px; gap:2px; }
+  .seg button{ padding:7px 14px; border:none; background:transparent; color:#4F5A74; border-radius:8px;
+    font-family:'Gowun Batang',serif; font-weight:700; font-size:13px; cursor:pointer; }
+  .seg button.on{ background:var(--sky-bg); color:#3B4660; }
+  .views select{ padding:8px 10px; border:1.5px solid var(--line); border-radius:9px; font-size:13.5px; background:#fff; max-width:220px; }
+  .views input[type=search]{ padding:8px 10px; border:1.5px solid var(--line); border-radius:9px; font-size:14px; min-width:150px; }
+  .views label{ display:inline-flex; align-items:center; gap:6px; color:#4F5A74; font-size:13.5px; cursor:pointer; }
+  .views input[type=checkbox]{ width:15px; height:15px; accent-color:var(--sky-d); }
+  .views .sp{ flex:1; }
+  .btn{ padding:9px 14px; border:none; border-radius:9px; background:var(--sky-bg); color:#3B4660;
+    font-family:'Gowun Batang',serif; font-weight:700; font-size:13.5px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+  .btn svg{ width:15px; height:15px; }
+  .btn:disabled{ opacity:.5; cursor:default; }
+
+  .sum{ margin:0 16px 12px; font-size:13px; color:var(--muted); }
+  .sum b{ color:#3B4660; }
+  .loading,.empty{ margin:16px; padding:40px; text-align:center; color:var(--muted); font-size:14px;
+    background:var(--card); border-radius:12px; box-shadow:var(--shadow); }
+
+  .grp{ margin:0 16px 16px; background:var(--card); border-radius:12px; box-shadow:var(--shadow); overflow:hidden; }
+  .grp h3{ margin:0; padding:11px 16px; background:#DCE3F0; font-family:'Gowun Batang',serif; font-size:15px; color:#3B4660;
+    display:flex; align-items:baseline; gap:10px; }
+  .grp h3 small{ font-family:'Gowun Dodum',sans-serif; font-weight:400; font-size:12.5px; color:#4F5A74; }
+  .tw{ overflow-x:auto; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th,td{ padding:7px 10px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap; }
+  th{ font-size:12px; color:var(--muted); font-weight:400; background:#FAFBFA; }
+  td.no{ color:var(--muted); width:36px; text-align:right; }
+  td.nm{ font-weight:700; }
+  td.sub{ color:#4F5A74; font-size:12.5px; }
+  td a{ text-decoration:none; border-bottom:1px dotted #9AA6A0; }
+  td .none{ color:#B4BCB7; }
+  tr:last-child td{ border-bottom:none; }
+
+  .toast{ position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:#3B4660; color:#fff; padding:10px 18px; border-radius:20px; font-size:13.5px; opacity:0; pointer-events:none; transition:.25s; }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  @media (max-width:640px){
+    .brand .links{ margin-left:0; width:100%; }
+    .views select{ max-width:100%; }
+    .col-cls{ display:none; }
+  }
+  @media print{
+    body{ background:#fff; max-width:none; }
+    .brand,.title-bar,.views,.toast{ display:none !important; }
+    .grp{ box-shadow:none; border:1px solid #ccc; break-inside:auto; margin:0 0 12px; }
+    .grp h3{ background:#eee; }
+    td a{ border:none; }
+  }
+</style>
+</head>
+<body>
+<div class="brand">
+  <span class="name">Shueguk</span><span class="sub">학생 명단</span>
+  <span class="links"><a href="ops.html">슈국 운영 메뉴</a><a href="index.html">허브</a></span>
+</div>
+<div class="title-bar">학교별 · 학년별 재원생 명단</div>
+
+<div class="views">
+  <span class="seg" id="vseg">
+    <button type="button" data-v="school" class="on">학교별</button>
+    <button type="button" data-v="grade">학년별</button>
+  </span>
+  <select id="selGroup"></select>
+  <input type="search" id="q" placeholder="이름 찾기">
+  <label><input type="checkbox" id="showTel" checked>연락처 보기</label>
+  <span class="sp"></span>
+  <button type="button" class="btn" id="btnCopy" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>표 복사</button>
+  <button type="button" class="btn" id="btnPrint" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><rect x="6" y="14" width="12" height="8"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/></svg>인쇄</button>
+</div>
+<div class="sum" id="sum"></div>
+<div id="view"><div class="loading">명단을 불러오는 중…</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+  const SB_REST = 'https://bangdbhqpphqqdwcledg.supabase.co/rest/v1';
+  const SB_KEY  = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  const LEFT_RE = /^(퇴원|n|no|off|x|중단|비재원)$/i;
+  const GRADE_ORDER = ['중1', '중2', '중3', '고1', '고2', '고3', '미상'];
+  let ROWS = [], VIEW = 'school';
+
+  function sbGet(path){
+    return fetch(SB_REST + path, { headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }, cache: 'no-store' })
+      .then(r => { if (!r.ok) throw new Error('sb ' + r.status); return r.json(); });
+  }
+  function sbAll(path){   // 1000건씩 끝까지
+    const LIM = 1000, out = [];
+    const step = off => sbGet(path + '&limit=' + LIM + '&offset=' + off).then(rows => {
+      rows.forEach(r => out.push(r));
+      return rows.length < LIM ? out : step(off + LIM);
+    });
+    return step(0);
+  }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
+  function toast(m){ const t = document.getElementById('toast'); t.textContent = m; t.classList.add('show');
+    clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2400); }
+  /* '2026 고등 1학년' → '고1', 이미 '고1'이면 그대로 */
+  function gradeShort(g){
+    const s = String(g || '');
+    let m = /(고등|중등)\s*(\d)/.exec(s); if (m) return (m[1] === '고등' ? '고' : '중') + m[2];
+    m = /([고중])\s*(\d)/.exec(s); return m ? m[1] + m[2] : '미상';
+  }
+  function gIdx(g){ const i = GRADE_ORDER.indexOf(g); return i < 0 ? 99 : i; }
+  function byName(a, b){ return a.name.localeCompare(b.name, 'ko'); }
+  function telFmt(p){
+    const d = String(p || '').replace(/\D/g, '');
+    if (d.length === 11) return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+    if (d.length === 10) return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+    return String(p || '').trim();
+  }
+  function telCell(p){
+    const t = telFmt(p);
+    return t ? '<a href="tel:' + esc(t.replace(/\D/g, '')) + '">' + esc(t) + '</a>' : '<span class="none">—</span>';
+  }
+
+  function load(){
+    sbAll('/students?select=name,school,grade,teacher,class_a,class_b,naeshin_a,naeshin_b,enrolled,phone_student,phone_parent1,phone_parent2&order=seq,id')
+      .catch(e => {   // 연락처 열이 없는 DB(018 전)
+        if (!/sb 400/.test(String(e && e.message))) throw e;
+        return sbAll('/students?select=name,school,grade,teacher,class_a,class_b,naeshin_a,naeshin_b,enrolled&order=seq,id');
+      })
+      .then(rows => {
+        ROWS = rows.filter(r => r.name && !LEFT_RE.test(String(r.enrolled || '').trim()))
+          .map(r => Object.assign({}, r, { name: String(r.name).trim(), school: String(r.school || '').trim() || '(학교 미상)', g: gradeShort(r.grade) }));
+        fillSelect();
+        render();
+        document.getElementById('btnCopy').disabled = document.getElementById('btnPrint').disabled = false;
+      })
+      .catch(e => {
+        document.getElementById('view').innerHTML = '<div class="empty">명단을 불러오지 못했습니다.<br>' + esc(e.message) + '<br><br>허브에 로그인한 뒤 다시 열어 주세요.</div>';
+      });
+  }
+
+  function groupsOf(){
+    const key = VIEW === 'school' ? 'school' : 'g';
+    const map = {};
+    ROWS.forEach(r => { (map[r[key]] = map[r[key]] || []).push(r); });
+    const names = Object.keys(map).sort(VIEW === 'school'
+      ? (a, b) => (a === '(학교 미상)') - (b === '(학교 미상)') || a.localeCompare(b, 'ko')
+      : (a, b) => gIdx(a) - gIdx(b));
+    return names.map(n => ({ name: n, rows: map[n] }));
+  }
+  function fillSelect(){
+    const sel = document.getElementById('selGroup'), prev = sel.value;
+    const gs = groupsOf();
+    sel.innerHTML = '<option value="">' + (VIEW === 'school' ? '모든 학교' : '모든 학년') + ' (' + ROWS.length + '명)</option>'
+      + gs.map(g => '<option value="' + esc(g.name) + '">' + esc(g.name) + ' (' + g.rows.length + '명)</option>').join('');
+    sel.value = gs.some(g => g.name === prev) ? prev : '';
+  }
+  function visibleGroups(){
+    const pick = document.getElementById('selGroup').value;
+    const q = document.getElementById('q').value.trim();
+    return groupsOf()
+      .filter(g => !pick || g.name === pick)
+      .map(g => {
+        let rows = g.rows.filter(r => !q || r.name.indexOf(q) >= 0);
+        rows = rows.slice().sort(VIEW === 'school' ? (a, b) => gIdx(a.g) - gIdx(b.g) || byName(a, b) : (a, b) => byName(a, b));
+        return { name: g.name, rows };
+      })
+      .filter(g => g.rows.length);
+  }
+  function subLine(g){
+    if (VIEW === 'school'){
+      const c = {}; g.rows.forEach(r => { c[r.g] = (c[r.g] || 0) + 1; });
+      return GRADE_ORDER.filter(x => c[x]).map(x => x + ' ' + c[x]).join(' · ');
+    }
+    const c = {}; g.rows.forEach(r => { c[r.school] = (c[r.school] || 0) + 1; });
+    return Object.keys(c).sort((a, b) => c[b] - c[a] || a.localeCompare(b, 'ko')).map(x => x + ' ' + c[x]).join(' · ');
+  }
+  function slots(a, b){ return [a, b].map(x => String(x || '').trim()).filter(Boolean).join(' / ') || '<span class="none">—</span>'; }
+
+  function render(){
+    const tel = document.getElementById('showTel').checked;
+    const gs = visibleGroups();
+    const n = gs.reduce((s, g) => s + g.rows.length, 0);
+    document.getElementById('sum').innerHTML = '재원생 <b>' + ROWS.length + '명</b>' + (n !== ROWS.length ? ' 중 <b>' + n + '명</b> 보는 중' : '');
+    if (!gs.length){ document.getElementById('view').innerHTML = '<div class="empty">조건에 맞는 학생이 없습니다.</div>'; return; }
+    const other = VIEW === 'school' ? '학년' : '학교';
+    document.getElementById('view').innerHTML = gs.map(g =>
+      '<section class="grp"><h3>' + esc(g.name) + ' <small>' + g.rows.length + '명 · ' + esc(subLine(g)) + '</small></h3><div class="tw"><table>'
+      + '<thead><tr><th>No</th><th>이름</th><th>' + other + '</th><th>담당</th><th class="col-cls">정규 가 / 나</th><th class="col-cls">내신 진도 / 확인</th>'
+      + (tel ? '<th>학생</th><th>학부모님1</th><th>학부모님2</th>' : '') + '</tr></thead><tbody>'
+      + g.rows.map((r, i) => '<tr><td class="no">' + (i + 1) + '</td><td class="nm">' + esc(r.name) + '</td>'
+        + '<td class="sub">' + esc(VIEW === 'school' ? r.g : r.school) + '</td>'
+        + '<td class="sub">' + (esc(r.teacher) || '<span class="none">—</span>') + '</td>'
+        + '<td class="sub col-cls">' + slots(esc(r.class_a), esc(r.class_b)) + '</td>'
+        + '<td class="sub col-cls">' + slots(esc(r.naeshin_a), esc(r.naeshin_b)) + '</td>'
+        + (tel ? '<td>' + telCell(r.phone_student) + '</td><td>' + telCell(r.phone_parent1) + '</td><td>' + telCell(r.phone_parent2) + '</td>' : '')
+        + '</tr>').join('')
+      + '</tbody></table></div></section>').join('');
+  }
+
+  function copyTable(){
+    const tel = document.getElementById('showTel').checked;
+    const head = ['묶음', 'No', '이름', '학교', '학년', '담당', '정규 가', '정규 나', '내신 진도', '내신 확인'].concat(tel ? ['학생', '학부모님1', '학부모님2'] : []);
+    const lines = [head.join('\t')];
+    let n = 0;
+    visibleGroups().forEach(g => g.rows.forEach((r, i) => {
+      n++;
+      lines.push([g.name, i + 1, r.name, r.school, r.g, r.teacher, r.class_a, r.class_b, r.naeshin_a, r.naeshin_b]
+        .concat(tel ? [telFmt(r.phone_student), telFmt(r.phone_parent1), telFmt(r.phone_parent2)] : [])
+        .map(v => String(v == null ? '' : v).replace(/[\t\n]/g, ' ')).join('\t'));
+    }));
+    const text = lines.join('\n');
+    const done = () => toast(n + '명을 복사했습니다 — 구글 시트 칸을 누르고 붙여 넣으세요');
+    if (navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(text).then(done, fallback); return; }
+    fallback();
+    function fallback(){
+      const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e){ toast('복사가 되지 않았어요'); }
+      ta.remove();
+    }
+  }
+
+  document.getElementById('vseg').addEventListener('click', e => {
+    const b = e.target.closest('button[data-v]'); if (!b || b.dataset.v === VIEW) return;
+    VIEW = b.dataset.v;
+    document.querySelectorAll('#vseg button').forEach(x => x.classList.toggle('on', x === b));
+    document.getElementById('selGroup').value = '';
+    fillSelect(); render();
+  });
+  document.getElementById('selGroup').addEventListener('change', render);
+  document.getElementById('q').addEventListener('input', render);
+  document.getElementById('showTel').addEventListener('change', render);
+  document.getElementById('btnCopy').addEventListener('click', copyTable);
+  document.getElementById('btnPrint').addEventListener('click', () => window.print());
+  load();
+</script>
+</body>
+</html>
