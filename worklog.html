@@ -273,7 +273,7 @@
   'use strict';
   // 조교 근무 일지 (2026-10-20 원장님) — 데이터: supabase/migrations/202610200001_work_log.sql
   var SB = 'https://bangdbhqpphqqdwcledg.supabase.co', REST = SB + '/rest/v1';
-  var LOCS = ['본원', '정리정독', '화정센터', '민초센터'];
+  var LOCS = ['본원', '정리정독', '화정센터', '민초센터', '도래울센터'];   // 도래울센터 — 202610210001
   var DOWS = ['', '월', '화', '수', '목', '금', '토', '일'];
   var $ = function(id){ return document.getElementById(id); };
   var ME = null, ROLE = { viewer: false, staff: false }, STAFF = [], SBY = {}, WAGE = {}, MEMBERS = [];
