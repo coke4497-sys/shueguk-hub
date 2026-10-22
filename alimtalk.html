@@ -585,12 +585,19 @@
     PLAN = null;
     const kind = $('kindSel').value, tpl = tplOf(kind), title = $('title').value.trim(), ws = whos();
     const e = picked() && STUS.length ? expand() : { list: [], miss: [], dup: [] };
-    const items = [], nophone = [], nocode = [];
+    const items = [], nophone = [], nocode = [], same = [], seenTo = {};
+    /* 같은 번호는 한 통만(2026-10-22 원장님 선택) — 형제가 학부모님 번호를 같이 쓰거나 학부모님1·2 칸에 같은 번호가 있으면
+     * 솔라피가 한 묶음 안의 같은 번호를 '중복 수신번호'로 보고 두 통을 다 실패시킨다(그 학부모님은 한 통도 못 받았다).
+     * 먼저 나온 학생 이름으로 한 통만 보내고, 나머지는 안내 줄에 적는다. */
     e.list.forEach(s => {
       if (!s.code){ nocode.push(s.name); return; }
       const tos = ws.map(w => ({ who: w, to: phone(s[PHONE[w]]) })).filter(t => t.to);
       if (!tos.length){ nophone.push(s.name); return; }
-      tos.forEach(t => items.push({ student: s.name, to: t.to, who: t.who, code: s.code }));
+      tos.forEach(t => {
+        if (seenTo[t.to]){ same.push(s.name + ' ' + whoLbl(t.who) + '(' + seenTo[t.to] + ' 쪽으로 한 통)'); return; }
+        seenTo[t.to] = s.name + ' ' + whoLbl(t.who);
+        items.push({ student: s.name, to: t.to, who: t.who, code: s.code });
+      });
     });
     const people = e.list.length - nophone.length - nocode.length;
     let h = '';
@@ -605,6 +612,7 @@
       if (e.miss.length) w.push('재원 명단에 없는 이름 ' + e.miss.length + '명: ' + e.miss.map(esc).join(', '));
       if (e.dup.length) w.push('동명이인이라 못 가린 이름 ' + e.dup.length + '명: ' + e.dup.map(esc).join(', '));
       if (w.length) h += '<div class="warn">이 학생들에게는 가지 않습니다 — ' + w.join('<br>') + '</div>';
+      if (same.length) h += '<div class="muted samenum">같은 번호라 한 통만 보냅니다 ' + same.length + '건 — ' + same.map(esc).join(', ') + '</div>';
     }
     $('sum').innerHTML = h;
     $('pickCount').textContent = (picked() && STUS.length) ? '학생 ' + people + '명' : '';
@@ -620,7 +628,7 @@
     else if (!ws.length) note = '받는 분을 한 명 이상 골라 주세요';
     else if (!items.length) note = picked() ? '보낼 학생이 없습니다' : '';
     else if (SCHED && !schedVal()) note = '예약 날짜·시각을 골라 주세요';
-    $('goNote').textContent = note || (items.length ? '받는 분 ' + ws.length + '명 × 학생 ' + people + '명 → ' + items.length + '건' : '');
+    $('goNote').textContent = note || (items.length ? '받는 분 ' + ws.length + '명 × 학생 ' + people + '명 → ' + items.length + '건' + (same.length ? ' (같은 번호 ' + same.length + '건은 한 통으로)' : '') : '');
     $('goBtn').disabled = !!note || !items.length || SENDING;
     if (!SENDING) $('goBtn').textContent = SCHED ? (schedVal() ? '예약하기 · ' + schedLabel(schedVal()) : '예약하기') : '알림톡 보내기';
     if (!note && items.length) PLAN = { kind, label: tpl.label, title, items, people, xv, sched: SCHED ? schedVal() : '' };
