@@ -2015,13 +2015,18 @@
     // 주소만 있는 줄은 링크 칩으로, 글 속 주소는 단계 글 안에 그대로(뒤에 붙은 설명이 끊기지 않게)
     var body = t.split('\n').map(function(x){ return /^\s*https?:\/\/\S+\s*$/.test(x) ? (urls.push(x.trim()), '') : x; }).join('\n');
     var lines = body.split('\n').map(function(x){ return x.replace(/\s+/g, ' ').trim(); }).filter(Boolean);
-    var title = lines[0] || '', rest = lines.slice(1);
+    // 제목 없이 ①부터 시작하면 모든 줄이 단계 — 제목은 첫 단계 글을 빌려 쓴다
+    var allSteps = /^[\u2460-\u2473]/.test(lines[0] || '');
+    var title = allSteps ? '' : (lines[0] || ''), rest = allSteps ? lines : lines.slice(1);
     if (!rest.length && title.length > 60){   // 한 덩어리 긴 글 — 첫 문장을 제목으로
       var m = title.match(/^(.{12,60}?[.!?。])\s+(.+)$/);
       if (m){ title = m[1]; rest = [m[2]]; }
     }
-    if (!title && urls.length) title = '링크 ' + urls.length + '개';
     var steps = rest.map(function(x){ return x.replace(/^(\d{1,2}[.)]|[-·•]|[\u2460-\u2473])\s*/, ''); }).filter(Boolean);
+    if (allSteps && steps.length) title = steps[0];
+    // 제목 줄 속 주소는 글은 그대로 두고 링크 칩으로도 모은다(카드에서 바로 누르게)
+    (title.match(/https?:\/\/\S+/g) || []).forEach(function(u){ if (urls.indexOf(u) < 0) urls.push(u); });
+    if (!title && urls.length) title = '링크 ' + urls.length + '개';
     return { title: title, steps: steps, urls: urls };
   }
   function shortUrl(u){ return u.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').slice(0, 34) + (u.replace(/^https?:\/\/(www\.)?/, '').length > 34 ? '…' : ''); }
