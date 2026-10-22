@@ -356,6 +356,22 @@ function applyFilter(rows, url){
   await pg.click('#whenNow');
   ok(!(await pg.isVisible('#schDay')) && /알림톡 보내기/.test(await pg.textContent('#goBtn')), '[바로 보내기]로 돌리면 날짜 칸 숨김');
 
+  console.log('⑫ 같은 번호는 한 통만 (2026-10-22 — 형제가 학부모님 번호를 같이 씀)');
+  STUDENTS.push({ id: 99, name: '김영희', school: '화정고', grade: '2026 고등 1학년', code: 'tok-kim2', enrolled: '재원', phone_student: '', phone_parent1: '01022220001', phone_parent2: '' });
+  await pg.goto(`http://localhost:${PORT}/alimtalk.html`);
+  await pg.waitForFunction(() => document.querySelectorAll('#clsSel option').length > 1);
+  await pg.click('#modeSeg [data-m="stu"]');
+  for (const q of ['김철수', '김영희']){ await pg.fill('#stuQ', q); await pg.press('#stuQ', 'Enter'); }
+  await pg.fill('#title', '형제 안내');
+  const s12 = await pg.textContent('#sum');
+  ok(/학생 2명/.test(s12) && /2건/.test(s12) && /같은 번호라 한 통만 보냅니다 1건 — 김영희 학부모님1\(김철수 학부모님1 쪽으로 한 통\)/.test(s12), '같은 학부모님 번호는 한 통 — ' + s12.slice(0, 120));
+  ok(/같은 번호 1건은 한 통으로/.test(await pg.textContent('#goNote')), '버튼 아래 안내');
+  sends.length = 0;
+  await pg.click('#goBtn');
+  await pg.waitForFunction(() => /보냈습니다/.test(document.getElementById('result').textContent));
+  const tos = sends[0].items.map(i => i.to);
+  ok(sends.length === 1 && tos.length === 2 && new Set(tos).size === 2 && sends[0].items.some(i => i.student === '김철수' && i.who === '학부모1'), '보낸 묶음에 같은 번호 없음 — ' + JSON.stringify(sends[0].items.map(i => i.student + i.who)));
+
   await browser.close(); server.close();
   console.log(bad ? `\n${bad}건 실패 / ${n}건` : `\n✓ ${n}건 모두 통과`);
   process.exit(bad ? 1 : 0);
