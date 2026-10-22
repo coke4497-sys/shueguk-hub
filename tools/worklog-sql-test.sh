@@ -42,6 +42,8 @@ P -f supabase/migrations/202610200004_work_early_confirm.sql >/dev/null || { ech
 P -f supabase/migrations/202610200004_work_early_confirm.sql >/dev/null && ok y y "조기퇴근 확인 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610210001_presence_dorae.sql >/dev/null || { echo "도래울센터 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610210001_presence_dorae.sql >/dev/null && ok y y "도래울센터 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610220001_messenger_home_loc.sql >/dev/null || { echo "기본 센터 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610220001_messenger_home_loc.sql >/dev/null && ok y y "기본 센터 마이그레이션 다시 실행해도 오류 없음"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin) 이수경
 K=aaaaaaaa-0000-0000-0000-00000000000b   # 박언호 대표님(parkeh, teacher)
@@ -233,6 +235,16 @@ echo "· 도래울센터 (202610210001)"
 ok "$(as $B "select (public.msg_presence_set('도래울센터', true))->>'loc'")" "도래울센터" "도래울센터로 출근할 수 있음"
 ok "$(as $B "select public.msg_presence_set('없는센터', true)" | grep -c bad_loc)" "1" "목록에 없는 센터는 거절"
 ok "$(P -tAc "insert into public.work_roster (dow, loc, slot, user_id, start_hm, end_hm) values (1, '도래울센터', 1, '$C', '16:00', '22:00') returning loc")" "도래울센터" "근무표에도 도래울센터"
+
+echo "· 기본 센터 (202610220001)"
+ok "$(as $B "select (public.msg_home_set('$B', '본원'))->>'loc'")" "본원" "선생님이 자기 기본 센터를 정함"
+ok "$(as $B "select loc from public.msg_home_loc where user_id='$B'")" "본원" "교사는 기본 센터를 읽음"
+ok "$(as $B "select public.msg_home_set('$C', '본원')" | grep -c not_allowed)" "1" "남의 기본 센터는 못 바꿈"
+ok "$(as $A "select (public.msg_home_set('$C', '화정센터'))->>'loc'")" "화정센터" "원장님은 남의 기본 센터도 정함"
+ok "$(as $B "select public.msg_home_set('$B', '없는센터')" | grep -c bad_loc)" "1" "목록 밖 센터 거절"
+as $B "select public.msg_home_set('$B', '')" >/dev/null
+ok "$(P -tAc "select count(*) from public.msg_home_loc where user_id='$B'")" "0" "빈 값이면 지움"
+ok "$(psql -q -X -tA -d $DB -c "set role anon; select count(*) from public.msg_home_loc" 2>&1 | grep -c 'permission denied')" "1" "공개 키로는 못 읽음"
 
 echo
 echo "결과: 통과 $pass · 실패 $fail"

@@ -976,6 +976,7 @@
     <div class="prow"><button class="hbtn plain" type="button" id="cxclose">닫기</button></div>
   </div>
 </div>
+<div class="presmenu" id="homeMenu" hidden role="menu" aria-label="내 기본 센터"></div>
 <div class="presmenu" id="presMenu" hidden role="menu" aria-label="출근·퇴근">
   <span class="pmt">어느 센터로 출근하나요?</span>
   <button type="button" data-loc="본원">본원</button>
@@ -2292,7 +2293,18 @@
     var r = PRES[uid];
     return r && !r.is_on && ymd(r.changed_at) === ymd(new Date().toISOString()) ? r : null;
   }
+  // 기본 센터(202610220001) — 일정이 없는 날도 그 센터 카드에. 표가 없으면 빈 채로
+  var HOME = {}, homeOk = false;
+  function loadHome(){
+    return api('/msg_home_loc?select=user_id,loc').then(function(rows){
+      var next = {}; (rows || []).forEach(function(r){ next[r.user_id] = r.loc; });
+      var ch = !homeOk || JSON.stringify(next) !== JSON.stringify(HOME);
+      HOME = next; homeOk = true;
+      if (ch){ renderPres(); if (ready) renderBoard(); }
+    }).catch(function(){});
+  }
   function loadPres(){
+    loadHome();
     return api('/msg_presence?select=user_id,name,loc,is_on,changed_at').then(function(rows){
       var next = {}; (rows || []).forEach(function(r){ next[r.user_id] = r; });
       // 날짜가 바뀌어도 다시 그린다 — 자정 넘어 열어 둔 화면에서 어제 출근이 ON으로 남지 않게 (Codex 검토)
@@ -2329,14 +2341,15 @@
     // 조교는 근무표, 선생님·원장님은 수업 위치 (선생님이 근무표에 들어 있어도 수업 기준 — Codex 검토)
     var les = lessonsOf(m.id), sh = m.role === 'assistant' && SHIFT.day === todayYmd() && SHIFT.by[m.id], ls = m.role === 'assistant' ? null : (les.filter(function(l){ return ttLoc(l.loc); })[0] || les[0]);
     var sched = sh ? { loc: sh.loc, min: minsOf24(sh.start_hm) } : (ls ? { loc: ttLoc(ls.loc), min: minsOf(ls.start) } : null);
-    var on = presLoc(m.id), left = presLeft(m.id);
+    var on = presLoc(m.id), left = presLeft(m.id), home = HOME[m.id] || '';
     var st = on ? 'on' : left ? 'off' : 'before';
-    var loc = on || (sched && sched.loc) || (left && left.loc) || '';
-    if (!on && !sched && !left && m.id !== ME.id) return null;
+    // 기본 센터(본인이 고름): 선생님·원장님은 수업 위치보다 앞, 조교는 오늘 근무표 다음 (2026-10-22 원장님)
+    var loc = on || (m.role === 'assistant' ? (sched && sched.loc) || home : home || (sched && sched.loc)) || (left && left.loc) || '';
+    if (!on && !sched && !left && !home && m.id !== ME.id) return null;
     var sub = st === 'on' ? (onSince(m.id) ? hm(onSince(m.id)) + ' 출근 · ' : '') + '근무 중'
       : st === 'off' ? hm(left.changed_at) + ' 퇴근'
-      : sched ? mm12(sched.min) + ' 출근 예정' : '오늘 일정 없음';
-    return { m: m, st: st, loc: loc, sub: sub, min: sched ? sched.min : 9999 };
+      : sched ? mm12(sched.min) + ' 출근 예정' : home ? '출근 전' : '오늘 일정 없음';
+    return { m: m, st: st, loc: loc, sub: sub, min: sched ? sched.min : 9999, shift: !!sh };
   }
   function minsOf24(t){ var p = String(t || '').split(':'); return (parseInt(p[0], 10) || 0) * 60 + (parseInt(p[1], 10) || 0); }
   function staffModel(){
@@ -2365,7 +2378,7 @@
         + list.map(function(x){
           var mine = x.m.id === ME.id;
           return '<div class="pr' + (mine ? ' me0' : '') + '" data-uid="' + esc(x.m.id) + '"><div class="prb"><span class="prn r-' + roleCls(x.m.role) + (x.st === 'on' ? ' on' : '') + '">' + esc(x.m.name) + '</span>'
-            + '<span class="prs ' + x.st + '">' + esc(x.sub) + (mine && presOk ? ' <button class="chloc" type="button" data-chloc="1">' + (x.st === 'on' ? '센터 바꾸기' : '센터 고르기') + '</button>' : '') + '</span></div>' + swHtml(x) + '</div>';
+            + '<span class="prs ' + x.st + '">' + esc(x.sub) + (mine && presOk && (x.st === 'on' || !x.shift) ? ' <button class="chloc" type="button" data-chloc="1">' + (x.st === 'on' ? '센터 바꾸기' : '내 센터 바꾸기') + '</button>' : '') + '</span></div>' + swHtml(x) + '</div>';
         }).join('') + '</div>';
     }).join('');
     if (!md0.all.length) html = '<div class="snone">오늘 근무표·시간표에 있는 사람이 없습니다.</div>';
@@ -2432,13 +2445,39 @@
     } else m.hidden = true;
   }
   document.addEventListener('click', function(e){ if (!$('presMenu').hidden && !e.target.closest('#presMenu') && !e.target.closest('[data-sw],[data-chloc]')) presMenu(false); });
+  // 내 기본 센터 고르기(202610220001) — 출근 전에는 [내 센터 바꾸기]로 카드를 옮기고, 스위치를 켜면 그 센터로 출근
+  function homeMenu(open, anchor){
+    var m = $('homeMenu');
+    if (!open){ m.hidden = true; return; }
+    var cur = HOME[ME.id] || '';
+    m.innerHTML = '<span class="pmt">내 기본 센터 — 일정이 없는 날도 이 센터에 보여요</span>'
+      + PRES_LOCS.map(function(l){ return '<button type="button" data-home="' + l + '"' + (l === cur ? ' class="cur"' : '') + '>' + esc(locLbl(l)) + '</button>'; }).join('')
+      + (cur ? '<button type="button" class="out" data-home="">기본 센터 지우기</button>' : '');
+    var r = (anchor || $('staffList')).getBoundingClientRect();
+    m.hidden = false;
+    var w = m.offsetWidth, h = m.offsetHeight;
+    m.style.right = 'auto';
+    m.style.left = Math.max(8, Math.min(window.innerWidth - w - 8, r.right - w)) + 'px';
+    m.style.top = (r.bottom + 6 + h > window.innerHeight - 8 ? Math.max(8, r.top - h - 6) : r.bottom + 6) + 'px';
+  }
+  document.addEventListener('click', function(e){ if (!$('homeMenu').hidden && !e.target.closest('#homeMenu') && !e.target.closest('[data-chloc]')) homeMenu(false); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('homeMenu').hidden) homeMenu(false); });
+  $('homeMenu').addEventListener('click', function(e){
+    var b = e.target.closest('[data-home]'); if (!b) return;
+    var loc = b.dataset.home; homeMenu(false);
+    rpc('msg_home_set', { p_user: ME.id, p_loc: loc }).then(function(){
+      if (loc) HOME[ME.id] = loc; else delete HOME[ME.id];
+      renderPres(); renderBoard();
+      status(loc ? '기본 센터를 ' + locLbl(loc) + '로 정했습니다.' : '기본 센터를 지웠습니다.', 3000);
+    }).catch(function(err){ status(missingTable(err) || /PGRST202/.test(String(err && err.message) + JSON.stringify((err && err.data) || '')) ? '기본 센터는 데이터베이스 적용(202610220001) 뒤에 쓸 수 있습니다.' : errText(err), 6000); });
+  });
   document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('presMenu').hidden) presMenu(false); });
   // 내 줄의 스위치 — 출근 전이면 그 줄 센터로 출근(센터를 모르면 고르기), 출근 중이면 퇴근
   $('staffList').addEventListener('click', function(e){
     var b = e.target.closest('[data-sw="me"],[data-chloc]'); if (!b) return;
     e.stopPropagation();
     var row = b.closest('.pr'), cc = b.closest('.cc'), loc = cc ? cc.dataset.loc : '';
-    if (b.dataset.chloc){ presMenu($('presMenu').hidden, b); return; }
+    if (b.dataset.chloc){ if (presLoc(ME.id)) presMenu($('presMenu').hidden, b); else homeMenu($('homeMenu').hidden, b); return; }
     if (presLoc(ME.id)) return presSet('', false, b);
     if (loc && PRES_LOCS.indexOf(loc) >= 0) return presSet(loc, true, b);
     presMenu(true, b);
