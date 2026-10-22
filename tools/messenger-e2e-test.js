@@ -1338,14 +1338,15 @@ async function showTask(pg, sel){
     TT.push({ book: '내신', class_id: 'n201', name: '고1 민트반', day: dn2, start_time: '3:00', end_time: '4:30', teacher: '지원', location: '민트초코', roster: '가' });
     TTP.length = 0; TTP.push({ week_wednesday: (y => { const d = new Date(y + 'T00:00:00Z'), k = d.getUTCDay(); d.setUTCDate(d.getUTCDate() + (k === 1 || k === 2 ? 3 - k : -((k - 3 + 7) % 7))); return d.toISOString().slice(0, 10); })(today2), book: '내신' });
     const kk = addMsg(BOSS, '[컴퓨터에서] 카카오채널 연결 — ① 안내 먼저 확인 ② 스킬 추가: 주소 https://x.example/f?k=(토큰 내용) ③ 폴백 블록에서 배포 @고희주', [], ts());
-    const lnk = addMsg(BOSS, '모의고사 데이터는 https://coke4497-sys.github.io/shueguk-hub/smock.html. 기타 https://x.example/z', [], ts());
+    const lnk = addMsg(BOSS, '모의고사 데이터는 https://coke4497-sys.github.io/shueguk-hub/smock.html. 기타 https://x.example/z 위키(https://x.example/wiki/Foo_(bar))', [], ts());
     const kkT = addTask(kk, ME, '[컴퓨터에서] 카카오채널 연결 — ① 안내 먼저 확인 ② 스킬 추가: 주소 https://x.example/f?k=(토큰 내용) ③ 폴백 블록에서 배포');
     ({ ctx, page } = await open());
     await page.waitForSelector('#msgs .m');
     ok(await page.locator('#board').isHidden() && await page.locator('#chat').isVisible(), '컴퓨터도 채팅과 업무를 나란히 두지 않음(처음은 채팅)');
     { const pl = page.locator('#m' + lnk.id + ' a.plink');
       ok(await pl.count() === 1 && (await pl.textContent()).includes('교육청·평가원 모의고사 리포트 바로가기') && (await pl.getAttribute('href')) === 'https://coke4497-sys.github.io/shueguk-hub/smock.html', '티쳐스 메뉴 주소 = 이름 붙은 바로가기 알약(끝 마침표는 밖으로)');
-      ok(await page.locator('#m' + lnk.id + ' a:not(.plink)[href="https://x.example/z"]').count() === 1, '다른 주소는 그대로 링크'); }
+      ok(await page.locator('#m' + lnk.id + ' a:not(.plink)[href="https://x.example/z"]').count() === 1, '다른 주소는 그대로 링크');
+      ok(await page.locator('#m' + lnk.id + ' a[href="https://x.example/wiki/Foo_(bar)"]').count() === 1, '주소 안 괄호는 짝이 맞으면 남김(Codex 검토)'); }
     ok((await page.locator('#vtitle').textContent()) === '채팅' && await page.locator('#tabStaff').isHidden(), '머리 제목 \'채팅\' · 컴퓨터에는 오늘의 슈국 탭이 없음');
     await page.click('#tabBoard');
     ok(await page.locator('#board').isVisible() && await page.locator('#chat').isHidden() && (await page.locator('#vtitle').textContent()) === '업무 진행 상황', '메뉴를 누르면 업무 진행 상황으로');

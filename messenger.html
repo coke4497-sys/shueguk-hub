@@ -1378,7 +1378,12 @@
     var sp = tagSplit(body);
     var h = esc(sp.rest);
     h = h.replace(/https?:\/\/[^\s<]+/g, function(u){
-      var tail = (u.match(/[.,!?)\]]+$/) || [''])[0]; u = u.slice(0, u.length - tail.length);
+      // 문장 끝 부호만 떼고, 닫는 괄호는 주소 안의 여는 괄호와 짝이 안 맞을 때만 뗀다(위키 'Foo_(bar)' 같은 주소 보존 — Codex 검토)
+      var tail = '';
+      for (;;){
+        var c = u.slice(-1), op = c === ')' ? '(' : c === ']' ? '[' : '';
+        if (/[.,!?]/.test(c) || (op && u.split(op).length - 1 < u.split(c).length - 1)){ tail = c + tail; u = u.slice(0, -1); } else break;
+      }
       var pm = u.match(/^https?:\/\/coke4497-sys\.github\.io\/(shueguk-[\w-]+\/[\w-]+\.html)(?:[?#]|$)/), lbl = pm && PAGE_LINKS[pm[1]];
       return (lbl ? '<a class="plink" href="' + u + '" target="_blank" rel="noopener" title="' + u + '">' + esc(lbl) + ' 바로가기 <span aria-hidden="true">↗</span></a>'
         : '<a href="' + u + '" target="_blank" rel="noopener">' + u + '</a>') + tail;
