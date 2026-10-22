@@ -616,6 +616,7 @@
   .snone{font-size:13px;color:var(--mut);padding:6px 4px;}
   .cc{background:var(--s2);border-radius:14px;padding:12px 6px 6px;}
   .cch{display:flex;align-items:center;gap:8px;padding:0 8px 6px;}
+  .cnone{font-size:12px;color:var(--mut2);padding:2px 10px 6px;}
   .csq{width:10px;height:10px;border-radius:3px;flex:none;}
   .ccn{font-family:var(--fB);font-weight:700;font-size:15px;color:var(--ink);}
   .ccc{margin-left:auto;font-family:var(--fB);font-weight:700;font-size:12px;border-radius:999px;padding:2px 9px;}
@@ -762,6 +763,12 @@
   .bb .ack{background:var(--dsage);}
   .ack.sm{background:var(--pSage);color:var(--pSageI);font-family:var(--fB);font-weight:700;}
   .cxb svg{fill:var(--sub);}
+  .cxt{max-height:46vh;overflow-y:auto;padding:12px 14px;font-size:14px;line-height:1.6;color:var(--ink);display:flex;flex-direction:column;gap:8px;}
+  .cxh{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 6px;}
+  .cxh b{font-weight:700;overflow-wrap:anywhere;}
+  .cxwho{font-size:12px;color:var(--mut);}
+  .cxt .steps li{font-size:14px;}
+  .ilk{color:var(--dsage);text-decoration:underline;text-underline-offset:2px;word-break:break-all;}
   .presmenu{z-index:60;}
   .presmenu button{font-family:var(--fB);}
   .presmenu button.cur{background:var(--pSage);color:var(--pSageI);}
@@ -1709,6 +1716,9 @@
     if (btn){ btn.disabled = true; heartBurst(btn); }
     rpc('msg_task_seen', { p_id: id }).then(function(row){
       TASKS.delete(id); addTasks([row]); renderMsgs('keep'); renderBoard();
+      // 확인한 뒤 바로 처리할 수 있게 업무 체크리스트 창(완료·진행 중·미루기·넘기기·취소)을 연다 — 확인만 하면 끝인 일은 열지 않음 (2026-10-22 원장님)
+      var t = TASKS.get(id);
+      if (t && canManage(t)) setTimeout(function(){ cxOpen(id); }, REDUCED() ? 0 : 450);
     }).catch(function(e){ if (btn) btn.disabled = false; status(/msg_task_seen|PGRST202/.test(String(e.message) + JSON.stringify(e.data || '')) ? '확인 기능 준비가 아직 끝나지 않았습니다(마이그레이션 202610190005).' : errText(e)); });
   }
   function delMsg(id){
@@ -2000,8 +2010,10 @@
   function isTeacherRole(r){ return r !== 'assistant'; }
   // 할 일 글 → 제목 한 줄 + 펼칠 내용(번호 단계·링크 칩)
   function splitTask(text){
-    var t = String(text || ''), urls = [];
-    var body = t.replace(/https?:\/\/[^\s<]+/g, function(u){ urls.push(u); return ''; });
+    // ①②③ 처럼 한 줄에 이어 쓴 단계도 줄로 나눈다(2026-10-22 원장님 "이 내용이 안보이니까 적용하기가 어려워요")
+    var t = String(text || '').replace(/\s*([\u2460-\u2473])\s*/g, '\n$1 '), urls = [];
+    // 주소만 있는 줄은 링크 칩으로, 글 속 주소는 단계 글 안에 그대로(뒤에 붙은 설명이 끊기지 않게)
+    var body = t.split('\n').map(function(x){ return /^\s*https?:\/\/\S+\s*$/.test(x) ? (urls.push(x.trim()), '') : x; }).join('\n');
     var lines = body.split('\n').map(function(x){ return x.replace(/\s+/g, ' ').trim(); }).filter(Boolean);
     var title = lines[0] || '', rest = lines.slice(1);
     if (!rest.length && title.length > 60){   // 한 덩어리 긴 글 — 첫 문장을 제목으로
@@ -2009,13 +2021,18 @@
       if (m){ title = m[1]; rest = [m[2]]; }
     }
     if (!title && urls.length) title = '링크 ' + urls.length + '개';
-    var steps = rest.map(function(x){ return x.replace(/^(\d{1,2}[.)]|[-·•])\s*/, ''); }).filter(Boolean);
+    var steps = rest.map(function(x){ return x.replace(/^(\d{1,2}[.)]|[-·•]|[\u2460-\u2473])\s*/, ''); }).filter(Boolean);
     return { title: title, steps: steps, urls: urls };
   }
   function shortUrl(u){ return u.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '').slice(0, 34) + (u.replace(/^https?:\/\/(www\.)?/, '').length > 34 ? '…' : ''); }
+  // 단계 글 — 글 속 주소는 전체를 링크로(줄바꿈 허용)
+  function linkText(x){ return esc(x).replace(/https?:\/\/[^\s<&]+(?:&amp;[^\s<&]+)*/g, function(u){ var raw = u.replace(/&amp;/g, '&'); return '<a class="ilk" href="' + esc(raw) + '" target="_blank" rel="noopener">' + u + '</a>'; }); }
+  function stepsHtml(sp){
+    return sp.steps.length > 1 ? '<ol class="steps">' + sp.steps.map(function(x, i){ return '<li><b>' + (i + 1) + '</b><span>' + linkText(x) + '</span></li>'; }).join('') + '</ol>'
+      : sp.steps.length ? '<p class="step1">' + linkText(sp.steps[0]) + '</p>' : '';
+  }
   function detailHtml(sp, t){
-    var h = sp.steps.length > 1 ? '<ol class="steps">' + sp.steps.map(function(x, i){ return '<li><b>' + (i + 1) + '</b><span>' + esc(x) + '</span></li>'; }).join('') + '</ol>'
-      : sp.steps.length ? '<p class="step1">' + esc(sp.steps[0]) + '</p>' : '';
+    var h = stepsHtml(sp);
     if (sp.urls.length) h += '<div class="links">' + sp.urls.map(function(u){ return '<a class="lk" href="' + esc(u) + '" target="_blank" rel="noopener" title="' + esc(u) + '"><span aria-hidden="true">↗</span> ' + esc(shortUrl(u)) + '</a>'; }).join('') + '</div>';
     return '<div class="det">' + h + '<button class="gomsg" type="button" data-go="' + t.message_id + '">대화에서 보기</button></div>';
   }
@@ -2147,7 +2164,10 @@
   function cxOpen(id){
     var t = TASKS.get(id); if (!t) return;
     cxId = id;
-    $('cxtask').innerHTML = esc(t.assignee_name) + ' · ' + tagPill(tagSplit(t.text).tag) + esc(tagSplit(t.text).rest);
+    // 관리 창에서도 할 일을 읽기 쉽게 — 맡은 사람 · 제목, 아래 번호 단계·링크 (2026-10-22 원장님)
+    var csp = splitTask(tagSplit(t.text).rest);
+    $('cxtask').innerHTML = '<div class="cxh"><span class="cxwho">' + esc(t.assignee_name) + '</span>' + tagPill(tagSplit(t.text).tag) + '<b>' + linkText(csp.title || '메시지 확인') + '</b></div>' + stepsHtml(csp)
+      + (csp.urls.length ? '<div class="links">' + csp.urls.map(function(u){ return '<a class="ilk" href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(u) + '</a>'; }).join('') + '</div>' : '');
     $('cxin').value = ''; $('cxok').disabled = false; $('dnok').disabled = false; $('dfok').disabled = false; $('dgok').disabled = false;
     $('dfNote').value = t.due_note || ''; $('dgNote').value = '';
     if (t.due_at){ var d = kst(t.due_at).toISOString(); dfSet(d.slice(0, 10), d.slice(11, 16)); } else dfSet(addDayKst(1), '15:00');
@@ -2355,7 +2375,8 @@
   function staffModel(){
     var by = {}, all = [];
     MEMBERS.forEach(function(m){ var x = staffOf(m); if (!x) return; all.push(x); (by[x.loc] = by[x.loc] || []).push(x); });
-    var order = (by[''] ? [''] : []).concat(PRES_LOCS.filter(function(l){ return by[l]; }), Object.keys(by).filter(function(l){ return l && PRES_LOCS.indexOf(l) < 0; }));
+    // 다섯 센터는 사람이 없어도 늘 보인다(2026-10-22 원장님 "정리정독 센터와 도래울 센터는 어디로 갔나요?")
+    var order = (by[''] ? [''] : []).concat(PRES_LOCS, Object.keys(by).filter(function(l){ return l && PRES_LOCS.indexOf(l) < 0; }));
     return { all: all, by: by, order: order, byUid: all.reduce(function(o, x){ o[x.m.id] = x; return o; }, {}) };
   }
   var SW_LAST = '';
@@ -2371,7 +2392,7 @@
     var md0 = staffModel(), onN = md0.all.filter(function(x){ return x.st === 'on'; }).length;
     var grp = function(x){ return x.m.role === 'assistant' ? 1 : 0; };
     var html = md0.order.map(function(l){
-      var list = md0.by[l].sort(function(a, b){ return grp(a) - grp(b) || a.min - b.min || a.m.name.localeCompare(b.m.name, 'ko'); });
+      var list = (md0.by[l] || []).sort(function(a, b){ return grp(a) - grp(b) || a.min - b.min || a.m.name.localeCompare(b.m.name, 'ko'); });
       var tn = LOC_TONE[l] || ['#EEF3F1', '#697671'], n = list.filter(function(x){ return x.st === 'on'; }).length;
       return '<div class="cc" data-loc="' + esc(l) + '"><div class="cch"><i class="csq" style="background:' + tn[1] + '"></i><span class="ccn">' + esc(l ? locLbl(l) : (list.length === 1 && list[0].m.id === ME.id ? '내 출근' : '센터 미정')) + '</span>'
         + (l ? '<span class="ccc" style="background:' + tn[0] + ';color:' + tn[1] + '">출근 ' + n + ' / ' + list.length + '</span>' : '') + '</div>'
@@ -2379,9 +2400,8 @@
           var mine = x.m.id === ME.id;
           return '<div class="pr' + (mine ? ' me0' : '') + '" data-uid="' + esc(x.m.id) + '"><div class="prb"><span class="prn r-' + roleCls(x.m.role) + (x.st === 'on' ? ' on' : '') + '">' + esc(x.m.name) + '</span>'
             + '<span class="prs ' + x.st + '">' + esc(x.sub) + (mine && presOk && (x.st === 'on' || !x.shift) ? ' <button class="chloc" type="button" data-chloc="1">' + (x.st === 'on' ? '센터 바꾸기' : '내 센터 바꾸기') + '</button>' : '') + '</span></div>' + swHtml(x) + '</div>';
-        }).join('') + '</div>';
+        }).join('') + (list.length ? '' : '<div class="cnone">오늘 이 센터에 일정이 있는 사람이 없습니다.</div>') + '</div>';
     }).join('');
-    if (!md0.all.length) html = '<div class="snone">오늘 근무표·시간표에 있는 사람이 없습니다.</div>';
     if (html !== SW_LAST){ $('staffList').innerHTML = html; SW_LAST = html; }
     var pl = $('presListBtn'); pl.hidden = !presOk; pl.textContent = '출근 ' + onN + ' / ' + md0.all.length;
     var mine = presLoc(ME.id);
