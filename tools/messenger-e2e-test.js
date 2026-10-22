@@ -39,7 +39,7 @@ const ts = () => new Date(Date.now() + (clock++)).toISOString();
 const MSGS = [], TASKS = [], OBJECTS = {}, calls = [], PUSHSUBS = {}, PRESENCE = {}, PLOGS = [], READS = {};
 let noReads = false;
 let noPres = false, workClip = false, workAsk = false, workEarly = false;
-const TT = [], TTP = [], TTLOG = [], NOTES = [], SHIFTS = [];
+const TT = [], TTP = [], TTLOG = [], NOTES = [], SHIFTS = [], HOMES = {};
 let failTT = false;
 const BOT = { tick: { msgs: [], summary: false } };
 const STUDENTS = [
@@ -134,7 +134,14 @@ function autoTab(pg){
 }
 
 // 출근·퇴근 — 오늘의 슈국의 내 줄(2026-10-21 리디자인)
-async function presIn(pg, loc){ await pg.click('#staffList [data-chloc]'); await pg.click('#presMenu [data-loc="' + loc + '"]'); }
+async function presIn(pg, loc){
+  const on = await pg.evaluate(() => !!document.querySelector('#staffList [data-sw="me"].on'));
+  await pg.click('#staffList [data-chloc]');
+  if (on) return pg.click('#presMenu [data-loc="' + loc + '"]');
+  await pg.click('#homeMenu [data-home="' + loc + '"]');   // 출근 전 — 내 기본 센터를 고르고 스위치로 출근(202610220001)
+  await pg.waitForFunction(l => { const r = document.querySelector('#staffList [data-sw="me"]'); return r && r.closest('.cc').dataset.loc === l; }, loc);
+  await pg.click('#staffList [data-sw="me"]');
+}
 async function presOut(pg){ await pg.click('#staffList [data-sw="me"]'); }
 function myLocIs(loc){ const sw = document.querySelector('#staffList [data-sw="me"]'); if (!sw) return false; const on = sw.classList.contains('on'); return loc ? on && sw.closest('.cc').dataset.loc === loc : !on; }
 // 업무 목록은 고른 사람만 보인다(2026-10-21 화면 개선안) — 그 할 일의 사람 칩을 먼저 누른다
@@ -190,6 +197,8 @@ async function showTask(pg, sel){
         return json(m);
       }
       if (p === '/rest/v1/msg_presence') return noPres ? json({ code: 'PGRST205', message: 'Could not find the table' }, 404) : json(Object.values(PRESENCE));
+      if (p === '/rest/v1/msg_home_loc') return json(Object.keys(HOMES).map(k => ({ user_id: k, loc: HOMES[k] })));
+      if (p === '/rest/v1/rpc/msg_home_set'){ const b = JSON.parse(req.postData()); calls.push(['home', b]); if (b.p_loc) HOMES[b.p_user] = b.p_loc; else delete HOMES[b.p_user]; return json({ user_id: b.p_user, loc: b.p_loc }); }
       if (p === '/rest/v1/rpc/work_ensure'){ calls.push(['ensure', JSON.parse(req.postData())]); return json(null, 204); }
       if (p === '/rest/v1/work_shifts') return json(filterRows(SHIFTS, u));
       if (p === '/rest/v1/msg_presence_log') return json(filterRows(PLOGS, u).sort((a, b) => a.at < b.at ? -1 : 1));
@@ -813,8 +822,8 @@ async function showTask(pg, sel){
   ok(pres0.includes('본원') && pres0.includes('이수경') && !pres0.includes('화정센터'), '오늘의 슈국에 센터별 출근자 (어제 출근은 OFF — 목록에 없음)');
   ok((await page.locator('#presListBtn').textContent()) === '출근 1 / 2', '출근 인원 (' + (await page.locator('#presListBtn').textContent()) + ')');
   ok(await page.locator('.pc[data-person="' + EUNJI + '"] .psub').textContent() === '오늘 일정 없음', '업무 카드 머리에 \'오늘 일정 없음\'');
-  await page.click('#staffList [data-chloc]');
-  ok(await page.locator('#presMenu').isVisible() && await page.locator('#presMenu [data-out]').isHidden(), '센터 고르기 창 (출근 전엔 퇴근 없음)');
+  await page.click('#staffList [data-sw="me"]');
+  ok(await page.locator('#presMenu').isVisible() && await page.locator('#presMenu [data-out]').isHidden(), '센터를 모를 때 스위치 → 센터 고르기 창 (출근 전엔 퇴근 없음)');
   await page.click('#presMenu [data-loc="화정센터"]');
   await page.waitForFunction(myLocIs, '화정센터');
   const pc = calls.filter(c => c[0] === 'pres').pop();
@@ -1358,6 +1367,11 @@ async function showTask(pg, sel){
     await page.locator('#staffList [data-sw="me"]').click();
     await page.waitForFunction(() => document.querySelector('#staffList [data-sw="me"]') && !document.querySelector('#staffList [data-sw="me"]').classList.contains('on'));
     ok(calls.filter(c => c[0] === 'pres').pop()[1].p_on === false && (await page.locator('#staffList .pr[data-uid="' + ME + '"] .prs').textContent()).includes('퇴근'), '한 번 더 누르면 퇴근 — \'hh:mm 퇴근\'');
+    // 기본 센터(202610220001) — 일정 없는 날도 그 센터에, 출근 전에는 [내 센터 바꾸기]
+    HOMES[BOSS] = '화정센터';
+    await page.waitForFunction(id => document.querySelector('#staffList .cc[data-loc="화정센터"] .pr[data-uid="' + id + '"]'), BOSS, { timeout: 8000 }).catch(() => {});
+    ok((await page.locator('#staffList .pr[data-uid="' + BOSS + '"] .prs').textContent().catch(() => '')) === '출근 전', '기본 센터만 있는 사람도 그 센터에 \'출근 전\'으로');
+    ok(await page.locator('#staffList .pr[data-uid="' + ME + '"] [data-chloc]').count() === 0, '오늘 근무표가 있는 조교는 출근 전 [내 센터 바꾸기] 없음(근무표 센터)');
     if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'redesign-pc-chat.png') }); await page.click('#tabBoard'); await page.screenshot({ path: path.join(process.env.SHOT, 'redesign-pc-board.png') }); }
     await ctx.close();
     // 휴대폰 — 위 탭 세 개
