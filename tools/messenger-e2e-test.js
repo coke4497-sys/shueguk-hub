@@ -694,7 +694,7 @@ async function showTask(pg, sel){
   ok(tkTxt.includes('확인 '), '표시가 \'확인 hh:mm\'로 (' + tkTxt + ')');
   await page.waitForSelector('#cxback:not([hidden])', { timeout: 3000 }).catch(() => {});
   const cxm = (await page.locator('#cxmodes button:visible').allTextContents()).join(',');
-  ok(await page.locator('#cxback').isVisible() && /완료/.test(cxm) && /진행 중/.test(cxm) && /미루기/.test(cxm) && /넘기기/.test(cxm) && /취소/.test(cxm), '[확인했습니다]를 누르면 업무 체크리스트 창(완료·진행 중·미루기·넘기기·취소) (' + cxm + ')');
+  ok(await page.locator('#cxback').isVisible() && /완료/.test(cxm) && /미루기/.test(cxm) && /넘기기/.test(cxm) && /취소/.test(cxm), '[확인했습니다]를 누르면 업무 체크리스트 창(완료·미루기·넘기기·취소 — 진행 중은 열이 있는 DB에서) (' + cxm + ')');
   await page.click('#cxclose');
   await m1Ack.click();
   await page.waitForFunction(id => !document.querySelector('.pc [data-ack="' + id + '"]'), TASKS.find(x => x.message_id === m1.id).id);
