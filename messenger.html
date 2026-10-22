@@ -839,6 +839,9 @@
   }
   @media (prefers-reduced-motion:reduce){.hrt.beat svg,.burst i{animation:none;}}
   @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto !important;}}
+  /* 티쳐스 메뉴 바로가기 알약 */
+  .bt a.plink{display:inline-flex;align-items:center;gap:4px;margin:4px 2px;padding:5px 12px;border-radius:999px;background:#EDE4F4;color:#5A4A6A;font-size:13.5px;text-decoration:none;white-space:nowrap;vertical-align:middle}
+  .bt a.plink:hover{background:#E3D7EE}
 </style>
 </head>
 <body data-tab="chat">
@@ -1361,10 +1364,25 @@
     else set('warn', '학생 이름으로 담당 선생님을 찾지 못했습니다. 학생 이름을 쓰거나 @이름으로 불러 주십시오.');
   }
 
+  // 티쳐스 메뉴 주소는 이름 붙은 바로가기 알약으로(2026-10-22 원장님 "학습관리의 평가원 모의고사 메뉴의 바로가기")
+  var PAGE_LINKS = {
+    'shueguk-hub/smock.html': '교육청·평가원 모의고사 리포트', 'shueguk-hub/study.html': '학습 관리', 'shueguk-hub/ops.html': '슈국 운영',
+    'shueguk-hub/index.html': '티쳐스', 'shueguk-hub/voca.html': '어휘 테스트', 'shueguk-hub/gramma.html': '문법 테스트',
+    'shueguk-hub/hwork.html': 'H WORK', 'shueguk-hub/review.html': '복습 영상', 'shueguk-hub/weekend.html': '주말 실전모의고사',
+    'shueguk-hub/report.html': '지필고사 리포트', 'shueguk-hub/clinic.html': '클리닉', 'shueguk-hub/alimtalk.html': '알림톡',
+    'shueguk-hub/sessions.html': '월별 수업 회차', 'shueguk-hub/staff.html': '강사 관리', 'shueguk-hub/worklog.html': '조교 근무 일지',
+    'shueguk-report/timetable.html': '슈국 스케쥴', 'shueguk-report/superstar.html': '슈퍼스타 관리', 'shueguk-report/notice.html': '공지 보내기',
+    'shueguk-report/classlog.html': '수업 기록 보기', 'shueguk-report/naeshin.html': '내신대비 피드백'
+  };
   function bodyHtml(body){
     var sp = tagSplit(body);
     var h = esc(sp.rest);
-    h = h.replace(/https?:\/\/[^\s<]+/g, function(u){ return '<a href="' + u + '" target="_blank" rel="noopener">' + u + '</a>'; });
+    h = h.replace(/https?:\/\/[^\s<]+/g, function(u){
+      var tail = (u.match(/[.,!?)\]]+$/) || [''])[0]; u = u.slice(0, u.length - tail.length);
+      var pm = u.match(/^https?:\/\/coke4497-sys\.github\.io\/(shueguk-[\w-]+\/[\w-]+\.html)(?:[?#]|$)/), lbl = pm && PAGE_LINKS[pm[1]];
+      return (lbl ? '<a class="plink" href="' + u + '" target="_blank" rel="noopener" title="' + u + '">' + esc(lbl) + ' 바로가기 <span aria-hidden="true">↗</span></a>'
+        : '<a href="' + u + '" target="_blank" rel="noopener">' + u + '</a>') + tail;
+    });
     var re = mentionRe();
     if (re) h = h.replace(re, function(s){ return '<span class="at">' + s + '</span>'; });
     return tagPill(sp.tag) + h;
