@@ -697,7 +697,7 @@
   /* 입력부 */
   #composer{background:#fff;border-top:1px solid var(--ln);padding:12px 32px 18px;}
   .tg{font-family:var(--fName);font-size:14px;padding:5px 12px;}
-  button.tg.on{background:var(--dsage) !important;color:#fff !important;box-shadow:none;}
+  button.tg.on{background:var(--dsage) !important;color:#fff !important;box-shadow:none;font-weight:400;}   /* 고운돋움은 굵기 하나 */
   .tg.c1{background:var(--pSage);color:var(--pSageI);}
   .tg.c2{background:var(--pPink);color:var(--pPinkI);}
   .tg.c3{background:var(--pYel);color:var(--pYelI);}
@@ -2326,7 +2326,8 @@
   function roleGlyph(r){ return r === 'assistant' ? '조' : '티'; }
   // 오늘의 슈국 — 조교는 근무표, 선생님은 오늘 시간표의 첫 수업 위치, 그 밖에 오늘 출근·퇴근한 사람(2026-10-21 원장님 선택)
   function staffOf(m){
-    var les = lessonsOf(m.id), sh = SHIFT.day === todayYmd() && SHIFT.by[m.id], ls = les.filter(function(l){ return ttLoc(l.loc); })[0] || les[0];
+    // 조교는 근무표, 선생님·원장님은 수업 위치 (선생님이 근무표에 들어 있어도 수업 기준 — Codex 검토)
+    var les = lessonsOf(m.id), sh = m.role === 'assistant' && SHIFT.day === todayYmd() && SHIFT.by[m.id], ls = m.role === 'assistant' ? null : (les.filter(function(l){ return ttLoc(l.loc); })[0] || les[0]);
     var sched = sh ? { loc: sh.loc, min: minsOf24(sh.start_hm) } : (ls ? { loc: ttLoc(ls.loc), min: minsOf(ls.start) } : null);
     var on = presLoc(m.id), left = presLeft(m.id);
     var st = on ? 'on' : left ? 'off' : 'before';
@@ -2592,6 +2593,7 @@
   // ── 찾기 · 꼬리표로 모아 보기 (제안 1·5) — 서버에서 최근 100개까지 ─────────
   var fTag = '', fTimer = null, fSeq = 0;
   function findOpen(on){
+    if (on && document.body.dataset.tab !== 'chat') setTab('chat');   // 업무 진행·오늘의 슈국 보기에서 누르면 채팅으로 (Codex 검토)
     $('find').hidden = !on; $('findBtn').classList.toggle('on', on);
     if (on){ $('fq').focus(); } else { $('fq').value = ''; fTag = ''; drawFTags(); showResults(false); }
   }

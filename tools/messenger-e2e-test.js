@@ -1325,6 +1325,9 @@ async function showTask(pg, sel){
     ok((await page.locator('#vtitle').textContent()) === '채팅' && await page.locator('#tabStaff').isHidden(), '머리 제목 \'채팅\' · 컴퓨터에는 오늘의 슈국 탭이 없음');
     await page.click('#tabBoard');
     ok(await page.locator('#board').isVisible() && await page.locator('#chat').isHidden() && (await page.locator('#vtitle').textContent()) === '업무 진행 상황', '메뉴를 누르면 업무 진행 상황으로');
+    await page.locator('#findBtn').click();
+    ok(await page.locator('#chat').isVisible() && await page.locator('#find').isVisible() && (await page.locator('#vtitle').textContent()) === '채팅', '업무 보기에서 찾기를 누르면 채팅으로 바뀌고 찾기 칸이 열림');
+    await page.locator('#findBtn').click(); await page.click('#tabBoard');
     ok((await page.locator('#pchips .pchip').first().locator('.pcv').textContent()) === '조' && await page.locator('#pchips .pchip.r-t .pcv').first().textContent() === '티', '사람 칩에 티/조 동그라미');
     await page.click('#tabChat');
     await page.waitForFunction(() => document.querySelector('#staffList .cc[data-loc="화정센터"]') && document.querySelector('#staffList .cc[data-loc="민초센터"]'), null, { timeout: 8000 }).catch(() => {});
