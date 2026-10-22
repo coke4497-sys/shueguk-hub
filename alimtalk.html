@@ -638,20 +638,28 @@
     const ref = 'N:' + (p.sched ? p.sched.slice(0, 10) : kstYmd()) + '|' + p.title;
     const chunks = []; for (let i = 0; i < p.items.length; i += BATCH) chunks.push(p.items.slice(i, i + BATCH));
     let ok = 0, err = ''; const dup = [], bad = [];
-    const run = chunks.reduce((prev, ch) => prev.then(() => {
-      if (err) return;
-      return post({ action: 'alimSend', kind: p.kind, by: SENT_BY, schedule: p.sched || undefined,
+    /* 한 묶음 보내기 — 답이 이상하거나(구글 서버가 엉뚱한 답을 주는 때가 있다, 2026-10-22 실제로 50건은 나갔는데
+     * 'id 파라미터가 없습니다'가 돌아왔다) 연결이 끊기면 잠시 뒤 같은 묶음을 두 번까지 다시 보낸다.
+     * 서버가 같은 제목으로 이미 받은 분은 건너뛰므로(dup) 두 번 가지 않고, 다시 보낸 차례의 dup 은 앞 시도에서
+     * 나간 것이라 '보냄'으로 센다. 그래도 안 되면 그 묶음만 실패로 적고 다음 묶음으로 넘어간다(멈추지 않음). */
+    const WAIT = window.__alimRetryWait != null ? window.__alimRetryWait : 4000;
+    const sendChunk = (ch, attempt) => post({ action: 'alimSend', kind: p.kind, by: SENT_BY, schedule: p.sched || undefined,
         items: ch.map(it => ({ student: it.student, to: it.to, who: it.who, cls: '공지', date: ref, vars: Object.assign({}, p.xv, { '학생명': it.student, '제목': p.title, '접근코드': it.code }) })) })
-        .then(res => {
-          if (!res || res.result !== 'success'){ err = (res && res.message) || '오류'; return; }
-          ok += res.okCount || 0;
-          (res.sent || []).forEach(x => { const n = x.student + (x.who ? ' ' + whoLbl(x.who) : ''); if (x.dup) dup.push(n); else if (!x.ok) bad.push(n + ' (' + x.message + ')'); });
-        }).catch(() => { err = '인터넷 연결을 확인해 주세요.'; });
-    }), Promise.resolve());
+      .then(res => (res && res.result === 'success' && Array.isArray(res.sent)) ? res : Promise.reject(new Error((res && res.message) || '알 수 없는 답')))
+      .then(res => {
+        ok += res.okCount || 0;
+        (res.sent || []).forEach(x => { const n = x.student + (x.who ? ' ' + whoLbl(x.who) : '');
+          if (x.dup){ if (attempt) ok++; else dup.push(n); } else if (!x.ok) bad.push(n + ' (' + x.message + ')'); });
+      }, e => {
+        if (attempt < 2){ $('goBtn').textContent = (p.sched ? '예약하는 중…' : '보내는 중…') + ' (다시 시도)'; return new Promise(r => setTimeout(r, WAIT)).then(() => sendChunk(ch, attempt + 1)); }
+        const why = (e && e.message && e.message !== 'Failed to fetch') ? e.message : '인터넷 연결 문제';
+        err = (err ? err + ' / ' : '') + ch.length + '건 (' + why + ')';
+      });
+    const run = chunks.reduce((prev, ch) => prev.then(() => sendChunk(ch, 0)), Promise.resolve());
     run.then(() => {
       SENDING = false;
       const r = $('result'), verb = p.sched ? '예약했' : '보냈';
-      if (err){ r.className = 'result err'; r.textContent = '알림톡을 ' + (p.sched ? '예약하지' : '보내지') + ' 못했습니다: ' + err + (ok ? ' (그전 ' + ok + '건은 ' + verb + '어요)' : ''); }
+      if (err){ r.className = 'result err'; r.textContent = '알림톡 ' + ok + '건을 ' + verb + '습니다. 다만 일부를 ' + (p.sched ? '예약하지' : '보내지') + ' 못했습니다: ' + err + ' — [알림톡 보내기]를 한 번 더 누르면 이미 받은 분은 건너뛰고 나머지만 갑니다.' + (dup.length ? ' 같은 제목으로 이미 받은 ' + dup.length + '건은 건너뛰었어요.' : '') + (bad.length ? ' 실패: ' + bad.join(', ') : ''); }
       else {
         r.className = 'result ' + (bad.length ? 'err' : 'ok');
         r.textContent = (p.sched ? schedLabel(p.sched) + '에 보낼 알림톡 ' + ok + '건을 예약했습니다.' : '알림톡 ' + ok + '건을 보냈습니다.') +

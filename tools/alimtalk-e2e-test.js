@@ -41,6 +41,7 @@ const CFG = { result: 'success', ready: true, smsFallback: true, templates: {
   absent: { label: '결석 안내', ready: true, text: '', vars: [] },
   notice_sched: tpl('수업 일정 안내', true), notice_mock: tpl('주말 실전 모의고사 신청 안내', false) } };
 const sends = [], getsCalled = [], posts = [];
+const GLITCH = { n: 0, down: 0 };
 const KD = n => new Date(Date.now() + 9 * 3600e3 + n * 86400e3).toISOString().slice(0, 10);   // 한국 날짜 — 발송 내역은 최근 7일만 보인다
 const cancels = [];
 let LOG = [{ ts: KD(-1) + ' 18:00', kind: 'notice_sched', student: '김철수', who: '학부모1', to: '01022220001', cls: '공지', date: 'N:2026-09-28|지난 안내', ok: true, message: '' },
@@ -87,14 +88,16 @@ function applyFilter(rows, url){
       return json(off ? [] : applyFilter(M[tbl], url));
     }
     if (url.includes('script.google.com')){
+      if (GLITCH.down > 0 && req.method() === 'POST'){ GLITCH.down--; return route.abort(); }
       if (req.method() === 'POST'){
         const b = JSON.parse(req.postData());
         if (b.action === 'alimSend'){
           sends.push(b);
-          const sent = b.items.map(it => ({ student: it.student, who: it.who, ok: it.to !== '01011110004', dup: it.student === '고이0', message: it.to === '01011110004' ? '수신 불가' : '보냈어요' }));
+          const sent = b.items.map(it => ({ student: it.student, who: it.who, ok: it.to !== '01011110004', dup: it.student === '고이0' || LOG.some(r => r.ok && r.student === it.student && r.who === it.who && r.date === it.date), message: it.to === '01011110004' ? '수신 불가' : '보냈어요' }));
           sent.forEach((x, i) => { if (x.ok && !x.dup) LOG.unshift(b.schedule
             ? { ts: KD(0) + ' 10:0' + (i % 10), kind: b.kind, student: x.student, who: x.who, to: b.items[i].to, cls: '공지', date: b.items[i].date, ok: false, res: '예약', sched: b.schedule, groupId: 'GS9', message: '', by: b.by || '' }
             : { ts: KD(0) + ' 10:0' + (i % 10), kind: b.kind, student: x.student, who: x.who, to: b.items[i].to, cls: '공지', date: b.items[i].date, ok: true, message: '', by: b.by || '' }); });
+          if (GLITCH.n > 0){ GLITCH.n--; return json({ result: 'error', message: 'id 파라미터가 없습니다. 예: ?id=서정고3화작' }); }
           return json({ result: 'success', sent, okCount: sent.filter(x => x.ok && !x.dup).length, failCount: sent.filter(x => !x.ok).length });
         }
         if (b.action === 'alimCancel'){ cancels.push(b); let c = 0; LOG.forEach(r => { if (r.groupId === b.groupId && r.res === '예약'){ r.res = '예약 취소'; c++; } }); return json({ result: 'success', canceled: c }); }
@@ -111,6 +114,7 @@ function applyFilter(rows, url){
     return route.continue();
   });
 
+  await ctx.addInitScript(() => { window.__alimRetryWait = 50; });
   const pg = await ctx.newPage();
   pg.on('pageerror', e => { bad++; console.error('  ✗ pageerror', e.message); });
   await pg.goto(`http://localhost:${PORT}/alimtalk.html`);
@@ -195,6 +199,25 @@ function applyFilter(rows, url){
   await sleep(200);
   ok(sends.length === 2 && sends[0].items.length === 50 && sends[1].items.length === 10, 'alimSend 2번(50·10건)');
   ok(/이미 받은 1건은 건너뛰었어요/.test(await pg.textContent('#result')), '중복 건 안내');
+
+  console.log('④-2 답이 이상해도 멈추지 않음(2026-10-22) · 연결 끊김도 다시 보냄');
+  sends.length = 0; GLITCH.n = 1; GLITCH.down = 1;
+  await pg.fill('#title', '고2 안내 둘');
+  await pg.click('#goBtn');
+  for (let i = 0; i < 80 && !/건을 보냈습니다/.test(await pg.textContent('#result')); i++) await sleep(100);
+  await sleep(200);
+  const r42 = await pg.textContent('#result');
+  ok(sends.length === 3 && sends[1].items.length === 50 && sends[2].items.length === 10, '첫 묶음을 다시 보낸 뒤 둘째 묶음까지 — alimSend ' + sends.length + '번');
+  const L42 = LOG.filter(x => x.date && /고2 안내 둘/.test(x.date)), K42 = new Set(L42.map(x => x.student + '|' + x.who));
+  ok(/알림톡 \d+건을 보냈습니다/.test(r42) && !/못했습니다/.test(r42) && +r42.match(/알림톡 (\d+)건/)[1] >= L42.length, '앞 시도에서 나간 건도 보냄으로 셈 · 멈춤 없음 — ' + r42 + ' / 기록 ' + L42.length);
+  ok(L42.length > 50 && K42.size === L42.length, '같은 분에게 두 번 가지 않음 (' + L42.length + '건)');
+  sends.length = 0; GLITCH.n = 3;
+  await pg.fill('#title', '고2 안내 셋');
+  await pg.click('#goBtn');
+  for (let i = 0; i < 80 && !/습니다/.test(await pg.textContent('#result')); i++) await sleep(100);
+  await sleep(200);
+  const r43 = await pg.textContent('#result');
+  ok(sends.length === 4 && /알림톡 10건을 보냈습니다/.test(r43) && /50건 \(id 파라미터/.test(r43) && /한 번 더 누르면/.test(r43), '세 번 다 실패한 묶음만 적고 다음 묶음은 보냄 — ' + r43);
 
   console.log('⑤ 개인 · 동명이인 구분');
   sends.length = 0;
