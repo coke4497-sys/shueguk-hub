@@ -43,33 +43,65 @@
   .flow b.res{color:var(--lavInk);}
   .flow i{font-style:normal;color:var(--cap);}
 
-  .room{background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:22px 22px;}
-  .top{display:grid;grid-template-columns:1fr minmax(0,1.4fr) 1fr;gap:18px;align-items:start;}
-  .note{background:var(--paper);border-radius:6px;padding:12px 14px;box-shadow:0 2px 0 var(--line),0 6px 14px rgba(0,0,0,.06);font-size:13px;color:var(--sub);}
-  .note.t1{transform:rotate(-1.4deg);} .note.t2{transform:rotate(1.2deg);}
-  .note h3{margin:0 0 6px;font-family:"Gowun Batang",serif;font-size:15px;color:var(--ink);}
-  .steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
-  .steps li{display:flex;align-items:center;gap:8px;}
-  .steps span{width:20px;height:20px;border-radius:50%;background:var(--lav);color:var(--lavInk);display:grid;place-items:center;font-size:12px;font-family:"Do Hyeon",sans-serif;}
-  .lead{display:flex;flex-direction:column;align-items:center;gap:12px;}
-  .chalk{width:100%;background:var(--board);border:8px solid var(--wood);border-radius:6px;padding:12px 16px;color:var(--chalk);min-height:104px;}
-  .chalk small{opacity:.75;font-size:11.5px;letter-spacing:.08em;}
-  .chalk p{margin:4px 0 0;font-family:"Gowun Batang",serif;font-size:15.5px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;}
-  .desks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:22px;}
-  .desk{display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;cursor:pointer;border-radius:12px;padding:10px 4px 8px;border:0;background:transparent;color:inherit;min-width:0;}
-  .desk:hover,.desk:focus-visible{background:rgba(238,241,239,.85);outline:none;}
-  .desk.sel{background:var(--lav);}
-  /* 슈콩 조교 — 상태마다 그림이 바뀐다(일하는 중 책상 · 다시 고치는 중 불꽃 · 확인 기다림 확성기 · 완료 응원 · 쉬는 중 조교마다) */
-  .sk{width:104px;height:104px;object-fit:contain;display:block;}
+  /* ── 공유오피스 장면(2026-10-23 원장님 "교무실 분위기가 너무 썰렁 — 공유오피스 분위기로") ──
+     벽(창밖 풍경·펜던트 조명·벽시계·간판·책장) + 원목 바닥(화이트보드·팀장석·조교 책상 넷·화분·커피바) */
+  .office{padding:0;overflow:hidden;position:relative;background:#EFE6D6;}
+  .wall{position:relative;height:178px;background:linear-gradient(#F7F1E6,#F0E7D8);}
+  .wall::after{content:"";position:absolute;left:0;right:0;bottom:0;height:22px;background:repeating-linear-gradient(90deg,#E4D5BD 0 38px,#DCCBB0 38px 40px);border-top:3px solid #CDB896;}
+  .wins{position:absolute;left:21%;right:21%;top:22px;height:118px;display:flex;gap:10px;}
+  .win{flex:1;border:6px solid #FFFFFF;border-radius:6px;box-shadow:0 0 0 1px #D9CDB8;background:linear-gradient(#BFD9E4,#E3EFEE 70%);position:relative;overflow:hidden;}
+  .win svg{position:absolute;left:0;right:0;bottom:0;width:100%;height:58%;}
+  .win::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:4px;margin-left:-2px;background:#FFFFFF;z-index:1;}
+  .lamp{position:absolute;top:0;width:2px;height:46px;background:#3A4D45;z-index:2;}
+  .lamp::after{content:"";position:absolute;left:-15px;top:44px;width:32px;height:16px;border-radius:16px 16px 4px 4px;background:#3A4D45;}
+  .lamp::before{content:"";position:absolute;left:-36px;top:56px;width:74px;height:60px;border-radius:50%;background:radial-gradient(rgba(255,226,150,.55),rgba(255,226,150,0) 70%);}
+  .sign{position:absolute;left:24px;top:26px;background:#3A4D45;color:#F5EFE3;border-radius:10px;padding:8px 14px;font-family:"Do Hyeon",sans-serif;font-size:18px;line-height:1.15;box-shadow:0 3px 0 #2A3833;}
+  .sign small{display:block;font-family:"Gowun Dodum",sans-serif;font-size:10.5px;letter-spacing:.2em;color:#CFE0D9;}
+  .shelf{position:absolute;left:24px;top:96px;width:120px;}
+  .clock{position:absolute;right:28px;top:26px;width:64px;height:64px;}
+  .wplant{position:absolute;right:112px;top:70px;width:46px;}
+  .floor{position:relative;padding:18px 18px 22px;background:repeating-linear-gradient(90deg,#D8B98F 0 58px,#D1B086 58px 60px),#D8B98F;background-blend-mode:normal;}
+  .floor::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(0deg,rgba(0,0,0,.035) 0 1px,transparent 1px 30px);pointer-events:none;}
+  .front{position:relative;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:18px;align-items:end;}
+  .wb{position:relative;background:#FFFFFF;border:7px solid #C9CED0;border-radius:8px;padding:12px 16px 14px;box-shadow:0 6px 0 rgba(60,50,30,.12);min-height:150px;}
+  .wb small{font-family:"Do Hyeon",sans-serif;font-size:14px;color:#4A6FA5;}
+  .wb p{margin:4px 0 10px;font-family:"Gowun Batang",serif;font-size:16px;line-height:1.6;color:#2A332F;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  .notes{display:flex;flex-wrap:wrap;gap:8px;}
+  .pi{width:62px;height:46px;padding:5px 6px;font-family:"Do Hyeon",sans-serif;font-size:13px;line-height:1.1;color:#4A4033;box-shadow:0 2px 3px rgba(0,0,0,.12);}
+  .pi b{display:block;font-weight:400;font-size:11px;opacity:.7;}
+  .pi:nth-child(1){background:#FCEFA8;transform:rotate(-3deg);} .pi:nth-child(2){background:#F9D6CF;transform:rotate(2deg);}
+  .pi:nth-child(3){background:#D5EEDF;transform:rotate(-1deg);} .pi:nth-child(4){background:#D8E2F6;transform:rotate(3deg);}
+  .pi:nth-child(5){background:#E6DAF2;transform:rotate(-2deg);}
+  .wb .mk{position:absolute;right:14px;bottom:-10px;width:46px;height:8px;border-radius:4px;background:#4A6FA5;box-shadow:-14px 0 0 -1px #C9463F;}
+  .bossBox{position:relative;display:flex;justify-content:center;}
+  .coffee{position:absolute;right:-6px;bottom:6px;width:92px;}
+  .rug{position:relative;margin:22px 40px 0;border-radius:28px;background:#E9DCC6;box-shadow:inset 0 0 0 6px #E1D1B6,0 3px 0 rgba(80,55,25,.12);padding:12px 10px 6px;}
+  .desks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+  .desk{display:flex;flex-direction:column;align-items:center;gap:5px;position:relative;cursor:pointer;border-radius:16px;padding:12px 4px 8px;border:0;background:transparent;color:inherit;min-width:0;}
+  .desk:hover,.desk:focus-visible{background:rgba(255,255,255,.45);outline:none;}
+  .desk.sel{background:rgba(255,255,255,.7);box-shadow:0 0 0 2px var(--lavInk) inset;}
+  .slot{position:relative;width:150px;max-width:100%;height:112px;display:flex;align-items:flex-end;justify-content:center;}
+  .slot::after{content:"";position:absolute;left:22%;right:22%;bottom:-2px;height:10px;border-radius:50%;background:rgba(80,55,25,.18);}
+  .ws{position:absolute;right:-6px;bottom:0;width:70px;z-index:0;}
+  .slot.hasdesk .ws{display:none;}
+  .ws .scr{fill:#2F3B36;} .desk.on .ws .scr{fill:#3E5A51;}
+  .ws .ln{opacity:0;} .desk.on .ws .ln{opacity:.85;animation:type 1.4s steps(3) infinite;}
+  @keyframes type{50%{opacity:.2;}}
+  .sk{position:relative;z-index:1;width:104px;height:104px;object-fit:contain;display:block;}
+  .slot.hasdesk .sk{width:112px;height:112px;}
+  .desk.boss .slot{height:124px;}
   .desk.boss .sk{width:118px;height:118px;}
   .sk.on{animation:bob 1.6s ease-in-out infinite;}
   @keyframes bob{50%{transform:translateY(-3px);}}
-  .name{margin-top:0;background:var(--paper);border:2px solid var(--ink);border-radius:6px;padding:1px 10px;font-family:"Do Hyeon",sans-serif;font-size:15px;}
-  .desk.boss .name{background:var(--board);color:var(--chalk);border-color:var(--board);}
-  .state{font-size:12px;color:var(--cap);text-align:center;max-width:100%;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .bub{position:absolute;top:-2px;left:calc(50% + 34px);white-space:nowrap;background:var(--paper);border:1.5px solid var(--sage);color:var(--sage);border-radius:10px;padding:0 8px;font-family:"Do Hyeon",sans-serif;font-size:13px;}
+  .name{position:relative;z-index:1;background:#FFFFFF;border:2px solid #4A4033;border-radius:6px;padding:1px 10px;font-family:"Do Hyeon",sans-serif;font-size:15px;box-shadow:0 2px 0 rgba(74,64,51,.25);}
+  .desk.boss .name{background:#3A4D45;color:#F5EFE3;border-color:#3A4D45;}
+  .state{font-size:12px;color:#4A4033;text-align:center;max-width:100%;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .bub{position:absolute;top:0;left:calc(50% + 30px);z-index:2;white-space:nowrap;background:var(--paper);border:1.5px solid var(--sage);color:var(--sage);border-radius:10px;padding:0 8px;font-family:"Do Hyeon",sans-serif;font-size:13px;}
   .bub.wait{border-color:var(--lavInk);color:var(--lavInk);}
   .bub.work{border-color:var(--yelInk);color:var(--yelInk);}
+  .fplant{position:absolute;bottom:4px;width:58px;pointer-events:none;}
+  .fplant.l{left:-4px;} .fplant.r{right:-2px;}
+  .tip{position:relative;margin:12px 64px 0;text-align:center;font-size:12.5px;color:#5A4630;}
 
   h2.t{margin:0 0 2px;font-family:"Gowun Batang",serif;font-size:1.1rem;}
   .hint{margin:0 0 10px;color:var(--cap);font-size:13px;}
@@ -133,13 +165,14 @@
   .how b{display:block;font-family:"Gowun Batang",serif;font-size:14.5px;color:var(--ink);margin-bottom:2px;}
 
   @media (max-width:900px){
-    .top{grid-template-columns:1fr;} .top .note{display:none;}
-    .desks{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .front{grid-template-columns:1fr;} .coffee,.shelf,.wplant{display:none;}
+    .wins{left:150px;right:96px;} .rug{margin:18px 0 0;} .tip{margin:12px 4px 0;} .desks{grid-template-columns:repeat(2,minmax(0,1fr));} .fplant{display:none;}
     .how{grid-template-columns:repeat(2,minmax(0,1fr));}
     .flow{margin-left:0;}
   }
+  @media (max-width:520px){ .wall{height:150px;} .wins{left:16px;right:16px;top:74px;height:58px;} .sign{left:16px;top:14px;font-size:16px;} .clock{right:16px;top:12px;width:52px;height:52px;} .lamp{display:none;} .floor{padding:14px 10px 18px;} .slot{width:130px;} .ws{width:56px;right:-4px;} .bub{left:auto;right:2px;} .pi{width:52px;height:42px;font-size:12px;padding:4px 5px;} .notes{gap:6px;} }
   @media (max-width:480px){ .how{grid-template-columns:1fr;} .kanban{grid-template-columns:repeat(5,minmax(250px,1fr));} }
-  @media (prefers-reduced-motion:reduce){ .sk.on{animation:none;} }
+  @media (prefers-reduced-motion:reduce){ .sk.on,.desk.on .ws .ln{animation:none;} }
 </style>
 </head>
 <body>
@@ -157,20 +190,38 @@
     </header>
     <div id="warn" class="warn" hidden></div>
 
-    <section class="card room" aria-label="교무실">
-      <div class="top">
-        <div class="note t1"><h3>이렇게 움직입니다</h3>지시를 남기면 다음 순찰 때 팀장 슈콩이 가져가 조교에게 나눕니다. 학생·학부모님께 나가는 것은 언제나 원장님 확인 뒤예요.</div>
-        <div class="lead">
-          <div class="chalk"><small>오늘의 지시</small><p id="chalk">아직 지시가 없습니다. 아래에서 첫 지시를 남겨 보세요.</p></div>
-          <button class="desk boss" data-role="lead" type="button" id="leadDesk">
-            <img class="sk" id="leadImg" src="assets/shukong/sk-proud.png" alt="팀장 슈콩" width="118" height="118" />
-            <span class="name">팀장 슈콩</span>
-            <span class="state" id="leadState">자리에 있음</span>
-          </button>
-        </div>
-        <div class="note t2"><h3>업무 단계</h3><ol class="steps"><li><span>1</span>기획</li><li><span>2</span>조사</li><li><span>3</span>초안</li><li><span>4</span>검수</li><li><span>5</span>원장님 확인</li></ol></div>
+    <section class="card office" aria-label="교무실">
+      <div class="wall" aria-hidden="true">
+        <div class="sign"><small>SHUEGUK LAB</small>AI 교무실</div>
+        <div class="shelf"><svg viewBox="0 0 120 60" aria-hidden="true"><rect x="0" y="54" width="120" height="6" rx="2" fill="#B98455"/><rect x="6" y="22" width="9" height="32" fill="#7FA79A"/><rect x="16" y="28" width="8" height="26" fill="#E2B46E"/><rect x="25" y="18" width="10" height="36" fill="#B9A5CC"/><rect x="36" y="26" width="7" height="28" fill="#E59C8C"/><rect x="47" y="30" width="22" height="24" rx="3" fill="#FFFFFF" stroke="#D9CDB8"/><path d="M84 54c0-14 6-22 12-22s12 8 12 22z" fill="#7FAE8E"/><rect x="88" y="44" width="16" height="10" rx="2" fill="#C98E62"/></svg></div>
+        <div class="wins"><div class="win"><svg viewBox="0 0 120 50" preserveAspectRatio="none" aria-hidden="true"><path d="M0 50V30h10V18h12v12h6V10h14v20h8V24h10v26zM70 50V22h12V8h10v14h8v-6h10v34z" fill="#A9C3BE"/><path d="M0 50V40h20v-6h16v6h22v-4h18v4h20v-8h14v18z" fill="#93B2AC"/></svg></div><div class="win"><svg viewBox="0 0 120 50" preserveAspectRatio="none" aria-hidden="true"><path d="M0 50V30h10V18h12v12h6V10h14v20h8V24h10v26zM70 50V22h12V8h10v14h8v-6h10v34z" fill="#A9C3BE"/><path d="M0 50V40h20v-6h16v6h22v-4h18v4h20v-8h14v18z" fill="#93B2AC"/></svg></div><div class="win"><svg viewBox="0 0 120 50" preserveAspectRatio="none" aria-hidden="true"><path d="M0 50V30h10V18h12v12h6V10h14v20h8V24h10v26zM70 50V22h12V8h10v14h8v-6h10v34z" fill="#A9C3BE"/><path d="M0 50V40h20v-6h16v6h22v-4h18v4h20v-8h14v18z" fill="#93B2AC"/></svg></div></div>
+        <i class="lamp" style="left:30%"></i><i class="lamp" style="left:50%"></i><i class="lamp" style="left:70%"></i>
+        <div class="wplant"><svg viewBox="0 0 60 80" aria-hidden="true"><path d="M30 46C16 40 8 26 12 12c10 6 16 18 18 34z" fill="#6E9E7F"/><path d="M30 46c14-6 22-20 18-34-10 6-16 18-18 34z" fill="#5E8F70"/><path d="M30 48C26 34 28 18 34 6c6 14 2 30-4 42z" fill="#7FAE8E"/><path d="M18 50h24l-4 26H22z" fill="#C98E62"/><rect x="16" y="46" width="28" height="7" rx="2" fill="#B57A50"/></svg></div>
+        <svg class="clock" viewBox="0 0 64 64" aria-label="지금 시각"><circle cx="32" cy="32" r="29" fill="#FFFFFF" stroke="#3A4D45" stroke-width="4"/><g stroke="#B9AE9C" stroke-width="2" stroke-linecap="round"><path d="M32 8v4M32 52v4M8 32h4M52 32h4"/></g><line id="hh" x1="32" y1="32" x2="32" y2="18" stroke="#3A4D45" stroke-width="3.5" stroke-linecap="round"/><line id="mh" x1="32" y1="32" x2="32" y2="12" stroke="#3A4D45" stroke-width="2.5" stroke-linecap="round"/><circle cx="32" cy="32" r="2.6" fill="#C9463F"/></svg>
       </div>
-      <div class="desks" id="desks"></div>
+      <div class="floor">
+        <div class="front">
+          <div class="wb">
+            <small>오늘의 지시</small>
+            <p id="chalk">아직 지시가 없습니다. 아래에서 첫 지시를 남겨 보세요.</p>
+            <div class="notes" aria-label="업무 단계"><div class="pi"><b>1</b>기획</div><div class="pi"><b>2</b>조사</div><div class="pi"><b>3</b>초안</div><div class="pi"><b>4</b>검수</div><div class="pi"><b>5</b>원장님 확인</div></div>
+            <i class="mk" aria-hidden="true"></i>
+          </div>
+          <div class="bossBox">
+            <button class="desk boss" data-role="lead" type="button" id="leadDesk">
+              <span class="slot" id="leadSlot"><img class="sk" id="leadImg" src="assets/shukong/sk-proud.png" alt="팀장 슈콩" width="118" height="118" /></span>
+              <span class="name">팀장 슈콩</span>
+              <span class="state" id="leadState">자리에 있음</span>
+            </button>
+            <svg class="coffee" viewBox="0 0 100 96" aria-hidden="true"><rect x="0" y="52" width="100" height="44" rx="4" fill="#9C6B43"/><rect x="0" y="48" width="100" height="8" rx="3" fill="#B98455"/><rect x="14" y="14" width="34" height="34" rx="4" fill="#3A4D45"/><rect x="20" y="20" width="22" height="9" rx="2" fill="#7FA79A"/><rect x="26" y="34" width="10" height="10" rx="1.5" fill="#FFFFFF"/><rect x="58" y="34" width="10" height="14" rx="2" fill="#FFFFFF" stroke="#C9B49B"/><rect x="72" y="36" width="10" height="12" rx="2" fill="#F2D6C9"/><path d="M60 26c2-4-2-6 0-10M66 26c2-4-2-6 0-10" stroke="#C9B49B" fill="none" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+        <div class="rug">
+          <div class="desks" id="desks"></div>
+        </div>
+        <div class="fplant l" aria-hidden="true"><svg viewBox="0 0 60 80" aria-hidden="true"><path d="M30 46C16 40 8 26 12 12c10 6 16 18 18 34z" fill="#6E9E7F"/><path d="M30 46c14-6 22-20 18-34-10 6-16 18-18 34z" fill="#5E8F70"/><path d="M30 48C26 34 28 18 34 6c6 14 2 30-4 42z" fill="#7FAE8E"/><path d="M18 50h24l-4 26H22z" fill="#C98E62"/><rect x="16" y="46" width="28" height="7" rx="2" fill="#B57A50"/></svg></div><div class="fplant r" aria-hidden="true"><svg viewBox="0 0 60 80" aria-hidden="true"><path d="M30 46C16 40 8 26 12 12c10 6 16 18 18 34z" fill="#6E9E7F"/><path d="M30 46c14-6 22-20 18-34-10 6-16 18-18 34z" fill="#5E8F70"/><path d="M30 48C26 34 28 18 34 6c6 14 2 30-4 42z" fill="#7FAE8E"/><path d="M18 50h24l-4 26H22z" fill="#C98E62"/><rect x="16" y="46" width="28" height="7" rx="2" fill="#B57A50"/></svg></div>
+        <p class="tip">지시를 남기면 다음 순찰 때 팀장 슈콩이 가져가 조교에게 나눕니다. 학생·학부모님께 나가는 것은 언제나 원장님 확인 뒤예요. 슈콩 자리를 누르면 그 조교의 일만 보여요.</p>
+      </div>
     </section>
 
     <section class="card" aria-labelledby="ordH">
@@ -214,10 +265,17 @@
   var ROLES = {
     gyo: { name: '교재 조교', cls: 'r-gyo', idle: 'sk-school' },
     gum: { name: '검수 조교', cls: 'r-gum', idle: 'sk-best' },
-    hong: { name: '홍보 조교', cls: 'r-hong', idle: 'sk-heart' },
+    hong: { name: '홍보 조교', cls: 'r-hong', idle: 'sk-cheer-hearts' },
     haeng: { name: '행정 조교', cls: 'r-haeng', idle: 'pose-box' },
     lead: { name: '팀장 슈콩', cls: 'r-lead', idle: 'sk-proud' }
   };
+  var WS = '<svg class="ws" viewBox="0 0 80 74" aria-hidden="true"><rect x="2" y="38" width="76" height="7" rx="2" fill="#B98455"/><rect x="8" y="45" width="5" height="29" fill="#93633D"/><rect x="67" y="45" width="5" height="29" fill="#93633D"/><rect x="16" y="8" width="38" height="25" rx="2.5" class="scr"/><rect x="20" y="13" width="22" height="2.5" rx="1" fill="#CFE6DC" class="ln"/><rect x="20" y="18" width="28" height="2.5" rx="1" fill="#CFE6DC" class="ln"/><rect x="20" y="23" width="16" height="2.5" rx="1" fill="#CFE6DC" class="ln"/><rect x="32" y="33" width="6" height="5" fill="#2F3B36"/><rect x="58" y="29" width="9" height="9" rx="2" fill="#FFFFFF" stroke="#C9B49B"/><path d="M67 31h2.5a2 2 0 0 1 0 4H67" fill="none" stroke="#C9B49B"/><path d="M8 38c0-6 3-9 6-9s6 3 6 9z" fill="#7FAE8E"/></svg>';
+  // 벽시계 — 한국 시각
+  function tickClock(){
+    var d = new Date(Date.now() + 9 * 3600e3), h = d.getUTCHours() % 12, m = d.getUTCMinutes();
+    var hh = document.getElementById('hh'), mh = document.getElementById('mh'); if (!hh) return;
+    hh.setAttribute('transform', 'rotate(' + (h * 30 + m / 2) + ' 32 32)'); mh.setAttribute('transform', 'rotate(' + (m * 6) + ' 32 32)');
+  }
   var STAGES = ['기획', '조사', '초안', '검수', '확인'];
   var COLS = [['in', '접수'], ['진행', '진행 중'], ['검수', '검수'], ['확인', '원장님 확인'], ['done', '완료']];
   var $ = function(id){ return document.getElementById(id); };
@@ -295,12 +353,14 @@
     $('leadState').textContent = lead ? (lead.last || lead.title) : waiting ? '새 지시 ' + waiting + '건 · 다음 순찰 때 나눕니다' : '자리에 있음';
     var li = lead ? (isBack(lead) ? 'sk-study' : 'sk-desk') : waiting ? 'sk-fly' : 'sk-proud';
     $('leadImg').src = SK + li + '.png'; $('leadImg').classList.toggle('on', !!lead || !!waiting);
+    $('leadSlot').classList.toggle('hasdesk', li === 'sk-desk' || li === 'sk-study');
     $('leadDesk').classList.toggle('sel', selRole === 'lead');
     $('desks').innerHTML = ['gyo', 'gum', 'hong', 'haeng'].map(function(k){
       var r = ROLES[k], s = stateOf(k);
-      return '<button class="desk' + (selRole === k ? ' sel' : '') + '" data-role="' + k + '" type="button" aria-pressed="' + (selRole === k) + '">' +
+      var own = s.img === 'sk-desk' || s.img === 'sk-study';   // 책상이 그려진 그림이면 옆 책상을 감춘다
+      return '<button class="desk' + (selRole === k ? ' sel' : '') + (s.on ? ' on' : '') + '" data-role="' + k + '" type="button" aria-pressed="' + (selRole === k) + '">' +
         (s.bub ? '<span class="bub ' + s.bub[1] + '">' + s.bub[0] + '</span>' : '') +
-        '<img class="sk' + (s.on ? ' on' : '') + '" src="' + SK + s.img + '.png" alt="' + r.name + ' 슈콩" width="104" height="104" />' +
+        '<span class="slot' + (own ? ' hasdesk' : '') + '">' + WS + '<img class="sk' + (s.on ? ' on' : '') + '" src="' + SK + s.img + '.png" alt="' + r.name + ' 슈콩" width="104" height="104" /></span>' +
         '<span class="name">' + r.name + '</span><span class="state" title="' + esc(s.txt) + '">' + esc(s.txt) + '</span></button>';
     }).join('');
   }
@@ -430,7 +490,7 @@
     if (!(p.role === 'admin' || VIEWERS.indexOf(p.login_id) >= 0)){ $('deny').hidden = false; return; }
     $('app').hidden = false;
     try { var dr = localStorage.getItem('aioffice_draft'); if (dr) $('ordIn').value = dr; } catch(_){}
-    render(); load();
+    render(); load(); tickClock(); setInterval(tickClock, 20000);
     setInterval(function(){ if (!document.hidden) load(); }, POLL_MS);
     document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
   });
