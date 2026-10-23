@@ -17,6 +17,7 @@ GitHub Pages로 배포됩니다(`coke4497-sys.github.io/shueguk-hub/`). 자세�
 - 교사용 HTML은 **첫 스크립트로** `<script src="assets/teacher-auth.js" data-mode="protected"></script>`를 불러야 합니다. 이 모듈은 교사별 Supabase Auth 세션과 `teacher_accounts.active`를 확인하고, REST 요청에 해당 교사의 JWT를 붙입니다. 공용 계정 이메일·비밀번호나 `T_PW`를 HTML에 다시 넣는 변경은 반드시 지적하세요. 학생용 `omr.html`과 공개 안내 `question_guide.html`·`alim_absent_guide.html`(선생님·조교에게 링크로 나눠 주는 안내문 — 데이터·키 없음)에는 교사 인증 모듈을 넣지 않습니다.
 - `assets/teacher-gate.js`는 허브 **밖** 저장소(리포트·클리닉·주말·어휘·문법·H WORK)의 교사 페이지가 절대 주소로 불러 쓰는 로그인 게이트입니다(2026-10-12). teacher-auth.js와 달리 window.fetch를 바꾸지 않고, github.io에서만 켜지며(로컬은 통과), 교사 확인 통신 실패는 막지 않습니다 — 이 셋을 바꾸는 변경, `safeNext`가 다른 출처나 `.html` 아닌 경로를 허용하게 되는 변경은 지적하세요.
 - 로그인 화면은 `login.html`, 계정·RLS 기준은 `supabase/migrations/202609290001_teacher_accounts.sql`과 `202609290002_teacher_access_gate.sql`, 운영 순서는 `교사계정-설정안내.md`가 원본입니다. 교사 권한은 수정 가능한 `user_metadata`가 아니라 `teacher_accounts`와 `private.is_active_teacher()`로 확인합니다.
+- AI 교무실(`aioffice.html`·`ai-office` 함수·`ai_*` 표): 보는 사람은 `private.staff_viewer()`(원장님·대표님)만, 순찰(service_role)은 할 일을 **완료로 옮길 수 없고** 완료는 `ai_task_decide`(원장님 승인)로만 — 이 경계를 허무는 변경, `ai-office` 함수가 비밀값 확인 없이 열리는 변경은 지적하세요.
 - 회차·응답의 원본은 수파베이스(`omr_exams`·`omr_responses`)입니다. 시트를 원본으로 되돌리는 변경은 지적하세요.
 - 회차 분석의 점수·등급은 저장값이 아니라 **지금 정답으로 다시 채점한 값**입니다. 집계 로직은 `ANALYSIS-CORE` 블록 한 곳이고 `tools/omr-analysis-test.js`가 그 블록을 검증합니다. 로직 변경에 테스트 갱신이 없으면 요청하세요.
 - 질문 대기열(`question_queue`)을 순회하는 코드는 **`일시정지` 상태 줄을 걸러내야** 합니다(교사 안내 문구·일시 정지용 줄). 상태 이름 `일시정지`·`예약`·`명단`·`대기`·`호출`·`질문중`·`완료`·`취소`·`건너뜀`은 바꾸지 않습니다(스키마 없이 문자열로 씀).

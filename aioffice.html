@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI 교무실 · 슈국 티쳐스</title>
+<script src="assets/teacher-auth.js" data-mode="protected"></script>
+<meta name="description" content="이수경국어 AI 교무실 — 지시를 남기면 팀장 슈콩이 교재·검수·홍보·행정 조교에게 나눠 처리하고, 결과는 원장님 확인 뒤 완료" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23EDE4F4'/%3E%3C/svg%3E" />
+<style>
+/* 배치: 위 = 픽셀 교무실(칠판·팀장·조교 넷), 가운데 = 지시 남기기, 아래 = 업무판 다섯 칸(접수·진행 중·검수·원장님 확인·완료) */
+  :root{
+    --bg:#C6D5D2; --paper:#FFFFFF; --soft:#F4F7F5; --grid:#E3EBE7;
+    --ink:#2A332F; --sub:#4F5C56; --cap:#5C6A64; --line:#DCE4DF;
+    --sage:#4C6E66; --sage2:#628C83; --board:#2F4A42; --chalk:#EEF3EC;
+    --lav:#EDE4F4; --lavInk:#5A4A6A; --lavLine:#D6C9E4;
+    --yel:#F9EFD0; --yelInk:#7A5D1E; --pink:#F7E2DE; --pinkInk:#8E4F46;
+    --sky:#E9EDF8; --skyInk:#3F4E78; --mint:#E2F4EC; --mintInk:#2F6E59;
+    --wood:#9A6B45; --wood2:#7A5236;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{background:var(--bg);color:var(--ink);font-family:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;padding-bottom:60px;}
+  button,select,input,textarea{font-family:inherit;}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 16px;display:flex;flex-direction:column;gap:14px;}
+  .back{display:inline-flex;align-items:center;gap:6px;margin:22px 0 0;color:var(--sub);text-decoration:none;font-size:.86rem;align-self:flex-start;}
+  .back svg{width:16px;height:16px;}
+  .card{background:var(--paper);border-radius:18px;padding:16px 18px;}
+  [hidden]{display:none !important;}
+
+  .head{display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;}
+  .brand small{display:block;letter-spacing:.22em;font-size:10.5px;color:var(--cap);}
+  .brand h1{margin:0;font-family:"Gowun Batang",serif;font-size:1.5rem;color:var(--sage);}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--soft);color:var(--sub);border-radius:999px;padding:4px 11px;font-size:12.5px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--sage2);}
+  .dot.off{background:#B4BEB9;}
+  .flow{margin-left:auto;display:flex;align-items:baseline;gap:7px;font-size:13px;color:var(--sub);}
+  .flow b{font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:26px;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .flow b.res{color:var(--lavInk);}
+  .flow i{font-style:normal;color:var(--cap);}
+
+  .room{background-color:var(--paper);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:22px 22px;}
+  .top{display:grid;grid-template-columns:1fr minmax(0,1.4fr) 1fr;gap:18px;align-items:start;}
+  .note{background:var(--paper);border-radius:6px;padding:12px 14px;box-shadow:0 2px 0 var(--line),0 6px 14px rgba(0,0,0,.06);font-size:13px;color:var(--sub);}
+  .note.t1{transform:rotate(-1.4deg);} .note.t2{transform:rotate(1.2deg);}
+  .note h3{margin:0 0 6px;font-family:"Gowun Batang",serif;font-size:15px;color:var(--ink);}
+  .steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+  .steps li{display:flex;align-items:center;gap:8px;}
+  .steps span{width:20px;height:20px;border-radius:50%;background:var(--lav);color:var(--lavInk);display:grid;place-items:center;font-size:12px;font-family:"Do Hyeon",sans-serif;}
+  .lead{display:flex;flex-direction:column;align-items:center;gap:12px;}
+  .chalk{width:100%;background:var(--board);border:8px solid var(--wood);border-radius:6px;padding:12px 16px;color:var(--chalk);min-height:104px;}
+  .chalk small{opacity:.75;font-size:11.5px;letter-spacing:.08em;}
+  .chalk p{margin:4px 0 0;font-family:"Gowun Batang",serif;font-size:15.5px;line-height:1.6;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;}
+  .desks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:22px;}
+  .desk{display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;cursor:pointer;border-radius:12px;padding:10px 4px 8px;border:0;background:transparent;color:inherit;min-width:0;}
+  .desk:hover,.desk:focus-visible{background:rgba(238,241,239,.85);outline:none;}
+  .desk.sel{background:var(--lav);}
+  /* 슈콩 조교 — 상태마다 그림이 바뀐다(일하는 중 책상 · 다시 고치는 중 불꽃 · 확인 기다림 확성기 · 완료 응원 · 쉬는 중 조교마다) */
+  .sk{width:104px;height:104px;object-fit:contain;display:block;}
+  .desk.boss .sk{width:118px;height:118px;}
+  .sk.on{animation:bob 1.6s ease-in-out infinite;}
+  @keyframes bob{50%{transform:translateY(-3px);}}
+  .name{margin-top:0;background:var(--paper);border:2px solid var(--ink);border-radius:6px;padding:1px 10px;font-family:"Do Hyeon",sans-serif;font-size:15px;}
+  .desk.boss .name{background:var(--board);color:var(--chalk);border-color:var(--board);}
+  .state{font-size:12px;color:var(--cap);text-align:center;max-width:100%;padding:0 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .bub{position:absolute;top:-2px;left:calc(50% + 34px);white-space:nowrap;background:var(--paper);border:1.5px solid var(--sage);color:var(--sage);border-radius:10px;padding:0 8px;font-family:"Do Hyeon",sans-serif;font-size:13px;}
+  .bub.wait{border-color:var(--lavInk);color:var(--lavInk);}
+  .bub.work{border-color:var(--yelInk);color:var(--yelInk);}
+
+  h2.t{margin:0 0 2px;font-family:"Gowun Batang",serif;font-size:1.1rem;}
+  .hint{margin:0 0 10px;color:var(--cap);font-size:13px;}
+  textarea{width:100%;resize:vertical;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14.5px;color:var(--ink);background:var(--soft);}
+  #ordIn{min-height:80px;}
+  textarea:focus-visible,select:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--lavInk);outline-offset:2px;}
+  .row{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:10px;}
+  select{border:1px solid var(--line);border-radius:999px;padding:7px 12px;font-size:14px;background:#fff;color:var(--ink);min-height:38px;}
+  .row .n2{color:var(--cap);font-size:12.5px;flex:1;min-width:200px;}
+  .btn{border:0;border-radius:999px;padding:9px 18px;font-size:14px;cursor:pointer;background:var(--lav);color:var(--lavInk);min-height:38px;}
+  .btn:hover{background:#E3D7EE;}
+  .btn:active{background:#D9CAE7;}
+  .btn.go{font-weight:700;}
+  .btn.plain{background:var(--soft);color:var(--sub);}
+  .btn.plain:hover{background:#E8EDEA;}
+  .btn[disabled]{opacity:.55;cursor:default;}
+  .msg{font-size:13px;color:var(--pinkInk);}
+  .msg.okm{color:var(--sage);}
+  .warn{background:var(--yel);color:var(--yelInk);border-radius:12px;padding:9px 12px;font-size:13.5px;}
+
+  .bhd{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 14px;margin-bottom:12px;}
+  .bhd p{margin:0;color:var(--cap);font-size:13px;}
+  .bhd .fil{margin-left:auto;font-size:13px;color:var(--lavInk);}
+  .kanban{display:grid;grid-template-columns:repeat(5,minmax(210px,1fr));gap:12px;overflow-x:auto;padding-bottom:4px;}
+  .col{background:var(--soft);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:8px;min-width:0;}
+  .colHd{display:flex;justify-content:space-between;align-items:center;font-weight:700;font-size:13.5px;padding:2px 4px;}
+  .colHd em{font-style:normal;font-weight:400;color:var(--cap);font-variant-numeric:tabular-nums;}
+  .col.me .colHd{color:var(--lavInk);}
+  .empty{color:var(--cap);font-size:12.5px;padding:6px 4px;}
+  .task{background:var(--paper);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;border:1px solid transparent;}
+  .task:hover{border-color:var(--line);}
+  .task.q{border-color:var(--lavLine);}
+  .tt{all:unset;cursor:pointer;display:flex;flex-direction:column;gap:6px;}
+  .task h4{margin:0;font-size:14px;line-height:1.45;font-weight:700;overflow-wrap:anywhere;}
+  .meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:var(--cap);}
+  .role{border-radius:999px;padding:1px 9px;font-size:11.5px;}
+  .r-gyo{background:var(--mint);color:var(--mintInk);} .r-gum{background:var(--sky);color:var(--skyInk);}
+  .r-hong{background:var(--pink);color:var(--pinkInk);} .r-haeng{background:var(--yel);color:var(--yelInk);}
+  .r-lead{background:var(--lav);color:var(--lavInk);}
+  .tag{border-radius:999px;padding:1px 8px;font-size:11.5px;background:var(--lav);color:var(--lavInk);}
+  .tag.back{background:var(--pink);color:var(--pinkInk);}
+  .tag.stop{background:#EEF1EF;color:var(--sub);}
+  .bar{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;}
+  .bar i{height:4px;border-radius:2px;background:var(--line);}
+  .bar i.on{background:var(--sage2);}
+  .bar i.now{background:var(--lavInk);}
+  .barL{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;font-size:10.5px;color:var(--cap);text-align:center;}
+  .last{font-size:12.5px;color:var(--sub);overflow-wrap:anywhere;}
+  .more{display:flex;flex-direction:column;gap:8px;border-top:1px dashed var(--line);padding-top:8px;font-size:12.5px;color:var(--sub);}
+  .lbl{font-size:11.5px;color:var(--cap);}
+  .orderTxt{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--soft);border-radius:8px;padding:6px 9px;}
+  .result{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--mint);color:#24493D;border-radius:8px;padding:8px 10px;max-height:340px;overflow:auto;font-size:13px;line-height:1.6;}
+  .rlink{color:var(--lavInk);overflow-wrap:anywhere;}
+  .log{display:flex;gap:6px;} .log time{color:var(--cap);flex:none;font-variant-numeric:tabular-nums;}
+  .acts{display:flex;gap:6px;flex-wrap:wrap;}
+  .acts .btn{padding:6px 12px;font-size:12.5px;min-height:32px;}
+  .back2 textarea{min-height:64px;font-size:13.5px;}
+
+  .how{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
+  .how div{background:var(--paper);border-radius:14px;padding:12px 14px;font-size:13px;color:var(--sub);}
+  .how b{display:block;font-family:"Gowun Batang",serif;font-size:14.5px;color:var(--ink);margin-bottom:2px;}
+
+  @media (max-width:900px){
+    .top{grid-template-columns:1fr;} .top .note{display:none;}
+    .desks{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .how{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .flow{margin-left:0;}
+  }
+  @media (max-width:480px){ .how{grid-template-columns:1fr;} .kanban{grid-template-columns:repeat(5,minmax(250px,1fr));} }
+  @media (prefers-reduced-motion:reduce){ .sk.on{animation:none;} }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <a class="back" href="ops.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>슈국 운영으로 가기</a>
+  <div id="deny" class="card" hidden>이 화면은 원장님과 대표님만 볼 수 있습니다.</div>
+  <div id="app" hidden style="display:flex;flex-direction:column;gap:14px">
+    <header class="card head">
+      <div class="brand"><small>SHUEGUK · 슈국 운영</small><h1>AI 교무실</h1></div>
+      <div class="chips">
+        <span class="chip"><i class="dot" id="patrolDot"></i><span id="patrol">순찰 기록 확인 중</span></span>
+        <span class="chip" id="schedule"></span>
+      </div>
+      <div class="flow"><b id="nOrder">0</b>지시 <i>›</i> <b id="nTask">0</b>할 일 <i>›</i> <b class="res" id="nRes">0</b>원장님 확인</div>
+    </header>
+    <div id="warn" class="warn" hidden></div>
+
+    <section class="card room" aria-label="교무실">
+      <div class="top">
+        <div class="note t1"><h3>이렇게 움직입니다</h3>지시를 남기면 다음 순찰 때 팀장 슈콩이 가져가 조교에게 나눕니다. 학생·학부모님께 나가는 것은 언제나 원장님 확인 뒤예요.</div>
+        <div class="lead">
+          <div class="chalk"><small>오늘의 지시</small><p id="chalk">아직 지시가 없습니다. 아래에서 첫 지시를 남겨 보세요.</p></div>
+          <button class="desk boss" data-role="lead" type="button" id="leadDesk">
+            <img class="sk" id="leadImg" src="assets/shukong/sk-proud.png" alt="팀장 슈콩" width="118" height="118" />
+            <span class="name">팀장 슈콩</span>
+            <span class="state" id="leadState">자리에 있음</span>
+          </button>
+        </div>
+        <div class="note t2"><h3>업무 단계</h3><ol class="steps"><li><span>1</span>기획</li><li><span>2</span>조사</li><li><span>3</span>초안</li><li><span>4</span>검수</li><li><span>5</span>원장님 확인</li></ol></div>
+      </div>
+      <div class="desks" id="desks"></div>
+    </section>
+
+    <section class="card" aria-labelledby="ordH">
+      <h2 class="t" id="ordH">지시 남기기</h2>
+      <p class="hint">무엇을 해 둘까요? 끝났을 때 손에 쥘 것을 분명히 적어 주시면 좋아요. 휴대폰에서 적어 두어도 다음 순찰 때 가져갑니다.</p>
+      <textarea id="ordIn" maxlength="2000" placeholder="예) 11/8(토) 오후 2시 예비 고1 설명회 안내 카드뉴스 3장 문구를 만들어 줘. 장소는 본원."></textarea>
+      <div class="row">
+        <select id="ordTo" aria-label="맡길 조교">
+          <option value="lead">팀장에게 맡기기 (알아서 나눔)</option>
+          <option value="gyo">교재 조교</option><option value="gum">검수 조교</option>
+          <option value="hong">홍보 조교</option><option value="haeng">행정 조교</option>
+        </select>
+        <span class="n2">보내기·데이터 바꾸기·지우기는 원장님 확인 칸에서 멈춥니다.</span>
+        <span class="msg" id="ordMsg" role="status"></span>
+        <button class="btn go" id="ordGo" type="button">지시 남기기</button>
+      </div>
+    </section>
+
+    <section class="card" aria-labelledby="bdH">
+      <div class="bhd"><h2 class="t" id="bdH">업무판</h2><p>기획 → 조사 → 초안 → 검수 → 원장님 확인. 카드를 누르면 지시 원문·결과·기록이 펼쳐집니다.</p><span class="fil" id="filNote"></span></div>
+      <div class="kanban" id="kanban"></div>
+    </section>
+
+    <section class="how" aria-label="작동 방식">
+      <div><b>1 · 지시</b>이 화면에서 남깁니다. 아직 가져가지 않은 지시는 접수 칸에서 취소할 수 있어요.</div>
+      <div><b>2 · 순찰</b>예약된 클로드 세션이 정해진 시각마다 새 지시를 읽습니다.</div>
+      <div><b>3 · 나누기</b>팀장이 할 일로 쪼개 조교 역할로 처리하고, 단계와 기록을 남깁니다.</div>
+      <div><b>4 · 확인</b>결과는 원장님 확인 칸에 올라옵니다. 승인하면 완료, 의견을 적으면 다시 고칩니다.</div>
+    </section>
+  </div>
+</main>
+<script>
+(function(){
+  'use strict';
+  var SB = 'https://bangdbhqpphqqdwcledg.supabase.co', KEY = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  var VIEWERS = ['parkeh'];   // 원장님(관리자) + 대표님 — DB private.staff_viewer()·강사 관리와 같은 목록
+  var SCHEDULE = '매시 정각 순찰 · 오전 9시~밤 11시';   // 예약 순찰 시각 — 바꾸면 이 줄도
+  var POLL_MS = 30000, DONE_DAYS = 14;
+  // 조교 = 슈콩(2026-10-23 원장님 "에이전트를 슈콩이로") — 그림은 assets/shukong(문법 저장소 슈콩 그림을 240px로 줄임)
+  var SK = 'assets/shukong/';
+  var ROLES = {
+    gyo: { name: '교재 조교', cls: 'r-gyo', idle: 'sk-school' },
+    gum: { name: '검수 조교', cls: 'r-gum', idle: 'sk-best' },
+    hong: { name: '홍보 조교', cls: 'r-hong', idle: 'sk-heart' },
+    haeng: { name: '행정 조교', cls: 'r-haeng', idle: 'pose-box' },
+    lead: { name: '팀장 슈콩', cls: 'r-lead', idle: 'sk-proud' }
+  };
+  var STAGES = ['기획', '조사', '초안', '검수', '확인'];
+  var COLS = [['in', '접수'], ['진행', '진행 중'], ['검수', '검수'], ['확인', '원장님 확인'], ['done', '완료']];
+  var $ = function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function api(path, opt){
+    opt = opt || {};
+    return fetch(SB + '/rest/v1' + path, { method: opt.method || 'GET', headers: { apikey: KEY, 'Content-Type': 'application/json' }, body: opt.body }).then(function(r){
+      return r.text().then(function(t){
+        var d = null; try { d = t ? JSON.parse(t) : null; } catch(_){}
+        if (!r.ok){ var e = new Error((d && d.message) || ('HTTP ' + r.status)); e.status = r.status; e.data = d; throw e; }
+        return d;
+      });
+    });
+  }
+  function rpc(name, body){ return api('/rpc/' + name, { method: 'POST', body: JSON.stringify(body || {}) }); }
+  function missing(e){ return e && (e.status === 404 || /PGRST20[25]|42P01|Could not find|does not exist/.test(String(e.message) + JSON.stringify(e.data || ''))); }
+  function kst(ms){ return new Date(ms + 9 * 3600e3); }
+  function when(iso){
+    if (!iso) return '';
+    var ms = Date.parse(iso), d = kst(ms), t = kst(Date.now());
+    var hm = d.getUTCHours() + ':' + String(d.getUTCMinutes()).padStart(2, '0');
+    return d.toISOString().slice(0, 10) === t.toISOString().slice(0, 10) ? '오늘 ' + hm : (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + ' ' + hm;
+  }
+  var ERR_TXT = { not_allowed: '원장님·대표님만 할 수 있습니다.', empty: '무엇을 할지 적어 주십시오.', too_long: '지시는 2000자까지 적을 수 있습니다.',
+    not_open: '이미 슈콩이 가져갔거나 끝난 일입니다. 화면을 새로 받았어요.', not_waiting: '원장님 확인 칸의 일이 아닙니다. 화면을 새로 받았어요.',
+    need_note: '무엇을 고칠지 적어 주십시오.' };
+  function errText(e){
+    var m = String((e && e.message) || '');
+    for (var k in ERR_TXT) if (m.indexOf(k) >= 0) return ERR_TXT[k];
+    if (missing(e)) return '데이터베이스 준비 전입니다(마이그레이션 202610230001). 클로슈에게 적용을 요청해 주세요.';
+    return '저장하지 못했습니다. 잠시 뒤 다시 눌러 주세요.';
+  }
+
+  var ORDERS = [], TASKS = [], PATROL = null, selRole = null, OPEN = {}, BACK = {}, DRAFT = {}, ready = false, busy = false;
+  function orderOf(id){ for (var i = 0; i < ORDERS.length; i++) if (ORDERS[i].id === id) return ORDERS[i]; return null; }
+  function isBack(t){ return t.col === '진행' && /^원장님 의견:/.test(t.last || ''); }
+  function isQ(t){ return t.col === '확인' && /^질문:/.test(t.last || ''); }
+
+  function load(){
+    if (busy) return Promise.resolve();
+    busy = true;
+    var since = new Date(Date.now() - DONE_DAYS * 864e5).toISOString();
+    return Promise.all([
+      api('/ai_orders?select=id,body,to_role,author_name,status,picked_at,created_at,updated_at&order=id.desc&limit=300'),
+      api('/ai_tasks?select=*&col=in.(진행,검수,확인)&order=id'),
+      api('/ai_tasks?select=*&col=in.(완료,중단)&updated_at=gte.' + encodeURIComponent(since) + '&order=updated_at.desc&limit=80'),
+      api('/ai_meta?select=key,at&key=eq.patrol').catch(function(){ return []; })
+    ]).then(function(r){
+      ORDERS = r[0] || []; TASKS = (r[1] || []).concat(r[2] || []);
+      PATROL = r[3] && r[3][0] ? r[3][0].at : null;
+      $('warn').hidden = true; ready = true; render();
+    }).catch(function(e){
+      $('warn').hidden = false;
+      $('warn').textContent = missing(e) ? 'AI 교무실 데이터베이스가 아직 준비되지 않았습니다(마이그레이션 202610230001). 클로슈에게 적용을 요청해 주세요.' : '불러오지 못했습니다. 잠시 뒤 다시 시도합니다.';
+      if (!ready) render();
+    }).then(function(){ busy = false; });
+  }
+
+  function stateOf(role){
+    var mine = TASKS.filter(function(t){ return t.role === role; });
+    var doing = mine.filter(function(t){ return t.col === '진행' || t.col === '검수'; })[0];
+    var wait = mine.filter(function(t){ return t.col === '확인'; })[0];
+    if (doing) return isBack(doing) ? { txt: doing.last, bub: ['다시 고치는 중', 'work'], on: true, img: 'sk-study' }
+      : { txt: doing.last || doing.title, bub: ['일하는 중', 'work'], on: true, img: 'sk-desk' };
+    if (wait) return { txt: '원장님 확인 기다림 · ' + wait.title, bub: ['확인!', 'wait'], on: false, img: 'sk-notice' };
+    var done = mine.filter(function(t){ return t.col === '완료' && Date.now() - Date.parse(t.updated_at) < 864e5; })[0];
+    if (done) return { txt: done.title, bub: ['완료!', ''], on: false, img: 'sk-cheer' };
+    return { txt: '자리에 있음', bub: null, on: false, img: ROLES[role].idle };
+  }
+  function renderRoom(){
+    var open = ORDERS.filter(function(o){ return o.status === '접수' || o.status === '진행'; });
+    $('chalk').textContent = open.length ? open[0].body : '아직 지시가 없습니다. 아래에서 첫 지시를 남겨 보세요.';
+    var waiting = ORDERS.filter(function(o){ return o.status === '접수'; }).length;
+    var lead = TASKS.filter(function(t){ return t.role === 'lead' && (t.col === '진행' || t.col === '검수'); })[0];
+    $('leadState').textContent = lead ? (lead.last || lead.title) : waiting ? '새 지시 ' + waiting + '건 · 다음 순찰 때 나눕니다' : '자리에 있음';
+    var li = lead ? (isBack(lead) ? 'sk-study' : 'sk-desk') : waiting ? 'sk-fly' : 'sk-proud';
+    $('leadImg').src = SK + li + '.png'; $('leadImg').classList.toggle('on', !!lead || !!waiting);
+    $('leadDesk').classList.toggle('sel', selRole === 'lead');
+    $('desks').innerHTML = ['gyo', 'gum', 'hong', 'haeng'].map(function(k){
+      var r = ROLES[k], s = stateOf(k);
+      return '<button class="desk' + (selRole === k ? ' sel' : '') + '" data-role="' + k + '" type="button" aria-pressed="' + (selRole === k) + '">' +
+        (s.bub ? '<span class="bub ' + s.bub[1] + '">' + s.bub[0] + '</span>' : '') +
+        '<img class="sk' + (s.on ? ' on' : '') + '" src="' + SK + s.img + '.png" alt="' + r.name + ' 슈콩" width="104" height="104" />' +
+        '<span class="name">' + r.name + '</span><span class="state" title="' + esc(s.txt) + '">' + esc(s.txt) + '</span></button>';
+    }).join('');
+  }
+  function bar(st){
+    return '<div class="bar">' + STAGES.map(function(_, i){ return '<i class="' + (i < st ? 'on' : i === st ? 'now' : '') + '"></i>'; }).join('') + '</div>' +
+      '<div class="barL">' + STAGES.map(function(s){ return '<span>' + s + '</span>'; }).join('') + '</div>';
+  }
+  function orderCard(o){
+    var picked = !!o.picked_at;
+    return '<article class="task" data-oid="' + o.id + '"><div class="tt"><h4>' + esc(o.body.length > 90 ? o.body.slice(0, 90) + '…' : o.body) + '</h4>' +
+      '<div class="meta"><span class="role ' + ROLES[o.to_role].cls + '">' + ROLES[o.to_role].name + '</span>' + esc(o.author_name) + ' · ' + when(o.created_at) + '</div>' +
+      '<div class="last">' + (picked ? '슈콩이 가져가 나누는 중입니다' : '다음 순찰 때 슈콩이 가져갑니다') + '</div></div>' +
+      (picked ? '' : '<div class="acts"><button class="btn plain" data-cancel="' + o.id + '" type="button">지시 취소</button></div>') + '</article>';
+  }
+  function taskCard(t){
+    var r = ROLES[t.role] || ROLES.lead, o = orderOf(t.order_id), open = !!OPEN[t.id];
+    var tags = (isBack(t) ? '<span class="tag back">다시 고치는 중</span>' : '') + (isQ(t) ? '<span class="tag">질문</span>' : '') + (t.col === '중단' ? '<span class="tag stop">그만둠</span>' : '');
+    var h = '<article class="task' + (isQ(t) ? ' q' : '') + '" data-id="' + t.id + '"><button class="tt" type="button" data-open="' + t.id + '" aria-expanded="' + open + '">' +
+      '<h4>' + esc(t.title) + '</h4><div class="meta"><span class="role ' + r.cls + '">' + r.name + '</span>' + tags + when(t.updated_at) + '</div>' +
+      (t.col === '완료' || t.col === '중단' ? '' : bar(t.stage)) + (t.last ? '<div class="last">' + esc(t.last) + '</div>' : '') + '</button>';
+    if (open){
+      h += '<div class="more">';
+      if (o) h += '<div><div class="lbl">지시 원문 · ' + esc(o.author_name) + ' ' + when(o.created_at) + '</div><div class="orderTxt">' + esc(o.body) + '</div></div>';
+      if (t.result) h += '<div><div class="lbl">결과</div><div class="result" id="res' + t.id + '">' + esc(t.result) + '</div><div class="acts" style="margin-top:6px"><button class="btn plain" data-copy="' + t.id + '" type="button">결과 복사</button></div></div>';
+      if (t.result_url) h += '<div><div class="lbl">링크</div><a class="rlink" href="' + esc(t.result_url) + '" target="_blank" rel="noopener">' + esc(t.result_url) + '</a></div>';
+      if ((t.log || []).length) h += '<div><div class="lbl">진행 기록</div>' + t.log.slice().reverse().map(function(l){ return '<div class="log"><time>' + esc(l.at) + '</time><span>' + esc((l.who ? l.who + ' · ' : '') + l.text) + '</span></div>'; }).join('') + '</div>';
+      if (t.col === '확인'){
+        if (BACK[t.id]){
+          h += '<div class="back2"><div class="lbl">' + (isQ(t) ? '답을 적어 주세요' : '무엇을 고칠까요?') + '</div><textarea data-note="' + t.id + '" maxlength="300">' + esc(DRAFT[t.id] || '') + '</textarea>' +
+            '<div class="acts" style="margin-top:6px"><button class="btn" data-send="' + t.id + '" type="button">' + (isQ(t) ? '답 보내기' : '다시 고쳐 달라고 보내기') + '</button><button class="btn plain" data-unback="' + t.id + '" type="button">닫기</button></div></div>';
+        } else {
+          h += '<div class="acts">' + (isQ(t) ? '' : '<button class="btn" data-ok="' + t.id + '" type="button">승인하고 완료</button>') +
+            '<button class="btn plain" data-back="' + t.id + '" type="button">' + (isQ(t) ? '답하기' : '다시 고쳐 줘') + '</button><button class="btn plain" data-stop="' + t.id + '" type="button">그만두기</button></div>';
+        }
+      } else if (t.col === '진행' || t.col === '검수'){
+        h += '<div class="acts"><button class="btn plain" data-stop="' + t.id + '" type="button">그만두기</button></div>';
+      }
+      h += '<span class="msg" data-msg="' + t.id + '" role="status"></span></div>';
+    }
+    return h + '</article>';
+  }
+  function renderBoard(){
+    var keep = function(x){ return !selRole || x === selRole; };
+    var ins = ORDERS.filter(function(o){
+      if (o.status === '접수') return keep(o.to_role);
+      return o.status === '진행' && !TASKS.some(function(t){ return t.order_id === o.id; }) && keep(o.to_role);
+    });
+    var ts = TASKS.filter(function(t){ return keep(t.role); });
+    $('kanban').innerHTML = COLS.map(function(c){
+      var k = c[0], cards;
+      if (k === 'in') cards = ins.map(orderCard);
+      else if (k === 'done') cards = ts.filter(function(t){ return t.col === '완료' || t.col === '중단'; }).sort(function(a, b){ return b.updated_at < a.updated_at ? -1 : 1; }).map(taskCard);
+      else cards = ts.filter(function(t){ return t.col === k; }).map(taskCard);
+      var empty = { in: '새 지시가 여기 쌓입니다.', done: '승인한 일이 여기 쌓여요.', '확인': '원장님이 보실 결과가 아직 없습니다.' }[k] || '비어 있습니다.';
+      return '<div class="col' + (k === '확인' ? ' me' : '') + '" data-col="' + k + '"><div class="colHd">' + c[1] + '<em>' + cards.length + '</em></div>' + (cards.length ? cards.join('') : '<div class="empty">' + empty + '</div>') + '</div>';
+    }).join('');
+    $('filNote').innerHTML = selRole ? esc(ROLES[selRole].name) + '의 일만 보는 중 · <a href="#" id="filAll" class="rlink">모두 보기</a>' : '';
+    $('nOrder').textContent = ORDERS.filter(function(o){ return o.status === '접수'; }).length;
+    $('nTask').textContent = TASKS.filter(function(t){ return t.col === '진행' || t.col === '검수'; }).length;
+    $('nRes').textContent = TASKS.filter(function(t){ return t.col === '확인'; }).length;
+  }
+  function renderHead(){
+    $('schedule').textContent = SCHEDULE;
+    $('patrol').textContent = PATROL ? '마지막 순찰 ' + when(PATROL) : '아직 순찰 기록 없음';
+    $('patrolDot').classList.toggle('off', !PATROL || Date.now() - Date.parse(PATROL) > 3 * 3600e3);
+  }
+  function render(){
+    // 의견을 쓰는 중이면 다시 그리지 않는다(쓰던 글·커서 유지) — 다음 폴링 때 그린다
+    var a = document.activeElement;
+    if (a && a.dataset && a.dataset.note) return;
+    renderHead(); renderRoom(); renderBoard();
+  }
+
+  function act(btn, p, okMsg){
+    var id = btn.dataset.ok || btn.dataset.send || btn.dataset.stop || btn.dataset.cancel;
+    btn.disabled = true;
+    return p.then(function(){
+      if (okMsg){ delete BACK[id]; delete DRAFT[id]; }
+      return load();
+    }).catch(function(e){
+      btn.disabled = false;
+      var m = document.querySelector('[data-msg="' + id + '"]') || $('ordMsg');
+      m.className = 'msg'; m.textContent = errText(e);
+      if (/not_open|not_waiting/.test(String(e.message))) load();
+    });
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target.closest('button,a'); if (!b) return;
+    var d = b.dataset;
+    if (b.id === 'filAll'){ e.preventDefault(); selRole = null; render(); return; }
+    if (d.role){ selRole = selRole === d.role ? null : d.role; render(); return; }
+    if (d.open){ OPEN[d.open] = !OPEN[d.open]; renderBoard(); return; }
+    if (d.copy){
+      var txt = ($('res' + d.copy) || {}).textContent || '';
+      var done = function(){ b.textContent = '복사했습니다'; setTimeout(function(){ b.textContent = '결과 복사'; }, 1500); };
+      try { navigator.clipboard.writeText(txt).then(done, function(){ selectText($('res' + d.copy)); }); } catch(_){ selectText($('res' + d.copy)); }
+      return;
+    }
+    if (d.back){ BACK[d.back] = true; renderBoard(); var ta = document.querySelector('[data-note="' + d.back + '"]'); if (ta) ta.focus(); return; }
+    if (d.unback){ delete BACK[d.unback]; renderBoard(); return; }
+    if (d.ok){ act(b, rpc('ai_task_decide', { p_id: Number(d.ok), p_ok: true, p_note: '' }), true); return; }
+    if (d.send){
+      var note = (DRAFT[d.send] || '').trim();
+      if (!note){ var m = document.querySelector('[data-msg="' + d.send + '"]'); if (m){ m.className = 'msg'; m.textContent = ERR_TXT.need_note; } return; }
+      act(b, rpc('ai_task_decide', { p_id: Number(d.send), p_ok: false, p_note: note }), true); return;
+    }
+    if (d.stop){ act(b, rpc('ai_task_stop', { p_id: Number(d.stop), p_note: '' }), true); return; }
+    if (d.cancel){ act(b, rpc('ai_order_cancel', { p_id: Number(d.cancel) })); return; }
+  });
+  document.addEventListener('input', function(e){ var n = e.target.dataset && e.target.dataset.note; if (n) DRAFT[n] = e.target.value; });
+  function selectText(el){ if (!el) return; var r = document.createRange(); r.selectNodeContents(el); var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+
+  $('ordGo').onclick = function(){
+    var inp = $('ordIn'), txt = inp.value.trim(), m = $('ordMsg');
+    if (!txt){ m.className = 'msg'; m.textContent = ERR_TXT.empty; inp.focus(); return; }
+    var b = this; b.disabled = true; m.textContent = '';
+    rpc('ai_order_add', { p_body: txt, p_role: $('ordTo').value }).then(function(){
+      inp.value = ''; m.className = 'msg okm'; m.textContent = '지시를 남겼습니다. 다음 순찰 때 슈콩이 가져가요.';
+      try { localStorage.removeItem('aioffice_draft'); } catch(_){}
+      return load();
+    }).catch(function(e){ m.className = 'msg'; m.textContent = errText(e); }).then(function(){ b.disabled = false; });
+  };
+  $('ordIn').addEventListener('input', function(){ try { localStorage.setItem('aioffice_draft', this.value); } catch(_){} });
+
+  TeacherAuth.ready.then(function(ctx){
+    var p = ctx.profile;
+    if (!(p.role === 'admin' || VIEWERS.indexOf(p.login_id) >= 0)){ $('deny').hidden = false; return; }
+    $('app').hidden = false;
+    try { var dr = localStorage.getItem('aioffice_draft'); if (dr) $('ordIn').value = dr; } catch(_){}
+    render(); load();
+    setInterval(function(){ if (!document.hidden) load(); }, POLL_MS);
+    document.addEventListener('visibilitychange', function(){ if (!document.hidden) load(); });
+  });
+})();
+</script>
+</body>
+</html>
