@@ -149,6 +149,10 @@ function errOut(json, msg){ return json({ code: 'P0001', message: msg }, 400); }
   const img = async k => (await page.locator(k === 'lead' ? '#leadImg' : '.desk[data-role="' + k + '"] img.sk').getAttribute('src')).replace('assets/shukong/', '');
   ok(await img('hong') === 'sk-desk.png' && await img('haeng') === 'sk-notice.png' && await img('gyo') === 'sk-school.png' && await img('lead') === 'sk-fly.png', '슈콩 그림 = 일하는 중 책상 · 확인 기다림 확성기 · 쉬는 중 조교 모습 · 팀장은 새 지시가 있으면 날기');
   ok(await page.evaluate(() => [...document.querySelectorAll('img.sk')].every(i => i.complete && i.naturalWidth > 0)), '슈콩 그림 다섯 장 모두 불러옴');
+  ok(await page.locator('.desk[data-role="hong"] .slot.hasdesk').count() === 1 && await page.locator('.desk[data-role="gyo"] .slot.hasdesk').count() === 0, '책상 그림 슈콩은 옆 책상 감춤 · 쉬는 슈콩은 옆 책상');
+  ok(await page.locator('.desk[data-role="hong"].on').count() === 1, '일하는 자리는 모니터 켜짐');
+  ok(/rotate\(/.test(await page.locator('#mh').getAttribute('transform') || ''), '벽시계 바늘');
+  ok(await page.locator('.notes .pi').count() === 5, '화이트보드 포스트잇 다섯 단계');
   ok(await col(page, 'in').locator('.task').count() === 2, '접수 = 새 지시 + 가져갔지만 아직 안 나눈 지시');
   ok((await col(page, 'in').textContent()).includes('슈콩이 가져가 나누는 중'), '가져간 지시 표시');
   ok(await col(page, 'in').locator('[data-cancel="3"]').count() === 1 && await col(page, 'in').locator('[data-cancel="5"]').count() === 0, '가져가기 전 지시만 취소 버튼');
@@ -212,6 +216,12 @@ function errOut(json, msg){ return json({ code: 'P0001', message: msg }, 400); }
   await page.locator('.desk[data-role="hong"]').click();
   ok(await page.locator('.task[data-id="12"]').count() === 0 && await page.locator('.task[data-id="11"]').count() === 1, '홍보 조교 일만');
   ok((await page.locator('#filNote').textContent()).includes('홍보 조교의 일만'), '거르는 중 안내');
+  TASKS.forEach(t => { if (t.role === 'hong' && t.col === '진행') t.col = '확인'; });
+  TASKS.forEach(t => { if (t.role === 'hong') t.updated_at = K('00:01'); });
+  TASKS.filter(t => t.role === 'hong').forEach(t => { t.col = '중단'; t.updated_at = '2026-10-20T00:00:00Z'; });
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  await page.waitForFunction(() => (document.querySelector('.desk[data-role="hong"] img.sk').getAttribute('src') || '').endsWith('sk-cheer-hearts.png'));
+  ok(true, '쉬는 홍보 조교 = 응원 피켓 슈콩');
   await page.click('#filAll');
   ok(await page.locator('.task[data-id="12"]').count() === 1, '모두 보기');
   await ctx.close();
@@ -225,7 +235,7 @@ function errOut(json, msg){ return json({ code: 'P0001', message: msg }, 400); }
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   await page.waitForSelector('.col[data-col="확인"] .task');
   ok(await page.evaluate(() => document.documentElement.scrollWidth <= 392), '휴대폰 가로 스크롤 없음(업무판은 상자 안에서)');
-  ok(await page.locator('.top .note').first().isHidden(), '휴대폰은 쪽지 숨김');
+  ok(await page.locator('.coffee').isHidden() && await page.locator('.wins').isVisible(), '휴대폰은 커피바 숨김 · 창은 보임');
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'aioffice-phone.png'), fullPage: true });
   await ctx.close();
 
