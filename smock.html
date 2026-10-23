@@ -109,7 +109,7 @@
       <span class="muted" id="nNote"></span>
     </div>
     <div class="exams" id="exams"><p class="muted">불러오는 중…</p></div>
-    <p class="muted" style="margin:10px 0 0">문제지·정답 해설·등급컷·전국 오답률을 클로슈에게 주면 회차에 정답·배점·등급컷을 넣어 드려요. 넣은 회차는 학생이 틀린 번호만 누르면 점수·등급이 자동으로 계산됩니다.</p>
+    <p class="muted" style="margin:10px 0 0">문제지·정답 해설·등급컷·EBSi 오답률을 클로슈에게 주면 회차에 정답·배점·등급컷을 넣어 드려요. 넣은 회차는 학생이 틀린 번호만 누르면 점수·등급이 자동으로 계산됩니다.</p>
   </section>
 
   <section class="card" id="resCard" style="display:none">
@@ -169,7 +169,7 @@
     if (rows.length){ out.grade = 9; for (const r of rows) if (raw >= r.raw){ out.grade = r.grade; break; } }
     if (c.sd) out.std = Math.round(100 + 20 * (raw - c.avg) / c.sd);
     const pts = c.rows.filter(r => r.pct != null && r.raw != null).map(r => [Number(r.raw), Number(r.pct)]);
-    pts.push([0, 0]); pts.sort((a, b) => a[0] - b[0]);
+    if (pts.length) pts.push([0, 0]); pts.sort((a, b) => a[0] - b[0]);
     for (let j = 0; j < pts.length - 1; j++){
       const a = pts[j], b = pts[j + 1];
       if (raw >= a[0] && raw <= b[0]){ out.pct = Math.round(b[0] === a[0] ? b[1] : a[1] + (b[1] - a[1]) * (raw - a[0]) / (b[0] - a[0])); break; }
@@ -212,7 +212,7 @@
       const n = ENTRIES.filter(x => x.exam_key === e.key).length;
       return '<div class="ex' + (e.key === SEL ? ' sel' : '') + '"><span class="nm">' + esc(e.title || e.key) + '</span>' +
         '<span class="st ' + (e.open ? 'on' : 'off') + '">' + (e.open ? '입력 받는 중' : '입력 꺼짐') + '</span>' +
-        '<span class="muted">입력 ' + n + '명</span>' + (e.info && e.info.points ? '<span class="info-ok" title="학생이 틀린 번호만 누르면 점수·등급이 자동으로 계산됩니다">정답·등급컷 있음</span>' : '') +
+        '<span class="muted">입력 ' + n + '명</span>' + (e.info && e.info.points ? '<span class="info-ok" title="학생이 틀린 번호만 누르면 점수·등급이 자동으로 계산됩니다">정답·등급컷 있음</span>' : e.info && e.info.cuts ? '<span class="info-ok" title="' + esc(smCutSrc(e.info.cuts)) + '">등급컷 있음' + (e.info.cuts.kind === '예상' ? '(예상)' : '') + '</span>' : '') +
         '<button class="btn sm lav" data-sel="' + esc(e.key) + '">결과 보기</button>' +
         '<button class="btn sm" data-open="' + esc(e.key) + '">' + (e.open ? '입력 끄기' : '입력 받기 켜기') + '</button>' +
         (n ? '' : '<button class="btn sm" data-del="' + esc(e.key) + '">지우기</button>') + '</div>';
@@ -225,6 +225,25 @@
       const ns = (w || {})[a[0]] || [];
       return ns.length ? '<span class="ak">' + esc(a[0]) + '</span>' + ns.map(n => '<i>' + n + '</i>').join('') + ' ' : '';
     }).join('') || '<span class="muted">없음</span>';
+  }
+  /* 등급컷 자료 표시 — EBSi 자체 분석 원점수(교육청 확정값 아님), 10월은 분석 중 예상치. 학생 s.html 의 smCutSrc 와 같은 문구 — 고치면 둘 다. */
+  function smCutSrc(c){ return c && c.src ? 'EBSi 분석 ' + (c.kind === '예상' ? '예상 ' : '') + '등급컷 기준' : ''; }
+  function cutHtml(c){
+    const rows = (c.rows || []).filter(r => typeof r.grade === 'number').sort((a, b) => a.grade - b.grade);
+    if (!rows.length) return '';
+    const last = rows[rows.length - 1];
+    return '<h3 class="sub">등급컷' + (c.kind === '예상' ? ' (예상)' : '') + ' <small class="muted">원점수 · ' + (c.kind === '예상' ? 'EBSi 분석 중 예상 등급컷' : 'EBSi 자체 분석 등급컷') + '(교육청 확정 원점수 아님)' + (c.checked ? ' · ' + esc(c.checked) + ' 확인' : '') + '</small></h3>' +
+      '<div class="gdist cuts">' + rows.map(r => '<div class="gd"><b>' + r.raw + '</b>' + r.grade + '등급</div>').join('') + '<div class="gd"><b>' + last.raw + '↓</b>' + (last.grade + 1) + '등급 미만</div></div>';
+  }
+  function topHtml(t, cnt, N){
+    if (!t.rows || !t.rows.length) return '';
+    return '<h3 class="sub">EBSi 오답률 TOP15 <small class="muted">' + esc(t.basis || 'EBSi 채점 참여자 기준') + '(전체 응시자 아님) · 순위는 EBSi 표시 순서' + (t.checked ? ' · ' + esc(t.checked) + ' 확인' : '') + '</small></h3>' +
+      '<div class="scroll"><table><thead><tr><th style="text-align:right">순위</th><th style="text-align:right">문항</th><th style="text-align:right">EBSi 오답률</th>' + (N ? '<th style="text-align:right">우리 오답률</th><th style="text-align:right">차이</th>' : '') + '</tr></thead><tbody>' +
+      t.rows.map(r => {
+        const p = N ? Math.round((cnt[r.no] || 0) / N * 1000) / 10 : null, d = p == null ? null : Math.round((p - r.rate) * 10) / 10;
+        return '<tr><td class="num">' + r.rank + '</td><td class="num">' + r.no + '번</td><td class="num">' + Number(r.rate).toFixed(1) + '%</td>' +
+          (N ? '<td class="num">' + p + '%</td><td class="num ' + (d > 0 ? 'up' : 'dn') + '">' + (d > 0 ? '+' : '') + d + '</td>' : '') + '</tr>';
+      }).join('') + '</tbody></table></div>';
   }
   function renderRes(){
     const e = examByKey(SEL);
@@ -243,10 +262,11 @@
       '<div class="tile"><div class="k">평균</div><div class="v">' + (avg == null ? '—' : avg.toFixed(1)) + '</div></div>' +
       '<div class="tile"><div class="k">최고</div><div class="v">' + (nums.length ? Math.max(...nums) : '—') + '</div></div>' +
       '<div class="tile"><div class="k">최저</div><div class="v">' + (nums.length ? Math.min(...nums) : '—') + '</div></div></div>';
-    const info = e.info && e.info.points ? e.info : null;
+    const info = e.info && (e.info.points || e.info.cuts) ? e.info : null;
+    if (info && info.cuts && info.cuts.src) html += cutHtml(info.cuts);
     if (N && info && info.cuts){
       const gc = {}; nums.forEach(v => { const g = smCut(info.cuts, v).grade; gc[g] = (gc[g] || 0) + 1; });
-      html += '<h3 class="sub">등급 분포 <small class="muted">원점수를 이번 회차 등급컷에 대어 본 값</small></h3><div class="gdist">' +
+      html += '<h3 class="sub">등급 분포 <small class="muted">원점수를 이번 회차 등급컷' + (info.cuts.src ? '(' + esc(smCutSrc(info.cuts)) + ')' : '') + '에 대어 본 값</small></h3><div class="gdist">' +
         [1,2,3,4,5,6,7,8,9].map(g => '<div class="gd"><b>' + (gc[g] || 0) + '</b>' + g + '등급</div>').join('') + '</div>';
     }
     if (N && info && info.items){
@@ -267,13 +287,14 @@
       for (let n = 1; n <= 45; n++){
         const p = Math.round((cnt[n] || 0) / N * 100);
         const nt = info && info.nat && info.nat[String(n)];
-        html += '<div class="q' + (p >= 50 ? ' h3' : p >= 30 ? ' h2' : p >= 15 ? ' h1' : '') + (nt && p > nt.rate ? ' up' : '') + '" title="' + n + '번 · ' + (cnt[n] || 0) + '명 틀림' + (nt ? ' · 전국 ' + nt.rate + '%' : '') + '"><b>' + n + '</b>' + p + '%' + (nt ? '<i>전국 ' + Math.round(nt.rate) + '</i>' : '') + '</div>';
+        html += '<div class="q' + (p >= 50 ? ' h3' : p >= 30 ? ' h2' : p >= 15 ? ' h1' : '') + (nt && p > nt.rate ? ' up' : '') + '" title="' + n + '번 · ' + (cnt[n] || 0) + '명 틀림' + (nt ? ' · EBSi ' + nt.rate + '%' : '') + '"><b>' + n + '</b>' + p + '%' + (nt ? '<i>EBSi ' + Math.round(nt.rate) + '</i>' : '') + '</div>';
       }
       html += '</div>';
       const top = Object.keys(cnt).map(Number).sort((a, b) => cnt[b] - cnt[a] || a - b).slice(0, 10);
+      if (info && info.nat) html += '<p class="muted">테두리가 붉은 칸은 EBSi 오답률보다 우리 학생이 더 많이 틀린 문항입니다. EBSi 오답률은 EBSi 채점 참여자 기준이며 TOP15 문항만 있습니다.</p>';
+      if (info && info.top) html += topHtml(info.top, cnt, N);
       if (info && info.items){
-        html += '<p class="muted">테두리가 붉은 칸은 전국 오답률보다 우리 학생이 더 많이 틀린 문항입니다(전국 오답률은 받은 문항만).</p>';
-        html += '<h3 class="sub">많이 틀린 문항</h3><div class="scroll"><table><thead><tr><th>번호</th><th>영역</th><th>출제 의도</th><th style="text-align:right">배점</th><th>정답</th><th style="text-align:right">우리 오답률</th><th style="text-align:right">전국</th><th style="text-align:right">차이</th></tr></thead><tbody>' +
+        html += '<h3 class="sub">많이 틀린 문항</h3><div class="scroll"><table><thead><tr><th>번호</th><th>영역</th><th>출제 의도</th><th style="text-align:right">배점</th><th>정답</th><th style="text-align:right">우리 오답률</th><th style="text-align:right">EBSi</th><th style="text-align:right">차이</th></tr></thead><tbody>' +
           top.map(n => {
             const it = info.items[n - 1] || {}, nt = info.nat && info.nat[String(n)], p = Math.round(cnt[n] / N * 1000) / 10;
             const d = nt ? Math.round((p - nt.rate) * 10) / 10 : null;
@@ -281,7 +302,7 @@
               '<td class="num">' + p + '%</td><td class="num">' + (nt ? nt.rate + '%' : '—') + '</td><td class="num ' + (d == null ? '' : d > 0 ? 'up' : 'dn') + '">' + (d == null ? '' : (d > 0 ? '+' : '') + d) + '</td></tr>';
           }).join('') + '</tbody></table></div>';
       } else {
-        html += '<p class="muted">많이 틀린 문항: ' + top.map(n => n + '번(' + cnt[n] + '명)').join(', ') + '</p>';
+        html += '<p class="muted">많이 틀린 문항: ' + top.map(n => { const nt = info && info.nat && info.nat[String(n)]; return n + '번(' + cnt[n] + '명' + (nt ? ' · EBSi ' + nt.rate + '%' : '') + ')'; }).join(', ') + '</p>';
       }
     }
     html += '<div class="bar" style="justify-content:space-between;margin-top:14px"><h3 class="sub" style="margin:0">입력한 학생</h3><button class="btn sm" id="copyTbl">표 복사</button></div>';
