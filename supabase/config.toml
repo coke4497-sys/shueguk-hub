@@ -10,5 +10,3 @@ verify_jwt = false
 [functions.kakao-skill]
 verify_jwt = false
 
-[functions.ai-office]
-verify_jwt = false

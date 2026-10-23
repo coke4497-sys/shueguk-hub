@@ -42,7 +42,7 @@
 
 ## AI 교무실 — 화면 삭제 (2026-10-23 만들었다가 같은 날 원장님 "이 기능은 저와 맞지 않아요 … 슈국 페이지에서 삭제. 수정 요청을 의인화하는 것으로 충분해요")
 지시를 남기면 클로드 예약 순찰이 조교(슈콩) 넷에게 나눠 처리하는 화면(aioffice.html, #208·#210)을 만들었으나 원장님이 쓰지 않기로 했다. **화면·메뉴 카드·슈콩 그림(assets/shukong)·화면 검사는 지웠고 예약 순찰(trig_011eQGFaKm5pyBQsJd3WLXTW)도 지웠다.** 되살리지 말 것.
-- **실제 수파베이스에는 남아 있다**: 마이그레이션 202610230001(ai_orders·ai_tasks·ai_meta — 빈 표, 원장님·대표님만 읽기)과 엣지 함수 `ai-office`(CLOSHU_TOKEN 없이는 401). 저장소에도 그 기록으로 마이그레이션·`supabase/functions/ai-office`·`tools/aioffice.py`·`tools/ai-office-sql-test.sh`·`docs/AI교무실-지침.md`를 남겼다. 완전히 지우라고 하면 함수 삭제 + `drop table ai_tasks, ai_orders, ai_meta` + ai_* 함수 삭제 후 이 파일들도 지운다.
+- **2026-10-23 완전 삭제**(같은 날 원장님 "수파베이스에 남은 AI 교무실 표도 지워 주세요"): 실제 수파베이스의 표 ai_orders·ai_tasks·ai_meta(빈 표)와 ai_* 함수 10개를 지우고 엣지 함수 `ai-office`도 지웠다(호출 404 확인). 함수 비밀값 `CLOSHU_TOKEN`은 클로슈가 쓰므로 남겼다. 저장소의 마이그레이션 202610230001·`supabase/functions/ai-office`·`tools/aioffice.py`·`tools/ai-office-sql-test.sh`·`docs/AI교무실-지침.md`·config.toml 구역도 지웠다.
 
 ## 학생 명단 — roster.html (2026-10-22 수정 요청함 최예나 "예전 출석부처럼 학교 별 명단, 학년 별 명단" → 원장님 "새 화면으로")
 슈국 운영 → [학생 명단]. 재원생(students, `LEFT_RE` 퇴원 제외 — enrolled 빈 값은 재원)을 [학교별]/[학년별]로 묶어 보여 준다(학교는 가나다, '(학교 미상)'은 맨 끝 / 학년은 중1~고3·미상 순). 묶음 안은 학교별이면 학년 → 이름, 학년별이면 이름 가나다. 줄 = No·이름·학년(또는 학교)·담당·정규 가/나·내신 진도/확인·학생·학부모님1·학부모님2(tel 링크, [연락처 보기] 체크로 숨김 — 휴대폰은 시간표 열 숨김). 고르기 드롭다운(인원 포함)·이름 찾기·[표 복사](탭 구분, 보이는 것만)·[인쇄](출석부처럼). 교사 인증(teacher-auth protected)으로 표를 직접 읽는다 — 백엔드·DB 변경 없음. 검증: `NODE_PATH=$(npm root -g) node tools/roster-e2e-test.js`(15건).
