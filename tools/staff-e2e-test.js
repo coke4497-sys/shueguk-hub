@@ -35,6 +35,8 @@ const PLOGS = [
   { user_id: HEEJU, name: '고희주', loc: '본원', is_on: false, at: K('2026-10-21', '19:30') },
   { user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, at: K('2026-10-20', '14:00') },   // 어제 퇴근 안 누름
   { user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, at: K('2026-10-21', '16:00') },   // 오늘 근무 중
+  { user_id: PARK, name: '박언호', loc: '화정센터', is_on: true, at: K('2026-10-20', '21:00') },   // 자정 넘어 퇴근(근무일 경계 새벽 5시)
+  { user_id: PARK, name: '박언호', loc: '화정센터', is_on: false, at: K('2026-10-21', '00:40') },
 ];
 const TT = [
   { book: '정규', class_id: 'r001', name: '고2 가', day: '수', start_time: '5:30', end_time: '7:00', teacher: '은지', roster: '가 나' },
@@ -170,6 +172,10 @@ const calls = [];
   ok(dt3.includes('10/20 (화)본원 · 14:00 ~ 퇴근 기록 없음'), '어제 퇴근을 안 누르면 퇴근 기록 없음(시간에 안 넣음)');
   ok((await rowOf(page, EUNJI).textContent()).includes('퇴근 기록 없음 1'), '표에도 퇴근 기록 없음 1');
   ok(!(await page.locator('[data-p].on').count()), '날짜를 직접 고르면 기간 알약 꺼짐');
+  await rowOf(page, PARK).click();
+  const dtp = await page.locator('#detail').textContent();
+  ok(dtp.includes('10/20 (화)화정센터 · 21:00 ~ 0:40') && !dtp.includes('퇴근 기록 없음'), '자정 넘은 퇴근은 그 근무일에 붙음(새벽 5시 경계)');
+  ok((await rowOf(page, PARK).textContent()).includes('3시간 40분'), '자정 넘은 근무 시간 3시간 40분');
   console.log('④ 이번 주 · 사람 고르기');
   await page.click('[data-p="week"]');
   await page.waitForFunction(() => document.querySelector('#range').textContent === '10/21 (수) ~ 10/27 (화)');
