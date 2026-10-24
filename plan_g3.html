@@ -91,6 +91,9 @@
   .chip.hit{background:var(--wait);color:var(--waitInk);font-weight:700;}
   .chip.sel.hit{background:var(--lavInk);color:#fff;}
   .chip small{font-size:11px;opacity:.8;}
+  .chip.pend{box-shadow:inset 0 0 0 1.5px #B9A5CC;}
+  .chip .pd,.wk-mini .pd{color:var(--lavInk);font-weight:700;opacity:1;}
+  .pends{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--ink2);}
   .unp .chip{background:#F6F8F7;}
   .unp h3{font-size:14px;margin:8px 0 4px;color:var(--ink2);font-weight:400;}
   /* 주차별 개요 — 슈국 스케쥴 주차별 보기와 같은 짜임(월~일 7열, 카드 높이 = 수업 길이) */
@@ -315,6 +318,9 @@ var PG = (function(){
   function plan(){ return PLANS.filter(function(p){ return p.plan === CUR; })[0] || null; }
   function clsOf(p){ return (p.classes || []).filter(function(c){ return c && c.id !== META; }); }
   function metaOf(p){ return (p.classes || []).filter(function(c){ return c && c.id === META; })[0] || { id: META, memo: '', made: '' }; }
+  // 학생별 '이동 예정' 표시 — 안 메타(__meta).notes = {학생: 메모} (2026-10-24 원장님 "슈 확인반으로 이동 예정 표시")
+  function notesOf(p){ return (p && metaOf(p).notes) || {}; }
+  function noteOf(nm){ return notesOf(plan())[nm] || ''; }
   function rowsOf(plan){ return ROWS[plan] || []; }
   function rowOf(nm){ return rowsOf(CUR).filter(function(r){ return r.student === nm; })[0]; }
 
@@ -402,17 +408,22 @@ var PG = (function(){
     bar.hidden = false;
     bar.innerHTML = '<b>' + esc(r.student) + '</b><span>' + esc(r.school) + '</span><span>진도: ' + esc(label(by[r.ga])) + ' / 확인: ' + esc(label(by[r.na])) + '</span>' +
       '<span style="flex-basis:100%;font-size:13px;opacity:.9">옮길 반을 누르세요. 진도 반을 누르면 진도가, 확인 반을 누르면 확인이 바뀝니다.</span>' +
+      (noteOf(r.student) ? '<span style="flex-basis:100%;font-size:13px">이동 예정: ' + esc(noteOf(r.student)) + '</span>' : '') +
+      '<button class="btn" type="button" data-note="1">' + (noteOf(r.student) ? '예정 표시 고치기' : '이동 예정 표시') + '</button>' + (noteOf(r.student) ? '<button class="btn" type="button" data-note="0">예정 표시 지우기</button>' : '') +
       '<button class="btn" type="button" data-unset="ga">진도에서 빼기</button><button class="btn" type="button" data-unset="na">확인에서 빼기</button><button class="btn" type="button" data-unsel="1">선택 풀기</button>';
   }
   function chip(r, extra, bad){
     var hit = Q && r.student.indexOf(Q) >= 0;
-    return '<button class="chip' + (r.student === SEL ? ' sel' : '') + (bad ? ' bad' : '') + (hit ? ' hit' : '') + '" type="button" data-st="' + esc(r.student) + '" title="' + esc(r.school + ' · ' + (r.src || '')) + '">' + esc(r.student) + (extra ? ' <small>' + esc(extra) + '</small>' : '') + '</button>';
+    var nt = noteOf(r.student);
+    return '<button class="chip' + (r.student === SEL ? ' sel' : '') + (bad ? ' bad' : '') + (hit ? ' hit' : '') + (nt ? ' pend' : '') + '" type="button" data-st="' + esc(r.student) + '" title="' + esc((nt ? '이동 예정: ' + nt + ' · ' : '') + r.school + ' · ' + (r.src || '')) + '">' + esc(r.student) + (nt ? ' <small class="pd">예정</small>' : '') + (extra ? ' <small>' + esc(extra) + '</small>' : '') + '</button>';
   }
   function renderUnplaced(rows, chk){
     var noG = rows.filter(function(r){ return !r.excluded && chk.noGa.indexOf(r.student) >= 0; }), noN = rows.filter(function(r){ return !r.excluded && chk.noNa.indexOf(r.student) >= 0; });
     var h = '';
     if (noG.length) h += '<h3>진도 반에 아직 안 놓은 학생 ' + noG.length + '명</h3><div class="chips">' + noG.map(function(r){ return chip(r, r.school); }).join('') + '</div>';
     if (noN.length) h += '<h3>확인 반에 아직 안 놓은 학생 ' + noN.length + '명</h3><div class="chips">' + noN.map(function(r){ return chip(r, r.school); }).join('') + '</div>';
+    var pend = rows.filter(function(r){ return !r.excluded && noteOf(r.student); });
+    if (pend.length) h += '<h3>이동 예정 표시한 학생 ' + pend.length + '명</h3><div class="pends">' + pend.map(function(r){ return '<div>' + chip(r) + ' <span>' + esc(noteOf(r.student)) + '</span></div>'; }).join('') + '</div>';
     $('unp').innerHTML = h;
     var hits = Q ? rows.filter(function(r){ return r.student.indexOf(Q) >= 0; }) : [];
     $('qnote').textContent = Q ? (hits.length ? '‘' + Q + '’ ' + hits.length + '명 — 노란 칩으로 표시했습니다.' + (hits.length === 1 ? '' : '') : '‘' + Q + '’ 학생이 없습니다.') : '';
@@ -429,6 +440,7 @@ var PG = (function(){
     var by = {}; cls.forEach(function(c){ by[c.id] = c; });
     var inCls = {}; rows.forEach(function(r){ if (r.excluded) return; [r.ga, r.na].forEach(function(id){ if (by[id]) (inCls[id] = inCls[id] || []).push(r); }); });
     var stCls = function(c){ return 'p-' + c.part + (sel && selCls.indexOf(c.id) < 0 ? ' target' : '') + (sel && selCls.indexOf(c.id) >= 0 ? ' mine' : ''); };
+    var pendH = function(c){ var k = (inCls[c.id] || []).filter(function(r){ return noteOf(r.student); }).length; return k ? '<small class="pd">이동 예정 ' + k + '명</small>' : ''; };
     var cntH = function(c){ var n = (inCls[c.id] || []).length; return '<span class="cnt' + (n > cap ? ' over' : '') + '">' + n + '명' + (n > cap ? ' (정원 ' + cap + ')' : '') + '</span>'; };
     if (VIEW && showDays(cls).indexOf(VIEW) < 0) VIEW = '';
     var box = $('days');
@@ -450,7 +462,7 @@ var PG = (function(){
           return '<div class="wk-cell' + (i % 2 ? ' alt' : '') + '" style="--nt:' + nt + '">' + ts.map(function(t){
             return '<div class="wk-slot">' + here.filter(function(c){ return c.teacher === t; }).map(function(c){
               return '<div class="wk-mini ' + stCls(c) + '" data-cls="' + esc(c.id) + '" title="' + esc(c.teacher + 'T ' + c.name + ' ' + c.start + '~' + c.end) + '">' +
-                '<b>' + esc(String(c.name).replace(/^고3\s*/, '')) + '</b><small>' + (String(c.name).indexOf(c.part) < 0 ? '<span class="pt ' + c.part + '">' + c.part + '</span> ' : '') + cntH(c) + ' · ~' + esc(c.end) + '</small></div>';
+                '<b>' + esc(String(c.name).replace(/^고3\s*/, '')) + '</b><small>' + (String(c.name).indexOf(c.part) < 0 ? '<span class="pt ' + c.part + '">' + c.part + '</span> ' : '') + cntH(c) + ' · ~' + esc(c.end) + '</small>' + pendH(c) + '</div>';
             }).join('') + '</div>';
           }).join('') + '</div>';
         }).join('');
@@ -529,9 +541,9 @@ var PG = (function(){
   }
   function nextNo(){ return PLANS.reduce(function(a, p){ return Math.max(a, noOf(p.plan)); }, 0) + 1; }
   function today(){ var d = new Date(Date.now() + 9 * 3600e3); return d.getUTCFullYear() + '-' + ('0' + (d.getUTCMonth() + 1)).slice(-2) + '-' + ('0' + d.getUTCDate()).slice(-2); }
-  function createPlan(classes, students, memo, made, cap){
+  function createPlan(classes, students, memo, made, cap, notes){
     var key = PRE + nextNo(), at = nowIso();
-    var cfg = { plan: key, open: false, cap: cap || CAP0, classes: classes.concat([{ id: META, memo: memo || '', made: made }]), author: ME, updated_at: at };
+    var cfg = { plan: key, open: false, cap: cap || CAP0, classes: classes.concat([{ id: META, memo: memo || '', made: made, notes: notes || {} }]), author: ME, updated_at: at };
     var rows = students.map(function(s){ return { plan: key, student: s.student, school: s.school || '', src: s.src || '', ga: s.ga || '', na: s.na || '', excluded: !!s.excluded, author: ME, updated_at: at }; });
     busy(true);
     return api('/tt_plan_config', { method: 'POST', prefer: 'return=minimal', body: JSON.stringify(cfg) })
@@ -551,7 +563,7 @@ var PG = (function(){
   function newCopy(){
     var p = plan(); if (!p || BUSY) return;
     if (!confirm(noOf(p.plan) + '안을 그대로 복사해 ' + nextNo() + '안을 만들까요?')) return;
-    createPlan(clsOf(p).map(function(c){ return JSON.parse(JSON.stringify(c)); }), rowsOf(p.plan), metaOf(p).memo, today() + ' ' + noOf(p.plan) + '안에서 복사', p.cap);
+    createPlan(clsOf(p).map(function(c){ return JSON.parse(JSON.stringify(c)); }), rowsOf(p.plan), metaOf(p).memo, today() + ' ' + noOf(p.plan) + '안에서 복사', p.cap, notesOf(p));
   }
   function delPlan(){
     var p = plan(); if (!p || BUSY) return;
@@ -614,9 +626,17 @@ var PG = (function(){
 
   // ── 이벤트 ─────────────────────────────
   document.addEventListener('click', function(ev){
-    var t = ev.target.closest('[data-zday],[data-plan],[data-st],[data-edit],[data-cls],[data-unset],[data-unsel],[data-part],[data-dpart]');
+    var t = ev.target.closest('[data-note],[data-zday],[data-plan],[data-st],[data-edit],[data-cls],[data-unset],[data-unsel],[data-part],[data-dpart]');
     if (!$('newBtn').contains(ev.target)) $('newPop').hidden = true;
     if (!t) return;
+    if (t.hasAttribute('data-note')){
+      var nm2 = SEL, p2 = plan(); if (!nm2 || !p2 || BUSY) return;
+      var v = '';
+      if (t.getAttribute('data-note') === '1'){ v = prompt(nm2 + ' 학생 이동 예정 메모', noteOf(nm2) || '슈T 확인 반으로 이동 예정'); if (v === null) return; v = v.trim().slice(0, 80); if (!v) return; }
+      var m2 = JSON.parse(JSON.stringify(metaOf(p2))), ns = m2.notes || {}; if (v) ns[nm2] = v; else delete ns[nm2]; m2.notes = ns;
+      busy(true); saveConfig(clsOf(p2).concat([m2])).then(function(){ toast(v ? nm2 + ' 이동 예정 표시' : nm2 + ' 예정 표시를 지웠습니다'); render(); }).catch(fail).then(function(){ busy(false); });
+      return;
+    }
     if (t.hasAttribute('data-zday')){ VIEW = t.getAttribute('data-zday'); try { sessionStorage.setItem('pg3_view', VIEW); } catch(_){} render(); window.scrollTo(0, $('days').getBoundingClientRect().top + window.scrollY - 60); return; }
     if (t.hasAttribute('data-plan')){ CUR = t.getAttribute('data-plan'); SEL = ''; render(); return; }
     if (t.hasAttribute('data-dpart')){ dPart(t.getAttribute('data-dpart')); return; }

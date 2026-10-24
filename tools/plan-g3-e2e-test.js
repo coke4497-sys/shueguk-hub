@@ -97,7 +97,7 @@ function match(row, sp){
     });
     const page = await ctx.newPage();
     page.on('pageerror', e => { bad++; console.error('  ✗ 페이지 오류', e.message); });
-    page.on('dialog', d => d.accept());
+    page.on('dialog', d => d.type() === 'prompt' ? d.accept(d.defaultValue()) : d.accept());
     await page.goto(`http://127.0.0.1:${PORT}/${file}`);
     return { ctx, page };
   }
@@ -182,6 +182,20 @@ function match(row, sp){
   ok(STU.find(s => s.student === '가나').ga === '' && (await txt(page, '#tiles')).includes('1진도 미배치'), '진도에서 빼기 → 미배치');
   await page.click('[data-unsel]');
   ok(await page.locator('#selbar').isHidden(), '선택 풀기');
+  console.log('③-2 이동 예정 표시');
+  await zday(page, '수');
+  await page.click('.chip[data-st="마바"]');
+  await page.click('[data-note="1"]');
+  ok(await until(() => ((CFG[0].classes.find(c => c.id === '__meta') || {}).notes || {})['마바'] === '슈T 확인 반으로 이동 예정'), '예정 메모 = 안 메타 notes 에 저장');
+  await page.waitForSelector('.chip.pend[data-st="마바"]');
+  ok((await txt(page, '#unp')).includes('이동 예정 표시한 학생 1명') && (await txt(page, '#unp')).includes('슈T 확인 반으로 이동 예정'), '위에 이동 예정 목록');
+  ok((await txt(page, '#selbar')).includes('이동 예정: 슈T 확인 반으로'), '선택 띠에 예정 메모');
+  await zday(page, '');
+  ok((await txt(page, '.wk-mini[data-cls="n004"]')).includes('이동 예정 1명'), '개요 카드에 예정 인원');
+  await page.click('[data-note="0"]');
+  ok(await until(() => !(((CFG[0].classes.find(c => c.id === '__meta') || {}).notes || {})['마바'])), '예정 표시 지우기');
+  await page.click('[data-unsel]');
+  await zday(page, '목');
   await page.fill('#q', '사아');
   await zday(page, '목');
   ok(await page.locator('.chip.hit').count() === 1 && (await txt(page, '#qnote')).includes('1명'), '이름 찾기 = 노란 칩');
