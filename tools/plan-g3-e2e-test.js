@@ -152,6 +152,7 @@ function match(row, sp){
   ok(y48 + 20 < y6, '오전 11:00 줄이 오후 5:30 줄보다 위(시작 시간 순)');
   ok((await page.locator('.wk-ov .wk-tl').allTextContents()).filter(Boolean).join(',') === '11:00,5:30', '왼쪽 시간 눈금 = 시작 시간들');
   ok(await page.locator('.wk-ov .chip').count() === 0, '개요에는 학생 이름 없음');
+  ok((await page.locator('.wk-mini[data-cls="n004"] .smix').textContent()).includes('화수 1') && await page.locator('.wk-mini[data-cls="n006"] .smix').count() === 0, '개요 확인 카드 = 학교 구성 한 줄(진도 카드는 없음)');
   await page.click('.wk-mini[data-cls="n004"]');
   await page.waitForSelector('.zg');
   ok((await txt(page, '.wk-dayh.bigh')).startsWith('수요일'), '카드를 누르면 그 요일 확대');
@@ -159,6 +160,9 @@ function match(row, sp){
   const top6 = (await page.locator('.zg-card[data-cls="n006"]').boundingBox()).y, top4 = (await page.locator('.zg-card[data-cls="n004"]').boundingBox()).y;
   ok(Math.abs(top6 - top4) < 2, '같은 시간 반은 같은 높이에 나란히');
   ok(await page.locator('.chip.bad[data-st="가나"]').count() === 2, '겹친 학생 칩 붉게');
+  const sg = await page.locator('.zg-card[data-cls="n004"] .sg-h').allTextContents();
+  ok(sg.length === 2 && sg.includes('화수 1') && sg.includes('화정 1'), '확대 카드 학생 = 학교 묶음 (' + sg.join('/') + ')');
+  ok((await page.locator('.chip[data-st="마바"]').first().getAttribute('style')).includes('#E3F0E9'), '칩 바탕 = 학교색(화정)');
   const card = page.locator('.zg-card[data-cls="n006"]'), cb = await card.boundingBox(), inner = await card.evaluate(e => e.scrollHeight);
   ok(cb.height + 2 >= inner, '카드가 잘리지 않음(칸 높이 자동)');
 
