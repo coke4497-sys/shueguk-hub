@@ -113,10 +113,10 @@ function match(row, sp){
   await ctx.close();
   ({ ctx, page } = await open('ops.html', JUHYE));
   await page.waitForSelector('.card'); await sleep(300);
-  ok(!(await txt(page, '#list')).includes('27 예상 고3'), '선생님 운영 메뉴에는 카드 없음');
+  ok(!(await txt(page, '#list')).includes('2027 예상 고3'), '선생님 운영 메뉴에는 카드 없음');
   await ctx.close();
   ({ ctx, page } = await open('ops.html', PARK));
-  await page.waitForFunction(() => document.querySelector('#list').textContent.includes('27 예상 고3'));
+  await page.waitForFunction(() => document.querySelector('#list').textContent.includes('2027 예상 고3'));
   ok(await page.locator('a.card[href="plan_g3.html"]').count() === 1, '대표님(parkeh)에게는 카드');
   await ctx.close();
 
