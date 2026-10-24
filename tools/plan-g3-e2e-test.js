@@ -102,7 +102,9 @@ function match(row, sp){
     return { ctx, page };
   }
   const txt = async (page, sel) => (await page.locator(sel).textContent()) || '';
-  const cls = (page, id) => page.locator('.cls[data-cls="' + id + '"]');
+  const cls = (page, id) => page.locator('[data-cls="' + id + '"]');
+  const until = async (f, ms = 5000) => { const t = Date.now(); while (!f()){ if (Date.now() - t > ms) return false; await sleep(60); } return true; };
+  const zday = async (page, d) => { await page.click('[data-zday="' + d + '"]'); await page.waitForSelector(d ? '.zg, .wk-zoom .empty' : '.wk-ov'); };
 
   console.log('① 보는 사람 · 메뉴 카드');
   let { ctx, page } = await open('plan_g3.html', JUHYE);
@@ -122,7 +124,7 @@ function match(row, sp){
   ({ ctx, page } = await open('plan_g3.html', BOSS));
   await page.waitForSelector('#firstBtn');
   await page.click('#firstBtn');
-  await page.waitForSelector('.cls');
+  await page.waitForSelector('.wk-mini');
   ok(CFG.length === 1 && CFG[0].plan === '27고3-1' && CFG[0].open === false, '설정 한 줄 27고3-1 · 신청 닫힘');
   const cl = CFG[0].classes.filter(c => c.id !== '__meta');
   ok(cl.length === 5 && cl.filter(c => c.part === '진도').length === 2 && cl.filter(c => c.part === '확인').length === 3, '고2 반만 5개(진도 2·확인 3, 고1·w* 제외)');
@@ -136,21 +138,38 @@ function match(row, sp){
   const tiles = await txt(page, '#tiles');
   ok(tiles.includes('5학생') && tiles.includes('2진도 반') && tiles.includes('3확인 반'), '점검 숫자 (' + tiles + ')');
   ok(tiles.includes('1진도·확인 시간 겹침'), '가나는 수 5:30 진도·확인이 겹침');
-  ok(await page.locator('.chip.bad[data-st="가나"]').count() === 2, '겹친 학생 칩 붉게');
   ok((await txt(page, '#tsum')).includes('주혜T') && (await txt(page, '#tsum')).includes('진도 1반 · 2명'), '선생님별 카드');
-  ok(await page.locator('.dcol').count() === 4, '요일 열 = 반이 있는 요일(수·목·금·토)');
+  console.log('②-2 주차별 개요 · 요일 확대');
+  ok(await page.locator('.wk-ov .wk-col').count() === 7 && (await txt(page, '.wk-ov .wk-col:nth-child(1) .wk-dayh')).includes('수업 없음'), '개요 = 월~일 7열(빈 요일도)');
+  const mini = page.locator('.wk-mini[data-cls="n006"]');
+  ok((await mini.textContent()).includes('현정T 고3 화수A') && (await mini.textContent()).includes('5:30~7:00') && (await mini.textContent()).includes('3명'), '개요 카드 = 담당T·반·시간·인원');
+  const h6 = (await mini.boundingBox()).height, h48 = (await page.locator('.wk-mini[data-cls="n031"]').boundingBox()).height;
+  ok(h6 >= 70 && Math.abs(h6 - h48) <= 2, '카드 높이 = 수업 길이(90분 ' + Math.round(h6) + 'px)');
+  ok(await page.locator('.wk-ov .chip').count() === 0, '개요에는 학생 이름 없음');
+  await page.click('.wk-mini[data-cls="n004"]');
+  await page.waitForSelector('.zg');
+  ok((await txt(page, '.wk-dayh.bigh')).startsWith('수요일'), '카드를 누르면 그 요일 확대');
+  ok(await page.locator('.zg-col').count() === 3 && (await txt(page, '.zg')).includes('현정T') && (await txt(page, '.zg')).includes('연주T'), '확대 = 선생님 열(그 요일 수업 없는 선생님도)');
+  const top6 = (await page.locator('.zg-card[data-cls="n006"]').boundingBox()).y, top4 = (await page.locator('.zg-card[data-cls="n004"]').boundingBox()).y;
+  ok(Math.abs(top6 - top4) < 2, '같은 시간 반은 같은 높이에 나란히');
+  ok(await page.locator('.chip.bad[data-st="가나"]').count() === 2, '겹친 학생 칩 붉게');
+  const card = page.locator('.zg-card[data-cls="n006"]'), cb = await card.boundingBox(), inner = await card.evaluate(e => e.scrollHeight);
+  ok(cb.height + 2 >= inner, '카드가 잘리지 않음(칸 높이 자동)');
 
   console.log('③ 학생 옮기기');
   await page.click('.cls[data-cls="n006"] .chip[data-st="가나"]');
   await page.waitForSelector('#selbar:not([hidden])');
   ok((await txt(page, '#selbar')).includes('가나') && (await txt(page, '#selbar')).includes('화수고'), '선택 띠');
-  ok(await page.locator('.cls.target').count() === 3 && await page.locator('.cls.mine').count() === 2, '옮길 곳 표시');
+  ok(await page.locator('.zg-card.mine').count() === 2, '내 반 표시');
+  await zday(page, '');
+  ok(!(await page.locator('#selbar').isHidden()) && await page.locator('.wk-mini.target').count() === 3 && await page.locator('.wk-mini.mine').count() === 2, '개요로 가도 선택 유지 · 옮길 곳 표시');
   await cls(page, 'n017').click();
   await page.waitForFunction(() => !document.querySelector('#tiles').textContent.includes('1진도·확인'));
   ok(STU.find(s => s.student === '가나').na === 'n017' && STU.find(s => s.student === '가나').ga === 'n006', '확인 반을 누르면 확인만 바뀜');
   ok(calls.some(c => c[0] === 'PATCH' && c[1] === '/rest/v1/tt_plan_students' && decodeURIComponent(c[2]).includes('student=eq.가나')), '그 학생 줄만 PATCH');
   await cls(page, 'n031').click();
-  await page.waitForFunction(() => document.querySelector('.cls[data-cls="n031"]').textContent.includes('가나'));
+  ok(await until(() => STU.find(s => s.student === '가나').ga === 'n031'), '저장 기다림');
+  await page.waitForFunction(() => document.querySelector('[data-cls="n031"]').textContent.includes('3명'));
   ok(STU.find(s => s.student === '가나').ga === 'n031', '진도 반을 누르면 진도가 바뀜');
   await page.click('[data-unset="ga"]');
   await page.waitForFunction(() => document.querySelector('#unp').textContent.includes('진도 반에 아직'));
@@ -158,21 +177,24 @@ function match(row, sp){
   await page.click('[data-unsel]');
   ok(await page.locator('#selbar').isHidden(), '선택 풀기');
   await page.fill('#q', '사아');
-  ok(await page.locator('.chip.hit').count() === 2 && (await txt(page, '#qnote')).includes('1명'), '이름 찾기 = 노란 칩');
+  await zday(page, '목');
+  ok(await page.locator('.chip.hit').count() === 1 && (await txt(page, '#qnote')).includes('1명'), '이름 찾기 = 노란 칩');
   await page.fill('#q', '');
 
   console.log('④ 반 추가·고치기·지우기');
   await page.click('#addCls');
   await page.fill('#dName', '고3 확인 합반'); await page.selectOption('#dDay', '일'); await page.fill('#dStart', '2:00'); await page.fill('#dEnd', '3:30'); await page.fill('#dT', '주혜T');
   await page.click('#dOk');
-  await page.waitForFunction(() => document.querySelectorAll('.dcol').length === 5);
+  await zday(page, '');
+  await page.waitForFunction(() => document.querySelectorAll('.wk-col')[6].textContent.includes('확인 1'));
   const nc = CFG[0].classes.find(c => c.name === '고3 확인 합반');
   ok(nc && nc.part === '확인' && nc.teacher === '주혜' && nc.day === '일' && /^c/.test(nc.id), '반 추가(담당 T 떼고 저장)');
   ok(CFG[0].classes.some(c => c.id === '__meta'), '메타 칸 유지');
+  await zday(page, '토');
   await page.click('[data-edit="n048"]');
   await page.fill('#dStart', '12:30'); await page.fill('#dEnd', '2:00');
   await page.click('#dOk');
-  await page.waitForFunction(() => document.querySelector('.cls[data-cls="n048"]').textContent.includes('12:30~2:00'));
+  await page.waitForFunction(() => document.querySelector('[data-cls="n048"]').textContent.includes('12:30~2:00'));
   ok(CFG[0].classes.find(c => c.id === 'n048').start === '12:30', '반 시간 고치기');
   await page.click('[data-edit="n048"]');
   await page.click('[data-dpart="진도"]'); await page.click('#dOk');
@@ -180,7 +202,7 @@ function match(row, sp){
   ok(CFG[0].classes.find(c => c.id === 'n048').part === '확인', '학생 있는 반은 진도·확인 못 바꿈');
   await page.click('#dCancel');
   await page.click('[data-edit="n048"]'); await page.click('#dDel');
-  await page.waitForFunction(() => !document.querySelector('.cls[data-cls="n048"]'));
+  await page.waitForFunction(() => !document.querySelector('[data-cls="n048"]'));
   ok(STU.find(s => s.student === '한윤서').na === '' && !CFG[0].classes.some(c => c.id === 'n048'), '반 지우면 학생은 미배치');
 
   console.log('⑤ 메모 · 2안 · 비교');
@@ -192,8 +214,9 @@ function match(row, sp){
   ok(CFG.length === 2 && STU.filter(s => s.plan === '27고3-2').length === 5, '2안 = 1안 그대로 복사');
   ok(STU.find(s => s.plan === '27고3-2' && s.student === '가나').na === 'n017', '배치도 복사');
   ok((await txt(page, '#plans .pill.on')) === '2안' && !(await page.locator('#cmpCard').isHidden()), '2안으로 옮겨 가고 비교표가 보임');
-  await page.click('.cls[data-cls="n017"] .chip[data-st="사아"]'); await cls(page, 'n004').click();
-  await page.waitForFunction(() => document.querySelector('.cls[data-cls="n004"]').textContent.includes('사아'));
+  await zday(page, '목');
+  await page.click('[data-cls="n017"] .chip[data-st="사아"]'); await zday(page, ''); await cls(page, 'n004').click();
+  ok(await until(() => STU.find(s => s.plan === '27고3-2' && s.student === '사아').na === 'n004'), '2안에서 사아 확인 반 옮김');
   ok(STU.find(s => s.plan === '27고3-1' && s.student === '사아').na === 'n017', '2안을 바꿔도 1안은 그대로');
   ok((await txt(page, '#cmp')).includes('확인은 주혜T 한 분'), '비교표에 메모');
   await page.click('#cmp tr[data-plan="27고3-1"]');
@@ -201,6 +224,7 @@ function match(row, sp){
 
   console.log('⑥ 다른 화면에서 바뀜');
   CFG[0].updated_at = ts();
+  await zday(page, '목');
   await page.click('[data-edit="n017"]'); await page.fill('#dEnd', '7:30'); await page.click('#dOk');
   await page.waitForFunction(() => document.querySelector('#toast').textContent.includes('다른 화면'));
   ok(CFG[0].classes.find(c => c.id === 'n017').end === '7:00', '옛 값으로 덮어쓰지 않음');
@@ -216,12 +240,12 @@ function match(row, sp){
   ok(CFG.length === 1 && !STU.some(s => s.plan === '27고3-2'), '2안 지우기(학생 줄도)');
   await ctx.close();
   ({ ctx, page } = await open('plan_g3.html', PARK, { viewport: { width: 390, height: 844 } }));
-  await page.waitForSelector('.cls');
+  await page.waitForSelector('.wk-mini');
   ok(await page.evaluate(() => document.documentElement.scrollWidth <= 392), '휴대폰 가로 스크롤 없음(요일 칸은 상자 안에서)');
   if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'plan-g3-phone.png'), fullPage: true }); }
   await ctx.close();
   ({ ctx, page } = await open('plan_g3.html', BOSS));
-  await page.waitForSelector('.cls');
+  await page.waitForSelector('.wk-mini');
   if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'plan-g3-pc.png'), fullPage: true }); }
   await ctx.close();
 
