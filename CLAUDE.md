@@ -53,6 +53,12 @@
 - **학생 목록 (내신·정규)**(같은 날 원장님 "학생 이름을 가나다 순으로 배치한 2027 고3 리스트 … 가로로 내신 진도, 확인 그리고 정규 독서, 문학 … 독서, 문학을 교환한 친구들은 색깔로"): 안 알약 옆 [학생 목록 (내신·정규)](`#listBtn`, sessionStorage `pg3_list`) → `#listCard` — 두 안(기본은 이름이 '내신'·'정규'인 안, 드롭다운 `#lsN`/`#lsG`로 바꿈)의 학생을 가나다순으로 No·이름·학교·내신 진도·내신 확인·정규 독서·정규 문학·구분. **정규는 진도 반 = 문학, 확인 반 = 독서.** `PG.compareKind`가 시간(요일+시작)으로 가른다 — same(정규 문학 = 내신 진도 시간, 독서 = 내신 확인 시간) / **swap(같은 두 시간인데 독서·문학이 바뀜 → 연보라 줄)** / moved(시간 달라짐 → 연노랑) / none(반 없음). 거르기 [전체][독서·문학 교환][시간 바뀜]·찾기·[표 복사]. 퇴원 예정은 '(이름)'. 안 알약을 누르면 시간표로 돌아간다. 2026-10-24 기준 133명 중 교환 20명·그대로 113명.
 - 검증: `LC_ALL=C.UTF-8 NODE_PATH=$(npm root -g) node tools/plan-g3-e2e-test.js`(82건).
 
+## 2027 예상 고1 시간표 — plan_g1.html (2026-10-24 원장님 "슈국 스케쥴에 있는 27 예상 내용을 슈국 운영으로 이동해줘. 이름을 2027 예상 고1 시간표로")
+- 슈국 운영 → [2027 예상 고1 시간표] — 원장님(admin)·`P27_VIEWERS`(parkeh)만. 리포트 timetable.html 의 [27 예상] 보기(예비 고1 가·나 반 배치, 052·053 — 자세한 규칙은 리포트 CLAUDE.md '27 예상 정규 시간표' 절)를 코드 그대로 옮겼다. 그쪽 탭은 지웠다.
+- 옮기며 바꾼 것: 머리 제목 '2027 예상 고1 시간표', 보는 사람 판정은 `TeacherAuth.ready` 프로필(옛 teacher-name.js shuegukTeacherInfo), 작성자(`alimBy`)도 그 display_name. 표 읽기·쓰기는 teacher-auth.js 가 붙이는 개인 로그인 신분. timetable 의 `mins`·`plainName`·`esc`·`setStatus`·`render` 는 이 페이지에 작게 다시 뒀다(같은 규칙).
+- 데이터(tt_plan_students·tt_plan_config·tt_plan_log, plan '2027')·학생 페이지 [2027 고1 반 신청]은 그대로.
+- 검증: `NODE_PATH=$(npm root -g) node tools/plan-g1-e2e-test.js`(69건).
+
 ## AI 교무실 — 화면 삭제 (2026-10-23 만들었다가 같은 날 원장님 "이 기능은 저와 맞지 않아요 … 슈국 페이지에서 삭제. 수정 요청을 의인화하는 것으로 충분해요")
 지시를 남기면 클로드 예약 순찰이 조교(슈콩) 넷에게 나눠 처리하는 화면(aioffice.html, #208·#210)을 만들었으나 원장님이 쓰지 않기로 했다. **화면·메뉴 카드·슈콩 그림(assets/shukong)·화면 검사는 지웠고 예약 순찰(trig_011eQGFaKm5pyBQsJd3WLXTW)도 지웠다.** 되살리지 말 것.
 - **2026-10-23 완전 삭제**(같은 날 원장님 "수파베이스에 남은 AI 교무실 표도 지워 주세요"): 실제 수파베이스의 표 ai_orders·ai_tasks·ai_meta(빈 표)와 ai_* 함수 10개를 지우고 엣지 함수 `ai-office`도 지웠다(호출 404 확인). 함수 비밀값 `CLOSHU_TOKEN`은 클로슈가 쓰므로 남겼다. 저장소의 마이그레이션 202610230001·`supabase/functions/ai-office`·`tools/aioffice.py`·`tools/ai-office-sql-test.sh`·`docs/AI교무실-지침.md`·config.toml 구역도 지웠다.
