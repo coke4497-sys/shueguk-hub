@@ -275,6 +275,40 @@ function match(row, sp){
   ok(CFG[0].classes.find(c => c.id === 'n017').end === '7:00', '옛 값으로 덮어쓰지 않음');
   await page.click('#dCancel');
 
+  console.log('⑥-2 학생 목록(내신·정규)');
+  {
+    const pc = k => CFG.find(c => c.plan === k), meta = k => { let m = pc(k).classes.find(c => c.id === '__meta'); if (!m){ m = { id: '__meta' }; pc(k).classes.push(m); } return m; };
+    const t1 = meta('27고3-1').title;
+    meta('27고3-1').title = '내신'; meta('27고3-2').title = '정규';
+    pc('27고3-2').classes.push({ id: 'cv1', part: '진도', day: '목', start: '5:30', end: '7:00', loc: '', teacher: '현정', name: '고3 문학(진도 · 목 5:30 현정T)' });
+    const s1 = STU.find(s => s.plan === '27고3-1' && s.student === '다라'), s2 = STU.find(s => s.plan === '27고3-2' && s.student === '다라');
+    s1.ga = 'n006'; s1.na = 'n017'; s2.ga = 'cv1'; s2.na = 'n004';
+    await page.reload(); await page.waitForSelector('#listBtn');
+    await page.click('#listBtn');
+    await page.waitForSelector('#lBody tr');
+    ok(!(await page.locator('#listCard').isHidden()) && await page.locator('#body').isHidden(), '학생 목록 = 시간표 대신 목록');
+    ok((await page.locator('#lsN option:checked').textContent()) === '내신' && (await page.locator('#lsG option:checked').textContent()) === '정규', '이름으로 내신·정규 안 자동 고름');
+    const names = await page.locator('#lBody tr td:nth-child(2)').allTextContents();
+    ok(names.join(',') === names.slice().sort((a, b) => a.replace(/[()]/g, '').localeCompare(b.replace(/[()]/g, ''), 'ko')).join(','), '이름 가나다 순 (' + names.join(',') + ')');
+    const row = page.locator('#lBody tr', { hasText: '다라' });
+    ok((await row.getAttribute('class')) === 'k-swap' && (await row.textContent()).includes('독서·문학 교환'), '같은 두 시간에 독서·문학을 바꾼 학생 = 교환 색');
+    const cells = await row.locator('td.c').allTextContents();
+    ok(cells[0].startsWith('수 5:30') && cells[1].startsWith('목 5:30') && cells[2].startsWith('수 5:30') && cells[3].startsWith('목 5:30'), '칸 = 내신 진도·확인 · 정규 독서·문학 (' + cells.join(' / ') + ')');
+    ok((await page.locator('#lBody tr', { hasText: '사아' }).getAttribute('class')) === 'k-moved', '시간이 달라진 학생 = 시간 바뀜 색');
+    ok((await txt(page, '#lLegend')).includes('독서·문학 교환 1명'), '범례 인원');
+    await page.click('[data-lk="swap"]');
+    ok(await page.locator('#lBody tr').count() === 1, '교환만 보기');
+    await page.click('[data-lk=""]');
+    await page.click('#lCopy');
+    const clip2 = await page.evaluate(() => navigator.clipboard.readText());
+    ok(clip2.startsWith('No\t이름\t학교\t내신 진도\t내신 확인\t정규 독서\t정규 문학') && clip2.includes('독서·문학 교환'), '목록 표 복사');
+    await page.click('#plans [data-plan="27고3-1"]');
+    ok(await page.locator('#listCard').isHidden() && !(await page.locator('#body').isHidden()), '안을 누르면 시간표로');
+    meta('27고3-1').title = t1;
+    pc('27고3-2').classes = pc('27고3-2').classes.filter(c => c.id !== 'cv1');
+    await page.reload(); await page.waitForSelector('#plans .pill');
+  }
+
   console.log('⑦ 표 복사 · 안 지우기 · 휴대폰');
   await page.click('#copyTbl');
   const clip = await page.evaluate(() => navigator.clipboard.readText());
