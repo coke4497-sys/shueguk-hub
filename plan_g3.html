@@ -174,6 +174,7 @@
             <button type="button" id="newCopy">지금 보는 안을 복사해 새 안</button>
             <button type="button" id="newBase">지금 내신 시간표에서 새 안</button>
           </span></span>
+        <button class="btn gray" type="button" id="renPlan" hidden>이름 바꾸기</button>
         <button class="btn red" type="button" id="delPlan" hidden>이 안 지우기</button>
       </div>
       <div class="ctl" style="margin-top:10px" id="memoRow" hidden>
@@ -326,6 +327,10 @@ var PG = (function(){
   // 학생별 '이동 예정' 표시 — 안 메타(__meta).notes = {학생: 메모} (2026-10-24 원장님 "슈 확인반으로 이동 예정 표시")
   function notesOf(p){ return (p && metaOf(p).notes) || {}; }
   function noteOf(nm){ return notesOf(plan())[nm] || ''; }
+  // 안 이름 — 안 메타 title(2026-10-24 원장님 "3안을 내신, 4안을 정규로"), 없으면 'n안'
+  function titleOf(p){ var t = p && String(metaOf(p).title || '').trim(); return t || (noOf(p.plan) + '안'); }
+  function planLabel(p){ var t = titleOf(p); return /안$/.test(t) ? t : t + ' 안'; }   // '정규 안을' — 조사가 맞게
+  function nextTitle(key){ return noOf(key) + '안'; }
   function rowsOf(plan){ return ROWS[plan] || []; }
   function rowOf(nm){ return rowsOf(CUR).filter(function(r){ return r.student === nm; })[0]; }
 
@@ -347,9 +352,9 @@ var PG = (function(){
   function render(){
     ZROW = {};
     try { sessionStorage.setItem('pg3_plan', CUR); } catch(_){}
-    $('plans').innerHTML = PLANS.map(function(p){ return '<button class="pill' + (p.plan === CUR ? ' on' : '') + '" type="button" data-plan="' + esc(p.plan) + '">' + noOf(p.plan) + '안</button>'; }).join('');
+    $('plans').innerHTML = PLANS.map(function(p){ return '<button class="pill' + (p.plan === CUR ? ' on' : '') + '" type="button" data-plan="' + esc(p.plan) + '">' + esc(titleOf(p)) + '</button>'; }).join('');
     var p = plan();
-    $('delPlan').hidden = !p; $('memoRow').hidden = !p; $('body').hidden = !p; $('newCopy').disabled = !p;
+    $('delPlan').hidden = !p; $('renPlan').hidden = !p; $('memoRow').hidden = !p; $('body').hidden = !p; $('newCopy').disabled = !p;
     if (!p){
       $('made').textContent = '';
       $('warns').innerHTML = '<div class="card"><p class="empty" style="margin:0 0 10px">아직 만든 안이 없습니다. 지금 고2 내신 시간표(진도·확인)를 그대로 옮겨 1안을 만들어 보세요.</p><button class="btn" type="button" id="firstBtn">지금 내신 시간표로 1안 만들기</button></div>';
@@ -394,7 +399,7 @@ var PG = (function(){
     $('cmp').innerHTML = PLANS.map(function(p){
       var cls = clsOf(p), chk = PG.check(cls, rowsOf(p.plan), p.cap || CAP0);
       var per = teachers(cls).map(function(tn){ return tn + ' ' + cls.filter(function(c){ return c.teacher === tn; }).length; }).join(' · ');
-      return '<tr data-plan="' + esc(p.plan) + '"' + (p.plan === CUR ? ' class="cur"' : '') + '><td><b>' + noOf(p.plan) + '안</b></td><td>' + cls.filter(function(c){ return c.part === '진도'; }).length +
+      return '<tr data-plan="' + esc(p.plan) + '"' + (p.plan === CUR ? ' class="cur"' : '') + '><td><b>' + esc(titleOf(p)) + '</b></td><td>' + cls.filter(function(c){ return c.part === '진도'; }).length +
         '</td><td>' + cls.filter(function(c){ return c.part === '확인'; }).length + '</td><td>' + (chk.noGa.length + chk.noNa.length) + '</td><td>' + chk.clash.length + '</td><td>' + chk.over.length +
         '</td><td>' + esc(per) + '</td><td>' + esc(metaOf(p).memo || '') + '</td></tr>';
     }).join('');
@@ -566,7 +571,7 @@ var PG = (function(){
     busy(true);
     return api('/tt_plan_config', { method: 'POST', prefer: 'return=minimal', body: JSON.stringify(cfg) })
       .then(function(){ return rows.length ? api('/tt_plan_students', { method: 'POST', prefer: 'return=minimal', body: JSON.stringify(rows) }) : null; })
-      .then(function(){ CUR = key; SEL = ''; toast(noOf(key) + '안을 만들었습니다'); return load(); })
+      .then(function(){ CUR = key; SEL = ''; toast(nextTitle(key) + '을 만들었습니다'); return load(); })
       .catch(fail).then(function(){ busy(false); });
   }
   function newFromBase(){
@@ -580,15 +585,15 @@ var PG = (function(){
   }
   function newCopy(){
     var p = plan(); if (!p || BUSY) return;
-    if (!confirm(noOf(p.plan) + '안을 그대로 복사해 ' + nextNo() + '안을 만들까요?')) return;
-    createPlan(clsOf(p).map(function(c){ return JSON.parse(JSON.stringify(c)); }), rowsOf(p.plan), metaOf(p).memo, today() + ' ' + noOf(p.plan) + '안에서 복사', p.cap, notesOf(p));
+    if (!confirm(planLabel(p) + '을 그대로 복사해 ' + nextNo() + '안을 만들까요?')) return;
+    createPlan(clsOf(p).map(function(c){ return JSON.parse(JSON.stringify(c)); }), rowsOf(p.plan), metaOf(p).memo, today() + ' ' + planLabel(p) + '에서 복사', p.cap, notesOf(p));
   }
   function delPlan(){
     var p = plan(); if (!p || BUSY) return;
-    if (!confirm(noOf(p.plan) + '안을 지울까요? 이 안의 반·학생 배치가 모두 사라집니다. 다른 안과 실제 시간표는 그대로예요.')) return;
+    if (!confirm(planLabel(p) + '을 지울까요? 이 안의 반·학생 배치가 모두 사라집니다. 다른 안과 실제 시간표는 그대로예요.')) return;
     busy(true);
     api('/tt_plan_students?plan=eq.' + enc(p.plan), { method: 'DELETE' }).then(function(){ return api('/tt_plan_config?plan=eq.' + enc(p.plan), { method: 'DELETE' }); })
-      .then(function(){ CUR = ''; SEL = ''; toast(noOf(p.plan) + '안을 지웠습니다'); return load(); }).catch(fail).then(function(){ busy(false); });
+      .then(function(){ CUR = ''; SEL = ''; toast(planLabel(p) + '을 지웠습니다'); return load(); }).catch(fail).then(function(){ busy(false); });
   }
 
   // ── 반 고치기 창 ─────────────────────────────
@@ -634,7 +639,7 @@ var PG = (function(){
     var out = [['안', '구분', '요일', '시간', '담당', '반', '장소', '인원', '학생'].join('\t')];
     cls.forEach(function(c){
       var st = rows.filter(function(r){ return !r.excluded && (r.ga === c.id || r.na === c.id); }).map(function(r){ return r.student; }).sort();
-      out.push([noOf(p.plan) + '안', c.part, c.day, c.start + '~' + c.end, c.teacher + 'T', c.name, c.loc || '', st.length, st.join(' ')].join('\t'));
+      out.push([titleOf(p), c.part, c.day, c.start + '~' + c.end, c.teacher + 'T', c.name, c.loc || '', st.length, st.join(' ')].join('\t'));
     });
     var txt = out.join('\n');
     (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function(){ toast('표를 복사했습니다 — 구글 시트에 붙여 넣으세요'); }, function(){
@@ -676,6 +681,12 @@ var PG = (function(){
   $('newCopy').onclick = function(){ $('newPop').hidden = true; newCopy(); };
   $('newBase').onclick = function(){ $('newPop').hidden = true; newFromBase(); };
   $('delPlan').onclick = delPlan;
+  $('renPlan').onclick = function(){
+    var p = plan(); if (!p || BUSY) return;
+    var v = prompt('안 이름 (비우면 ' + noOf(p.plan) + '안)', metaOf(p).title || ''); if (v === null) return;
+    var m = JSON.parse(JSON.stringify(metaOf(p))); m.title = v.trim().slice(0, 20);
+    busy(true); saveConfig(clsOf(p).concat([m])).then(function(){ toast('이름을 ‘' + titleOf(plan()) + '’로 바꿨습니다'); render(); }).catch(fail).then(function(){ busy(false); });
+  };
   $('addCls').onclick = function(){ openEdit(''); };
   $('copyTbl').onclick = copyTable;
   $('tf').onchange = function(){ TF = this.value; render(); };
