@@ -140,11 +140,14 @@ function match(row, sp){
   ok(tiles.includes('1진도·확인 시간 겹침'), '가나는 수 5:30 진도·확인이 겹침');
   ok((await txt(page, '#tsum')).includes('주혜T') && (await txt(page, '#tsum')).includes('진도 1반 · 2명'), '선생님별 카드');
   console.log('②-2 주차별 개요 · 요일 확대');
-  ok(await page.locator('.wk-ov .wk-col').count() === 7 && (await txt(page, '.wk-ov .wk-col:nth-child(1) .wk-dayh')).includes('수업 없음'), '개요 = 월~일 7열(빈 요일도)');
+  const heads = await page.locator('.wk-ov .wk-dayh').allTextContents();
+  ok(heads.length === 5 && heads[0].startsWith('수') && heads[4].startsWith('일') && heads[4].includes('수업 없음'), '개요 = 수~일 5열(월·화 없음, 빈 요일도) ' + heads.join('/'));
   const mini = page.locator('.wk-mini[data-cls="n006"]');
   ok((await mini.textContent()).includes('현정T 고3 화수A') && (await mini.textContent()).includes('5:30~7:00') && (await mini.textContent()).includes('3명'), '개요 카드 = 담당T·반·시간·인원');
-  const h6 = (await mini.boundingBox()).height, h48 = (await page.locator('.wk-mini[data-cls="n031"]').boundingBox()).height;
-  ok(h6 >= 70 && Math.abs(h6 - h48) <= 2, '카드 높이 = 수업 길이(90분 ' + Math.round(h6) + 'px)');
+  const y6 = (await mini.boundingBox()).y, y31 = (await page.locator('.wk-mini[data-cls="n031"]').boundingBox()).y, y17 = (await page.locator('.wk-mini[data-cls="n017"]').boundingBox()).y, y48 = (await page.locator('.wk-mini[data-cls="n048"]').boundingBox()).y;
+  ok(Math.abs(y6 - y31) < 2 && Math.abs(y6 - y17) < 2, '같은 시작 시간(5:30)은 요일이 달라도 같은 가로줄');
+  ok(y48 + 20 < y6, '오전 11:00 줄이 오후 5:30 줄보다 위(시작 시간 순)');
+  ok((await page.locator('.wk-ov .wk-tl').allTextContents()).filter(Boolean).join(',') === '11:00,5:30', '왼쪽 시간 눈금 = 시작 시간들');
   ok(await page.locator('.wk-ov .chip').count() === 0, '개요에는 학생 이름 없음');
   await page.click('.wk-mini[data-cls="n004"]');
   await page.waitForSelector('.zg');
@@ -186,7 +189,7 @@ function match(row, sp){
   await page.fill('#dName', '고3 확인 합반'); await page.selectOption('#dDay', '일'); await page.fill('#dStart', '2:00'); await page.fill('#dEnd', '3:30'); await page.fill('#dT', '주혜T');
   await page.click('#dOk');
   await zday(page, '');
-  await page.waitForFunction(() => document.querySelectorAll('.wk-col')[6].textContent.includes('확인 1'));
+  await page.waitForFunction(() => document.querySelectorAll('.wk-ov .wk-dayh')[4].textContent.includes('확인 1'));
   const nc = CFG[0].classes.find(c => c.name === '고3 확인 합반');
   ok(nc && nc.part === '확인' && nc.teacher === '주혜' && nc.day === '일' && /^c/.test(nc.id), '반 추가(담당 T 떼고 저장)');
   ok(CFG[0].classes.some(c => c.id === '__meta'), '메타 칸 유지');

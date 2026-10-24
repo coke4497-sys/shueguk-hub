@@ -94,8 +94,12 @@
   .unp .chip{background:#F6F8F7;}
   .unp h3{font-size:14px;margin:8px 0 4px;color:var(--ink2);font-weight:400;}
   /* 주차별 개요 — 슈국 스케쥴 주차별 보기와 같은 짜임(월~일 7열, 카드 높이 = 수업 길이) */
-  .wk-ov{display:grid;grid-template-columns:repeat(7,minmax(118px,1fr));gap:8px;align-items:start;min-width:860px;}
-  .wk-col{display:flex;flex-direction:column;gap:6px;min-width:0;}
+  .wk-ov{display:grid;grid-template-columns:52px repeat(var(--nd,5),minmax(150px,1fr));gap:0 8px;align-items:stretch;min-width:calc(var(--nd,5) * 158px + 60px);}
+  .wk-ov > .wk-dayh{margin-bottom:6px;}
+  .wk-tl{font-size:13px;font-weight:700;color:var(--ink2);text-align:right;padding:8px 6px 0 0;border-top:1px solid var(--line);}
+  .wk-tl:first-child{border-top:0;}
+  .wk-cell{display:flex;flex-direction:column;gap:5px;padding:6px 0;border-top:1px solid var(--line);min-width:0;}
+  .wk-tl.alt,.wk-cell.alt{background:#FAFBFA;}
   .wk-dayh{width:100%;font:inherit;font-size:.95rem;font-weight:700;color:#fff;background:#5F8377;border:0;border-radius:10px;padding:6px 0 4px;cursor:pointer;text-align:center;}
   .wk-dayh small{display:block;font-weight:400;font-size:.7rem;opacity:.88;}
   .wk-dayh:hover{filter:brightness(.93);}
@@ -406,7 +410,9 @@ var PG = (function(){
   }
   // 주차별 시간표처럼(2026-10-24 원장님 "이걸 주차별 시간표처럼 세팅해줘") — 기본은 월~일 7열 개요(카드 높이 = 수업 길이),
   // 요일 머리글·카드를 누르면 그 요일 확대(선생님 열 × 30분 눈금, 카드는 실제 시간 자리에 학생 이름까지). 슈국 스케쥴 주차별 보기와 같은 짜임.
-  var WK_PX = 1, ZROW0 = 34;
+  var ZROW0 = 34;
+  // 월·화는 수업이 있을 때만(2026-10-24 원장님 "월화를 없애고")
+  function showDays(cls){ return PG.DAYS.split('').filter(function(d){ return '수목금토일'.indexOf(d) >= 0 || cls.some(function(c){ return c.day === d; }); }); }
   function viewCls(cls, d){ return cls.filter(function(c){ return c.day === d && (!PART || c.part === PART) && (!TF || c.teacher === TF); }).sort(PG.sortCls); }
   function hmOf(m){ var h = Math.floor(m / 60), mm = m % 60; return (h > 12 ? h - 12 : h) + ':' + (mm < 10 ? '0' : '') + mm; }
   function renderDays(cls, rows, chk, cap){
@@ -415,19 +421,28 @@ var PG = (function(){
     var inCls = {}; rows.forEach(function(r){ if (r.excluded) return; [r.ga, r.na].forEach(function(id){ if (by[id]) (inCls[id] = inCls[id] || []).push(r); }); });
     var stCls = function(c){ return 'p-' + c.part + (sel && selCls.indexOf(c.id) < 0 ? ' target' : '') + (sel && selCls.indexOf(c.id) >= 0 ? ' mine' : ''); };
     var cntH = function(c){ var n = (inCls[c.id] || []).length; return '<span class="cnt' + (n > cap ? ' over' : '') + '">' + n + '명' + (n > cap ? ' (정원 ' + cap + ')' : '') + '</span>'; };
-    if (VIEW && PG.DAYS.indexOf(VIEW) < 0) VIEW = '';
+    if (VIEW && showDays(cls).indexOf(VIEW) < 0) VIEW = '';
     var box = $('days');
     if (!VIEW){
-      box.className = 'wk-ov';
-      box.innerHTML = PG.DAYS.split('').map(function(d){
+      // 같은 시작 시간은 같은 가로줄(2026-10-24 원장님 "월화를 없애고 같은 시간을 같은 가로라인에서") — 줄 = 시작 시간, 칸 = 요일
+      var dz = showDays(cls), starts = [];
+      dz.forEach(function(d){ viewCls(cls, d).forEach(function(c){ var m = PG.mins(c.start); if (starts.indexOf(m) < 0) starts.push(m); }); });
+      starts.sort(function(x, y){ return x - y; });
+      var h = '<div class="wk-tl"></div>' + dz.map(function(d){
         var cs = viewCls(cls, d), nJ = cs.filter(function(c){ return c.part === '진도'; }).length;
-        return '<div class="wk-col"><button class="wk-dayh" type="button" data-zday="' + d + '">' + d + '<small>' + (cs.length ? '진도 ' + nJ + ' · 확인 ' + (cs.length - nJ) : '수업 없음') + '</small></button>' +
-          cs.map(function(c){
-            var sp = PG.span(c);
-            return '<div class="wk-mini ' + stCls(c) + '" data-cls="' + esc(c.id) + '" style="min-height:' + Math.round((sp[1] - sp[0]) * WK_PX) + 'px">' +
-              '<b><span class="wk-t">' + esc(c.teacher) + 'T</span> ' + esc(c.name) + '</b><small>' + esc(c.start + '~' + c.end) + ' · <span class="pt ' + c.part + '">' + c.part + '</span></small><small>' + cntH(c) + '</small></div>';
-          }).join('') + '</div>';
+        return '<button class="wk-dayh" type="button" data-zday="' + d + '">' + d + '<small>' + (cs.length ? '진도 ' + nJ + ' · 확인 ' + (cs.length - nJ) : '수업 없음') + '</small></button>';
       }).join('');
+      starts.forEach(function(m, i){
+        h += '<div class="wk-tl' + (i % 2 ? ' alt' : '') + '">' + hmOf(m) + '</div>' + dz.map(function(d){
+          return '<div class="wk-cell' + (i % 2 ? ' alt' : '') + '">' + viewCls(cls, d).filter(function(c){ return PG.mins(c.start) === m; }).map(function(c){
+            return '<div class="wk-mini ' + stCls(c) + '" data-cls="' + esc(c.id) + '">' +
+              '<b><span class="wk-t">' + esc(c.teacher) + 'T</span> ' + esc(c.name) + '</b><small>' + esc(c.start + '~' + c.end) + ' · <span class="pt ' + c.part + '">' + c.part + '</span> · ' + cntH(c) + '</small></div>';
+          }).join('') + '</div>';
+        }).join('');
+      });
+      box.className = 'wk-ov';
+      box.style.setProperty('--nd', dz.length);
+      box.innerHTML = h;
       return;
     }
     // 요일 확대
@@ -438,7 +453,7 @@ var PG = (function(){
     cs.forEach(function(c){ var sp = PG.span(c); lo = Math.min(lo, sp[0]); hi = Math.max(hi, sp[1]); });
     lo = Math.floor(lo / 30) * 30; hi = Math.ceil(hi / 30) * 30;
     var slots = (hi - lo) / 30, rh = ZROW[d] || ZROW0;
-    var tabs = '<div class="ctl zd-tabs"><button class="pill" type="button" data-zday="">← 한 주 전체</button>' + PG.DAYS.split('').map(function(x){
+    var tabs = '<div class="ctl zd-tabs"><button class="pill" type="button" data-zday="">← 한 주 전체</button>' + showDays(cls).map(function(x){
       var k = viewCls(cls, x).length; return '<button class="pill' + (x === d ? ' on' : '') + '" type="button" data-zday="' + x + '"' + (k ? '' : ' disabled') + '>' + x + (k ? ' ' + k : '') + '</button>'; }).join('') + '</div>';
     var axis = '<div class="zg-axis" style="height:' + (slots * rh) + 'px">';
     for (var i = 0; i <= slots; i += 1){ if ((lo + i * 30) % 60 === 0 || i === 0) axis += '<span style="top:' + (i * rh) + 'px">' + hmOf(lo + i * 30) + '</span>'; }
