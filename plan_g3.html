@@ -93,6 +93,36 @@
   .chip small{font-size:11px;opacity:.8;}
   .unp .chip{background:#F6F8F7;}
   .unp h3{font-size:14px;margin:8px 0 4px;color:var(--ink2);font-weight:400;}
+  /* 주차별 개요 — 슈국 스케쥴 주차별 보기와 같은 짜임(월~일 7열, 카드 높이 = 수업 길이) */
+  .wk-ov{display:grid;grid-template-columns:repeat(7,minmax(118px,1fr));gap:8px;align-items:start;min-width:860px;}
+  .wk-col{display:flex;flex-direction:column;gap:6px;min-width:0;}
+  .wk-dayh{width:100%;font:inherit;font-size:.95rem;font-weight:700;color:#fff;background:#5F8377;border:0;border-radius:10px;padding:6px 0 4px;cursor:pointer;text-align:center;}
+  .wk-dayh small{display:block;font-weight:400;font-size:.7rem;opacity:.88;}
+  .wk-dayh:hover{filter:brightness(.93);}
+  .wk-dayh.bigh{text-align:left;padding:8px 12px;background:var(--accent);cursor:default;margin:10px 0 8px;}
+  .wk-dayh.bigh small{display:inline;margin-left:8px;font-size:.75rem;}
+  .wk-mini{border-radius:9px;padding:6px 8px;cursor:pointer;background:#DFEBE6;border:1px solid rgba(0,0,0,.05);}
+  .wk-mini.p-확인{background:#EFE7F5;}
+  .wk-mini b{display:block;font-size:.8rem;letter-spacing:-.01em;line-height:1.35;overflow-wrap:anywhere;}
+  .wk-mini .wk-t{color:var(--accent);}
+  .wk-mini small{display:block;font-size:.7rem;color:var(--cap);margin-top:2px;}
+  .wk-mini.target{outline:2px dashed #B9A5CC;outline-offset:-2px;}
+  .wk-mini.mine{outline:2px solid var(--lavInk);outline-offset:-2px;}
+  .wk-mini:hover{filter:brightness(.97);}
+  /* 요일 확대 — 선생님 열 × 30분 눈금 */
+  .zd-tabs .pill{min-height:32px;padding:5px 12px;}
+  .zd-tabs .pill:disabled{opacity:.45;cursor:default;}
+  .zg{display:grid;grid-template-columns:52px repeat(var(--nt,3),minmax(200px,1fr));gap:6px;min-width:calc(var(--nt,3) * 206px + 58px);}
+  .zg-th{font-family:"Do Hyeon",sans-serif;font-size:18px;text-align:center;background:var(--mint);color:var(--mintInk);border-radius:10px;padding:3px 0;margin-bottom:6px;height:32px;}
+  .zg-th small{font-family:"Gowun Dodum",sans-serif;font-size:12px;}
+  .zg-ax .zg-th{background:none;}
+  .zg-axis{position:relative;}
+  .zg-axis span{position:absolute;right:4px;transform:translateY(-50%);font-size:12px;color:var(--cap);}
+  .zg-body{position:relative;}
+  .zg-body i{position:absolute;left:0;right:0;border-top:1px solid var(--line);}
+  .zg-card{position:absolute;margin:1px 2px;}
+  .cls.zg-card{background:#F4F8F6;box-shadow:0 1px 2px rgba(0,0,0,.06);}
+  .cls.zg-card.p-확인{background:#F4EFF8;}
   dialog{border:0;border-radius:18px;padding:18px 20px;max-width:440px;width:calc(100% - 32px);}
   dialog::backdrop{background:rgba(30,40,36,.35);}
   dialog h2{font-family:"Gowun Batang",serif;font-size:1.15rem;margin:0 0 10px;}
@@ -158,7 +188,7 @@
         <p class="note" id="qnote"></p>
         <div class="unp" id="unp"></div>
       </div>
-      <div class="card"><div class="tbox"><div class="days" id="days"></div></div></div>
+      <div class="card"><div class="tbox"><div id="days"></div></div></div>
     </div>
   </div>
 </main>
@@ -267,6 +297,8 @@ var PG = (function(){
   function noOf(plan){ return parseInt(String(plan).slice(PRE.length), 10) || 0; }
   function nowIso(){ return new Date().toISOString(); }
 
+  var VIEW = '', ZROW = {};
+  try { VIEW = sessionStorage.getItem('pg3_view') || ''; } catch(_){}
   var ME = '', PLANS = [], ROWS = {}, CUR = '', SEL = '', PART = '', TF = '', Q = '', BUSY = false, EDIT = null;
   try { CUR = sessionStorage.getItem('pg3_plan') || ''; } catch(_){}
 
@@ -292,6 +324,7 @@ var PG = (function(){
 
   // ── 그리기 ─────────────────────────────
   function render(){
+    ZROW = {};
     try { sessionStorage.setItem('pg3_plan', CUR); } catch(_){}
     $('plans').innerHTML = PLANS.map(function(p){ return '<button class="pill' + (p.plan === CUR ? ' on' : '') + '" type="button" data-plan="' + esc(p.plan) + '">' + noOf(p.plan) + '안</button>'; }).join('');
     var p = plan();
@@ -371,24 +404,72 @@ var PG = (function(){
     var hits = Q ? rows.filter(function(r){ return r.student.indexOf(Q) >= 0; }) : [];
     $('qnote').textContent = Q ? (hits.length ? '‘' + Q + '’ ' + hits.length + '명 — 노란 칩으로 표시했습니다.' + (hits.length === 1 ? '' : '') : '‘' + Q + '’ 학생이 없습니다.') : '';
   }
+  // 주차별 시간표처럼(2026-10-24 원장님 "이걸 주차별 시간표처럼 세팅해줘") — 기본은 월~일 7열 개요(카드 높이 = 수업 길이),
+  // 요일 머리글·카드를 누르면 그 요일 확대(선생님 열 × 30분 눈금, 카드는 실제 시간 자리에 학생 이름까지). 슈국 스케쥴 주차별 보기와 같은 짜임.
+  var WK_PX = 1, ZROW0 = 34;
+  function viewCls(cls, d){ return cls.filter(function(c){ return c.day === d && (!PART || c.part === PART) && (!TF || c.teacher === TF); }).sort(PG.sortCls); }
+  function hmOf(m){ var h = Math.floor(m / 60), mm = m % 60; return (h > 12 ? h - 12 : h) + ':' + (mm < 10 ? '0' : '') + mm; }
   function renderDays(cls, rows, chk, cap){
-    var days = PG.DAYS.split('').filter(function(d){ return cls.some(function(c){ return c.day === d; }); });
     var sel = SEL && rowOf(SEL), selCls = sel ? [sel.ga, sel.na] : [];
     var by = {}; cls.forEach(function(c){ by[c.id] = c; });
     var inCls = {}; rows.forEach(function(r){ if (r.excluded) return; [r.ga, r.na].forEach(function(id){ if (by[id]) (inCls[id] = inCls[id] || []).push(r); }); });
-    $('days').style.setProperty('--n', Math.max(days.length, 1));
-    $('days').innerHTML = days.map(function(d){
-      var cs = cls.filter(function(c){ return c.day === d && (!PART || c.part === PART) && (!TF || c.teacher === TF); }).sort(PG.sortCls);
-      var nJ = cs.filter(function(c){ return c.part === '진도'; }).length;
-      return '<div class="dcol"><h3>' + d + ' <small>진도 ' + nJ + ' · 확인 ' + (cs.length - nJ) + '</small></h3>' + cs.map(function(c){
-        var list = (inCls[c.id] || []).sort(function(a, b){ return a.student.localeCompare(b.student); }), n = list.length;
-        var cl = 'cls p-' + c.part + (sel && selCls.indexOf(c.id) < 0 ? ' target' : '') + (sel && selCls.indexOf(c.id) >= 0 ? ' mine' : '');
-        return '<div class="' + cl + '" data-cls="' + esc(c.id) + '"><div class="hd"><span class="tm">' + esc(c.start + '~' + c.end) + '</span><span class="pt ' + c.part + '">' + c.part + '</span><span>' + esc(c.teacher) + 'T</span></div>' +
-          '<div class="cn">' + esc(c.name) + '</div><div class="meta"><span class="cnt' + (n > cap ? ' over' : '') + '">' + n + '명' + (n > cap ? ' (정원 ' + cap + ')' : '') + (c.loc ? ' · ' + esc(c.loc) : '') + '</span>' +
-          '<button class="ed" type="button" data-edit="' + esc(c.id) + '">고치기</button></div>' +
-          '<div class="chips">' + list.map(function(r){ return chip(r, '', chk.clash.indexOf(r.student) >= 0); }).join('') + '</div></div>';
-      }).join('') + (cs.length ? '' : '<p class="empty">반 없음</p>') + '</div>';
-    }).join('') || '<p class="empty">반이 없습니다. [+ 반 추가]로 만들어 보세요.</p>';
+    var stCls = function(c){ return 'p-' + c.part + (sel && selCls.indexOf(c.id) < 0 ? ' target' : '') + (sel && selCls.indexOf(c.id) >= 0 ? ' mine' : ''); };
+    var cntH = function(c){ var n = (inCls[c.id] || []).length; return '<span class="cnt' + (n > cap ? ' over' : '') + '">' + n + '명' + (n > cap ? ' (정원 ' + cap + ')' : '') + '</span>'; };
+    if (VIEW && PG.DAYS.indexOf(VIEW) < 0) VIEW = '';
+    var box = $('days');
+    if (!VIEW){
+      box.className = 'wk-ov';
+      box.innerHTML = PG.DAYS.split('').map(function(d){
+        var cs = viewCls(cls, d), nJ = cs.filter(function(c){ return c.part === '진도'; }).length;
+        return '<div class="wk-col"><button class="wk-dayh" type="button" data-zday="' + d + '">' + d + '<small>' + (cs.length ? '진도 ' + nJ + ' · 확인 ' + (cs.length - nJ) : '수업 없음') + '</small></button>' +
+          cs.map(function(c){
+            var sp = PG.span(c);
+            return '<div class="wk-mini ' + stCls(c) + '" data-cls="' + esc(c.id) + '" style="min-height:' + Math.round((sp[1] - sp[0]) * WK_PX) + 'px">' +
+              '<b><span class="wk-t">' + esc(c.teacher) + 'T</span> ' + esc(c.name) + '</b><small>' + esc(c.start + '~' + c.end) + ' · <span class="pt ' + c.part + '">' + c.part + '</span></small><small>' + cntH(c) + '</small></div>';
+          }).join('') + '</div>';
+      }).join('');
+      return;
+    }
+    // 요일 확대
+    var d = VIEW, cs = viewCls(cls, d);
+    var tchs = teachers(cls).filter(function(t){ return !TF || t === TF; });
+    cs.forEach(function(c){ if (tchs.indexOf(c.teacher) < 0) tchs.push(c.teacher); });
+    var lo = 17 * 60 + 30, hi = 21 * 60 + 30;
+    cs.forEach(function(c){ var sp = PG.span(c); lo = Math.min(lo, sp[0]); hi = Math.max(hi, sp[1]); });
+    lo = Math.floor(lo / 30) * 30; hi = Math.ceil(hi / 30) * 30;
+    var slots = (hi - lo) / 30, rh = ZROW[d] || ZROW0;
+    var tabs = '<div class="ctl zd-tabs"><button class="pill" type="button" data-zday="">← 한 주 전체</button>' + PG.DAYS.split('').map(function(x){
+      var k = viewCls(cls, x).length; return '<button class="pill' + (x === d ? ' on' : '') + '" type="button" data-zday="' + x + '"' + (k ? '' : ' disabled') + '>' + x + (k ? ' ' + k : '') + '</button>'; }).join('') + '</div>';
+    var axis = '<div class="zg-axis" style="height:' + (slots * rh) + 'px">';
+    for (var i = 0; i <= slots; i += 1){ if ((lo + i * 30) % 60 === 0 || i === 0) axis += '<span style="top:' + (i * rh) + 'px">' + hmOf(lo + i * 30) + '</span>'; }
+    axis += '</div>';
+    var colsHtml = tchs.map(function(t){
+      var mine = cs.filter(function(c){ return c.teacher === t; });
+      // 같은 선생님 열에서 시간이 겹치면 폭을 나눈다
+      var lanes = [];
+      mine.forEach(function(c){ var sp = PG.span(c), L = 0; while (lanes[L] && lanes[L].some(function(o){ var q = PG.span(o); return q[0] < sp[1] && sp[0] < q[1]; })) L++; (lanes[L] = lanes[L] || []).push(c); c._lane = L; });
+      var nl = Math.max(lanes.length, 1);
+      var lines = ''; for (var k = 0; k < slots; k++) lines += '<i style="top:' + (k * rh) + 'px;height:' + rh + 'px"></i>';
+      return '<div class="zg-col"><div class="zg-th">' + esc(t) + 'T <small>' + mine.length + '반</small></div><div class="zg-body" style="height:' + (slots * rh) + 'px">' + lines +
+        mine.map(function(c){
+          var sp = PG.span(c), list = (inCls[c.id] || []).sort(function(a, b){ return a.student.localeCompare(b.student); });
+          return '<div class="cls zg-card ' + stCls(c) + '" data-cls="' + esc(c.id) + '" data-slots="' + ((sp[1] - sp[0]) / 30) + '" style="top:' + ((sp[0] - lo) / 30 * rh) + 'px;min-height:' + ((sp[1] - sp[0]) / 30 * rh - 3) + 'px;left:' + (c._lane * 100 / nl) + '%;width:calc(' + (100 / nl) + '% - 4px)">' +
+            '<div class="hd"><span class="tm">' + esc(c.start + '~' + c.end) + '</span><span class="pt ' + c.part + '">' + c.part + '</span></div>' +
+            '<div class="cn">' + esc(c.name) + '</div><div class="meta">' + cntH(c) + '<button class="ed" type="button" data-edit="' + esc(c.id) + '">고치기</button></div>' +
+            '<div class="chips">' + list.map(function(r){ return chip(r, '', chk.clash.indexOf(r.student) >= 0); }).join('') + '</div></div>';
+        }).join('') + '</div></div>';
+    }).join('');
+    box.className = 'wk-zoom';
+    box.innerHTML = tabs + '<div class="wk-dayh bigh">' + d + '요일 <small>진도 ' + cs.filter(function(c){ return c.part === '진도'; }).length + ' · 확인 ' + cs.filter(function(c){ return c.part === '확인'; }).length + ' · 선생님 ' + tchs.length + '분</small></div>' +
+      (cs.length ? '<div class="zg" style="--nt:' + Math.max(tchs.length, 1) + '"><div class="zg-ax"><div class="zg-th">&nbsp;</div>' + axis + '</div>' + colsHtml + '</div>' : '<p class="empty">이 요일에는 반이 없습니다.</p>');
+    // 카드가 잘리지 않게 칸 높이를 한 번 맞춘다(슈국 스케쥴 zoomTuneRows 와 같은 방식)
+    if (!ZROW[d]){
+      var need = ZROW0;
+      Array.prototype.forEach.call(box.querySelectorAll('.zg-card'), function(el){ var n = +el.getAttribute('data-slots') || 1; need = Math.max(need, Math.ceil((el.scrollHeight + 4) / n)); });
+      need = Math.min(need, 120);
+      if (need > ZROW0){ ZROW[d] = need; renderDays(cls, rows, chk, cap); }
+      else ZROW[d] = ZROW0;
+    }
   }
 
   // ── 저장 ─────────────────────────────
@@ -503,9 +584,10 @@ var PG = (function(){
 
   // ── 이벤트 ─────────────────────────────
   document.addEventListener('click', function(ev){
-    var t = ev.target.closest('[data-plan],[data-st],[data-edit],[data-cls],[data-unset],[data-unsel],[data-part],[data-dpart]');
+    var t = ev.target.closest('[data-zday],[data-plan],[data-st],[data-edit],[data-cls],[data-unset],[data-unsel],[data-part],[data-dpart]');
     if (!$('newBtn').contains(ev.target)) $('newPop').hidden = true;
     if (!t) return;
+    if (t.hasAttribute('data-zday')){ VIEW = t.getAttribute('data-zday'); try { sessionStorage.setItem('pg3_view', VIEW); } catch(_){} render(); window.scrollTo(0, $('days').getBoundingClientRect().top + window.scrollY - 60); return; }
     if (t.hasAttribute('data-plan')){ CUR = t.getAttribute('data-plan'); SEL = ''; render(); return; }
     if (t.hasAttribute('data-dpart')){ dPart(t.getAttribute('data-dpart')); return; }
     if (t.hasAttribute('data-part')){ PART = t.getAttribute('data-part'); render(); return; }
@@ -517,7 +599,10 @@ var PG = (function(){
     }
     if (t.hasAttribute('data-edit')){ openEdit(t.getAttribute('data-edit')); return; }
     if (t.hasAttribute('data-st')){ var s = t.getAttribute('data-st'); SEL = SEL === s ? '' : s; render(); return; }
-    if (t.hasAttribute('data-cls') && SEL){ moveTo(t.getAttribute('data-cls')); }
+    if (t.hasAttribute('data-cls')){
+      if (SEL) moveTo(t.getAttribute('data-cls'));
+      else if (!VIEW){ var c0 = clsOf(plan()).filter(function(x){ return x.id === t.getAttribute('data-cls'); })[0]; if (c0){ VIEW = c0.day; try { sessionStorage.setItem('pg3_view', VIEW); } catch(_){} render(); } }
+    }
   });
   $('newBtn').onclick = function(){ $('newPop').hidden = !$('newPop').hidden; };
   $('newCopy').onclick = function(){ $('newPop').hidden = true; newCopy(); };
