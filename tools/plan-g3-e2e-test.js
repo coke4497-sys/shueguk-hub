@@ -246,6 +246,13 @@ function match(row, sp){
   await page.click('#cmp tr[data-plan="27고3-1"]');
   ok((await txt(page, '#plans .pill.on')) === '1안', '비교표 줄로 안 바꾸기');
 
+  console.log('⑤-2 안 이름');
+  page.removeAllListeners('dialog'); page.once('dialog', d => d.accept('정규'));
+  await page.click('#renPlan');
+  ok(await until(() => (CFG[0].classes.find(c => c.id === '__meta') || {}).title === '정규'), '이름 바꾸기 = 안 메타 title');
+  await page.waitForFunction(() => document.querySelector('#plans .pill.on').textContent === '정규');
+  ok((await txt(page, '#cmp')).includes('정규'), '비교표에도 이름');
+  page.on('dialog', d => d.type() === 'prompt' ? d.accept(d.defaultValue()) : d.accept());
   console.log('⑥ 다른 화면에서 바뀜');
   CFG[0].updated_at = ts();
   await zday(page, '목');
@@ -257,7 +264,7 @@ function match(row, sp){
   console.log('⑦ 표 복사 · 안 지우기 · 휴대폰');
   await page.click('#copyTbl');
   const clip = await page.evaluate(() => navigator.clipboard.readText());
-  ok(clip.split('\n')[0].startsWith('안\t구분') && clip.includes('1안\t확인\t목\t5:30~7:00\t현정T'), '표 복사(탭 구분)');
+  ok(clip.split('\n')[0].startsWith('안\t구분') && clip.includes('정규\t확인\t목\t5:30~7:00\t현정T'), '표 복사(탭 구분)');
   await page.click('#plans [data-plan="27고3-2"]');
   await page.click('#delPlan');
   await page.waitForFunction(() => document.querySelectorAll('#plans .pill').length === 1);
