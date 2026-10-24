@@ -143,7 +143,10 @@ function match(row, sp){
   const heads = await page.locator('.wk-ov .wk-dayh').allTextContents();
   ok(heads.length === 5 && heads[0].startsWith('수') && heads[4].startsWith('일') && heads[4].includes('수업 없음'), '개요 = 수~일 5열(월·화 없음, 빈 요일도) ' + heads.join('/'));
   const mini = page.locator('.wk-mini[data-cls="n006"]');
-  ok((await mini.textContent()).includes('현정T 고3 화수A') && (await mini.textContent()).includes('5:30~7:00') && (await mini.textContent()).includes('3명'), '개요 카드 = 담당T·반·시간·인원');
+  ok((await mini.textContent()).includes('화수A') && (await mini.textContent()).includes('~7:00') && (await mini.textContent()).includes('3명') && (await mini.getAttribute('title')).includes('현정T'), '개요 카드 = 반·끝 시간·인원(담당은 열 머리)');
+  const b6 = await mini.boundingBox(), b4 = await page.locator('.wk-mini[data-cls="n004"]').boundingBox();
+  ok(Math.abs(b6.y - b4.y) < 2 && b6.x < b4.x, '같은 칸의 선생님 반은 가로로 나란히(현정 먼저)');
+  ok((await page.locator('.wk-hd').first().locator('.wk-sub span').allTextContents()).join(',') === '현정T,연주T,주혜T', '요일 머리 아래 선생님 작은 열(현정 먼저)');
   const y6 = (await mini.boundingBox()).y, y31 = (await page.locator('.wk-mini[data-cls="n031"]').boundingBox()).y, y17 = (await page.locator('.wk-mini[data-cls="n017"]').boundingBox()).y, y48 = (await page.locator('.wk-mini[data-cls="n048"]').boundingBox()).y;
   ok(Math.abs(y6 - y31) < 2 && Math.abs(y6 - y17) < 2, '같은 시작 시간(5:30)은 요일이 달라도 같은 가로줄');
   ok(y48 + 20 < y6, '오전 11:00 줄이 오후 5:30 줄보다 위(시작 시간 순)');
