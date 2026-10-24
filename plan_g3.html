@@ -156,6 +156,19 @@
   .menu .pop{position:absolute;top:40px;left:0;z-index:6;background:#fff;border-radius:12px;box-shadow:0 6px 22px rgba(0,0,0,.14);padding:6px;min-width:230px;}
   .menu .pop button{display:block;width:100%;text-align:left;border:0;background:none;padding:8px 10px;border-radius:8px;font-size:14px;cursor:pointer;color:var(--ink);}
   .menu .pop button:hover{background:var(--soft);}
+  /* 학생 목록 — 내신·정규 비교 */
+  .lst td,.lst th{white-space:nowrap;}
+  .lst td.c small{display:block;font-size:11.5px;color:var(--cap);}
+  .lst tr.k-swap td{background:#F3EEF8;}
+  .lst tr.k-moved td{background:#FBF5E3;}
+  .lst tr.k-none td{background:#F7E9E6;}
+  .lst td.no{color:var(--cap);font-size:12px;}
+  .lst .gone{color:var(--cap);}
+  .lst .kb{display:inline-block;border-radius:999px;padding:0 8px;font-size:11.5px;}
+  .kb.swap{background:#E3D7EE;color:var(--lavInk);} .kb.moved{background:var(--wait);color:var(--waitInk);} .kb.none{background:var(--late);color:var(--lateInk);}
+  .lst th.g{text-align:center;color:var(--ink2);font-weight:700;}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12.5px;color:var(--ink2);margin:8px 0 0;align-items:center;}
+  .legend i{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:4px;}
   #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#2A332F;color:#fff;border-radius:999px;padding:8px 16px;font-size:14px;z-index:20;}
   #toast:empty{display:none;}
   @media (max-width:760px){ .frm{grid-template-columns:60px 1fr;} }
@@ -171,6 +184,7 @@
     <div class="card">
       <div class="ctl">
         <span id="plans" class="ctl"></span>
+        <button class="pill" type="button" id="listBtn">학생 목록 (내신·정규)</button>
         <span class="menu"><button class="btn" type="button" id="newBtn">+ 새 안</button>
           <span class="pop" id="newPop" hidden>
             <button type="button" id="newCopy">지금 보는 안을 복사해 새 안</button>
@@ -186,6 +200,24 @@
       <p class="note" id="made"></p>
     </div>
     <div id="warns"></div>
+    <div id="listCard" class="card" hidden>
+      <h2>2027 고3 학생 목록 — 내신·정규 시간표</h2>
+      <div class="ctl">
+        <label class="note" style="margin:0">내신 <select id="lsN" aria-label="내신 안"></select></label>
+        <label class="note" style="margin:0">정규 <select id="lsG" aria-label="정규 안"></select></label>
+        <button class="pill on" type="button" data-lk="">전체</button>
+        <button class="pill" type="button" data-lk="swap">독서·문학 교환</button>
+        <button class="pill" type="button" data-lk="moved">시간 바뀜</button>
+        <input type="text" id="lq" class="grow" placeholder="학생 이름·학교 찾기" aria-label="학생 이름 찾기" />
+        <button class="btn gray" type="button" id="lCopy">표 복사</button>
+      </div>
+      <div class="legend" id="lLegend"></div>
+      <div class="tbox" style="margin-top:8px"><table class="lst"><thead>
+        <tr><th rowspan="2">No</th><th rowspan="2">이름</th><th rowspan="2">학교</th><th class="g" colspan="2">내신</th><th class="g" colspan="2">정규</th><th rowspan="2">구분</th></tr>
+        <tr><th>진도</th><th>확인</th><th>독서</th><th>문학</th></tr>
+      </thead><tbody id="lBody"></tbody></table></div>
+      <p class="note">정규 수업은 진도 반이 문학, 확인 반이 독서입니다. 연보라 줄은 내신과 같은 두 시간에 수업하되 독서·문학을 바꾼 학생, 연노랑 줄은 시간이 달라진 학생이에요.</p>
+    </div>
     <div id="body" hidden>
       <div class="card">
         <div class="tiles" id="tiles"></div>
@@ -292,7 +324,19 @@ var PG = (function(){
     classes.forEach(function(c){ if (cap && cnt[c.id] > cap) r.over.push(c.id); });
     return r;
   }
-  return { DAYS: DAYS, mins: mins, span: span, okTime: okTime, plain: plain, schoolOf: schoolOf, overlap: overlap, sortCls: sortCls, fromNaeshin: fromNaeshin, check: check };
+  // 내신 안 ↔ 정규 안 학생 비교(2026-10-24 원장님 "같은 시간으로 배치했지만 반 인원으로 고려해 독서, 문학을 교환한 친구들은 색깔로")
+  // 정규: 진도 반 = 문학, 확인 반 = 독서. 시간 = 요일+시작.
+  //   same  = 정규 문학이 내신 진도 시간, 정규 독서가 내신 확인 시간
+  //   swap  = 같은 두 시간이지만 독서·문학이 바뀜(정규 독서 = 내신 진도 시간, 정규 문학 = 내신 확인 시간)
+  //   moved = 그 밖(시간이 달라짐) · none = 어느 한쪽에 반이 없음
+  function compareKind(nJ, nH, gM, gD){
+    if (!nJ || !nH || !gM || !gD) return 'none';
+    var k = function(c){ return c.day + ' ' + mins(c.start); };
+    if (k(gM) === k(nJ) && k(gD) === k(nH)) return 'same';
+    if (k(gD) === k(nJ) && k(gM) === k(nH)) return 'swap';
+    return 'moved';
+  }
+  return { DAYS: DAYS, mins: mins, span: span, okTime: okTime, plain: plain, schoolOf: schoolOf, overlap: overlap, sortCls: sortCls, fromNaeshin: fromNaeshin, check: check, compareKind: compareKind };
 })();
 /* /PLAN-G3-CORE */
 
@@ -321,7 +365,8 @@ var PG = (function(){
   function noOf(plan){ return parseInt(String(plan).slice(PRE.length), 10) || 0; }
   function nowIso(){ return new Date().toISOString(); }
 
-  var VIEW = '', ZROW = {};
+  var VIEW = '', ZROW = {}, LIST = false, LK = '', LQ = '', LSN = '', LSG = '';
+  try { LIST = sessionStorage.getItem('pg3_list') === '1'; } catch(_){}
   try { VIEW = sessionStorage.getItem('pg3_view') || ''; } catch(_){}
   var ME = '', PLANS = [], ROWS = {}, CUR = '', SEL = '', PART = '', TF = '', Q = '', BUSY = false, EDIT = null;
   try { CUR = sessionStorage.getItem('pg3_plan') || ''; } catch(_){}
@@ -362,6 +407,14 @@ var PG = (function(){
     ZROW = {};
     try { sessionStorage.setItem('pg3_plan', CUR); } catch(_){}
     $('plans').innerHTML = PLANS.map(function(p){ return '<button class="pill' + (p.plan === CUR ? ' on' : '') + '" type="button" data-plan="' + esc(p.plan) + '">' + esc(titleOf(p)) + '</button>'; }).join('');
+    $('listBtn').classList.toggle('on', LIST);
+    if (LIST){
+      Array.prototype.forEach.call($('plans').children, function(b){ b.classList.remove('on'); });
+      ['delPlan', 'renPlan', 'memoRow', 'body'].forEach(function(id){ $(id).hidden = true; });
+      $('made').textContent = ''; $('warns').innerHTML = ''; $('listCard').hidden = false;
+      renderList(); return;
+    }
+    $('listCard').hidden = true;
     var p = plan();
     $('delPlan').hidden = !p; $('renPlan').hidden = !p; $('memoRow').hidden = !p; $('body').hidden = !p; $('newCopy').disabled = !p;
     if (!p){
@@ -649,6 +702,54 @@ var PG = (function(){
       .then(function(){ $('dlg').close(); toast('반을 지웠습니다'); return load(); }).catch(fail).then(function(){ busy(false); });
   }
 
+  // ── 학생 목록(내신·정규) ─────────────────
+  function byTitle(t){ return PLANS.filter(function(p){ return titleOf(p) === t; })[0]; }
+  function planByKey(k){ return PLANS.filter(function(p){ return p.plan === k; })[0]; }
+  function shortName(c){ return String(c.name || '').replace(/^고3\s*/, '').replace(/\(.*$/, '').trim() || c.part; }
+  function cellTxt(c){ return c ? c.day + ' ' + c.start + ' · ' + c.teacher + 'T' : ''; }
+  function cellHtml(c){ return c ? esc(cellTxt(c)) + '<small>' + esc(shortName(c)) + '</small>' : '<span class="no">없음</span>'; }
+  var LK_LBL = { same: '', swap: '독서·문학 교환', moved: '시간 바뀜', none: '반 없음' };
+  function listData(){
+    var pN = planByKey(LSN) || byTitle('내신'), pG = planByKey(LSG) || byTitle('정규');
+    if (!pN || !pG) return null;
+    LSN = pN.plan; LSG = pG.plan;
+    var idx = function(p){ var o = {}; clsOf(p).forEach(function(c){ o[c.id] = c; }); return o; };
+    var cN = idx(pN), cG = idx(pG), rN = {}, rG = {}, names = [], lv = allLeave();
+    rowsOf(pN.plan).forEach(function(r){ if (!r.excluded){ rN[r.student] = r; names.push(r.student); } });
+    rowsOf(pG.plan).forEach(function(r){ if (!r.excluded){ rG[r.student] = r; if (!rN[r.student]) names.push(r.student); } });
+    names.sort(function(a, b){ return a.localeCompare(b, 'ko'); });
+    return { pN: pN, pG: pG, rows: names.map(function(nm){
+      var a = rN[nm] || {}, b = rG[nm] || {}, nJ = cN[a.ga], nH = cN[a.na], gM = cG[b.ga], gD = cG[b.na];
+      return { nm: nm, school: a.school || b.school || '', nJ: nJ, nH: nH, gD: gD, gM: gM, kind: PG.compareKind(nJ, nH, gM, gD), leave: lv[nm] || '' };
+    }) };
+  }
+  function renderList(){
+    var d = listData();
+    var opts = function(cur){ return PLANS.map(function(p){ return '<option value="' + esc(p.plan) + '"' + (p.plan === cur ? ' selected' : '') + '>' + esc(titleOf(p)) + '</option>'; }).join(''); };
+    $('lsN').innerHTML = opts(LSN); $('lsG').innerHTML = opts(LSG);
+    Array.prototype.forEach.call(document.querySelectorAll('[data-lk]'), function(b){ b.classList.toggle('on', b.getAttribute('data-lk') === LK); });
+    if (!d){ $('lBody').innerHTML = '<tr><td colspan="8" class="empty">‘내신’·‘정규’ 이름의 안이 없습니다. 위에서 비교할 두 안을 골라 주세요.</td></tr>'; $('lLegend').innerHTML = ''; return; }
+    var n = { swap: 0, moved: 0, none: 0 }; d.rows.forEach(function(r){ if (n[r.kind] != null) n[r.kind]++; });
+    $('lLegend').innerHTML = '<span>학생 ' + d.rows.length + '명</span><span><i style="background:#F3EEF8"></i>독서·문학 교환 ' + n.swap + '명</span><span><i style="background:#FBF5E3"></i>시간 바뀜 ' + n.moved + '명</span>' + (n.none ? '<span><i style="background:#F7E9E6"></i>반 없음 ' + n.none + '명</span>' : '');
+    var q = LQ, list = d.rows.filter(function(r){ return (!LK || r.kind === LK) && (!q || r.nm.indexOf(q) >= 0 || r.school.indexOf(q) >= 0); });
+    $('lBody').innerHTML = list.length ? list.map(function(r, i){
+      return '<tr class="k-' + r.kind + '"><td>' + (i + 1) + '</td><td>' + (r.leave ? '<span class="gone" title="' + esc(r.leave) + '">(' + esc(r.nm) + ')</span>' : esc(r.nm)) + '</td><td>' + esc(r.school) + '</td>' +
+        '<td class="c">' + cellHtml(r.nJ) + '</td><td class="c">' + cellHtml(r.nH) + '</td><td class="c">' + cellHtml(r.gD) + '</td><td class="c">' + cellHtml(r.gM) + '</td>' +
+        '<td>' + (LK_LBL[r.kind] ? '<span class="kb ' + r.kind + '">' + LK_LBL[r.kind] + '</span>' : '') + (r.leave ? ' <span class="note">퇴원 예정</span>' : '') + '</td></tr>';
+    }).join('') : '<tr><td colspan="8" class="empty">해당하는 학생이 없습니다.</td></tr>';
+  }
+  function copyList(){
+    var d = listData(); if (!d) return;
+    var out = [['No', '이름', '학교', '내신 진도', '내신 확인', '정규 독서', '정규 문학', '구분'].join('\t')];
+    d.rows.forEach(function(r, i){ out.push([i + 1, r.leave ? '(' + r.nm + ')' : r.nm, r.school, cellTxt(r.nJ), cellTxt(r.nH), cellTxt(r.gD), cellTxt(r.gM), LK_LBL[r.kind] + (r.leave ? (LK_LBL[r.kind] ? ' · ' : '') + '퇴원 예정' : '')].join('\t')); });
+    copyText(out.join('\n'));
+  }
+  function copyText(txt){
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject()).then(function(){ toast('표를 복사했습니다 — 구글 시트에 붙여 넣으세요'); }, function(){
+      var ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); toast('표를 복사했습니다'); } catch(_){ toast('복사하지 못했습니다'); } ta.remove();
+    });
+  }
+
   // ── 표 복사 ─────────────────────────────
   function copyTable(){
     var p = plan(), cls = clsOf(p).slice().sort(PG.sortCls), rows = rowsOf(CUR);
@@ -665,7 +766,7 @@ var PG = (function(){
 
   // ── 이벤트 ─────────────────────────────
   document.addEventListener('click', function(ev){
-    var t = ev.target.closest('[data-leave],[data-note],[data-zday],[data-plan],[data-st],[data-edit],[data-cls],[data-unset],[data-unsel],[data-part],[data-dpart]');
+    var t = ev.target.closest('[data-lk],[data-leave],[data-note],[data-zday],[data-plan],[data-st],[data-edit],[data-cls],[data-unset],[data-unsel],[data-part],[data-dpart]');
     if (!$('newBtn').contains(ev.target)) $('newPop').hidden = true;
     if (!t) return;
     if (t.hasAttribute('data-leave')){
@@ -692,7 +793,8 @@ var PG = (function(){
       return;
     }
     if (t.hasAttribute('data-zday')){ VIEW = t.getAttribute('data-zday'); try { sessionStorage.setItem('pg3_view', VIEW); } catch(_){} render(); window.scrollTo(0, $('days').getBoundingClientRect().top + window.scrollY - 60); return; }
-    if (t.hasAttribute('data-plan')){ CUR = t.getAttribute('data-plan'); SEL = ''; render(); return; }
+    if (t.hasAttribute('data-plan')){ CUR = t.getAttribute('data-plan'); SEL = ''; setList(false); render(); return; }
+    if (t.hasAttribute('data-lk')){ LK = t.getAttribute('data-lk'); renderList(); return; }
     if (t.hasAttribute('data-dpart')){ dPart(t.getAttribute('data-dpart')); return; }
     if (t.hasAttribute('data-part')){ PART = t.getAttribute('data-part'); render(); return; }
     if (t.hasAttribute('data-unsel')){ SEL = ''; render(); return; }
@@ -718,6 +820,12 @@ var PG = (function(){
     var m = JSON.parse(JSON.stringify(metaOf(p))); m.title = v.trim().slice(0, 20);
     busy(true); saveConfig(clsOf(p).concat([m])).then(function(){ toast('이름을 ‘' + titleOf(plan()) + '’로 바꿨습니다'); render(); }).catch(fail).then(function(){ busy(false); });
   };
+  function setList(on){ LIST = on; try { sessionStorage.setItem('pg3_list', on ? '1' : ''); } catch(_){} }
+  $('listBtn').onclick = function(){ setList(!LIST); render(); };
+  $('lsN').onchange = function(){ LSN = this.value; renderList(); };
+  $('lsG').onchange = function(){ LSG = this.value; renderList(); };
+  $('lq').oninput = function(){ LQ = this.value.trim(); renderList(); };
+  $('lCopy').onclick = copyList;
   $('addCls').onclick = function(){ openEdit(''); };
   $('copyTbl').onclick = copyTable;
   $('tf').onchange = function(){ TF = this.value; render(); };
