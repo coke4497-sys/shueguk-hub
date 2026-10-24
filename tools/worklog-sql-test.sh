@@ -44,6 +44,8 @@ P -f supabase/migrations/202610210001_presence_dorae.sql >/dev/null || { echo "�
 P -f supabase/migrations/202610210001_presence_dorae.sql >/dev/null && ok y y "도래울센터 마이그레이션 다시 실행해도 오류 없음"
 P -f supabase/migrations/202610220001_messenger_home_loc.sql >/dev/null || { echo "기본 센터 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610220001_messenger_home_loc.sql >/dev/null && ok y y "기본 센터 마이그레이션 다시 실행해도 오류 없음"
+P -f supabase/migrations/202610250001_work_day_5am.sql >/dev/null || { echo "근무일 5시 마이그레이션 실패"; exit 1; }
+ok "$(P -tAc "select private.work_today() = ((now() at time zone 'Asia/Seoul') - interval '5 hours')::date")" "t" "근무일은 새벽 5시에 바뀜"
 
 A=aaaaaaaa-0000-0000-0000-000000000001   # 원장(admin) 이수경
 K=aaaaaaaa-0000-0000-0000-00000000000b   # 박언호 대표님(parkeh, teacher)
@@ -114,7 +116,7 @@ ok "$(as $C "select (public.msg_presence_set('', false))->'work'->>'event'")" "o
 ok "$(P -tAc "select count(*) from public.work_records where user_id='$C' and out_at is not null")" "1" "퇴근 시각이 남음"
 ok "$(as $B "select (public.msg_presence_set('본원', true))->>'work' is null")" "t" "근무 일지 밖 선생님은 기록 없음"
 ok "$(P -tAc "select count(*) from public.work_records where user_id='$B'")" "0" "선생님 기록 0"
-HM=$(P -tAc "select to_char((now() at time zone 'Asia/Seoul') + interval '1 hour', 'HH24:MI') > to_char(now() at time zone 'Asia/Seoul', 'HH24:MI')")
+HM=$(P -tAc "select to_char((now() at time zone 'Asia/Seoul') + interval '1 hour', 'HH24:MI') > to_char(now() at time zone 'Asia/Seoul', 'HH24:MI') and (now() at time zone 'Asia/Seoul')::time >= '05:00'")
 if [ "$HM" = "t" ]; then
   LATER=$(P -tAc "select to_char((now() at time zone 'Asia/Seoul') + interval '1 hour', 'HH24:MI')")
   P >/dev/null -c "insert into public.work_shifts (ymd, loc, slot, user_id, start_hm, end_hm) values ('$T', '민초센터', 3, '$D', '$LATER', '23:59') on conflict (ymd, loc, slot) do update set user_id='$D', start_hm='$LATER'"
@@ -140,11 +142,11 @@ if [ "$HM" = "t" ]; then
   ok "$(P -tAc "select ot_start::text||ot_note||to_char(start_at at time zone 'Asia/Seoul','HH24:MI') from public.work_records where id=$OID")" "false사전 협의 없음$LATER" "반려하면 근무표 시작부터 · 사유 남음"
   ok "$(P -tAc "select count(*) from public.msg_tasks where status='대기' and assignee='$K' and text like '%초과근무%'")" "0" "걸린 할 일 없음"
 else
-  echo "  - 한국 23시 이후라 '일찍 출근' 검사는 건너뜀"
+  echo "  - 한국 23시 이후·05시 전(근무일 경계)이라 '일찍 출근' 검사는 건너뜀"
 fi
 
 echo "· 늦은 퇴근 → 초과근무"
-HM2=$(P -tAc "select (now() at time zone 'Asia/Seoul')::time > '03:10'")
+HM2=$(P -tAc "select (now() at time zone 'Asia/Seoul')::time > '08:10'")
 if [ "$HM2" = "t" ]; then
   E=eeeeeeee-0000-0000-0000-000000000005
   P >/dev/null -c "insert into auth.users values ('$E'); insert into public.teacher_accounts (user_id, login_id, display_name, role, active) values ('$E','yena','최예나','assistant',true); insert into public.work_staff (user_id, wage) values ('$E', 13000)"
@@ -165,11 +167,11 @@ if [ "$HM2" = "t" ]; then
   ok "$(as $A "select (public.work_overtime($EID, 'out', false))->>'minutes'")" "120" "원장님이 [근무표 시각으로] 되돌릴 수 있음"
   ok "$(as $A "select (public.work_overtime($EID, 'out', true))->>'ot_status'")" "승인" "원장님이 직접 [초과근무로 인정]하면 바로 승인"
 else
-  echo "  - 한국 03:10 전이라 늦은 퇴근 검사는 건너뜀"
+  echo "  - 한국 08:10 전이라 늦은 퇴근 검사는 건너뜀"
 fi
 
 echo "· 조기퇴근"
-HM3=$(P -tAc "select (now() at time zone 'Asia/Seoul')::time between '03:10' and '21:30'")
+HM3=$(P -tAc "select (now() at time zone 'Asia/Seoul')::time between '08:10' and '21:30'")
 if [ "$HM3" = "t" ]; then
   G=99999999-0000-0000-0000-000000000009
   P >/dev/null -c "insert into auth.users values ('$G'); insert into public.teacher_accounts (user_id, login_id, display_name, role, active) values ('$G','minseo','김민서','assistant',true); insert into public.work_staff (user_id, wage) values ('$G', 12000)"
@@ -206,7 +208,7 @@ if [ "$HM3" = "t" ]; then
   ok "$(as $G "select public.work_early($G1, false)" | grep -c too_late)" "1" "그 뒤 다시 출근한 기록의 퇴근은 취소 못 함"
   ok "$(as $A "select public.work_early($G2, false)" | grep -c not_out)" "1" "열린 기록은 취소할 퇴근이 없음"
 else
-  echo "  - 한국 03:10 전·21:30 뒤라 조기퇴근 검사는 건너뜀"
+  echo "  - 한국 08:10 전·21:30 뒤라 조기퇴근 검사는 건너뜀"
 fi
 
 echo "· 시각 고치기"

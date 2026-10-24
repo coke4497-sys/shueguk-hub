@@ -1070,6 +1070,10 @@
   function ymd(ts){ return kst(ts).toISOString().slice(0, 10); }
   function todayYmd(){ return new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); }
   function dayStartMs(){ return Date.parse(todayYmd() + 'T00:00:00+09:00'); }
+  // 근무일 — 하루의 끝은 새벽 5시(2026-10-25 원장님 "자정 넘어 퇴근"): 그 전까지는 어제 출근을 그대로 근무 중으로 본다. 서버 private.work_today()와 같은 기준
+  var WORK_DAY_H = 5;
+  function workYmd(ts){ return ymd(new Date(Date.parse(ts || new Date().toISOString()) - WORK_DAY_H * 3600e3).toISOString()); }
+  function workDayStartMs(){ return Date.parse(workYmd() + 'T00:00:00+09:00') + WORK_DAY_H * 3600e3; }
   function hm(ts){ var d = kst(ts), h = d.getUTCHours(), m = d.getUTCMinutes(); return (h < 12 ? '오전 ' : '오후 ') + ((h % 12) || 12) + ':' + (m < 10 ? '0' : '') + m; }
   function md(ts){ var d = kst(ts); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate(); }
   function dayLabel(ts){ var d = kst(ts); return (d.getUTCMonth() + 1) + '월 ' + d.getUTCDate() + '일 (' + '일월화수목금토'[d.getUTCDay()] + ')'; }
@@ -2335,11 +2339,11 @@
   }
   function presLoc(uid){
     var r = PRES[uid];
-    return r && r.is_on && ymd(r.changed_at) === ymd(new Date().toISOString()) ? r.loc : '';
+    return r && r.is_on && workYmd(r.changed_at) === workYmd() ? r.loc : '';
   }
   function presLeft(uid){   // 오늘 퇴근했으면 그 기록
     var r = PRES[uid];
-    return r && !r.is_on && ymd(r.changed_at) === ymd(new Date().toISOString()) ? r : null;
+    return r && !r.is_on && workYmd(r.changed_at) === workYmd() ? r : null;
   }
   // 기본 센터(202610220001) — 일정이 없는 날도 그 센터 카드에. 표가 없으면 빈 채로
   var HOME = {}, homeOk = false;
@@ -2356,7 +2360,7 @@
     return api('/msg_presence?select=user_id,name,loc,is_on,changed_at').then(function(rows){
       var next = {}; (rows || []).forEach(function(r){ next[r.user_id] = r; });
       // 날짜가 바뀌어도 다시 그린다 — 자정 넘어 열어 둔 화면에서 어제 출근이 ON으로 남지 않게 (Codex 검토)
-      var day = ymd(new Date().toISOString());
+      var day = workYmd();
       var changed = !presOk || presDay !== day || JSON.stringify(next) !== JSON.stringify(PRES);
       PRES = next; presOk = true; presDay = day;
       if (changed){ loadPresLog(); renderPres(); if (ready) renderBoard(); }
@@ -2368,7 +2372,7 @@
   // 오늘 근무표(조교 근무 일지 work_shifts) — 1분마다. 표가 없거나 못 읽으면 근무표 없이 그린다
   var SHIFT = { day: '', at: 0, by: {}, busy: false };
   function loadShifts(){
-    var day = todayYmd();
+    var day = workYmd();
     if (SHIFT.busy || (SHIFT.day === day && Date.now() - SHIFT.at < LES_MS)) return;
     SHIFT.busy = true; SHIFT.at = Date.now();
     rpc('work_ensure', { p_from: day, p_to: day }).catch(function(){}).then(function(){
@@ -2387,7 +2391,7 @@
   // 오늘의 슈국 — 조교는 근무표, 선생님은 오늘 시간표의 첫 수업 위치, 그 밖에 오늘 출근·퇴근한 사람(2026-10-21 원장님 선택)
   function staffOf(m){
     // 조교는 근무표, 선생님·원장님은 수업 위치 (선생님이 근무표에 들어 있어도 수업 기준 — Codex 검토)
-    var les = lessonsOf(m.id), sh = m.role === 'assistant' && SHIFT.day === todayYmd() && SHIFT.by[m.id], ls = m.role === 'assistant' ? null : (les.filter(function(l){ return ttLoc(l.loc); })[0] || les[0]);
+    var les = lessonsOf(m.id), sh = m.role === 'assistant' && SHIFT.day === workYmd() && SHIFT.by[m.id], ls = m.role === 'assistant' ? null : (les.filter(function(l){ return ttLoc(l.loc); })[0] || les[0]);
     var sched = sh ? { loc: sh.loc, min: minsOf24(sh.start_hm) } : (ls ? { loc: ttLoc(ls.loc), min: minsOf(ls.start) } : null);
     var on = presLoc(m.id), left = presLeft(m.id), home = HOME[m.id] || '';
     var st = on ? 'on' : left ? 'off' : 'before';
@@ -2441,7 +2445,7 @@
   // 오늘 기록(msg_presence_log)으로 지금 출근이 시작된 시각을 찾는다 — 센터만 바꾼 것은 출근 시각이 아니다(Codex 검토)
   var PLOG = {};
   function loadPresLog(){
-    return api('/msg_presence_log?select=user_id,is_on,at&at=gte.' + encodeURIComponent(new Date(dayStartMs()).toISOString()) + '&order=at.asc&limit=2000').then(function(rows){
+    return api('/msg_presence_log?select=user_id,is_on,at&at=gte.' + encodeURIComponent(new Date(workDayStartMs()).toISOString()) + '&order=at.asc&limit=2000').then(function(rows){
       var start = {};
       (rows || []).forEach(function(r){
         if (!r.is_on){ start[r.user_id] = null; return; }   // 퇴근하면 끊긴다
@@ -2455,11 +2459,11 @@
   }
   function onSince(uid){ return PLOG[uid] || (PRES[uid] && PRES[uid].changed_at); }
   function renderPresList(){
-    var today = ymd(new Date().toISOString()), by = {}, left = [], none = [];
+    var today = workYmd(), by = {}, left = [], none = [];
     MEMBERS.forEach(function(m){
       var r = PRES[m.id], l = presLoc(m.id);
       if (l) (by[l] = by[l] || []).push({ m: m, at: onSince(m.id) });
-      else if (r && !r.is_on && ymd(r.changed_at) === today) left.push({ m: m, at: r.changed_at, loc: r.loc });
+      else if (r && !r.is_on && workYmd(r.changed_at) === today) left.push({ m: m, at: r.changed_at, loc: r.loc });
       else none.push(m);
     });
     var row = function(x, tm){ return '<div class="plrow' + (x.m.id === ME.id ? ' plme' : '') + '"><span class="nm">' + esc(x.m.name) + '</span><span class="rl">' + esc(roleLabel(x.m.role)) + '</span><span class="tm">' + tm + '</span></div>'; };

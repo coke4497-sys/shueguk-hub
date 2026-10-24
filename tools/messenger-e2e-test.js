@@ -1334,7 +1334,7 @@ async function showTask(pg, sel){
     const kd2 = new Date(Date.now() + 9 * 3600e3), today2 = kd2.toISOString().slice(0, 10), dn2 = '일월화수목금토'[kd2.getUTCDay()];
     Object.keys(PRESENCE).forEach(k => delete PRESENCE[k]); PLOGS.length = 0; TT.length = 0; TTLOG.length = 0; workClip = workAsk = workEarly = false;   // 앞 검사의 출근·시간표를 비우고 시작
     PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, changed_at: NOWISO() };
-    SHIFTS.push({ ymd: today2, user_id: ME, loc: '화정센터', start_hm: '16:00', end_hm: '22:00' });
+    SHIFTS.push({ ymd: new Date(Date.now() + 4 * 3600e3).toISOString().slice(0, 10), user_id: ME, loc: '화정센터', start_hm: '16:00', end_hm: '22:00' });
     TT.push({ book: '내신', class_id: 'n201', name: '고1 민트반', day: dn2, start_time: '3:00', end_time: '4:30', teacher: '지원', location: '민트초코', roster: '가' });
     TTP.length = 0; TTP.push({ week_wednesday: (y => { const d = new Date(y + 'T00:00:00Z'), k = d.getUTCDay(); d.setUTCDate(d.getUTCDate() + (k === 1 || k === 2 ? 3 - k : -((k - 3 + 7) % 7))); return d.toISOString().slice(0, 10); })(today2), book: '내신' });
     const kk = addMsg(BOSS, '[컴퓨터에서] 카카오채널 연결 — ① 안내 먼저 확인 ② 스킬 추가: 주소 https://x.example/f?k=(토큰 내용) ③ 폴백 블록에서 배포 @고희주', [], ts());
