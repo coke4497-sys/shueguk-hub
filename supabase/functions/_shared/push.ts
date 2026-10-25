@@ -15,7 +15,9 @@ export type Sub = { id: number; user_id: string; endpoint: string; p256dh: strin
 
 // 받는 기기마다 보낼 내용 — 순수 함수(시험용으로 따로 내보냄)
 // active = 지금 활성 교사 user_id — 퇴사 등으로 비활성이 된 사람의 기기는 받지 않는다(Codex 검토 P1)
-export function plan(msg: Msg, tasks: Task[], subs: Sub[], active: Set<string>) {
+// work = 오늘 근무하는 사람(workSet) — null 이면 거르지 않는다(조회 실패 때 알림을 잃지 않게).
+// 쉬는 날에도 받는 경우: 이 메시지로 나에게 할 일이 생김 · 클로슈가 나를 받을 사람으로 정함(bot.to) · workSet 이 늘 넣는 원장님·대표님 (2026-10-25 원장님)
+export function plan(msg: Msg, tasks: Task[], subs: Sub[], active: Set<string>, work: Set<string> | null = null) {
   const mine = new Map<string, Task>()
   tasks.forEach((t) => { if (t.assignee) mine.set(t.assignee, t) })
   const files = (msg.files || []).length
@@ -25,6 +27,7 @@ export function plan(msg: Msg, tasks: Task[], subs: Sub[], active: Set<string>) 
   return subs
     .filter((s) => s.user_id !== msg.author && active.has(s.user_id))
     .filter((s) => !only || only.has(s.user_id))
+    .filter((s) => !work || work.has(s.user_id) || mine.has(s.user_id) || !!(only && only.has(s.user_id)))
     // 클로슈·카카오채널 글(bot)은 옛 'mention' 범위로 저장된 기기여도 받는다 — 그 글에는 받는 사람 할 일이 없다.
     // bot.to 가 없는 글(오늘 정리 등)은 모두에게 (Codex 검토)
     .filter((s) => !!msg.bot || s.mode !== 'mention' || mine.has(s.user_id))
@@ -43,13 +46,94 @@ export function plan(msg: Msg, tasks: Task[], subs: Sub[], active: Set<string>) 
     })
 }
 
+// ── 출근 날에만 알림 (2026-10-25 원장님 "슈톡 알림을 출근 날에만" → '근무 일정이 있는 날' 선택) ──
+// 오늘 근무 일정 = 조교 근무표(work_shifts, 아직 안 채운 날은 기본 근무표 work_roster) · 오늘 시간표 수업(messenger.html loadLessons 와 같은 규칙)
+//   · 오늘 슈톡 출근·퇴근 기록(msg_presence_log). 원장님(admin)·박언호 대표님(parkeh)은 늘 받는다.
+// 근무일은 새벽 5시에 바뀐다(private.work_today 와 같음). 쉬는 날에도 나에게 생긴 할 일·넘긴 일은 받는다(plan·handPlan).
+export const ALWAYS_LOGIN = ['parkeh']
+export const WORK_DAY_H = 5
+const WDAY = '일월화수목금토'
+function addDay(y: string, n: number) { const d = new Date(y + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
+export function workYmd(now = Date.now()) { return new Date(now + (9 - WORK_DAY_H) * 3600e3).toISOString().slice(0, 10) }
+export function weekWed(y: string) { const k = new Date(y + 'T00:00:00Z').getUTCDay(); return addDay(y, (k === 1 || k === 2) ? 3 - k : -((k - 3 + 7) % 7)) }
+function gradeOfName(n: string) { const m = /([중고])\s*([1-3])/.exec(String(n || '')); return m ? m[1] + m[2] : '' }
+// 시간표 담당T('은지'·'슈'·'김지원T') ↔ 표시 이름 — 끝 두 글자, '슈'는 이수경 (messenger.html teacherKey 와 같은 규칙)
+export function teacherKey(t: string) {
+  t = String(t || '').replace(/\s+/g, '').replace(/T$/, '').replace(/(선생님|쌤)$/, '').replace(/[A-Z]$/, '')
+  if (t === '이수경' || t === '수경' || t === '슈') return '슈'
+  return t.length >= 3 ? t.slice(-2) : t
+}
+export type Member = { user_id: string; display_name: string; role: string; login_id: string }
+export type WorkIn = {
+  day: string
+  members: Member[]
+  shifts: { loc: string; slot: number; user_id: string | null }[]
+  roster: { loc: string; slot: number; user_id: string }[]
+  presence: { user_id: string }[]
+  classes: { book: string; class_id: string; name: string; teacher: string; roster: string }[]
+  period: { book?: string; overrides?: Record<string, string> | null } | null
+  off: string[]
+}
+// 순수 함수(시험용) — 오늘 알림을 받을 사람 user_id
+export function workSet(w: WorkIn) {
+  const set = new Set<string>()
+  w.members.forEach((m) => { if (m.role === 'admin' || ALWAYS_LOGIN.includes(m.login_id)) set.add(m.user_id) })
+  const taken = new Set<string>()
+  w.shifts.forEach((r) => { taken.add(r.loc + '|' + r.slot); if (r.user_id) set.add(r.user_id) })
+  w.roster.forEach((r) => { if (!taken.has(r.loc + '|' + r.slot)) set.add(r.user_id) })   // 그 칸을 아직 안 채운 날(work_fill 전)
+  w.presence.forEach((r) => set.add(r.user_id))
+  const book0 = (w.period && w.period.book) || '정규'
+  const ov = (w.period && w.period.overrides && typeof w.period.overrides === 'object') ? w.period.overrides : {}
+  const off = new Set(w.off)
+  w.classes.forEach((c) => {
+    if (!/^w/.test(c.class_id)) {
+      const g = gradeOfName(c.name), book = (g && ov[g]) ? ov[g] : book0
+      if (c.book !== book || !String(c.roster || '').trim()) return
+    }
+    if (off.has(c.class_id)) return
+    const k = teacherKey(c.teacher); if (!k) return
+    const hit = w.members.filter((m) => teacherKey(m.display_name) === k)
+    if (hit.length === 1) set.add(hit[0].user_id)   // 둘 이상과 맞으면 붙이지 않는다(messenger.html lessonUid 와 같음)
+  })
+  return set
+}
+// 오늘 근무하는 사람을 읽어 온다 — 하나라도 못 읽으면 null(거르지 않음)
+// deno-lint-ignore no-explicit-any
+export async function workingToday(admin: any, now = Date.now()): Promise<Set<string> | null> {
+  try {
+    const day = workYmd(now), dn = WDAY[new Date(day + 'T00:00:00Z').getUTCDay()]
+    const dow = ((new Date(day + 'T00:00:00Z').getUTCDay() + 6) % 7) + 1
+    const start = new Date(Date.parse(day + 'T00:00:00+09:00') + WORK_DAY_H * 3600e3).toISOString()
+    const wid = 'w' + day.slice(2).replace(/-/g, '')
+    const sel = 'book,class_id,name,teacher,roster'
+    const r = await Promise.all([
+      admin.from('teacher_accounts').select('user_id,display_name,role,login_id').eq('active', true),
+      admin.from('work_shifts').select('loc,slot,user_id').eq('ymd', day),
+      admin.from('work_roster').select('loc,slot,user_id').eq('dow', dow),
+      admin.from('msg_presence_log').select('user_id').gte('at', start),
+      admin.from('tt_classes').select(sel).eq('day', dn).not('class_id', 'like', 'w*').limit(1000),
+      admin.from('tt_classes').select(sel).like('class_id', wid + '*').limit(200),
+      admin.from('tt_period').select('book,overrides').eq('week_wednesday', weekWed(day)).limit(1),
+      admin.from('tt_log').select('from_class_id').in('kind', ['주간반휴강', '주간반이동']).eq('apply_date', day).limit(500),
+    ])
+    // deno-lint-ignore no-explicit-any
+    if (r.some((x: any) => x.error)) { console.error('workingToday lookup failed'); return null }
+    return workSet({
+      day, members: r[0].data || [], shifts: r[1].data || [], roster: r[2].data || [], presence: r[3].data || [],
+      classes: (r[4].data || []).concat(r[5].data || []), period: (r[6].data || [])[0] || null,
+      // deno-lint-ignore no-explicit-any
+      off: (r[7].data || []).map((x: any) => x.from_class_id),
+    })
+  } catch (_) { return null }
+}
+
 // 넘겨받은 사람에게 보낼 내용 — 순수 함수(시험용)
 export type Hand = { id: number; message_id: number | null; text: string; to: string; status: string }
 export function handPlan(t: Hand, byName: string, subs: Sub[], active: Set<string>) {
   if (t.status !== '대기' || !active.has(t.to)) return []
   return subs.filter((s) => s.user_id === t.to).map((s) => ({
     sub: s,
-    payload: { title: byName + ' → 나에게 넘긴 일', body: cut(t.text, 140), url: t.message_id ? PAGE + '#m' + t.message_id : PAGE,   // 내가 직접 추가한 업무(202610250002)는 메시지가 없다 tag: 'tk' + t.id, task: true },
+    payload: { title: byName + ' → 나에게 넘긴 일', body: cut(t.text, 140), url: t.message_id ? PAGE + '#m' + t.message_id : PAGE, tag: 'tk' + t.id, task: true },   // 내가 직접 추가한 업무(202610250002)는 메시지가 없다
   }))
 }
 
@@ -101,10 +185,11 @@ export function onlySubs<T extends { sub: Sub }>(items: T[], ids: unknown): T[] 
 // 한 기기에도 못 보냈고 일시적 실패가 있으면 자리를 되돌린다(다시 부르면 다시 보냄). extra 는 잡을 때 더할 조건.
 // deno-lint-ignore no-explicit-any
 export async function pushMessage(admin: any, id: number, extra?: (q: any) => any) {
-  const [t, s, a] = await Promise.all([
+  const [t, s, a, work] = await Promise.all([
     admin.from('msg_tasks').select('assignee,text').eq('message_id', id),
     admin.from('msg_push_subs').select('*'),
     admin.from('teacher_accounts').select('user_id').eq('active', true),
+    workingToday(admin),
   ])
   if (t.error || s.error || a.error) return { status: 503, body: { error: 'lookup_failed' } }
   const at = new Date().toISOString()
@@ -114,7 +199,7 @@ export async function pushMessage(admin: any, id: number, extra?: (q: any) => an
   if (ce) return { status: 503, body: { error: 'claim_failed' } }
   if (!claimed || !claimed.length) return { status: 200, body: { skipped: true } }
   const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
-  const items = plan(claimed[0], t.data || [], s.data || [], active)
+  const items = plan(claimed[0], t.data || [], s.data || [], active, work)
   const r = await deliver(admin, items)
   const { failedIds, ...cnt } = r
   if (!r.sent && r.failed) {
@@ -163,16 +248,17 @@ export async function retryPush(admin: any, id: number) {
   const ids = c.data
   if (!Array.isArray(ids) || !ids.length) return { status: 200, skipped: true }
   const restore = (v: unknown) => keepRetry(admin, 'msg_messages', id, 'push_retry', v)
-  const [m, t, s, a] = await Promise.all([
+  const [m, t, s, a, work] = await Promise.all([
     admin.from('msg_messages').select('id,author,author_name,body,files,deleted_at,bot').eq('id', id).maybeSingle(),
     admin.from('msg_tasks').select('assignee,text').eq('message_id', id),
     admin.from('msg_push_subs').select('*').in('id', ids),
     admin.from('teacher_accounts').select('user_id').eq('active', true),
+    workingToday(admin),
   ])
   if (m.error || t.error || s.error || a.error) { await restore(ids); return { status: 503 } }
   if (!m.data || m.data.deleted_at) return { status: 200, skipped: true }
   const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
-  const r = await deliver(admin, onlySubs(plan(m.data, t.data || [], s.data || [], active), ids))
+  const r = await deliver(admin, onlySubs(plan(m.data, t.data || [], s.data || [], active, work), ids))
   if (r.failedIds.length && !(await restore(r.failedIds))) return { status: 503, lost: r.failedIds }
   return { status: r.failed ? 503 : 200 }
 }
