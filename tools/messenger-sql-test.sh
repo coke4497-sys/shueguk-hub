@@ -421,6 +421,19 @@ as $B "select public.msg_delete($HM)" >/dev/null
 ok "$(as $A "select public.msg_heart($HM, true)" | grep -c deleted)" 1 "지운 메시지에는 공감 불가"
 ok "$(anon "select public.msg_heart($HM, true)" | grep -c 'permission denied')" 1 "공개 키는 공감 불가"
 
+echo "── 내 업무 직접 추가 (202610250002)"
+P -f supabase/migrations/202610250002_messenger_self_task.sql >/dev/null || { echo "내 업무 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610250002_messenger_self_task.sql >/dev/null && ok y y "내 업무 마이그레이션 다시 실행해도 오류 없음"
+SID=$(as $B "select (public.msg_task_add('  3시까지 시험지 복사  ')).id")
+ok "$(P -tAc "select message_id is null, self_added, assignee='$B', requester='$B', text, status from public.msg_tasks where id=$SID")" "t|t|t|t|3시까지 시험지 복사|대기" "메시지 없이 내 카드에만 · 맡은 사람=맡긴 사람=나"
+ok "$(as $B "select public.msg_task_add('   ')" | grep -c empty)" 1 "빈 글은 거절"
+ok "$(as $B "select public.msg_task_add(repeat('가', 301))" | grep -c too_long)" 1 "300자 넘으면 거절"
+ok "$(as $E "select public.msg_task_add('x')" | grep -c not_teacher)" 1 "교사 계정이 아니면 거절"
+ok "$(anon "select public.msg_task_add('x')" | grep -c 'permission denied')" 1 "공개 키는 추가 불가"
+ok "$(as $B "select public.msg_task_set($SID, true)->>'status'")" "완료" "내 업무 체크"
+ok "$(as $B "select public.msg_task_set($SID, false)->>'status'")" "대기" "체크 풀기"
+ok "$(as $B "select public.msg_task_cancel($SID, '필요 없어짐')->>'status'")" "취소" "메시지 없는 업무도 취소"
+
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null
 [ $fail -eq 0 ]

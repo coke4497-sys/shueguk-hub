@@ -486,6 +486,12 @@
   .pcnt{font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:16px;color:var(--ink);}
   .pcnt.full{color:var(--sageInk);}
   .ci{background:var(--soft);border-radius:16px;padding:14px 16px;gap:12px;align-items:flex-start;font-size:15px;}
+  .selfadd{display:flex;gap:8px;margin:0 0 2px;}
+  .selfadd input{flex:1;min-width:0;border:0;background:#fff;box-shadow:inset 0 0 0 1px var(--line);border-radius:14px;padding:12px 14px;font:inherit;font-size:14.5px;color:var(--ink);}
+  .selfadd input:focus{outline:2px solid var(--lavBar);outline-offset:0;}
+  .selfadd button{flex:none;border:0;border-radius:14px;padding:0 18px;background:var(--lav);color:#4a4266;font:inherit;font-size:14px;cursor:pointer;}
+  .selfadd button:disabled{opacity:.55;cursor:default;}
+  .selfm{display:inline-block;background:var(--lav);color:#4a4266;border-radius:999px;padding:0 7px;font-size:11.5px;}
   .bx{width:20px;height:20px;border-radius:6px;background:#fff;box-shadow:inset 0 0 0 1.5px rgba(51,68,60,.28);margin-top:3px;}
   .bx.on{background:var(--sage);box-shadow:none;}
   .bx.x{background:#e4e7e5;box-shadow:none;}
@@ -2066,7 +2072,7 @@
   function detailHtml(sp, t){
     var h = stepsHtml(sp);
     if (sp.urls.length) h += '<div class="links">' + sp.urls.map(function(u){ return '<a class="lk" href="' + esc(u) + '" target="_blank" rel="noopener" title="' + esc(u) + '"><span aria-hidden="true">↗</span> ' + esc(shortUrl(u)) + '</a>'; }).join('') + '</div>';
-    return '<div class="det">' + h + '<button class="gomsg" type="button" data-go="' + t.message_id + '">대화에서 보기</button></div>';
+    return '<div class="det">' + h + (t.message_id ? '<button class="gomsg" type="button" data-go="' + t.message_id + '">대화에서 보기</button>' : '') + '</div>';
   }
   function ageHtml(t){
     var now = Date.now(), c = Date.parse(t.created_at), start = dayStartMs();
@@ -2074,26 +2080,29 @@
     if (c < start){ var n = Math.round((start - Date.parse(ymd(t.created_at) + 'T00:00:00+09:00')) / 86400e3) + 1; return '<span class="age" title="' + md(t.created_at) + '부터 남음">' + n + '일째</span>'; }
     return now - c > LATE_MS ? '<span class="age">' + Math.floor((now - c) / 3600e3) + '시간 지남</span>' : '';
   }
+  // 대화로 가는 단추 — 내가 직접 추가한 업무(202610250002)는 메시지가 없어 가지 않는다
+  function goAttr(t){ return t.message_id ? ' data-go="' + t.message_id + '" title="누르면 대화에서 이 메시지로"' : ' title="내가 직접 추가한 업무"'; }
+  function byHtml(t){ return t.self_added ? '<span class="selfm">직접 추가</span>' : esc(t.requester_name); }
   function taskHtml(t, p){
     var sp = splitTask(tagSplit(t.text).rest), has = sp.steps.length || sp.urls.length, open = has && openTask[t.id];
     var tag = tagPill(tagSplit(t.text).tag), seen = !!t.seen_at;
     var due = t.due_at ? Date.parse(t.due_at) : 0, over = due && due < Date.now();
     var dueHtml = due ? '<span class="due' + (over ? ' over' : '') + '">' + (over ? '약속 지남 · ' : '미룸 · ') + esc(whenLabel(t.due_at)) + '까지' + (t.due_note ? ' — ' + esc(t.due_note) : '') + '</span>' : '';
     var title = has ? '<button class="ctx" type="button" data-open="' + t.id + '" aria-expanded="' + !!open + '">' + tag + esc(sp.title) + '</button><button class="more" type="button" data-open="' + t.id + '">' + (open ? '접기' : '자세히') + CHEV + '</button>'
-      : '<button class="ctx" type="button" data-go="' + t.message_id + '" title="누르면 대화에서 이 메시지로">' + tag + esc(sp.title || '메시지 확인') + '</button>';
+      : '<button class="ctx" type="button"' + goAttr(t) + '>' + tag + esc(sp.title || '메시지 확인') + '</button>';
     var ack = t.assignee === ME.id && !seen && 'seen_at' in t ? '<button class="ack sm" type="button" data-ack="' + t.id + '">확인</button>' : '';
     return '<div class="ci' + (open ? ' open' : '') + '"><button class="bx" type="button" data-tk="' + t.id + '" aria-label="완료로 표시"' + (canCheck(t) ? '' : ' disabled title="맡은 사람·맡긴 사람만 체크할 수 있어요"') + '></button>'
       + '<div class="cbody"><div class="ttl">' + title + '</div>' + (open ? detailHtml(sp, t) : '')
-      + '<div class="meta">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + ageHtml(t) + (seen ? '<span class="seen">✓ 확인함</span>' : '') + (isProg(t) ? '<span class="pg">진행 중</span>' : '') + dueHtml + histHtml(t) + '</div></div>'
+      + '<div class="meta">' + byHtml(t) + ' · ' + hm(t.created_at) + ageHtml(t) + (seen ? '<span class="seen">✓ 확인함</span>' : '') + (isProg(t) ? '<span class="pg">진행 중</span>' : '') + dueHtml + histHtml(t) + '</div></div>'
       + '<div class="cact">' + ack + (canManage(t) ? '<button class="cxb" type="button" data-cx="' + t.id + '" aria-label="관리" title="완료 · 진행 중 · 미루기 · 넘기기 · 취소">' + DOTS + '</button>' : '') + '</div></div>';
   }
   function doneHtml(t, p){
     var sp = splitTask(tagSplit(t.text).rest), tag = tagPill(tagSplit(t.text).tag);
     if (t.status === '취소') return '<div class="ci d x"><span class="bx x" title="취소한 할 일">×</span>'
-      + '<div class="cbody"><div class="ttl"><button class="ctx" type="button" data-go="' + t.message_id + '">' + tag + esc(sp.title) + '</button></div><div class="meta">' + esc(t.requester_name) + ' · 취소 ' + hm(t.done_at) + (t.done_by_name ? ' (' + esc(t.done_by_name) + ')' : '') + '<span class="why">사유: ' + esc(t.cancel_reason || '') + '</span>' + histHtml(t) + '</div></div>'
-      + '<div class="cact">' + (canCancel(t) && msgAlive(t.message_id) ? '<button class="cxb txt" type="button" data-uncx="' + t.id + '" title="취소를 풀고 다시 할 일로">되돌리기</button>' : '') + '</div></div>';
+      + '<div class="cbody"><div class="ttl"><button class="ctx" type="button"' + goAttr(t) + '>' + tag + esc(sp.title) + '</button></div><div class="meta">' + byHtml(t) + ' · 취소 ' + hm(t.done_at) + (t.done_by_name ? ' (' + esc(t.done_by_name) + ')' : '') + '<span class="why">사유: ' + esc(t.cancel_reason || '') + '</span>' + histHtml(t) + '</div></div>'
+      + '<div class="cact">' + (canCancel(t) && (!t.message_id || msgAlive(t.message_id)) ? '<button class="cxb txt" type="button" data-uncx="' + t.id + '" title="취소를 풀고 다시 할 일로">되돌리기</button>' : '') + '</div></div>';
     return '<div class="ci d"><button class="bx on" type="button" data-tk="' + t.id + '" data-done="1" aria-label="완료 취소"' + (canCheck(t) ? '' : ' disabled') + '>' + CHECK + '</button>'
-      + '<div class="cbody"><div class="ttl"><button class="ctx" type="button" data-go="' + t.message_id + '">' + tag + esc(sp.title) + '</button></div><div class="meta">' + esc(t.requester_name) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</div></div></div>';
+      + '<div class="cbody"><div class="ttl"><button class="ctx" type="button"' + goAttr(t) + '>' + tag + esc(sp.title) + '</button></div><div class="meta">' + byHtml(t) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</div></div></div>';
   }
   function renderBoard(){
     var map = people(), list = Object.keys(map).map(function(k){ return map[k]; });
@@ -2133,9 +2142,35 @@
     });
     if (!html.length) html.push('<div class="none empty">해당하는 사람이 없습니다.</div>');
     $('cards').classList.toggle('nosel', !shown.length);
+    var saIn = SA_IN, saFocus = document.activeElement === saIn, saPos = saIn.selectionStart;
     $('cards').innerHTML = html.join('');
+    var saHost = selfAddOk && document.querySelector('#cards .pc[data-person="' + ME.id + '"] .ph1');
+    if (saHost){ saHost.parentNode.insertBefore(SA, saHost.nextSibling); if (saFocus){ saIn.focus(); try { saIn.setSelectionRange(saPos, saPos); } catch (e){} } }
+    else if (SA.parentNode) SA.parentNode.removeChild(SA);
     if (Object.keys(qWant).length) fillQuotes();   // 취소 줄의 원문(지웠는지)을 받아 온다
   }
+  // 내 업무 직접 추가(2026-10-25 원장님 "본인의 업무를 스스로 추가") — 대화에 글을 남기지 않고 내 카드에만. 202610250002
+  // 폼은 한 번 만들어 두고 다시 그릴 때마다 내 구역으로 옮긴다(3초 폴링으로 다시 그려도 쓰던 글이 사라지지 않게)
+  var selfAddOk = true, saBusy = false;
+  var SA = document.createElement('form');
+  SA.className = 'selfadd'; SA.setAttribute('autocomplete', 'off');
+  SA.innerHTML = '<input id="saIn" type="text" maxlength="300" placeholder="내 업무 추가 — 예: 3시까지 시험지 복사" aria-label="내 업무 추가"><button type="submit" id="saBtn">추가</button>';
+  var SA_IN = SA.querySelector('input'), SA_BTN = SA.querySelector('button');
+  SA.addEventListener('submit', function(e){
+    e.preventDefault();
+    var inp = SA_IN, txt = inp.value.trim();
+    if (!txt){ inp.focus(); return; }
+    if (saBusy) return;
+    saBusy = true; SA_BTN.disabled = true;
+    rpc('msg_task_add', { p_text: txt }).then(function(row){
+      inp.value = '';
+      if (row && row.id){ addTasks([row]); renderBoard(); }
+      status('내 업무에 추가했습니다.', 2500);
+    }).catch(function(err){
+      var raw = String(err && err.message) + JSON.stringify((err && err.data) || '');
+      status(/PGRST202|msg_task_add/.test(raw) ? '내 업무 추가는 데이터베이스 적용(202610250002) 뒤에 쓸 수 있습니다.' : /too_long/.test(raw) ? '300자까지 적을 수 있어요.' : errText(err), 6000);
+    }).then(function(){ saBusy = false; SA_BTN.disabled = false; });
+  });
   // 고른 사람 머리 아래 한 줄 — '{센터} · {출근 시각 · 근무 중 / 출근 전 / 퇴근}' (2026-10-21 리디자인)
   function psubHtml(p){
     var x = MBY[p.key] && staffOf(MBY[p.key]);
