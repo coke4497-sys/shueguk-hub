@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이수경국어 · 전체 커리큘럼</title>
+<script src="assets/teacher-auth.js" data-mode="protected"></script>
+<!-- 이수경국어 슈국 운영 · 전체 커리큘럼 (2026-10-25 원장님 "슈국 운영에 전체 커리큘럼 메뉴")
+     · 원본: 수파베이스 curriculum_weeks(학년 × 수요일 주 — 가 수업·나 수업·메모)·curriculum_books(학교별 편제표)
+       — 202610250003_curriculum.sql. 처음 값은 시트 「2026 슈국 커리큘럼 정리본」에서 한 번 옮김(supabase/커리큘럼-초기값.sql).
+     · 보기는 교사 계정 모두, 고치기는 원장님(관리자)만 — DB 함수 curriculum_set·curriculum_book_set 이 다시 확인한다.
+     · 주는 수요일 시작(월·화는 다가오는 수요일 주 — 슈국 스케쥴 weekStartOf 와 같음). 중1은 뺀다. -->
+<link rel="preconnect" href="https://bangdbhqpphqqdwcledg.supabase.co">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#2A332F; --muted:#65726B; --sub:#4F5C56;
+    --line:#E5EDE8; --paper:#F4F6F5; --card:#ffffff;
+    --sage:#4C6E66; --sage-bg:#E3ECE8;
+    --lav:#EDE4F4; --lav-d:#5A4A6A;
+    --yel:#F9EFD0; --yel-d:#7A6332;
+    --pink:#F7E2DE;
+    --shadow:0 2px 12px rgba(42,51,47,.07);
+  }
+  *{box-sizing:border-box;}
+  body{ font-family:'Gowun Dodum',-apple-system,sans-serif; background:var(--paper); color:var(--ink);
+    max-width:1180px; margin:0 auto; padding:0 0 60px; line-height:1.5; }
+  a{color:inherit;}
+  button,input,select,textarea{font-family:inherit;}
+  .brand{ background:linear-gradient(135deg,#d6e3dd 0%,#dcd7ea 100%);
+    padding:20px 24px 16px; border-radius:0 0 22px 22px; box-shadow:var(--shadow);
+    display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .brand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:#34463F; }
+  .brand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#4F5C56; letter-spacing:2px; }
+  .brand .links{ margin-left:auto; display:flex; gap:14px; font-size:13px; }
+  .brand .links a{ color:#34463F; text-decoration:none; border-bottom:1px solid rgba(52,70,63,.35); }
+  .head{ margin:18px 16px 12px; display:flex; align-items:center; gap:10px 14px; flex-wrap:wrap; }
+  .head h1{ margin:0; font-family:'Gowun Batang',serif; font-size:22px; color:#34463F; }
+  .head .who{ font-size:12.5px; color:var(--muted); }
+  .head .sp{ flex:1; }
+  .seg{ display:inline-flex; background:#fff; border-radius:11px; box-shadow:var(--shadow); padding:4px; gap:2px; flex-wrap:wrap; }
+  .seg button{ padding:7px 14px; border:none; background:transparent; color:var(--sub); border-radius:8px;
+    font-family:'Gowun Batang',serif; font-weight:700; font-size:13.5px; cursor:pointer; }
+  .seg button.on{ background:var(--lav); color:var(--lav-d); }
+  select.ys{ padding:7px 10px; border:1.5px solid var(--line); border-radius:9px; font-size:13.5px; background:#fff; }
+  .bar{ margin:0 16px 12px; display:flex; align-items:center; gap:8px 10px; flex-wrap:wrap; }
+  .bar .sp{ flex:1; }
+  .btn{ padding:8px 13px; border:none; border-radius:9px; background:var(--lav); color:var(--lav-d);
+    font-family:'Gowun Batang',serif; font-weight:700; font-size:13px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
+  .btn.ghost{ background:#fff; color:var(--sub); box-shadow:var(--shadow); }
+  .btn svg{ width:15px; height:15px; }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  .wk{ font-family:'Do Hyeon',sans-serif; font-size:21px; color:#34463F; min-width:190px; text-align:center; }
+  .wk small{ font-family:'Gowun Dodum',sans-serif; font-size:12.5px; color:var(--muted); margin-left:6px; }
+  .loading,.empty{ margin:16px; padding:40px; text-align:center; color:var(--muted); font-size:14px;
+    background:var(--card); border-radius:12px; box-shadow:var(--shadow); }
+  .note-line{ margin:0 16px 12px; font-size:12.5px; color:var(--muted); }
+
+  /* 이번 주 — 학년 카드 */
+  .cards{ margin:0 16px; display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px; }
+  .gc{ background:var(--card); border-radius:14px; box-shadow:var(--shadow); padding:14px 16px 12px; display:flex; flex-direction:column; gap:8px; }
+  .gc h3{ margin:0; display:flex; align-items:center; gap:8px; font-family:'Do Hyeon',sans-serif; font-weight:400; font-size:22px; color:#34463F; }
+  .gc h3 a{ margin-left:auto; font-family:'Gowun Dodum',sans-serif; font-size:12px; color:var(--muted); text-decoration:none; }
+  .part{ display:flex; gap:8px; align-items:flex-start; font-size:14px; }
+  .tag{ flex:none; font-size:11.5px; padding:1px 8px; border-radius:999px; background:var(--sage-bg); color:var(--sage); margin-top:2px; }
+  .tag.na{ background:var(--lav); color:var(--lav-d); }
+  .part .tx{ white-space:pre-line; word-break:keep-all; }
+  .part.exam .tx{ color:var(--yel-d); }
+  .gc .none{ color:#A9B3AE; font-size:13px; }
+  .memo{ font-size:12px; color:#8A5B52; background:var(--pink); border-radius:8px; padding:4px 8px; }
+
+  /* 학년별 1년 보기 */
+  .month{ margin:0 16px 14px; background:var(--card); border-radius:12px; box-shadow:var(--shadow); overflow:hidden; }
+  .month h3{ margin:0; padding:9px 16px; background:#E7EEEA; font-family:'Gowun Batang',serif; font-size:15px; color:#34463F; }
+  .row{ display:grid; grid-template-columns:92px 1fr 1fr; gap:12px; padding:10px 16px; border-top:1px solid var(--line); font-size:13.5px; align-items:start; }
+  .row.one{ grid-template-columns:92px 1fr; }
+  .row:first-of-type{ border-top:none; }
+  .row .d{ font-family:'Do Hyeon',sans-serif; font-size:17px; color:#34463F; line-height:1.3; }
+  .row .d small{ display:block; font-family:'Gowun Dodum',sans-serif; font-size:11.5px; color:var(--muted); }
+  .row .c{ white-space:pre-line; word-break:keep-all; }
+  .row .c .tag{ display:none; }
+  .row .c.blank{ color:#B4BCB7; }
+  .row.exam{ background:#FDF8EA; }
+  .row.now{ background:var(--lav); }
+  .row.now .d::after{ content:'이번 주'; display:block; font-family:'Gowun Dodum',sans-serif; font-size:11px; color:var(--lav-d); }
+  .row .m{ grid-column:2 / -1; }
+  .row.edit{ cursor:pointer; }
+  .row.edit:hover{ outline:2px solid #D6C9E4; outline-offset:-2px; }
+  .colh{ display:grid; grid-template-columns:92px 1fr 1fr; gap:12px; padding:0 32px 6px; font-size:12px; color:var(--muted); }
+  .colh.one{ grid-template-columns:92px 1fr; }
+
+  /* 편제표 */
+  .tw{ margin:0 16px; background:var(--card); border-radius:12px; box-shadow:var(--shadow); overflow-x:auto; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th,td{ padding:9px 10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+  th{ font-size:12px; color:var(--muted); font-weight:400; background:#FAFBFA; white-space:nowrap; }
+  td.sc{ font-family:'Gowun Batang',serif; font-weight:700; white-space:nowrap; color:#34463F; }
+  td.sc small{ display:block; font-family:'Gowun Dodum',sans-serif; font-weight:400; font-size:11.5px; color:#8A5B52; max-width:170px; white-space:normal; }
+  td .sj{ font-weight:700; }
+  td .pb{ color:var(--sub); }
+  td .nt{ font-size:11.5px; color:#8A5B52; }
+  td.ed{ cursor:pointer; }
+  td.ed:hover{ background:#FAF7FC; }
+  tr:last-child td{ border-bottom:none; }
+
+  /* 고치기 창 */
+  .back{ position:fixed; inset:0; background:rgba(42,51,47,.35); display:flex; align-items:center; justify-content:center; padding:16px; z-index:50; }
+  .back[hidden]{ display:none; }
+  .dlg{ background:#fff; border-radius:16px; width:100%; max-width:520px; padding:18px 20px; box-shadow:0 10px 40px rgba(0,0,0,.18); }
+  .dlg h2{ margin:0 0 4px; font-family:'Gowun Batang',serif; font-size:17px; color:#34463F; }
+  .dlg .hint{ font-size:12.5px; color:var(--muted); margin-bottom:10px; }
+  .dlg label{ display:block; font-size:12.5px; color:var(--sub); margin:10px 0 4px; }
+  .dlg textarea,.dlg input{ width:100%; padding:8px 10px; border:1.5px solid var(--line); border-radius:9px; font-size:14px; }
+  .dlg textarea{ min-height:70px; resize:vertical; }
+  .dlg .acts{ display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }
+
+  .status{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#34463F; color:#fff;
+    padding:9px 16px; border-radius:20px; font-size:13.5px; }
+  .status:empty{ display:none; }
+
+  @media (max-width:640px){
+    .brand .links{ margin-left:0; width:100%; }
+    .row, .row.one{ grid-template-columns:1fr; gap:4px; }
+    .row .c .tag{ display:inline-block; margin-right:6px; }
+    .row .m{ grid-column:auto; }
+    .colh{ display:none; }
+    .wk{ min-width:0; font-size:19px; }
+  }
+  @media print{
+    body{ background:#fff; max-width:none; }
+    .brand,.bar,.head .seg,.status,.btn{ display:none !important; }
+    .month,.gc,.tw{ box-shadow:none; border:1px solid #ccc; break-inside:avoid; }
+  }
+</style>
+</head>
+<body>
+<div class="brand">
+  <span class="name">Shueguk</span><span class="sub">전체 커리큘럼</span>
+  <span class="links"><a href="ops.html">슈국 운영 메뉴</a><a href="index.html">허브</a></span>
+</div>
+
+<div class="head">
+  <h1>전체 커리큘럼</h1>
+  <span class="who" id="who"></span>
+  <span class="sp"></span>
+  <select class="ys" id="year" hidden></select>
+  <span class="seg" id="tabs">
+    <button type="button" data-t="week" class="on">이번 주</button>
+    <button type="button" data-t="grade">학년별</button>
+    <button type="button" data-t="books">편제표</button>
+  </span>
+</div>
+
+<div id="view"><div class="loading">커리큘럼을 불러오는 중…</div></div>
+
+<div class="back" id="dlgBack" hidden>
+  <div class="dlg" role="dialog" aria-modal="true">
+    <h2 id="dlgTitle"></h2>
+    <div class="hint" id="dlgHint"></div>
+    <div id="dlgBody"></div>
+    <div class="acts">
+      <button type="button" class="btn ghost" id="dlgCancel">취소</button>
+      <button type="button" class="btn" id="dlgSave">저장</button>
+    </div>
+  </div>
+</div>
+<div class="status" id="status"></div>
+
+<script>
+(function(){
+  'use strict';
+  var REST = 'https://bangdbhqpphqqdwcledg.supabase.co/rest/v1';
+  var GRADES = ['중2', '중3', '고1', '고2', '고3'];
+  var H_TERMS = ['1-1', '1-2', '2-1', '2-2', '3-1', '3-2'];
+  var M_TERMS = ['1학년', '2학년', '3학년'];
+  var DOW = ['일', '월', '화', '수', '목', '금', '토'];
+  var EXAM_RE = /고사\s*대비|대비\s*\d+\s*주차|고사\s*마무리|정기고사|수능\s*$|^\s*\d+\/\d+\s*\(.\)\s*수능/;
+  var $ = function(id){ return document.getElementById(id); };
+  var S = { tab: 'week', grade: '중2', level: '고등', week: '', year: 0, admin: false, missing: false,
+            weeks: [], books: [], years: [] };
+
+  try {
+    S.tab = sessionStorage.getItem('cur_tab') || 'week';
+    S.grade = sessionStorage.getItem('cur_grade') || '중2';
+    S.level = sessionStorage.getItem('cur_level') || '고등';
+  } catch (e) {}
+  if (GRADES.indexOf(S.grade) < 0) S.grade = '중2';
+
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  var stT = null;
+  function status(msg, ms){ $('status').textContent = msg || ''; clearTimeout(stT); if (msg) stT = setTimeout(function(){ $('status').textContent = ''; }, ms || 3500); }
+  function api(path, opt){
+    opt = opt || {};
+    return fetch(REST + path, { method: opt.method || 'GET', headers: { 'Content-Type': 'application/json' }, body: opt.body, cache: 'no-store' }).then(function(r){
+      return r.text().then(function(t){
+        var d = null; try { d = t ? JSON.parse(t) : null; } catch (e) { d = t; }
+        if (!r.ok){ var e = new Error((d && d.message) || ('HTTP ' + r.status)); e.status = r.status; e.data = d; throw e; }
+        return d;
+      });
+    });
+  }
+  function rpc(name, body){ return api('/rpc/' + name, { method: 'POST', body: JSON.stringify(body || {}) }); }
+  function isMissing(e){ return e && (e.status === 404 || /PGRST20[25]|does not exist|Could not find/.test(String(e.message) + JSON.stringify(e.data || ''))); }
+
+  /* ── 날짜 ── 한국 날짜, 수요일 주(월·화는 다가오는 수요일) */
+  function ymd(d){ return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function parse(s){ var p = String(s).split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function addDays(s, n){ var d = parse(s); d.setDate(d.getDate() + n); return ymd(d); }
+  function todayKst(){ var n = new Date(Date.now() + 9 * 3600e3); return ymd(new Date(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate())); }
+  function weekOf(s){ var d = parse(s), w = d.getDay(); var back = w >= 3 ? w - 3 : (w === 0 ? 4 : -(3 - w)); d.setDate(d.getDate() - back); return ymd(d); }
+  function md(s){ var d = parse(s); return (d.getMonth() + 1) + '/' + d.getDate(); }
+  /* 커리큘럼 연도 Y = Y-1년 12월 첫 수요일 ~ Y년 12월 마지막 수요일 (12월은 두 해에 겹칠 수 있다) */
+  function firstDecWed(y){ var d = new Date(y, 11, 1); while (d.getDay() !== 3) d.setDate(d.getDate() + 1); return ymd(d); }
+  function weeksOfYear(Y){
+    var out = [], w = firstDecWed(Y - 1), end = Y + '-12-31';
+    while (w <= end){ out.push(w); w = addDays(w, 7); }
+    return out;
+  }
+  function inYear(Y, w){ return w >= firstDecWed(Y - 1) && w <= Y + '-12-31'; }
+
+  function weekRow(grade, w){
+    for (var i = 0; i < S.weeks.length; i++){ var r = S.weeks[i]; if (r.year === S.year && r.grade === grade && r.week === w) return r; }
+    return null;
+  }
+  function isExam(t){ return EXAM_RE.test(String(t || '')); }
+
+  /* ── 불러오기 ── */
+  function load(){
+    return Promise.all([
+      api('/curriculum_weeks?select=*&order=week.asc'),
+      api('/curriculum_books?select=*&order=ord.asc,school.asc')
+    ]).then(function(res){
+      S.weeks = res[0] || []; S.books = res[1] || [];
+      var ys = {}; S.weeks.forEach(function(r){ ys[r.year] = 1; }); S.books.forEach(function(r){ ys[r.year] = 1; });
+      var now = weekOf(todayKst());
+      S.years = Object.keys(ys).map(Number).sort();
+      if (!S.years.length) S.years = [+now.slice(0, 4)];
+      if (!S.year){
+        var hit = S.years.filter(function(y){ return inYear(y, now) && S.weeks.some(function(r){ return r.year === y; }); });
+        S.year = hit.length ? hit[0] : S.years[S.years.length - 1];
+      }
+      if (!S.week) S.week = weekOf(todayKst());
+      var sel = $('year');
+      sel.innerHTML = S.years.map(function(y){ return '<option value="' + y + '"' + (y === S.year ? ' selected' : '') + '>' + y + ' 커리큘럼</option>'; }).join('');
+      sel.hidden = S.years.length < 2;
+      render();
+    }).catch(function(e){
+      if (isMissing(e)){ S.missing = true; $('view').innerHTML = '<div class="empty">커리큘럼 표가 아직 데이터베이스에 없습니다.<br>마이그레이션 202610250003 을 적용한 뒤 다시 열어 주세요.</div>'; return; }
+      $('view').innerHTML = '<div class="empty">불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.<br><small>' + esc(e.message) + '</small></div>';
+    });
+  }
+
+  /* ── 그리기 ── */
+  function render(){
+    [].forEach.call($('tabs').children, function(b){ b.classList.toggle('on', b.dataset.t === S.tab); });
+    try { sessionStorage.setItem('cur_tab', S.tab); sessionStorage.setItem('cur_grade', S.grade); sessionStorage.setItem('cur_level', S.level); } catch (e) {}
+    if (S.tab === 'grade') return renderGrade();
+    if (S.tab === 'books') return renderBooks();
+    renderWeek();
+  }
+
+  function partHtml(kind, text){
+    if (!text) return '';
+    return '<div class="part' + (isExam(text) ? ' exam' : '') + '"><span class="tag' + (kind === '나' ? ' na' : '') + '">' + kind + '</span><span class="tx">' + esc(text) + '</span></div>';
+  }
+  function renderWeek(){
+    var w = S.week, today = weekOf(todayKst());
+    var nav = '<div class="bar">' +
+      '<button type="button" class="btn ghost" data-wk="-7" aria-label="지난주">‹</button>' +
+      '<span class="wk">' + md(w) + ' (수) 주<small>' + md(w) + ' ~ ' + md(addDays(w, 4)) + '</small></span>' +
+      '<button type="button" class="btn ghost" data-wk="7" aria-label="다음 주">›</button>' +
+      (w !== today ? '<button type="button" class="btn" data-wk="0">이번 주로</button>' : '') +
+      '<span class="sp"></span></div>';
+    var cards = GRADES.map(function(g){
+      var r = weekRow(g, w), body = '';
+      if (r){ body = partHtml('가', r.ga) + partHtml('나', r.na) + (r.note ? '<div class="memo">' + esc(r.note) + '</div>' : ''); }
+      if (!body) body = '<div class="none">이 주에 적힌 커리큘럼이 없습니다.</div>';
+      return '<div class="gc"><h3>' + g + '<a href="#" data-goto="' + g + '">1년 보기 ›</a></h3>' + body + '</div>';
+    }).join('');
+    $('view').innerHTML = nav + '<div class="note-line">가 = 가 수업, 나 = 나 수업 · 노란 글씨는 내신 대비 주예요.</div><div class="cards">' + cards + '</div>';
+  }
+
+  function renderGrade(){
+    var g = S.grade, now = weekOf(todayKst()), weeks = weeksOfYear(S.year);
+    var hasNa = S.weeks.some(function(r){ return r.year === S.year && r.grade === g && r.na; });
+    var bar = '<div class="bar"><span class="seg" id="gseg">' + GRADES.map(function(x){
+        return '<button type="button" data-g="' + x + '"' + (x === g ? ' class="on"' : '') + '>' + x + '</button>'; }).join('') + '</span>' +
+      '<span class="sp"></span>' +
+      '<button type="button" class="btn ghost" id="btnNow">이번 주로</button>' +
+      '<button type="button" class="btn ghost" id="btnCopy">표 복사</button></div>';
+    var hint = S.admin ? '<div class="note-line">줄을 누르면 고칠 수 있습니다. 고친 내용은 바로 모든 선생님 화면에 반영돼요.</div>' : '';
+    var byMonth = {}, order = [];
+    weeks.forEach(function(w){ var d = parse(w), k = d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월'; if (!byMonth[k]){ byMonth[k] = []; order.push(k); } byMonth[k].push(w); });
+    var colh = '<div class="colh' + (hasNa ? '' : ' one') + '"><span>주</span><span>가 수업</span>' + (hasNa ? '<span>나 수업</span>' : '') + '</div>';
+    var html = order.map(function(k){
+      return '<div class="month"><h3>' + k + '</h3>' + byMonth[k].map(function(w, i){
+        var r = weekRow(g, w) || { ga: '', na: '', note: '' };
+        var cls = 'row' + (hasNa ? '' : ' one') + (w === now ? ' now' : '') + ((isExam(r.ga) || isExam(r.na)) ? ' exam' : '') + (S.admin ? ' edit' : '');
+        var cell = function(t, kind){ return '<div class="c' + (t ? '' : ' blank') + '"><span class="tag' + (kind === '나' ? ' na' : '') + '">' + kind + '</span>' + (t ? esc(t) : '—') + '</div>'; };
+        return '<div class="' + cls + '" data-w="' + w + '" id="w' + w + '"><div class="d">' + md(w) + '<small>' + (i + 1) + '주</small></div>' +
+          cell(r.ga, '가') + (hasNa ? cell(r.na, '나') : '') +
+          (r.note ? '<div class="m"><span class="memo">' + esc(r.note) + '</span></div>' : '') + '</div>';
+      }).join('') + '</div>';
+    }).join('');
+    $('view').innerHTML = bar + hint + colh + html;
+  }
+
+  function booksOf(level){ return S.books.filter(function(b){ return b.year === S.year && b.level === level; }); }
+  function renderBooks(){
+    var level = S.level, terms = level === '고등' ? H_TERMS : M_TERMS, rows = booksOf(level);
+    var schools = [], ord = {};
+    rows.forEach(function(b){ if (!(b.school in ord)){ ord[b.school] = b.ord; schools.push(b.school); } });
+    schools.sort(function(a, b){ return (ord[a] - ord[b]) || a.localeCompare(b, 'ko'); });
+    var cellOf = function(s, t){ for (var i = 0; i < rows.length; i++) if (rows[i].school === s && rows[i].term === t) return rows[i]; return null; };
+    var bar = '<div class="bar"><span class="seg" id="lseg">' + ['고등', '중등'].map(function(x){
+        return '<button type="button" data-l="' + x + '"' + (x === level ? ' class="on"' : '') + '>' + x + '</button>'; }).join('') + '</span><span class="sp"></span>' +
+      (S.admin ? '<button type="button" class="btn" id="btnAddSchool">학교 추가</button>' : '') + '</div>';
+    var hint = '<div class="note-line">' + (level === '고등' ? '학기마다 과목명 · 출판사 · 특이사항' : '학년마다 출판사 · 특이사항') +
+      (S.admin ? ' · 칸을 누르면 고칠 수 있습니다.' : '') + '</div>';
+    if (!schools.length){ $('view').innerHTML = bar + '<div class="empty">' + level + ' 편제표가 없습니다.</div>'; return; }
+    var head = '<tr><th>학교</th>' + terms.map(function(t){ return '<th>' + t + '</th>'; }).join('') + '</tr>';
+    var body = schools.map(function(s){
+      var memo = cellOf(s, '');
+      return '<tr><td class="sc' + (S.admin ? ' ed' : '') + '" data-s="' + esc(s) + '" data-t="">' + esc(s) + (memo && memo.note ? '<small>' + esc(memo.note) + '</small>' : '') + '</td>' +
+        terms.map(function(t){
+          var c = cellOf(s, t), inner = '';
+          if (c){
+            if (level === '고등' && c.subject) inner += '<div class="sj">' + esc(c.subject) + '</div>';
+            if (c.publisher) inner += '<div class="pb">' + esc(c.publisher) + '</div>';
+            if (c.note) inner += '<div class="nt">' + esc(c.note) + '</div>';
+          }
+          return '<td' + (S.admin ? ' class="ed"' : '') + ' data-s="' + esc(s) + '" data-t="' + t + '">' + inner + '</td>';
+        }).join('') + '</tr>';
+    }).join('');
+    $('view').innerHTML = bar + hint + '<div class="tw"><table>' + head + body + '</table></div>';
+  }
+
+  /* ── 고치기(원장님만) ── */
+  var DLG = null;
+  function openDlg(title, hint, fields, onSave){
+    $('dlgTitle').textContent = title; $('dlgHint').textContent = hint || '';
+    $('dlgBody').innerHTML = fields.map(function(f){
+      return '<label for="f_' + f.k + '">' + f.label + '</label>' + (f.area
+        ? '<textarea id="f_' + f.k + '" maxlength="' + (f.max || 1000) + '">' + esc(f.v || '') + '</textarea>'
+        : '<input id="f_' + f.k + '" maxlength="' + (f.max || 100) + '" value="' + esc(f.v || '') + '">');
+    }).join('');
+    DLG = { fields: fields, onSave: onSave };
+    $('dlgBack').hidden = false; $('dlgSave').disabled = false;
+    var first = $('f_' + fields[0].k); if (first) first.focus();
+  }
+  function closeDlg(){ $('dlgBack').hidden = true; DLG = null; }
+  function dlgVals(){ var o = {}; DLG.fields.forEach(function(f){ o[f.k] = $('f_' + f.k).value; }); return o; }
+  $('dlgCancel').onclick = closeDlg;
+  $('dlgBack').addEventListener('click', function(e){ if (e.target === $('dlgBack')) closeDlg(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && DLG) closeDlg(); });
+  $('dlgSave').onclick = function(){
+    if (!DLG) return;
+    var v = dlgVals(), btn = $('dlgSave'); btn.disabled = true;
+    DLG.onSave(v).then(function(){ closeDlg(); render(); status('저장했습니다.'); })
+      .catch(function(e){ btn.disabled = false; status(/not_admin/.test(e.message) ? '원장님 계정만 고칠 수 있습니다.' : '저장하지 못했습니다: ' + e.message, 5000); });
+  };
+  function upsertLocal(list, row, keys){
+    for (var i = 0; i < list.length; i++){
+      if (keys.every(function(k){ return list[i][k] === row[k]; })){ list[i] = row; return; }
+    }
+    list.push(row);
+  }
+  function editWeek(w){
+    var g = S.grade, r = weekRow(g, w) || {};
+    openDlg(g + ' · ' + md(w) + ' (수) 주', '빈칸으로 저장하면 그 칸이 비워집니다.', [
+      { k: 'ga', label: '가 수업', v: r.ga, area: true },
+      { k: 'na', label: '나 수업', v: r.na, area: true },
+      { k: 'note', label: '메모 (확인할 점 등)', v: r.note, max: 300 }
+    ], function(v){
+      return rpc('curriculum_set', { p_year: S.year, p_grade: g, p_week: w, p_ga: v.ga, p_na: v.na, p_note: v.note })
+        .then(function(row){ upsertLocal(S.weeks, row, ['year', 'grade', 'week']); });
+    });
+  }
+  function editBook(school, term){
+    var level = S.level, c = null;
+    S.books.forEach(function(b){ if (b.year === S.year && b.level === level && b.school === school && b.term === term) c = b; });
+    c = c || {};
+    var fields = term === '' ? [{ k: 'note', label: '학교 메모', v: c.note, max: 300 }]
+      : (level === '고등' ? [{ k: 'subject', label: '과목명', v: c.subject }] : []).concat([
+          { k: 'publisher', label: '출판사', v: c.publisher },
+          { k: 'note', label: '특이사항', v: c.note, max: 300 }]);
+    openDlg(school + (term ? ' · ' + term : ' · 학교 메모'), '', fields, function(v){
+      return rpc('curriculum_book_set', { p_year: S.year, p_level: level, p_school: school, p_term: term,
+        p_subject: v.subject != null ? v.subject : (level === '중등' && term ? '국어' : (c.subject || '')),
+        p_publisher: v.publisher != null ? v.publisher : (c.publisher || ''), p_note: v.note || '' })
+        .then(function(row){ upsertLocal(S.books, row, ['year', 'level', 'school', 'term']); });
+    });
+  }
+  function addSchool(){
+    var level = S.level;
+    openDlg(level + ' 학교 추가', '학교를 만든 뒤 칸을 눌러 과목·출판사를 채우면 됩니다.', [
+      { k: 'school', label: '학교 이름', v: '', max: 30 },
+      { k: 'note', label: '학교 메모 (선택)', v: '', max: 300 }
+    ], function(v){
+      var name = String(v.school || '').trim();
+      if (!name) return Promise.reject(new Error('학교 이름을 적어 주세요.'));
+      if (booksOf(level).some(function(b){ return b.school === name; })) return Promise.reject(new Error('이미 있는 학교입니다.'));
+      return rpc('curriculum_book_set', { p_year: S.year, p_level: level, p_school: name, p_term: '',
+        p_subject: '', p_publisher: '', p_note: v.note || '' })
+        .then(function(row){ upsertLocal(S.books, row, ['year', 'level', 'school', 'term']); });
+    });
+  }
+
+  function copyGrade(){
+    var g = S.grade, lines = ['주\t가 수업\t나 수업\t메모'];
+    weeksOfYear(S.year).forEach(function(w){
+      var r = weekRow(g, w); if (!r) return;
+      var f = function(t){ return String(t || '').replace(/\s*\n\s*/g, ' / '); };
+      lines.push(w + '\t' + f(r.ga) + '\t' + f(r.na) + '\t' + f(r.note));
+    });
+    var txt = lines.join('\n');
+    (navigator.clipboard ? navigator.clipboard.writeText(txt) : Promise.reject())
+      .then(function(){ status(g + ' 커리큘럼 ' + (lines.length - 1) + '주를 복사했습니다. 시트에 붙여 넣으세요.'); })
+      .catch(function(){ status('복사하지 못했습니다.'); });
+  }
+
+  /* ── 누르기 ── */
+  $('tabs').addEventListener('click', function(e){ var b = e.target.closest('button[data-t]'); if (!b) return; S.tab = b.dataset.t; render(); window.scrollTo(0, 0); });
+  $('year').addEventListener('change', function(){ S.year = +this.value; render(); });
+  $('view').addEventListener('click', function(e){
+    var t = e.target, b;
+    if ((b = t.closest('[data-wk]'))){ var n = +b.dataset.wk; S.week = n ? addDays(S.week, n) : weekOf(todayKst()); renderWeek(); return; }
+    if ((b = t.closest('[data-goto]'))){ e.preventDefault(); S.grade = b.dataset.goto; S.tab = 'grade'; render(); scrollToWeek(S.week); return; }
+    if ((b = t.closest('#gseg button[data-g]'))){ S.grade = b.dataset.g; render(); return; }
+    if ((b = t.closest('#lseg button[data-l]'))){ S.level = b.dataset.l; render(); return; }
+    if (t.closest('#btnNow')){ scrollToWeek(weekOf(todayKst())); return; }
+    if (t.closest('#btnCopy')){ copyGrade(); return; }
+    if (t.closest('#btnAddSchool')){ addSchool(); return; }
+    if (!S.admin) return;
+    if ((b = t.closest('.row.edit[data-w]'))){ editWeek(b.dataset.w); return; }
+    if ((b = t.closest('td.ed'))){ editBook(b.dataset.s, b.dataset.t); return; }
+  });
+  function scrollToWeek(w){ var el = document.getElementById('w' + w); if (el) el.scrollIntoView({ block: 'center' }); }
+
+  TeacherAuth.ready.then(function(ctx){
+    var p = ctx && ctx.profile;
+    S.admin = !!(p && p.role === 'admin');
+    $('who').textContent = S.admin ? '원장님 계정 — 고칠 수 있습니다' : '보기 전용';
+    return load();
+  }).catch(function(){});
+})();
+</script>
+</body>
+</html>
