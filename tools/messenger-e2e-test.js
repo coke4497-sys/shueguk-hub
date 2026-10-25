@@ -1364,8 +1364,8 @@ async function showTask(pg, sel){
     ok(locs.join(',') === '본원,화정센터,정리정독,민초센터,도래울센터', '다섯 센터가 늘 보임 — 본원 → 화정센터 → 정리정독 → 민트초코 → 도래울 (' + locs.join(',') + ')');
     ok((await page.locator('#staffList .cc[data-loc="도래울센터"]').textContent()).includes('일정이 있는 사람이 없습니다'), '사람 없는 센터는 \'일정이 있는 사람이 없습니다\'');
     const myRow = page.locator('#staffList .pr[data-uid="' + ME + '"]');
-    ok((await myRow.locator('.prs').textContent()).startsWith('오후 4:00 출근 예정'), '근무표 시작 시각 \'출근 예정\' (' + (await myRow.locator('.prs').textContent()) + ')');
-    ok(await page.locator('#staffList .cc[data-loc="민초센터"] .ccn').textContent() === '민트초코 센터' && (await page.locator('#staffList .pr[data-uid="44444444-4444-4444-4444-444444444444"] .prs').textContent()) === '오후 3:00 출근 예정', '선생님은 오늘 첫 수업 위치·시각');
+    ok((await myRow.locator('.prs').textContent()).startsWith('출근 전'), '출근 예정 시각은 안 보이고 \'출근 전\' (' + (await myRow.locator('.prs').textContent()) + ')');
+    ok(await page.locator('#staffList .cc[data-loc="민초센터"] .ccn').textContent() === '민트초코 센터' && (await page.locator('#staffList .pr[data-uid="44444444-4444-4444-4444-444444444444"] .prs').textContent()) === '출근 전', '선생님은 오늘 첫 수업 위치(예정 시각 표시 없음)');
     const eRow = page.locator('#staffList .pr[data-uid="' + EUNJI + '"]');
     ok(await eRow.locator('.prn.on.r-t').count() === 1 && (await eRow.locator('.prs').textContent()).includes('근무 중') && await eRow.locator('.sw.on').isDisabled(), '출근한 선생님 — 이름 칩 색·근무 중·스위치는 본인만');
     ok(await page.locator('#staffList .pr[data-uid="' + BOSS + '"]').count() === 0, '일정도 출근도 없는 사람은 목록에 없음');

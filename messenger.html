@@ -2136,7 +2136,7 @@
     $('cards').innerHTML = html.join('');
     if (Object.keys(qWant).length) fillQuotes();   // 취소 줄의 원문(지웠는지)을 받아 온다
   }
-  // 고른 사람 머리 아래 한 줄 — '{센터} · {출근 시각 · 근무 중 / 출근 예정 / 퇴근}' (2026-10-21 리디자인)
+  // 고른 사람 머리 아래 한 줄 — '{센터} · {출근 시각 · 근무 중 / 출근 전 / 퇴근}' (2026-10-21 리디자인)
   function psubHtml(p){
     var x = MBY[p.key] && staffOf(MBY[p.key]);
     var txt = x ? (x.loc ? locLbl(x.loc) + ' · ' : '') + x.sub : (presOk ? '오늘 일정 없음' : '');
@@ -2400,7 +2400,7 @@
     if (!on && !sched && !left && !home && m.id !== ME.id) return null;
     var sub = st === 'on' ? (onSince(m.id) ? hm(onSince(m.id)) + ' 출근 · ' : '') + '근무 중'
       : st === 'off' ? hm(left.changed_at) + ' 퇴근'
-      : sched ? mm12(sched.min) + ' 출근 예정' : home ? '출근 전' : '오늘 일정 없음';
+      : sched || home ? '출근 전' : '오늘 일정 없음';   // 출근 예정 시각은 보여 주지 않는다(2026-10-25 원장님 "출근 예정 표시 빼 주세요") — 근무표·첫 수업은 센터·순서에만 쓴다
     return { m: m, st: st, loc: loc, sub: sub, min: sched ? sched.min : 9999, shift: !!sh };
   }
   function minsOf24(t){ var p = String(t || '').split(':'); return (parseInt(p[0], 10) || 0) * 60 + (parseInt(p[1], 10) || 0); }
