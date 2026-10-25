@@ -44,12 +44,12 @@ export function plan(msg: Msg, tasks: Task[], subs: Sub[], active: Set<string>) 
 }
 
 // 넘겨받은 사람에게 보낼 내용 — 순수 함수(시험용)
-export type Hand = { id: number; message_id: number; text: string; to: string; status: string }
+export type Hand = { id: number; message_id: number | null; text: string; to: string; status: string }
 export function handPlan(t: Hand, byName: string, subs: Sub[], active: Set<string>) {
   if (t.status !== '대기' || !active.has(t.to)) return []
   return subs.filter((s) => s.user_id === t.to).map((s) => ({
     sub: s,
-    payload: { title: byName + ' → 나에게 넘긴 일', body: cut(t.text, 140), url: PAGE + '#m' + t.message_id, tag: 'tk' + t.id, task: true },
+    payload: { title: byName + ' → 나에게 넘긴 일', body: cut(t.text, 140), url: t.message_id ? PAGE + '#m' + t.message_id : PAGE,   // 내가 직접 추가한 업무(202610250002)는 메시지가 없다 tag: 'tk' + t.id, task: true },
   }))
 }
 

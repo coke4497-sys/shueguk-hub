@@ -255,6 +255,12 @@ async function showTask(pg, sel){
         else { if (!String(b.p_reason || '').trim()) return json({ message: 'need_reason' }, 400); t.status = '취소'; t.cancel_reason = b.p_reason.trim(); t.done_by_name = '고희주'; t.done_at = ts(); }
         t.updated_at = ts(); return json(t);
       }
+      if (p === '/rest/v1/rpc/msg_task_add'){   // 내 업무 직접 추가(202610250002)
+        const b = JSON.parse(req.postData()); calls.push(['add', b]);
+        const now = ts();
+        const k = { id: ++tid, message_id: null, assignee: ME, assignee_name: NAME[ME], requester: ME, requester_name: NAME[ME], text: b.p_text.trim(), status: '대기', done_by_name: null, done_at: null, seen_at: null, ack_only: false, cancel_reason: '', due_at: null, due_note: '', history: [], hand_push: null, self_added: true, created_at: now, updated_at: now };
+        TASKS.push(k); return json(k);
+      }
       if (p === '/rest/v1/rpc/msg_task_set'){
         const b = JSON.parse(req.postData()); calls.push(['task', b]);
         const t = TASKS.find(x => x.id === b.p_id);
@@ -1407,6 +1413,35 @@ async function showTask(pg, sel){
     ok(sw && Math.round(sw.width) === 68, '휴대폰 스위치 68px');
     ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), '가로 넘침 없음');
     if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'redesign-phone-staff.png') }); await page.click('#tabChat'); await page.screenshot({ path: path.join(process.env.SHOT, 'redesign-phone-chat.png') }); await page.click('#tabBoard'); await page.screenshot({ path: path.join(process.env.SHOT, 'redesign-phone-board.png') }); }
+    await ctx.close();
+  }
+
+  console.log('㉖ 내 업무 직접 추가 (2026-10-25 원장님)');
+  {
+    ({ ctx, page } = await open({ width: 1280, height: 900 }));
+    await page.waitForSelector('#msgs .m');
+    await page.click('#tabBoard');
+    await page.waitForSelector('#cards .pc.sel[data-person="' + ME + '"] .selfadd');
+    const nMsg = await page.locator('#msgs .m').count();
+    ok(await page.locator('#cards .pc:not([data-person="' + ME + '"]) .selfadd').count() === 0, '추가 칸은 내 구역에만');
+    await page.fill('#saIn', '  3시까지 시험지 복사  ');
+    await page.press('#saIn', 'Enter');
+    await page.waitForFunction(() => [...document.querySelectorAll('#cards .pc.sel .ci')].some(e => e.textContent.includes('3시까지 시험지 복사')));
+    const add = calls.filter(c => c[0] === 'add').pop();
+    ok(add && add[1].p_text.trim() === '3시까지 시험지 복사', '추가 → msg_task_add');
+    const row = page.locator('#cards .pc.sel .ci', { hasText: '3시까지 시험지 복사' });
+    ok((await row.locator('.meta').textContent()).includes('직접 추가') && await row.locator('[data-go]').count() === 0, '내 업무는 \'직접 추가\' 표시 · 대화로 가는 단추 없음');
+    ok(await page.inputValue('#saIn') === '' && await page.locator('#msgs .m').count() === nMsg, '칸은 비워지고 대화에는 글이 안 남음');
+    await page.fill('#saIn', '쓰던 글');
+    await page.focus('#saIn');
+    await sleep(3800);   // 폴링으로 다시 그려도
+    ok(await page.inputValue('#saIn') === '쓰던 글' && await page.evaluate(() => document.activeElement && document.activeElement.id === 'saIn'), '다시 그려도 쓰던 글·커서가 남음');
+    await row.locator('[data-tk]').click();
+    await page.waitForFunction(() => [...document.querySelectorAll('#cards .pc.sel .ci.d')].some(e => e.textContent.includes('3시까지 시험지 복사')));
+    ok(calls.filter(c => c[0] === 'task').pop()[1].p_done === true, '체크하면 완료');
+    const other = await page.locator('#pchips .pchip:not(.on)').first();
+    await other.click();
+    ok(await page.locator('#cards .pc.sel .selfadd').count() === 0, '다른 사람을 고르면 추가 칸 없음');
     await ctx.close();
   }
 
