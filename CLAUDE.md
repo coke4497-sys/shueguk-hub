@@ -71,6 +71,7 @@
 - **DB**: `curriculum_weeks`(year·grade 중2~고3(중1 자리만 허용)·week 수요일·ga 가 수업·na 나 수업·note 확인 메모·updated_by_name) · `curriculum_books`(year·level 고등/중등·school·ord·term '1-1'~'3-2'/'1학년'~'3학년', '' = 학교 메모·subject·publisher·note). 표는 authenticated 읽기만(공용 교사 계정도 — 나중에 수업 기록 창에서 쓰려고), 쓰기는 `curriculum_set`·`curriculum_book_set`(활성 admin만, `private.curriculum_editor()`, 수요일 아니면 거절). year = 커리큘럼 연도(2026 = 2025-12-03 ~ 2026-12-30, 12월은 다음 해와 겹칠 수 있다).
 - **초기값** `supabase/커리큘럼-초기값.sql`(정리본의 학년 시트 다섯·편제표 두 개 — 주 249줄·편제표 82칸, '원문 미기재' 메모는 뺌). **다시 돌리면 화면에서 고친 내용이 시트 값으로 돌아간다.** 정리본 '정리 기록' 탭의 확인 사항(7/29 정기고사·휴강, 중2 '데카르트의 합리론' 미배정, 대비 주 번호 반복)은 원문 그대로다.
 - **화면**: [이번 주](다섯 학년 카드 — 가·나·메모, ‹ ›·[이번 주로], 주는 수요일 시작·월화는 다가오는 수요일) · [학년별](달별 묶음 1년 목록, 이번 주 연보라, 내신 대비 주(`EXAM_RE`) 연노랑, 나 수업이 하나도 없는 학년은 한 열, [표 복사]) · [편제표](고등/중등, 학교 메모). 원장님 계정이면 줄·칸을 눌러 고치기 창, [학교 추가]. 탭·학년·학교급은 sessionStorage `cur_*`.
+- **적용 상태: 202610250003과 초기값은 2026-10-25 실제 수파베이스에 적용 완료**(원장님이 준 sbp_ 토큰, 저장 안 함 — 적용 전 표 없음 확인, 주 249·편제표 82, 공개 키 401, 한 거래 안에서 선생님 계정 not_admin 거절·원장님 계정 저장 후 되돌림).
 - 검증: `PGHOST=/home/pgtest PGPORT=5499 PGUSER=postgres bash tools/curriculum-sql-test.sh`(19건) + `NODE_PATH=$(npm root -g) node tools/curriculum-e2e-test.js`(30건 — 시계 2026-10-26 월). **고치면 둘 다.**
 
 ## 학생 명단 — roster.html (2026-10-22 수정 요청함 최예나 "예전 출석부처럼 학교 별 명단, 학년 별 명단" → 원장님 "새 화면으로")
