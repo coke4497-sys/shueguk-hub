@@ -2,6 +2,7 @@
 // ① 받을 기기 고르기(plan) ② 이 런타임(Deno)에서 web-push 암호화가 되는지 — 가짜 구독 키로 만든 요청을
 //    그 기기의 비밀 키로 풀어 내용이 같은지 본다(네트워크 없음).
 import { plan, cut, handPlan } from './index.ts'
+import { workSet, workYmd } from '../_shared/push.ts'
 import webpush from 'npm:web-push@3.6.7'
 import ece from 'npm:http_ece@1.2.0'
 import crypto from 'node:crypto'
@@ -76,4 +77,58 @@ Deno.test('일부 실패 다시 보내기는 적어 둔 기기에만 (Codex 검�
   const items = [1, 2, 3].map((id) => ({ sub: { id } as unknown as import('../_shared/push.ts').Sub, payload: {} }))
   assertEquals(onlySubs(items, [2, 3]).map((x) => Number(x.sub.id)), [2, 3])
   assertEquals(onlySubs(items, null).length, 0)
+})
+
+Deno.test('출근 날에만 — 쉬는 사람은 빼고, 나에게 할 일·클로슈 지정·근무 중인 사람은 받는다', () => {
+  const msg = { id: 8, author: A, author_name: '이수경', body: '내일 시험지 @고희주', files: [], deleted_at: null }
+  const D = 'd'
+  const subs = [sub(1, B), sub(2, C), sub(3, D)]
+  const work = new Set([C])   // C 만 오늘 근무, B 는 쉬지만 할 일을 받음, D 는 쉼
+  assertEquals(plan(msg, [{ assignee: B, text: '내일 시험지' }], subs, new Set([A, B, C, D]), work).map((i) => i.sub.id), [1, 2])
+  assertEquals(plan(msg, [], subs, new Set([A, B, C, D]), null).map((i) => i.sub.id), [1, 2, 3])   // 못 읽으면 거르지 않음
+  const bot = { id: 9, author: null, author_name: '클로슈', body: '약속 시각이 지났어요', files: [], deleted_at: null, bot: { to: [D] } }
+  assertEquals(plan(bot, [], subs, new Set([B, C, D]), work).map((i) => i.sub.id), [3])
+  const sum = { ...bot, bot: {} }
+  assertEquals(plan(sum, [], subs, new Set([B, C, D]), work).map((i) => i.sub.id), [2])
+})
+
+Deno.test('오늘 근무 일정 — 근무표·기본 근무표·출근 기록·수업·원장님·대표님', () => {
+  const members = [
+    { user_id: 'boss', display_name: '이수경', role: 'admin', login_id: 'sk' },
+    { user_id: 'ceo', display_name: '박언호', role: 'teacher', login_id: 'parkeh' },
+    { user_id: 'as1', display_name: '고희주', role: 'assistant', login_id: 'a1' },
+    { user_id: 'as2', display_name: '조수민', role: 'assistant', login_id: 'a2' },
+    { user_id: 'as3', display_name: '김영훈', role: 'assistant', login_id: 'a3' },
+    { user_id: 'as4', display_name: '최예나', role: 'assistant', login_id: 'a4' },
+    { user_id: 't1', display_name: '이은지', role: 'teacher', login_id: 't1' },
+    { user_id: 't2', display_name: '김지원', role: 'teacher', login_id: 't2' },
+    { user_id: 't3', display_name: '박현정', role: 'teacher', login_id: 't3' },
+    { user_id: 't4', display_name: '배선주', role: 'teacher', login_id: 't4' },
+    { user_id: 't5', display_name: '이선주', role: 'teacher', login_id: 't5' },
+    { user_id: 't6', display_name: '김주혜', role: 'teacher', login_id: 't6' },
+  ]
+  const set = workSet({
+    day: '2026-10-25', members,
+    shifts: [{ loc: '본원', slot: 1, user_id: 'as1' }, { loc: '본원', slot: 2, user_id: null }],
+    roster: [{ loc: '본원', slot: 1, user_id: 'as2' }, { loc: '본원', slot: 2, user_id: 'as2' }, { loc: '화정센터', slot: 1, user_id: 'as3' }],
+    presence: [{ user_id: 'as4' }],
+    classes: [
+      { book: '정규', class_id: 'r001', name: '고1 가', teacher: '은지', roster: '김민준' },
+      { book: '내신', class_id: 'n001', name: '고2 확인', teacher: '지원', roster: '김민준' },   // 기간이 정규라 아님
+      { book: '정규', class_id: 'r002', name: '고3파이널A', teacher: '현정', roster: '' },        // 명단 없음
+      { book: '정규', class_id: 'r003', name: '정리정독 중3', teacher: '선주', roster: '김민준' }, // 선주가 둘 — 못 가림
+      { book: '정규', class_id: 'r004', name: '고2 나', teacher: '주혜', roster: '김민준' },      // 휴강
+    ],
+    period: { book: '정규', overrides: {} },
+    off: ['r004'],
+  })
+  assertEquals([...set].sort(), ['as1', 'as3', 'as4', 'boss', 'ceo', 't1'])
+  // 학년 예외 — 중2만 내신이면 내신 중2 반 담당이 들어온다
+  const s2 = workSet({ day: '2026-10-25', members, shifts: [], roster: [], presence: [], off: [],
+    classes: [{ book: '내신', class_id: 'n050', name: '정리정독 중2', teacher: '지원', roster: '이하윤' }],
+    period: { book: '정규', overrides: { 중2: '내신' } } })
+  assertEquals(s2.has('t2'), true)
+  // 근무일은 새벽 5시에 바뀐다
+  assertEquals(workYmd(Date.parse('2026-10-26T02:00:00+09:00')), '2026-10-25')
+  assertEquals(workYmd(Date.parse('2026-10-26T05:00:00+09:00')), '2026-10-26')
 })
