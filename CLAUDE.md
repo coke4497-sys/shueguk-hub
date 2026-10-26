@@ -46,7 +46,7 @@
 ## 정연주T 허브 계정 비활성 — 11/7 예약 (2026-10-26 원장님 "정연주 선생님 허브 계정도 11/7자로 비활성화해줘")
 - 허브에는 계정 비활성 경로가 없다(teacher_accounts.html은 발급만, `teacher_accounts`에 update 정책·RPC·엣지 함수 동작 없음 — 교사 권한으로는 active를 못 바꾼다). 그래서 **`supabase/정연주-계정-비활성-20261107.sql`**(pg_cron 한 번짜리 예약 — 11/6 20:05 UTC = 11/7 05:05 KST에 `display_name='정연주'` 줄을 active=false, 끝나면 스스로 unschedule)을 관리 API(원장님이 준 sbp_ 토큰, 저장 안 함) 또는 SQL Editor로 실행한다. 시간표 인수인계(리포트 저장소 CLAUDE.md '정연주T 퇴사·고3 종강 인수인계' 절)와 같은 날 새벽.
 - 비활성이 되면 허브 게이트(not_teacher)·슈톡 구성원·알림·출근 현황에서 빠지고 기록(메시지·할 일·수업 기록)은 남는다. 계정을 되살리려면 active=true. 비활성 계정을 다시 쓰는 화면은 없으니 되돌릴 땐 같은 방법(SQL).
-- **적용 상태: 미실행** — 토큰을 받으면 실행하고 여기 날짜를 적을 것. 다음에 '계정 비활성' 요청이 또 오면 admin 전용 RPC(`teacher_set_active`)와 계정 관리 화면 버튼을 만드는 편이 낫다.
+- **적용 상태: 2026-10-26 실제 수파베이스에 예약 완료**(관리 API — 원장님이 준 sbp_ 토큰, 저장 안 함): pg_cron 1.6.4 설치(그전엔 없었다), cron.job 1번 `deactivate-jyj-20261107`(schedule `5 20 6 11 *`, DB 시간대 UTC 확인), 대상 계정 login_id `jungyj` 한 줄. 11/7 이후 `select login_id, active from public.teacher_accounts where display_name='정연주'`가 false이면 끝(cron.job에서 예약은 사라져 있어야 한다). 11/7 시간표 인수인계 예약 세션이 확인할 수 있으면 함께 확인. 다음에 '계정 비활성' 요청이 또 오면 admin 전용 RPC(`teacher_set_active`)와 계정 관리 화면 버튼을 만드는 편이 낫다.
 
 ## 27 예상 고3 시간표 — plan_g3.html (2026-10-24 원장님 "27예상 고3 시간표를 티쳐스 페이지에 비공개로" + "진도, 확인 내신 시간표 그대로. 그걸 1안, 2안 이런 식으로 변경하며 진행")
 - 슈국 운영 → [2027 예상 고3 시간표](2026-10-24 원장님 "이름을 2027 예상 고3 시간표로" — 머리·창 제목·카드) — **원장님(admin)·박언호 대표님(`PLAN_VIEWERS` parkeh)만**(ops.html 카드 viewer, 화면에서만 가림).
