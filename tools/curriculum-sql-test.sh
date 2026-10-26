@@ -58,5 +58,21 @@ ok "$(as authenticated $A "select (public.curriculum_book_set(2026,'중등','새
 ok "$(as authenticated $A "select (public.curriculum_book_set(2026,'고등','화정고','2-2','화법과 언어','비상','메모')).ord;")" "9" "있는 학교는 순서 유지"
 ok "$(aserr authenticated $T "select public.curriculum_book_set(2026,'고등','화정고','2-2','x','x','');" not_admin)" "1" "선생님은 편제표도 못 고침"
 
+
+echo "[202610260001 내신 대비 종류]"
+P -f supabase/migrations/202610260001_curriculum_exam.sql >/dev/null || { echo "exam 마이그레이션 실패"; exit 1; }
+ok "$(P -tAc "select exam from public.curriculum_weeks where grade='고1' and week='2026-11-18'")" "2학기 기말" "글에서 채움 — 고1 11/18 2학기 기말"
+ok "$(P -tAc "select exam from public.curriculum_weeks where grade='고1' and week='2026-05-06'")" "1학기 중간" "중간고사 마무리도 1학기 중간"
+ok "$(P -tAc "select exam from public.curriculum_weeks where grade='고1' and week='2026-02-04'")" "" "겨울 정기고사는 내신 대비 아님"
+ok "$(P -tAc "select count(*) from public.curriculum_weeks where exam<>''")" "96" "채운 줄 수(초기값 기준 96주)"
+P -tAc "update public.curriculum_weeks set exam='' where grade='고1' and week='2026-11-18'" >/dev/null
+P -f supabase/migrations/202610260001_curriculum_exam.sql >/dev/null && ok "$(P -tAc "select exam from public.curriculum_weeks where grade='고1' and week='2026-11-18'")" "" "다시 실행해도 고친 값을 덮지 않음"
+ok "$(as authenticated $A "select (public.curriculum_set(2026,'고1','2026-11-18','a','b','',' 2학기 기말')).exam;")" "2학기 기말" "p_exam 저장"
+ok "$(as authenticated $A "select (public.curriculum_set(2026,'고1','2026-11-18','a2','b','')).exam;")" "2학기 기말" "p_exam 빼면 그대로"
+ok "$(as authenticated $A "select coalesce(nullif((public.curriculum_set(2026,'고1','2026-11-18','a2','b','','')).exam,''),'(빈)');")" "(빈)" "빈 값이면 지움"
+ok "$(aserr authenticated $A "select public.curriculum_set(2026,'고1','2026-11-18','a','b','','3학기');" bad_exam)" "1" "목록 밖 값 거절"
+ok "$(aserr authenticated $T "select public.curriculum_set(2026,'고1','2026-11-18','a','b','','');" not_admin)" "1" "선생님 거절 그대로"
+ok "$(P -tAc "select count(*) from pg_proc where proname='curriculum_set'")" "1" "옛 6인자 함수는 지움"
+
 echo "통과 $pass · 실패 $fail"
 [ $fail -eq 0 ]
