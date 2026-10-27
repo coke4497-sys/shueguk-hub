@@ -59,7 +59,7 @@ export function weekWed(y: string) { const k = new Date(y + 'T00:00:00Z').getUTC
 function gradeOfName(n: string) { const m = /([중고])\s*([1-3])/.exec(String(n || '')); return m ? m[1] + m[2] : '' }
 // 시간표 담당T('은지'·'슈'·'김지원T') ↔ 표시 이름 — 끝 두 글자, '슈'는 이수경 (messenger.html teacherKey 와 같은 규칙)
 export function teacherKey(t: string) {
-  t = String(t || '').replace(/\s+/g, '').replace(/T$/, '').replace(/(선생님|쌤)$/, '').replace(/[A-Z]$/, '')
+  t = String(t || '').replace(/\s+/g, '').replace(/T$/, '').replace(/(선생님|쌤|대표님)$/, '').replace(/[A-Z]$/, '')   // '박언호대표님' → 언호
   if (t === '이수경' || t === '수경' || t === '슈') return '슈'
   return t.length >= 3 ? t.slice(-2) : t
 }

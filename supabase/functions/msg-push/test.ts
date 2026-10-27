@@ -2,7 +2,7 @@
 // ① 받을 기기 고르기(plan) ② 이 런타임(Deno)에서 web-push 암호화가 되는지 — 가짜 구독 키로 만든 요청을
 //    그 기기의 비밀 키로 풀어 내용이 같은지 본다(네트워크 없음).
 import { plan, cut, handPlan } from './index.ts'
-import { workSet, workYmd } from '../_shared/push.ts'
+import { workSet, workYmd, teacherKey } from '../_shared/push.ts'
 import webpush from 'npm:web-push@3.6.7'
 import ece from 'npm:http_ece@1.2.0'
 import crypto from 'node:crypto'
@@ -95,7 +95,7 @@ Deno.test('출근 날에만 — 쉬는 사람은 빼고, 나에게 할 일·클�
 Deno.test('오늘 근무 일정 — 근무표·기본 근무표·출근 기록·수업·원장님·대표님', () => {
   const members = [
     { user_id: 'boss', display_name: '이수경', role: 'admin', login_id: 'sk' },
-    { user_id: 'ceo', display_name: '박언호', role: 'teacher', login_id: 'parkeh' },
+    { user_id: 'ceo', display_name: '박언호대표님', role: 'teacher', login_id: 'parkeh' },   // 2026-10-27 원장님 — 끝의 '대표님'은 teacherKey가 뗀다
     { user_id: 'as1', display_name: '고희주', role: 'assistant', login_id: 'a1' },
     { user_id: 'as2', display_name: '조수민', role: 'assistant', login_id: 'a2' },
     { user_id: 'as3', display_name: '김영훈', role: 'assistant', login_id: 'a3' },
@@ -118,11 +118,14 @@ Deno.test('오늘 근무 일정 — 근무표·기본 근무표·출근 기록·
       { book: '정규', class_id: 'r002', name: '고3파이널A', teacher: '현정', roster: '' },        // 명단 없음
       { book: '정규', class_id: 'r003', name: '정리정독 중3', teacher: '선주', roster: '김민준' }, // 선주가 둘 — 못 가림
       { book: '정규', class_id: 'r004', name: '고2 나', teacher: '주혜', roster: '김민준' },      // 휴강
+      { book: '정규', class_id: 'r107', name: '논술B 수학', teacher: '언호', roster: '김선우' },   // '박언호대표님' ↔ '언호'
     ],
     period: { book: '정규', overrides: {} },
     off: ['r004'],
   })
   assertEquals([...set].sort(), ['as1', 'as3', 'as4', 'boss', 'ceo', 't1'])
+  assertEquals(teacherKey('박언호대표님'), '언호')   // 2026-10-27 원장님 — 표시 이름 끝의 '대표님'은 떼고 담당T와 맞춘다
+  assertEquals(teacherKey('이은지 선생님'), '은지')
   // 학년 예외 — 중2만 내신이면 내신 중2 반 담당이 들어온다
   const s2 = workSet({ day: '2026-10-25', members, shifts: [], roster: [], presence: [], off: [],
     classes: [{ book: '내신', class_id: 'n050', name: '정리정독 중2', teacher: '지원', roster: '이하윤' }],
