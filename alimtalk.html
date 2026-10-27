@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>알림톡 · 슈국 티쳐스</title>
 <script src="assets/teacher-auth.js" data-mode="protected"></script>
+<script src="https://coke4497-sys.github.io/shueguk-report/activity.js"></script><!-- 티쳐스 활동 → 원장님 슈톡 알림(2026-10-27) -->
 <!-- 슈국 운영 · 알림톡 (2026-09-29 사용자 요청 "알림톡 기능을 슈국 운영 메뉴에서 발송할 수 있도록")
      · 공지를 등록하지 않고도 공지 알림톡(notice_* 종류)을 바로 보낸다. 종류·문구·준비 여부는 리포트 백엔드 alimConfig가 준다.
      · 대상 고르기는 복습 영상(review.html)과 같은 다섯 가지 — 전체·학년·학교·반·개인. 반 명단 이름 대조 규칙(findStu)도 같다.
@@ -667,6 +668,7 @@
     run.then(() => {
       SENDING = false;
       const r = $('result'), verb = p.sched ? '예약했' : '보냈';
+      try { if (ok && window.shuegukActivity) shuegukActivity('알림톡', (p.sched ? '예약 · ' : '') + (p.label || p.kind), p.title || '', ok + '건' + (p.sched ? ' · ' + p.sched : ''), true); } catch (e) {}
       if (err){ r.className = 'result err'; r.textContent = '알림톡 ' + ok + '건을 ' + verb + '습니다. 다만 일부를 ' + (p.sched ? '예약하지' : '보내지') + ' 못했습니다: ' + err + ' — [알림톡 보내기]를 한 번 더 누르면 이미 받은 분은 건너뛰고 나머지만 갑니다.' + (dup.length ? ' 같은 제목으로 이미 받은 ' + dup.length + '건은 건너뛰었어요.' : '') + (bad.length ? ' 실패: ' + bad.join(', ') : ''); }
       else {
         r.className = 'result ' + (bad.length ? 'err' : 'ok');

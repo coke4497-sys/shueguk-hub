@@ -168,6 +168,7 @@
   /* 클로슈 (202610200007) */
   .m.botm .bb{background:#EEF4F1;}
   .m.kko .bb{background:#FBF4DF;}
+  .m.act .bb{background:#F3EEF8;}   /* 티쳐스 활동 알림(202610270001 — 원장님께만) */
   .bopts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
   .bopt{border:0;border-radius:999px;background:var(--lav);color:var(--lavInk);font-size:13px;padding:6px 12px;}
   .bdone{font-size:12.5px;color:var(--okInk);background:var(--ok);border-radius:10px;padding:5px 10px;margin-top:6px;display:inline-block;}
@@ -689,6 +690,7 @@
   .m.mine .bb{background:var(--pSage);border-color:transparent;border-radius:18px 18px 6px 18px;}
   .m.botm .bb{background:#EEF4F1;}
   .m.kko .bb{background:#FBF4DF;}
+  .m.act .bb{background:#F3EEF8;}   /* 티쳐스 활동 알림(202610270001 — 원장님께만) */
   .bb.del{border:0;}
   .t{font-size:11px;color:var(--mut);}
   .t.mt{display:block;align-self:flex-end;margin-top:4px;}
@@ -1111,7 +1113,17 @@
     $('me').innerHTML = '<span class="mav">' + roleGlyph(ME.role, ME.name) + '</span><span class="mtx">' + esc(ME.name + ' · ' + roleLabel(ME.role)) + '</span>';
     readMark = Number(localStorage.getItem('msg_read_' + ME.id) || 0);
     boot();
+    activityFlush();
   });
+  // 티쳐스 활동 알림(202610270001) — 원장님이 슈톡을 열 때 2시간 넘게 기다린 잦은 일(출석·수업 기록 등)을 묶어 한 글로 받는다.
+  // 활동이 이어지는 동안은 화면들이 활동을 보낼 때마다 함수가 스스로 묶고, 마지막 일 뒤 아무 일이 없을 때를 위해 여기서 한 번 더 부른다.
+  function activityFlush(){
+    if (!ME || ME.role !== 'admin') return;
+    fetch(SB + '/functions/v1/activity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'flush' }), keepalive: true })
+      .then(function(r){ return r.json().catch(function(){ return {}; }); })
+      .then(function(d){ if (d && d.digest === 'sent') setTimeout(poll, 1500); })
+      .catch(function(){});
+  }
 
   function boot(){
     rpc('msg_members').then(function(rows){
@@ -1477,7 +1489,8 @@
     var cont = prev && prev.author === m.author && prev.author_name === m.author_name && ((prev.bot && prev.bot.kind) || '') === ((m.bot && m.bot.kind) || '') && !prev.deleted_at && ymd(prev.created_at) === ymd(m.created_at)
       && Date.parse(m.created_at) - Date.parse(prev.created_at) < 5 * 60e3;
     var kko = m.bot && m.bot.kind === 'kakao';   // 카카오채널 학부모님 문의(202610200009)
-    var mem = MBY[m.author], tn = kko ? ['#F9EFD0', '#7A5F1E'] : m.bot ? ['#4C6E66', '#fff'] : tone(m.author_name);
+    var act = m.bot && m.bot.kind === 'activity';   // 티쳐스 활동 알림(202610270001 — 엣지 함수 activity 가 올림, 원장님께만 알림)
+    var mem = MBY[m.author], tn = kko ? ['#F9EFD0', '#7A5F1E'] : act ? ['#EDE4F4', '#5A4A6A'] : m.bot ? ['#4C6E66', '#fff'] : tone(m.author_name);
     var canDel = !m.deleted_at && (mine || ME.role === 'admin');
     // 답장 인용(위)·할 일 상태 줄(아래)은 말풍선 안에 — 2026-10-21 화면 개선안. 지운 메시지는 말풍선 없이 회색 한 줄
     var inner = m.deleted_at ? '' : quoteHtml(m) + (m.body ? '<div class="bt">' + bodyHtml(m.body) + '</div>' : '') + chipsHtml(m.id);
@@ -1485,9 +1498,9 @@
       : (inner ? '<div class="bb">' + inner + '</div>' : '');
     // 2026-10-21 리디자인 — 남의 글은 말풍선 위에 '티/조 동그라미 · 이름 칩 · 시각', 내 글은 시각을 말풍선 아래에
     var rc0 = mem ? roleCls(mem.role) : 'x';
-    return '<div class="m' + (mine ? ' mine' : '') + (m.bot ? ' botm' : '') + (kko ? ' kko' : '') + (cont ? ' cont' : '') + '" id="m' + m.id + '">'
-      + '<div class="mb"><div class="nm"><i class="av"' + (kko || m.bot ? ' style="background:' + tn[0] + ';color:' + tn[1] + '"' : '') + '>' + esc(kko ? '카' : m.bot ? '클' : mem ? roleGlyph(mem.role, mem.name) : avChar(m.author_name)) + '</i>'
-      + '<span class="nmc r-' + rc0 + '">' + esc(m.author_name) + '</span><span class="rl">' + esc(kko ? '학부모님 문의 · 답은 채널 관리자센터에서' : m.bot ? '도우미' : '') + '</span><span class="nt">' + hm(m.created_at) + '</span></div>'
+    return '<div class="m' + (mine ? ' mine' : '') + (m.bot ? ' botm' : '') + (kko ? ' kko' : '') + (act ? ' act' : '') + (cont ? ' cont' : '') + '" id="m' + m.id + '">'
+      + '<div class="mb"><div class="nm"><i class="av"' + (kko || m.bot ? ' style="background:' + tn[0] + ';color:' + tn[1] + '"' : '') + '>' + esc(kko ? '카' : act ? '알' : m.bot ? '클' : mem ? roleGlyph(mem.role, mem.name) : avChar(m.author_name)) + '</i>'
+      + '<span class="nmc r-' + rc0 + '">' + esc(m.author_name) + '</span><span class="rl">' + esc(kko ? '학부모님 문의 · 답은 채널 관리자센터에서' : act ? '티쳐스 활동 · 원장님께 알림' : m.bot ? '도우미' : '') + '</span><span class="nt">' + hm(m.created_at) + '</span></div>'
       + '<div class="line">' + bb + (m.deleted_at ? '' : '<span class="tw">' + rcHtml(m) + (mine ? '' : '<span class="t">' + hm(m.created_at) + '</span>') + '</span>')
       + heartHtml(m)
       + (m.deleted_at || !('reply_to' in m) ? '' : '<button class="mact" type="button" data-reply="' + m.id + '">답장</button>')   // reply_to 열이 없으면(0006 전) 답장 버튼을 숨김
