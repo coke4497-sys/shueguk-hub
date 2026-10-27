@@ -80,9 +80,8 @@
     <div class="card">
       <div class="ctl" id="periods">
         <button class="pill" type="button" data-p="today">오늘</button>
-        <button class="pill" type="button" data-p="week">이번 주</button>
-        <button class="pill" type="button" data-p="month">이번 달</button>
-        <button class="pill" type="button" data-p="last">지난달</button>
+        <select id="wsel" aria-label="주 고르기"><option value="">주 고르기</option></select>
+        <select id="msel" aria-label="월 고르기"><option value="">월 고르기</option></select>
         <input type="date" id="from" aria-label="시작 날짜" /> ~ <input type="date" id="to" aria-label="끝 날짜" />
         <select id="who" aria-label="사람"><option value="">모든 사람</option></select>
         <span class="range" id="range"></span>
@@ -172,22 +171,51 @@
     ME = p;
     if (!(p.role === 'admin' || STAFF_VIEWERS.indexOf(p.login_id) >= 0)){ $('deny').hidden = false; return; }
     $('app').hidden = false;
+    fillMenus();
     var saved = ''; try { saved = sessionStorage.getItem('staff_period') || ''; } catch(_){}
     setPeriod(saved && saved !== 'custom' ? saved : 'week');
   });
 
+  // 기간 = 'today' / 'week:수요일' / 'month:yyyy-MM' / 'custom'(날짜 직접). 옛 값 'week'·'month'·'last'는 이번 주·이번 달·지난달로 읽는다.
+  function thisWed(){ var t = today(), f = weekWed(t); if (f > t) f = addDay(f, -7); return f; }
+  function monthEnd(ym){ return addDay(addDay(ym + '-01', 32).slice(0, 8) + '01', -1); }
   function setPeriod(p){
+    var t = today(), f = t, e = t, m;
+    if (p === 'week') p = 'week:' + thisWed();
+    if (p === 'month') p = 'month:' + t.slice(0, 7);
+    if (p === 'last') p = 'month:' + addDay(t.slice(0, 8) + '01', -1).slice(0, 7);
+    if ((m = /^week:(\d{4}-\d{2}-\d{2})$/.exec(p))){ f = m[1]; e = addDay(f, 6); }
+    else if ((m = /^month:(\d{4}-\d{2})$/.exec(p))){ f = m[1] + '-01'; e = monthEnd(m[1]); }
+    else p = 'today';
     period = p;
-    var t = today(), f = t, e = t;
-    if (p === 'week'){ f = weekWed(t); if (f > t) f = addDay(f, -7); e = addDay(f, 6); }
-    if (p === 'month'){ f = t.slice(0, 8) + '01'; e = addDay(addDay(f, 32).slice(0, 8) + '01', -1); }
-    if (p === 'last'){ var m0 = t.slice(0, 8) + '01'; e = addDay(m0, -1); f = e.slice(0, 8) + '01'; }
     $('from').value = f; $('to').value = e;
     try { sessionStorage.setItem('staff_period', p); } catch(_){}
     drawPills(); load();
   }
-  function drawPills(){ document.querySelectorAll('#periods .pill').forEach(function(b){ b.classList.toggle('on', b.dataset.p === period); }); }
+  // 주 메뉴 = 이번 주부터 12주 전까지(수요일 시작, '10/21 주차'), 월 메뉴 = 이번 달부터 6달 전까지('10월') — 2026-10-27 원장님 요청
+  function fillMenus(){
+    var t = today(), w0 = thisWed(), ym0 = t.slice(0, 7), wh = '<option value="">주 고르기</option>', mh = '<option value="">월 고르기</option>';
+    for (var i = 0; i < 13; i++){
+      var w = addDay(w0, -7 * i);
+      wh += '<option value="week:' + w + '">' + Number(w.slice(5, 7)) + '/' + Number(w.slice(8)) + ' 주차' + (i === 0 ? ' · 이번 주' : i === 1 ? ' · 지난주' : '') + '</option>';
+    }
+    for (var j = 0; j < 7; j++){
+      var ym = addDay(ym0 + '-01', -31 * j + 15).slice(0, 7);   // 달 가운데 날짜에서 31일씩 거슬러 → 달마다 하나
+      if (j && ym >= ym0) continue;
+      mh += '<option value="month:' + ym + '">' + (ym.slice(0, 4) !== t.slice(0, 4) ? ym.slice(0, 4) + '년 ' : '') + Number(ym.slice(5)) + '월' + (j === 0 ? ' · 이번 달' : j === 1 ? ' · 지난달' : '') + '</option>';
+    }
+    $('wsel').innerHTML = wh; $('msel').innerHTML = mh;
+  }
+  function drawPills(){
+    document.querySelectorAll('#periods .pill').forEach(function(b){ b.classList.toggle('on', b.dataset.p === period); });
+    $('wsel').value = period.indexOf('week:') === 0 ? period : '';
+    $('msel').value = period.indexOf('month:') === 0 ? period : '';
+    if (period.indexOf('week:') === 0 && $('wsel').value !== period) $('wsel').value = '';
+    if (period.indexOf('month:') === 0 && $('msel').value !== period) $('msel').value = '';
+  }
   document.querySelectorAll('#periods .pill').forEach(function(b){ b.onclick = function(){ setPeriod(b.dataset.p); }; });
+  $('wsel').onchange = function(){ if ($('wsel').value) setPeriod($('wsel').value); };
+  $('msel').onchange = function(){ if ($('msel').value) setPeriod($('msel').value); };
   ['from', 'to'].forEach(function(id){ $(id).onchange = function(){ period = 'custom'; drawPills(); load(); }; });
   $('who').onchange = function(){ fil = sel = $('who').value; render(); };
 
