@@ -277,6 +277,7 @@ async function showTask(pg, sel){
       if (p === '/rest/v1/rpc/msg_push_state'){ const b = JSON.parse(req.postData()); const x = PUSHSUBS[b.p_endpoint]; return json({ saved: !!x, mode: x ? x.mode : 'all', devices: Object.keys(PUSHSUBS).length }); }
       if (p === '/rest/v1/rpc/msg_push_save'){ const b = JSON.parse(req.postData()); calls.push(['psave', b]); PUSHSUBS[b.p_sub.endpoint] = { mode: b.p_mode }; return json({ id: 1, mode: b.p_mode }); }
       if (p === '/rest/v1/rpc/msg_push_remove'){ const b = JSON.parse(req.postData()); calls.push(['premove', b]); delete PUSHSUBS[b.p_endpoint]; return json({ removed: 1 }); }
+      if (p === '/functions/v1/activity'){ const b = JSON.parse(req.postData() || '{}'); calls.push(['activity', b]); return json({ digest: 'none' }); }   // 티쳐스 활동 알림(202610270001) — 원장님이 열면 flush
       if (p === '/functions/v1/msg-push'){
         const b = JSON.parse(req.postData()); calls.push(['fn', b]);
         if (b.action === 'key') return json({ key: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U' });
@@ -1282,6 +1283,12 @@ async function showTask(pg, sel){
     const kr = page.locator('#m' + km.id);
     ok((await kr.count()) === 1 && (await kr.locator('.av').textContent()) === '카' && (await kr.locator('.nm').textContent()).includes('학부모님 문의') && await kr.evaluate(e => e.classList.contains('kko')), '카카오채널 글 — 동그라미 카·학부모님 문의 표시');
     ok(!(await kr.evaluate(e => e.classList.contains('cont'))), '클로슈 글 바로 뒤의 카카오채널 글도 이름·동그라미를 따로 보임 (Codex 검토)');
+  }
+  { // 티쳐스 활동 알림(202610270001) — 작성자 없는 글 bot.kind 'activity' = 동그라미 '알'·'활동 알림'·연보라 말풍선
+    const am = addMsg(null, '[시험 범위] 김현지 · 저장 (입력 완료) · 고1 화정 · 26-2-기말\n교과서: 천재수 공통국어2', []); am.author_name = '활동 알림'; am.bot = { kind: 'activity', to: [ME] };
+    await page.waitForSelector('#m' + am.id, { timeout: 8000 }).catch(() => {});
+    const ar = page.locator('#m' + am.id);
+    ok((await ar.count()) === 1 && (await ar.locator('.av').textContent()) === '알' && (await ar.locator('.nm').textContent()).includes('티쳐스 활동') && await ar.evaluate(e => e.classList.contains('act') && e.classList.contains('botm')), '활동 알림 글 — 동그라미 알·티쳐스 활동 표시·act 말풍선');
   }
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'bot.png') });
   await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });

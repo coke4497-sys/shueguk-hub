@@ -434,6 +434,20 @@ ok "$(as $B "select public.msg_task_set($SID, true)->>'status'")" "완료" "내 
 ok "$(as $B "select public.msg_task_set($SID, false)->>'status'")" "대기" "체크 풀기"
 ok "$(as $B "select public.msg_task_cancel($SID, '필요 없어짐')->>'status'")" "취소" "메시지 없는 업무도 취소"
 
+echo "── 티쳐스 활동 기록·알림 (202610270001)"
+P -f supabase/migrations/202610270001_activity_log.sql >/dev/null || { echo "활동 기록 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610270001_activity_log.sql >/dev/null && ok y y "활동 기록 마이그레이션 다시 실행해도 오류 없음"
+ok "$(as $B "insert into public.activity_log (what) values ('x')" | grep -c 'permission denied')" 1 "교사는 활동 기록을 직접 못 넣음(함수만)"
+ok "$(svc "insert into public.activity_log (page, what, action, target, author, urgent) values ('timetable', '시험 범위', '저장', '고1 화정', '김현지', true) returning id" | grep -c '^[0-9]')" 1 "service_role 은 넣음"
+ok "$(as $B "select what||'|'||author||'|'||urgent from public.activity_log")" "시험 범위|김현지|true" "교사는 읽음"
+ok "$(anon "select count(*) from public.activity_log" | grep -c 'permission denied')" 1 "공개 키는 못 읽음"
+ok "$(as $B "update public.activity_log set author='x'" | grep -c 'permission denied')" 1 "교사는 못 고침"
+AM=$(svc "select (public.activity_say('[시험 범위] 김현지 · 저장', array['$A'::uuid])).id")
+ok "$(P -tAc "select author is null, author_name, bot->>'kind', bot->'to'->>0, body from public.msg_messages where id=$AM")" "t|활동 알림|activity|$A|[시험 범위] 김현지 · 저장" "활동 알림 글 = 작성자 없음 · '활동 알림' · bot.kind activity · 받을 사람"
+ok "$(as $B "select public.activity_say('x', null)" | grep -c 'permission denied')" 1 "교사는 활동 알림 글을 못 올림"
+ok "$(svc "select public.activity_say('  ', null)" | grep -c empty)" 1 "빈 글 거절"
+ok "$(as $B "select count(*) from public.msg_messages where id=$AM")" 1 "활성 교사는 활동 알림 글을 읽을 수 있다(슈톡 대화에 보임)"
+
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null
 [ $fail -eq 0 ]
