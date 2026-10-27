@@ -347,6 +347,12 @@ async function showTask(pg, sel){
   ok(await page.locator('#live').textContent() === '실시간', '실시간 표시');
   ok((await page.locator('#m' + m1.id + ' .av').textContent()) === '티', '선생님·원장님 동그라미는 \'티\' (2026-10-21 리디자인)');
   ok((await page.locator('#m' + m3.id + ' .av').textContent()) === '티' && (await page.locator('#m' + m3.id + ' .nmc').textContent()) === '이은지', '이름 칩 + 동그라미 \'티\'');
+  { // 이름 끝이 '대표님'이면 동그라미 '대'(2026-10-27 원장님) — 화면 함수 둘을 그대로 떼어 확인
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'messenger.html'), 'utf8');
+    const pick = (n) => (src.match(new RegExp('function ' + n + '\\([^\\n]*\\}')) || [''])[0];
+    const g = new Function(pick('roleGlyph') + ' return roleGlyph;')(), a = new Function(pick('avChar') + ' return avChar;')();
+    ok(g('teacher', '박언호대표님') === '대' && g('teacher', '이은지') === '티' && g('assistant', '고희주') === '조' && a('박언호대표님') === '대' && a('이수경') === '슈' && a('김지원') === '지', "'박언호대표님' 동그라미는 '대'(roleGlyph·avChar)");
+  }
 
   console.log('② 업무 카드');
   const firstCard = page.locator('.pc').first();
