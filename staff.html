@@ -32,6 +32,13 @@
   .pill.on{background:var(--lav);color:var(--lavInk);font-weight:700;}
   .ctl input[type=date],.ctl select{border:1px solid #D7E0DB;border-radius:10px;padding:6px 9px;font-size:14px;color:var(--ink);background:#fff;min-height:36px;}
   .range{font-size:13px;color:var(--cap);margin-left:auto;}
+  .nav{display:inline-flex;gap:4px;}
+  .pill.arr{padding:7px 12px;font-size:17px;line-height:1;}
+  .pill.arr:disabled{opacity:.35;cursor:default;}
+  .custom{margin-top:8px;}
+  .custom[hidden]{display:none;}
+  .clab{font-size:13px;color:var(--cap);}
+  .lnk{border:0;background:none;padding:4px 0;margin-top:6px;font-size:12.5px;color:var(--cap);text-decoration:underline;cursor:pointer;}
   .note{font-size:12.5px;color:var(--cap);margin:8px 0 0;}
   .warn{background:var(--wait);color:var(--waitInk);border-radius:12px;padding:9px 12px;font-size:13.5px;margin-bottom:12px;}
   .tbox{overflow-x:auto;}
@@ -82,10 +89,12 @@
         <button class="pill" type="button" data-p="today">오늘</button>
         <select id="wsel" aria-label="주 고르기"><option value="">주 고르기</option></select>
         <select id="msel" aria-label="월 고르기"><option value="">월 고르기</option></select>
-        <input type="date" id="from" aria-label="시작 날짜" /> ~ <input type="date" id="to" aria-label="끝 날짜" />
+        <span class="nav"><button class="pill arr" type="button" id="prev" aria-label="앞으로">‹</button><button class="pill arr" type="button" id="next" aria-label="뒤로">›</button></span>
         <select id="who" aria-label="사람"><option value="">모든 사람</option></select>
         <span class="range" id="range"></span>
       </div>
+      <div class="ctl custom" id="custom" hidden><span class="clab">날짜 직접</span><input type="date" id="from" aria-label="시작 날짜" /> ~ <input type="date" id="to" aria-label="끝 날짜" /></div>
+      <button class="lnk" type="button" id="customBtn">날짜를 직접 고르려면</button>
       <p class="note">근무 = 슈톡 [출근하기]·[퇴근]을 누른 그대로의 기록(조교 급여용 근무 시간은 근무표 기준으로 맞춘 <a href="worklog.html">조교 근무 일지</a>에 있습니다) · 수업 = 슈국 스케쥴 시간표(그 주 정규/내신, 휴강·옮긴 수업 반영) · 사용 시간 = 화면을 띄워 두고 10분 안에 조작한 시간만 1분 단위로 셉니다.</p>
     </div>
     <div id="warns"></div>
@@ -176,17 +185,19 @@
     setPeriod(saved && saved !== 'custom' ? saved : 'week');
   });
 
-  // 기간 = 'today' / 'week:수요일' / 'month:yyyy-MM' / 'custom'(날짜 직접). 옛 값 'week'·'month'·'last'는 이번 주·이번 달·지난달로 읽는다.
+  // 기간 = 'day:날짜'(오늘 알약 = 오늘, ‹ ›로 하루씩) / 'week:수요일' / 'month:yyyy-MM' / 'custom'(날짜 직접). 옛 값 'today'·'week'·'month'·'last'는 오늘·이번 주·이번 달·지난달로 읽는다.
   function thisWed(){ var t = today(), f = weekWed(t); if (f > t) f = addDay(f, -7); return f; }
   function monthEnd(ym){ return addDay(addDay(ym + '-01', 32).slice(0, 8) + '01', -1); }
   function setPeriod(p){
     var t = today(), f = t, e = t, m;
+    if (p === 'today') p = 'day:' + t;
     if (p === 'week') p = 'week:' + thisWed();
     if (p === 'month') p = 'month:' + t.slice(0, 7);
     if (p === 'last') p = 'month:' + addDay(t.slice(0, 8) + '01', -1).slice(0, 7);
     if ((m = /^week:(\d{4}-\d{2}-\d{2})$/.exec(p))){ f = m[1]; e = addDay(f, 6); }
     else if ((m = /^month:(\d{4}-\d{2})$/.exec(p))){ f = m[1] + '-01'; e = monthEnd(m[1]); }
-    else p = 'today';
+    else if ((m = /^day:(\d{4}-\d{2}-\d{2})$/.exec(p)) && m[1] <= t){ f = e = m[1]; }
+    else { p = 'day:' + t; f = e = t; }
     period = p;
     $('from').value = f; $('to').value = e;
     try { sessionStorage.setItem('staff_period', p); } catch(_){}
@@ -207,15 +218,36 @@
     $('wsel').innerHTML = wh; $('msel').innerHTML = mh;
   }
   function drawPills(){
-    document.querySelectorAll('#periods .pill').forEach(function(b){ b.classList.toggle('on', b.dataset.p === period); });
+    document.querySelectorAll('#periods .pill[data-p]').forEach(function(b){ b.classList.toggle('on', b.dataset.p === 'today' && period === 'day:' + today()); });
     $('wsel').value = period.indexOf('week:') === 0 ? period : '';
     $('msel').value = period.indexOf('month:') === 0 ? period : '';
     if (period.indexOf('week:') === 0 && $('wsel').value !== period) $('wsel').value = '';
     if (period.indexOf('month:') === 0 && $('msel').value !== period) $('msel').value = '';
+    $('prev').disabled = !canStep(-1); $('next').disabled = !canStep(1);
+    if (period === 'custom') showCustom(true);
   }
-  document.querySelectorAll('#periods .pill').forEach(function(b){ b.onclick = function(){ setPeriod(b.dataset.p); }; });
+  function showCustom(on){ $('custom').hidden = !on; $('customBtn').textContent = on ? '날짜 칸 접기' : '날짜를 직접 고르려면'; }
+  // ‹ › = 지금 단위(주·달·하루)로 한 칸 앞뒤 — 오늘이 든 주·달보다 뒤로는 못 간다. 날짜를 직접 골랐으면 그 기간 길이만큼.
+  function stepPeriod(n){
+    var m, t = today();
+    if ((m = /^week:(.+)$/.exec(period))){ var w = addDay(m[1], 7 * n); if (w > thisWed()) return; setPeriod('week:' + w); }
+    else if ((m = /^month:(.+)$/.exec(period))){ var ym = addDay(m[1] + '-15', 31 * n).slice(0, 7); if (ym > t.slice(0, 7)) return; setPeriod('month:' + ym); }
+    else if ((m = /^day:(.+)$/.exec(period))){ var d = addDay(m[1], n); if (d > t) return; setPeriod('day:' + d); }
+    else { var f = $('from').value, e = $('to').value; if (!f || !e) return; var len = Math.round((dayStart(e) - dayStart(f)) / 864e5) + 1; $('from').value = addDay(f, len * n); $('to').value = addDay(e, len * n); drawPills(); load(); }
+  }
+  function canStep(n){
+    var m, t = today();
+    if ((m = /^week:(.+)$/.exec(period))) return n < 0 || addDay(m[1], 7) <= thisWed();
+    if ((m = /^month:(.+)$/.exec(period))) return n < 0 || addDay(m[1] + '-15', 31).slice(0, 7) <= t.slice(0, 7);
+    if ((m = /^day:(.+)$/.exec(period))) return n < 0 || m[1] < t;
+    return !!($('from').value && $('to').value);
+  }
+  document.querySelectorAll('#periods .pill[data-p]').forEach(function(b){ b.onclick = function(){ setPeriod(b.dataset.p); }; });
+  $('prev').onclick = function(){ stepPeriod(-1); };
+  $('next').onclick = function(){ stepPeriod(1); };
   $('wsel').onchange = function(){ if ($('wsel').value) setPeriod($('wsel').value); };
   $('msel').onchange = function(){ if ($('msel').value) setPeriod($('msel').value); };
+  $('customBtn').onclick = function(){ showCustom($('custom').hidden); };
   ['from', 'to'].forEach(function(id){ $(id).onchange = function(){ period = 'custom'; drawPills(); load(); }; });
   $('who').onchange = function(){ fil = sel = $('who').value; render(); };
 
