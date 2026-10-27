@@ -759,7 +759,7 @@ var CLS = { book:'정규', classes:null, picked:null, names:[], order:[] };
 // 시간표(tt_classes)의 담당T는 성 없이 '은지'·'지원', 이수경 선생님은 '슈'로 적혀 있고, 학생정보(students)의 담당T는
 // '이은지'·'김지원'·'이수경'처럼 성이 붙어 있다(2026-09-06 사용자 신고 "반 불러오기가 안돼요"로 확인). 둘을 같은 열쇠로 맞춘다.
 function teacherKey(t){
-  t = String(t||'').replace(/\s+/g,'').replace(/T$/,'').replace(/선생님$/,'');
+  t = String(t||'').replace(/\s+/g,'').replace(/T$/,'').replace(/(선생님|쌤|대표님)$/,'');   // '박언호대표님' → 언호
   if(t === '이수경' || t === '수경' || t === '슈') return '슈';
   return t.length >= 3 ? t.slice(-2) : t;
 }

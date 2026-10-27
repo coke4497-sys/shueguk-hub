@@ -161,7 +161,7 @@
     return h * 60 + m;
   }
   function teacherKey(t){   // messenger.html·question.html 과 같은 규칙 — 끝 두 글자, '슈'는 이수경
-    t = String(t || '').replace(/\s+/g, '').replace(/T$/, '').replace(/(선생님|쌤)$/, '').replace(/[A-Z]$/, '');
+    t = String(t || '').replace(/\s+/g, '').replace(/T$/, '').replace(/(선생님|쌤|대표님)$/, '').replace(/[A-Z]$/, '');   // '박언호대표님' → 언호
     if (t === '이수경' || t === '수경' || t === '슈') return '슈';
     return t.length >= 3 ? t.slice(-2) : t;
   }

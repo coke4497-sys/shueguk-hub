@@ -24,7 +24,7 @@ const ACC = {
   [BOSS]: { user_id: BOSS, login_id: 'admin', display_name: '이수경', role: 'admin', active: true },
   [EUNJI]: { user_id: EUNJI, login_id: 'eunji', display_name: '이은지', role: 'teacher', active: true },
   [HEEJU]: { user_id: HEEJU, login_id: 'heeju', display_name: '고희주', role: 'assistant', active: true },
-  [PARK]: { user_id: PARK, login_id: 'parkeh', display_name: '박언호', role: 'teacher', active: true },
+  [PARK]: { user_id: PARK, login_id: 'parkeh', display_name: '박언호대표님', role: 'teacher', active: true },   // 2026-10-27 원장님 — 끝의 '대표님'은 teacherKey가 뗀다
 };
 const MEMBERS = Object.values(ACC).map(a => ({ user_id: a.user_id, name: a.display_name, role: a.role }));
 const NOW = Date.parse('2026-10-21T20:00:00+09:00');   // 수요일 저녁
@@ -43,6 +43,7 @@ const TT = [
   { book: '정규', class_id: 'r002', name: '고1 나', day: '수', start_time: '7:30', end_time: '9:00', teacher: '은지', roster: '다' },
   { book: '내신', class_id: 'n001', name: '고2 진도', day: '수', start_time: '5:30', end_time: '7:00', teacher: '은지', roster: '가' },
   { book: '정규', class_id: 'r003', name: '고3파이널A', day: '수', start_time: '3:00', end_time: '5:00', teacher: '슈', roster: '라' },
+  { book: '정규', class_id: 'r107', name: '논술B 수학', day: '수', start_time: '8:30', end_time: '밤10:00', teacher: '언호', roster: '김선우' },   // '박언호대표님' ↔ '언호'
   { book: '정규', class_id: 'r004', name: '중2 가', day: '수', start_time: '3:00', end_time: '4:30', teacher: '은지', roster: '마' },   // 휴강
   { book: '정규', class_id: 'r005', name: '빈 반', day: '수', start_time: '3:00', end_time: '4:30', teacher: '은지', roster: '' },
   { book: '정규', class_id: 'w261021a', name: '고2 직보', day: '수', start_time: '오전9:30', end_time: '11:00', teacher: '은지', roster: '' },
@@ -148,6 +149,8 @@ const calls = [];
   const bs = await rowOf(page, BOSS).textContent();
   ok(bs.includes('2시간') && bs.includes('1회'), "'슈' 수업 = 이수경 2시간");
   ok(bs.includes('출근 기록 없음') && bs.includes('맡은 일 없음'), '기록 없는 사람도 줄');
+  const pk = await rowOf(page, PARK).textContent();
+  ok(pk.includes('1시간 30분') && pk.includes('1회'), "'언호' 수업 = 박언호대표님 1시간 30분 (끝의 '대표님'은 떼고 대조)");
   console.log('③ 자세히');
   await rowOf(page, HEEJU).click();
   await page.waitForSelector('#detail:not([hidden])');

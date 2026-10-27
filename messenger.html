@@ -1289,8 +1289,8 @@
   }
 
   // ── 대화 그리기 ───────────────────────────────────
-  // 대화 옆 동그라미 글자 — 이름 가운데 글자, 이수경 원장님은 '슈'(2026-10-20 원장님)
-  function avChar(n){ n = String(n || ''); return /^이수경/.test(n) ? '슈' : (n.slice(-2, -1) || n.charAt(0)); }
+  // 대화 옆 동그라미 글자 — 이름 가운데 글자, 이수경 원장님은 '슈'(2026-10-20 원장님). 끝의 '대표님'은 빼고 본다('박언호대표님' → '언')
+  function avChar(n){ n = String(n || '').replace(/대표님$/, '') || String(n || ''); return /^이수경/.test(n) ? '슈' : (n.slice(-2, -1) || n.charAt(0)); }
   function sortedMsgs(){ return Array.from(MSGS.values()).sort(function(a, b){ return a.id - b.id; }); }
   function lastMsgId(){ var x = 0; MSGS.forEach(function(m){ if (m.id > x) x = m.id; }); return x; }
   function tasksOf(id){ var out = []; TASKS.forEach(function(t){ if (t.message_id === id) out.push(t); }); return out.sort(function(a, b){ return a.id - b.id; }); }
@@ -1947,7 +1947,7 @@
   }
   // 시간표 담당T('은지'·'슈'·'김지원T') ↔ 슈톡 사람(표시 이름) — 끝 두 글자, '슈'는 이수경 (question.html teacherKey 와 같은 규칙)
   function teacherKey(t){
-    t = String(t || '').replace(/\s+/g, '').replace(/T$/, '').replace(/(선생님|쌤)$/, '').replace(/[A-Z]$/, '');
+    t = String(t || '').replace(/\s+/g, '').replace(/T$/, '').replace(/(선생님|쌤|대표님)$/, '').replace(/[A-Z]$/, '');   // '박언호대표님'(2026-10-27 원장님) → 언호
     if (t === '이수경' || t === '수경' || t === '슈') return '슈';
     return t.length >= 3 ? t.slice(-2) : t;
   }
