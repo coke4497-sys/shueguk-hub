@@ -1108,7 +1108,7 @@
   // ── 시작 ─────────────────────────────────────────
   TeacherAuth.ready.then(function(ctx){
     ME = { id: ctx.profile.user_id, name: ctx.profile.display_name || ctx.profile.login_id, role: ctx.profile.role };
-    $('me').innerHTML = '<span class="mav">' + roleGlyph(ME.role) + '</span><span class="mtx">' + esc(ME.name + ' · ' + roleLabel(ME.role)) + '</span>';
+    $('me').innerHTML = '<span class="mav">' + roleGlyph(ME.role, ME.name) + '</span><span class="mtx">' + esc(ME.name + ' · ' + roleLabel(ME.role)) + '</span>';
     readMark = Number(localStorage.getItem('msg_read_' + ME.id) || 0);
     boot();
   });
@@ -1289,8 +1289,8 @@
   }
 
   // ── 대화 그리기 ───────────────────────────────────
-  // 대화 옆 동그라미 글자 — 이름 가운데 글자, 이수경 원장님은 '슈'(2026-10-20 원장님). 끝의 '대표님'은 빼고 본다('박언호대표님' → '언')
-  function avChar(n){ n = String(n || '').replace(/대표님$/, '') || String(n || ''); return /^이수경/.test(n) ? '슈' : (n.slice(-2, -1) || n.charAt(0)); }
+  // 대화 옆 동그라미 글자 — 이름 가운데 글자, 이수경 원장님은 '슈'(2026-10-20 원장님), 끝이 '대표님'이면 '대'(2026-10-27 원장님 "옆동그라미 대")
+  function avChar(n){ n = String(n || ''); if (/^이수경/.test(n)) return '슈'; if (/대표님$/.test(n)) return '대'; return n.slice(-2, -1) || n.charAt(0); }
   function sortedMsgs(){ return Array.from(MSGS.values()).sort(function(a, b){ return a.id - b.id; }); }
   function lastMsgId(){ var x = 0; MSGS.forEach(function(m){ if (m.id > x) x = m.id; }); return x; }
   function tasksOf(id){ var out = []; TASKS.forEach(function(t){ if (t.message_id === id) out.push(t); }); return out.sort(function(a, b){ return a.id - b.id; }); }
@@ -1486,7 +1486,7 @@
     // 2026-10-21 리디자인 — 남의 글은 말풍선 위에 '티/조 동그라미 · 이름 칩 · 시각', 내 글은 시각을 말풍선 아래에
     var rc0 = mem ? roleCls(mem.role) : 'x';
     return '<div class="m' + (mine ? ' mine' : '') + (m.bot ? ' botm' : '') + (kko ? ' kko' : '') + (cont ? ' cont' : '') + '" id="m' + m.id + '">'
-      + '<div class="mb"><div class="nm"><i class="av"' + (kko || m.bot ? ' style="background:' + tn[0] + ';color:' + tn[1] + '"' : '') + '>' + esc(kko ? '카' : m.bot ? '클' : mem ? roleGlyph(mem.role) : avChar(m.author_name)) + '</i>'
+      + '<div class="mb"><div class="nm"><i class="av"' + (kko || m.bot ? ' style="background:' + tn[0] + ';color:' + tn[1] + '"' : '') + '>' + esc(kko ? '카' : m.bot ? '클' : mem ? roleGlyph(mem.role, mem.name) : avChar(m.author_name)) + '</i>'
       + '<span class="nmc r-' + rc0 + '">' + esc(m.author_name) + '</span><span class="rl">' + esc(kko ? '학부모님 문의 · 답은 채널 관리자센터에서' : m.bot ? '도우미' : '') + '</span><span class="nt">' + hm(m.created_at) + '</span></div>'
       + '<div class="line">' + bb + (m.deleted_at ? '' : '<span class="tw">' + rcHtml(m) + (mine ? '' : '<span class="t">' + hm(m.created_at) + '</span>') + '</span>')
       + heartHtml(m)
@@ -2122,7 +2122,7 @@
     $('pchips').innerHTML = shown.map(function(p){
       var on = p.key === selPerson;
       return '<button type="button" role="tab" class="pchip r-' + roleCls(p.role) + (on ? ' on' : '') + (p.on ? '' : ' offd') + '" data-pick="' + esc(p.key) + '" aria-selected="' + on + '" title="' + esc(roleLabel(p.role) + (p.on ? '' : ' · 출근 전')) + '">'
-        + '<i class="pcv">' + roleGlyph(p.role) + '</i><b>' + esc(p.name) + '</b><small>' + p.fin + '/' + p.tot + '</small></button>';
+        + '<i class="pcv">' + roleGlyph(p.role, p.name) + '</i><b>' + esc(p.name) + '</b><small>' + p.fin + '/' + p.tot + '</small></button>';
     }).join('');
     var html = shown.map(function(p){
       var tot = p.tot, full = tot && !p.left;
@@ -2422,7 +2422,8 @@
   }
   function mm12(min){ var h = Math.floor(min / 60) % 24, m = min % 60; return (h < 12 ? '오전 ' : '오후 ') + ((h % 12) || 12) + ':' + (m < 10 ? '0' : '') + m; }
   function roleCls(r){ return r === 'assistant' ? 'a' : r === 'admin' ? 'm' : 't'; }
-  function roleGlyph(r){ return r === 'assistant' ? '조' : '티'; }
+  // 동그라미 글자 — 조교 '조', 선생님·원장님 '티', 이름 끝이 '대표님'이면 '대'(2026-10-27 원장님 "옆동그라미 대")
+  function roleGlyph(r, name){ return /대표님$/.test(String(name || '')) ? '대' : r === 'assistant' ? '조' : '티'; }
   // 오늘의 슈국 — 조교는 근무표, 선생님은 오늘 시간표의 첫 수업 위치, 그 밖에 오늘 출근·퇴근한 사람(2026-10-21 원장님 선택)
   function staffOf(m){
     // 조교는 근무표, 선생님·원장님은 수업 위치 (선생님이 근무표에 들어 있어도 수업 기준 — Codex 검토)
