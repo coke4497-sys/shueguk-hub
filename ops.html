@@ -111,17 +111,19 @@
     { title:"2027 예상 고3 시간표",    icon:"grid", tone:"mnt", url:"plan_g3.html", viewer:true, desc:"지금 고2 내신 진도·확인 반 그대로 시작 · 1안·2안으로 반을 합치고 옮겨 비교" },
     // 조교 근무 일지 (2026-10-20 원장님 — 시트 「★자습감독 근무일지」를 대신, 11월부터) — 슈톡 출근·퇴근으로 기록
     { title:"조교 근무 일지",    icon:"clock", tone:"mnt", url:"worklog.html", desc:"슈톡 출근·퇴근으로 쌓이는 근무 시간 · 주간 근무표와 근무자 교체 · 월별 급여" },
+    // 티쳐스 활동 기록 (2026-10-29 원장님 '따로 두기' — 슈톡 글 대신 이 화면 + 원장님 휴대폰 푸시) — 원장님(관리자)만 보인다
+    { title:"티쳐스 활동 기록",    icon:"bell", tone:"lav", url:"activity.html", admin:true, desc:"누가 무엇을 했는지 — 시험 범위·시간표·리포트·출석 … 원장님께 보낸 알림과 기록 (원장님만)" },
   ];
   const STAFF_VIEWERS = ['parkeh'];   // staff.html·DB private.staff_viewer() 와 같은 목록
   const svg = inner => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
   const ARROW = svg('<path d="M5 12h14M13 6l6 6-6 6"/>');
-  function draw(canStaff){ document.getElementById("list").innerHTML = menus.filter(m => !m.viewer || canStaff).map(m =>
+  function draw(canStaff, isAdmin){ document.getElementById("list").innerHTML = menus.filter(m => (!m.viewer || canStaff) && (!m.admin || isAdmin)).map(m =>
     `<a class="card${m.tone ? ' t-'+m.tone : ''}" href="${m.url}">
       <span class="icon">${svg(ICON[m.icon])}</span>
       <span class="body"><h2>${m.title}</h2><p class="desc">${m.desc}</p><span class="go">열기 ${ARROW}</span></span>
     </a>`).join(""); }
-  draw(false);
-  TeacherAuth.ready.then(ctx => { const p = ctx && ctx.profile; if (p && (p.role === 'admin' || STAFF_VIEWERS.includes(p.login_id))) draw(true); }).catch(() => {});
+  draw(false, false);
+  TeacherAuth.ready.then(ctx => { const p = ctx && ctx.profile; if (p && (p.role === 'admin' || STAFF_VIEWERS.includes(p.login_id))) draw(true, p.role === 'admin'); }).catch(() => {});
 </script>
 </body>
 </html>

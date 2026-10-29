@@ -43,7 +43,8 @@ self.addEventListener('push', function (e) {
   e.waitUntil(Promise.all([
     self.registration.showNotification(title, opts),
     // 슈톡 화면을 지금 보고 있으면 숫자를 올리지 않는다(badgeUp 안에서) — 화면이 이미 읽음 처리했을 수 있어서 (Codex 검토)
-    badgeUp()
+    // 티쳐스 활동 알림(badge:false — 슈톡 대화에 없는 글이라 읽어서 지울 길이 없다)은 숫자를 올리지 않는다 (202610290001)
+    d.badge === false ? Promise.resolve() : badgeUp()
   ]));
 });
 // 화면이 '지금 대화를 끝까지 읽고 있다'(markRead가 읽음 처리하는 상태)고 알려 준 창 — 창이 보이기만 하는 것으로는 안 친다
@@ -71,12 +72,15 @@ self.addEventListener('message', function (e) {
 self.addEventListener('notificationclick', function (e) {
   e.notification.close();
   var url = (e.notification.data && e.notification.data.url) || 'messenger.html';
+  // 알림이 가리키는 화면 — 슈톡 글이면 messenger.html, 티쳐스 활동 알림이면 activity.html(202610290001). 그 화면이 열려 있으면 그리로.
+  var pageOf = function (u) { var m = /([a-z_]+\.html)/.exec(u || ''); return m ? m[1] : 'messenger.html'; };
+  var page = pageOf(url);
   e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
     for (var i = 0; i < list.length; i++) {
       var c = list[i];
-      if (c.url.indexOf('messenger.html') >= 0 && 'focus' in c) {
-        c.postMessage({ type: 'msg-open', url: url });
-        return c.focus();
+      if (c.url.indexOf(page) >= 0 && 'focus' in c) {
+        if (page === 'messenger.html') { c.postMessage({ type: 'msg-open', url: url }); return c.focus(); }
+        return (c.navigate ? c.navigate(url).catch(function () { return c; }) : Promise.resolve(c)).then(function (w) { return (w || c).focus(); });
       }
     }
     return self.clients.openWindow(url);
