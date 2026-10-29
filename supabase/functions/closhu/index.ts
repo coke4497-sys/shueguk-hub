@@ -185,6 +185,15 @@ Deno.serve(async (request) => {
       // 글은 올라갔으니 200 — 알림만 못 보냈으면 push.status 로 알리고, 다음 순찰의 feed 가 다시 보낸다
       return reply(200, { message: { id: data.id, created_at: data.created_at }, push: { status: push.status, ...push.body } })
     }
+    if (input.action === 'task') {
+      // 사람의 업무 카드에 할 일 한 줄(메시지 없이) — 원장님이 클로드에게 맡긴 확인 일 등. 알림은 따로 say note 로.
+      const to = (await uidsOf([input.to]))![0]
+      const { data, error } = await admin.rpc('msg_bot_task', {
+        p_to: to, p_text: input.text, p_due: input.due || null, p_note: input.note || '', p_key: input.key || null,
+      })
+      if (error) return reply(error.message.includes('exists') ? 409 : 400, { error: error.message })
+      return reply(200, { task: { id: data.id, assignee_name: data.assignee_name, text: data.text, due_at: data.due_at } })
+    }
     if (input.action === 'cursor') {
       const id = Number(input.id)
       if (!Number.isInteger(id) || id < 0) return reply(400, { error: 'bad_id' })
