@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이수경국어 · 티쳐스 활동 기록</title>
+<script src="assets/teacher-auth.js" data-mode="protected"></script>
+<!-- 이수경국어 슈국 운영 · 티쳐스 활동 기록 (2026-10-29 원장님 "원장님께 알림이 모두에게 보이나요?" → '따로 두기', 마이그레이션 202610290001)
+     티쳐스 화면에서 누가 무엇을 했는지(activity_log)와 원장님께 보낸 알림 글(activity_notices)을 원장님만 본다.
+     · 2026-10-27 처음 만든 활동 알림은 슈톡 대화방 글이라 활성 교사 전원에게 보였다(푸시만 원장님). 이제 슈톡에는 올리지 않고 이 화면 + 휴대폰 푸시만.
+     · 읽기 = 교사 신분으로 두 표를 직접(RLS 가 원장님(admin)만 돌려준다 — 다른 계정은 안내만). 쓰기는 엣지 함수 activity 만.
+     · 열 때 엣지 함수 activity 의 flush 를 한 번 부른다 — 2시간 넘게 기다린 잦은 일(출석·수업 기록 등)을 묶어 알림으로(슈톡을 열 때와 같음).
+     · 휴대폰 알림을 누르면 이 화면의 #n<알림 번호> 로 온다 → 그 알림을 강조한다. -->
+<link rel="preconnect" href="https://bangdbhqpphqqdwcledg.supabase.co">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --lav-d:#5A4A6A; --lav:#8D83A8; --lav-bg:#EDE4F4; --lav-soft:#F6F1FA;
+    --ink:#2A332F; --muted:#65726B;
+    --line:#E5EDE8; --paper:#F4F6F5; --card:#ffffff;
+    --shadow:0 2px 12px rgba(42,51,47,.07);
+  }
+  *{box-sizing:border-box;}
+  body{ font-family:'Gowun Dodum',-apple-system,sans-serif; background:var(--paper); color:var(--ink);
+    max-width:1080px; margin:0 auto; padding:0 0 60px; line-height:1.5; }
+  a{color:inherit;}
+  button,input,select{font-family:inherit;}
+  .brand{ background:linear-gradient(135deg,#e6ddf0 0%,#c4d4cc 100%);
+    padding:20px 24px 16px; border-radius:0 0 22px 22px; box-shadow:var(--shadow);
+    display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+  .brand .name{ font-family:'Gowun Batang',serif; font-weight:700; font-size:24px; letter-spacing:2px; color:var(--lav-d); }
+  .brand .sub{ font-family:'Gowun Batang',serif; font-size:13px; color:#6B5B7B; letter-spacing:2px; }
+  .brand .links{ margin-left:auto; display:flex; gap:14px; font-size:13px; }
+  .brand .links a{ color:var(--lav-d); text-decoration:none; border-bottom:1px solid rgba(90,74,106,.35); }
+  .title-bar{ background:var(--card); margin:16px; padding:11px 18px; border-radius:10px; box-shadow:var(--shadow);
+    font-family:'Gowun Batang',serif; font-size:15px; font-weight:700; color:var(--lav-d); text-align:center; }
+  .title-bar small{ display:block; font-family:'Gowun Dodum',sans-serif; font-weight:400; font-size:12.5px; color:var(--muted); margin-top:3px; }
+  #deny{ margin:16px; padding:40px; text-align:center; background:var(--card); border-radius:12px; box-shadow:var(--shadow); color:var(--muted); }
+
+  h2{ margin:22px 16px 8px; font-family:'Gowun Batang',serif; font-size:16px; color:var(--lav-d); display:flex; align-items:baseline; gap:10px; }
+  h2 small{ font-family:'Gowun Dodum',sans-serif; font-weight:400; font-size:12.5px; color:var(--muted); }
+  .note{ margin:0 16px 10px; font-size:12.5px; color:var(--muted); }
+
+  /* 알림 글 */
+  .nts{ margin:0 16px; display:grid; gap:8px; }
+  .nt{ background:var(--card); border-radius:12px; box-shadow:var(--shadow); padding:11px 14px; display:grid; grid-template-columns:auto 1fr; gap:4px 12px; align-items:start; }
+  .nt.hl{ outline:2px solid var(--lav); background:var(--lav-soft); }
+  .nt .when{ font-size:12.5px; color:var(--muted); white-space:nowrap; padding-top:2px; }
+  .nt .when b{ display:block; color:var(--lav-d); font-weight:400; }
+  .nt .txt{ white-space:pre-wrap; font-size:13.5px; }
+  .nt .txt b{ font-weight:700; }
+  .nt .meta{ grid-column:2; font-size:12px; color:var(--muted); display:flex; gap:8px; align-items:center; }
+  .pill{ display:inline-block; padding:1px 8px; border-radius:999px; font-size:11.5px; line-height:1.6; }
+  .pill.k-즉시{ background:#F7E2DE; color:#B0736A; }
+  .pill.k-요약{ background:var(--lav-bg); color:var(--lav-d); }
+  .pill.w{ background:#E3EDE7; color:#4C6E66; }
+  .pill.no{ background:#F9EFD0; color:#9B8046; }
+
+  /* 거르기 */
+  .views{ margin:0 16px 10px; display:flex; gap:10px 12px; flex-wrap:wrap; align-items:center; }
+  .views select{ padding:8px 10px; border:1.5px solid var(--line); border-radius:9px; font-size:13.5px; background:#fff; max-width:220px; }
+  .views input[type=search]{ padding:8px 10px; border:1.5px solid var(--line); border-radius:9px; font-size:14px; min-width:150px; }
+  .views label{ display:inline-flex; align-items:center; gap:6px; color:var(--lav-d); font-size:13.5px; cursor:pointer; }
+  .views input[type=checkbox]{ width:15px; height:15px; accent-color:var(--lav); }
+  .views .sp{ flex:1; }
+  .btn{ padding:9px 14px; border:none; border-radius:9px; background:var(--lav-bg); color:var(--lav-d);
+    font-family:'Gowun Batang',serif; font-weight:700; font-size:13.5px; cursor:pointer; }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  .sum{ margin:0 16px 12px; font-size:13px; color:var(--muted); }
+  .sum b{ color:var(--lav-d); }
+  .loading,.empty{ margin:16px; padding:40px; text-align:center; color:var(--muted); font-size:14px;
+    background:var(--card); border-radius:12px; box-shadow:var(--shadow); }
+
+  /* 기록 — 날짜별 묶음 */
+  .day{ margin:0 16px 16px; background:var(--card); border-radius:12px; box-shadow:var(--shadow); overflow:hidden; }
+  .day h3{ margin:0; padding:10px 16px; background:var(--lav-bg); font-family:'Gowun Batang',serif; font-size:14.5px; color:var(--lav-d);
+    display:flex; align-items:baseline; gap:10px; }
+  .day h3 small{ font-family:'Gowun Dodum',sans-serif; font-weight:400; font-size:12.5px; color:#6B5B7B; }
+  .tw{ overflow-x:auto; }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th,td{ padding:7px 10px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+  th{ font-size:12px; color:var(--muted); font-weight:400; background:#FAFBFA; white-space:nowrap; }
+  td.t{ color:var(--muted); white-space:nowrap; width:56px; }
+  td.w{ white-space:nowrap; }
+  td.who{ font-weight:700; white-space:nowrap; }
+  td.ac{ white-space:nowrap; color:#4F5A74; }
+  td.tg{ min-width:140px; }
+  td.dt{ color:var(--muted); font-size:12.5px; white-space:pre-line; max-width:420px; }
+  tr.urg td.t::before{ content:''; display:inline-block; width:7px; height:7px; border-radius:50%; background:#C64F63; margin-right:5px; vertical-align:middle; }
+  tr:last-child td{ border-bottom:none; }
+  .more{ margin:0 16px 16px; text-align:center; }
+
+  @media (max-width:640px){
+    .brand .links{ margin-left:0; width:100%; }
+    .views select{ max-width:100%; }
+    .nt{ grid-template-columns:1fr; }
+    .nt .when b{ display:inline; margin-left:6px; }
+    .nt .meta{ grid-column:1; }
+    td.dt{ max-width:240px; }
+  }
+</style>
+</head>
+<body>
+<div class="brand">
+  <span class="name">Shueguk</span><span class="sub">티쳐스 활동 기록</span>
+  <span class="links"><a href="messenger.html#board">슈톡 업무 진행</a><a href="index.html">허브</a></span>
+</div>
+<div class="title-bar">티쳐스 화면에서 누가 무엇을 했는지<small>원장님만 보는 알림과 기록입니다. 중요한 일은 바로, 잦은 일은 2시간씩 묶어 휴대폰 알림으로 보내 드려요.</small></div>
+<div id="deny" hidden>이 화면은 원장님만 볼 수 있습니다.</div>
+
+<div id="app" hidden>
+  <h2>알림 <small id="ntSum"></small></h2>
+  <div class="note">휴대폰으로 보낸 알림 글 그대로입니다. 슈톡 대화방에는 올라가지 않아요.</div>
+  <div class="nts" id="notices"><div class="loading">알림을 불러오는 중…</div></div>
+  <div class="more"><button type="button" class="btn" id="ntMore" hidden>지난 알림 더 보기</button></div>
+
+  <h2>활동 기록 <small id="lgSum"></small></h2>
+  <div class="views">
+    <select id="selWhat"><option value="">모든 종류</option></select>
+    <select id="selWho"><option value="">모든 사람</option></select>
+    <input type="search" id="q" placeholder="대상·내용 찾기">
+    <label><input type="checkbox" id="urgOnly">바로 알린 일만</label>
+    <span class="sp"></span>
+    <button type="button" class="btn" id="btnReload">다시 불러오기</button>
+  </div>
+  <div class="sum" id="sum"></div>
+  <div id="view"><div class="loading">기록을 불러오는 중…</div></div>
+  <div class="more"><button type="button" class="btn" id="lgMore" hidden>지난 기록 더 보기</button></div>
+</div>
+
+<script>
+  const SB = 'https://bangdbhqpphqqdwcledg.supabase.co';
+  const SB_KEY = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  const PAGE_N = 300, NT_N = 20;
+  const WDAY = '일월화수목금토';
+  let ROWS = [], NOTES = [], moreRows = false, moreNotes = false;
+
+  function sbGet(path){   // 교사 신분 — teacher-auth.js(protected)가 Authorization 을 허브 로그인 토큰으로 바꾼다
+    return fetch(SB + '/rest/v1' + path, { headers: { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY }, cache: 'no-store' })
+      .then(r => { if (!r.ok) throw new Error('sb ' + r.status); return r.json(); });
+  }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
+  function kst(iso){ return new Date(new Date(iso).getTime() + 9 * 3600e3); }
+  function ymdOf(iso){ return kst(iso).toISOString().slice(0, 10); }
+  function hm(iso){ const d = kst(iso); return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); }
+  function mdw(ymd){ const d = new Date(ymd + 'T00:00:00Z'); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate() + ' (' + WDAY[d.getUTCDay()] + ')'; }
+  function todayYmd(){ return new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); }
+  function dayLabel(ymd){ const t = todayYmd(); return mdw(ymd) + (ymd === t ? ' · 오늘' : ''); }
+
+  // ── 알림 글 ──
+  function loadNotes(off){
+    return sbGet('/activity_notices?select=id,at,kind,text,pushed_at&order=id.desc&limit=' + NT_N + '&offset=' + off).then(rows => {
+      if (off === 0) NOTES = []; rows.forEach(r => NOTES.push(r));
+      moreNotes = rows.length === NT_N;
+      renderNotes();
+    });
+  }
+  function noteHtml(n){
+    const lines = String(n.text || '').split('\n');
+    const first = lines.shift() || '';
+    return '<div class="nt" id="n' + n.id + '"><div class="when">' + esc(mdw(ymdOf(n.at))) + '<b>' + esc(hm(n.at)) + '</b></div>'
+      + '<div class="txt"><b>' + esc(first) + '</b>' + (lines.length ? '\n' + esc(lines.join('\n')) : '') + '</div>'
+      + '<div class="meta"><span class="pill k-' + esc(n.kind) + '">' + esc(n.kind === '요약' ? '묶음 요약' : '바로 알림') + '</span>'
+      + (n.pushed_at ? '<span class="pill w">휴대폰으로 보냄 ' + esc(hm(n.pushed_at)) + '</span>' : '<span class="pill no">아직 못 보냄 — 다음 활동 때 다시 보내요</span>') + '</div></div>';
+  }
+  function renderNotes(){
+    const box = document.getElementById('notices');
+    document.getElementById('ntSum').textContent = NOTES.length ? '최근 ' + NOTES.length + '건' : '';
+    box.innerHTML = NOTES.length ? NOTES.map(noteHtml).join('') : '<div class="empty">아직 보낸 알림이 없습니다.</div>';
+    document.getElementById('ntMore').hidden = !moreNotes;
+    hiliteHash();
+  }
+  function hiliteHash(){
+    const m = /^#n(\d+)$/.exec(location.hash || '');
+    if (!m) return;
+    const el = document.getElementById('n' + m[1]);
+    if (!el || el.classList.contains('hl')) return;
+    el.classList.add('hl'); el.scrollIntoView({ block: 'center' });
+  }
+
+  // ── 활동 기록 ──
+  function loadRows(off){
+    return sbGet('/activity_log?select=id,at,page,what,action,target,detail,author,urgent&order=id.desc&limit=' + PAGE_N + '&offset=' + off).then(rows => {
+      if (off === 0) ROWS = []; rows.forEach(r => ROWS.push(r));
+      moreRows = rows.length === PAGE_N;
+      fillSelects(); render();
+    });
+  }
+  function fillSelects(){
+    const keep = (id, vals, label) => {
+      const sel = document.getElementById(id), prev = sel.value;
+      sel.innerHTML = '<option value="">' + label + '</option>' + vals.map(v => '<option value="' + esc(v) + '">' + esc(v) + '</option>').join('');
+      sel.value = vals.indexOf(prev) >= 0 ? prev : '';
+    };
+    const cnt = (k) => { const c = {}; ROWS.forEach(r => { const v = r[k] || ''; if (v) c[v] = (c[v] || 0) + 1; }); return Object.keys(c).sort((a, b) => c[b] - c[a] || a.localeCompare(b, 'ko')); };
+    keep('selWhat', cnt('what'), '모든 종류'); keep('selWho', cnt('author'), '모든 사람');
+  }
+  function visible(){
+    const what = document.getElementById('selWhat').value, who = document.getElementById('selWho').value;
+    const q = document.getElementById('q').value.trim(), urg = document.getElementById('urgOnly').checked;
+    return ROWS.filter(r => (!what || r.what === what) && (!who || r.author === who) && (!urg || r.urgent)
+      && (!q || (r.target + ' ' + r.detail + ' ' + r.action).indexOf(q) >= 0));
+  }
+  function render(){
+    const rows = visible();
+    const urgN = ROWS.filter(r => r.urgent).length, today = todayYmd(), todayN = ROWS.filter(r => ymdOf(r.at) === today).length;
+    document.getElementById('lgSum').textContent = ROWS.length ? '최근 ' + ROWS.length + '건' : '';
+    document.getElementById('sum').innerHTML = '오늘 <b>' + todayN + '건</b> · 바로 알린 일 <b>' + urgN + '건</b>' + (rows.length !== ROWS.length ? ' · 지금 <b>' + rows.length + '건</b> 보는 중' : '');
+    document.getElementById('lgMore').hidden = !moreRows;
+    if (!ROWS.length){ document.getElementById('view').innerHTML = '<div class="empty">아직 기록이 없습니다. 선생님·조교가 티쳐스 화면에서 저장하면 여기에 쌓여요.</div>'; return; }
+    if (!rows.length){ document.getElementById('view').innerHTML = '<div class="empty">조건에 맞는 기록이 없습니다.</div>'; return; }
+    const days = [], by = {};
+    rows.forEach(r => { const d = ymdOf(r.at); if (!by[d]){ by[d] = []; days.push(d); } by[d].push(r); });
+    document.getElementById('view').innerHTML = days.map(d =>
+      '<section class="day"><h3>' + esc(dayLabel(d)) + ' <small>' + by[d].length + '건</small></h3><div class="tw"><table>'
+      + '<thead><tr><th>시각</th><th>종류</th><th>누가</th><th>동작</th><th>대상</th><th>내용</th></tr></thead><tbody>'
+      + by[d].map(r => '<tr' + (r.urgent ? ' class="urg"' : '') + '><td class="t">' + esc(hm(r.at)) + '</td>'
+        + '<td class="w"><span class="pill k-' + (r.urgent ? '즉시' : '요약') + '">' + esc(r.what) + '</span></td>'
+        + '<td class="who">' + esc(r.author || '이름 없음') + '</td><td class="ac">' + esc(r.action) + '</td>'
+        + '<td class="tg">' + esc(r.target) + '</td><td class="dt">' + esc(r.detail) + '</td></tr>').join('')
+      + '</tbody></table></div></section>').join('');
+  }
+
+  // 2시간 넘게 기다린 잦은 일을 묶어 알림으로 — 슈톡을 열 때(messenger.html activityFlush)와 같은 호출
+  function flush(){
+    return fetch(SB + '/functions/v1/activity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'flush' }) })
+      .then(r => r.json().catch(() => ({}))).then(d => { if (d && d.digest === 'sent') return loadNotes(0); }).catch(() => {});
+  }
+  function fail(e){
+    document.getElementById('view').innerHTML = '<div class="empty">기록을 불러오지 못했습니다.<br>' + esc(e.message) + '<br><br>허브에 로그인한 뒤 다시 열어 주세요.</div>';
+    document.getElementById('notices').innerHTML = '';
+  }
+
+  ['selWhat', 'selWho', 'urgOnly'].forEach(id => document.getElementById(id).addEventListener('change', render));
+  document.getElementById('q').addEventListener('input', render);   // 결과만 다시 그린다(입력칸은 그대로 — 한글 조합)
+  document.getElementById('btnReload').onclick = () => Promise.all([loadRows(0), loadNotes(0)]).catch(fail);
+  document.getElementById('lgMore').onclick = () => loadRows(ROWS.length).catch(fail);
+  document.getElementById('ntMore').onclick = () => loadNotes(NOTES.length).catch(fail);
+  window.addEventListener('hashchange', hiliteHash);
+
+  TeacherAuth.ready.then(ctx => {
+    const p = ctx && ctx.profile;
+    if (!p || p.role !== 'admin'){ document.getElementById('deny').hidden = false; return; }
+    document.getElementById('app').hidden = false;
+    Promise.all([loadNotes(0), loadRows(0)]).then(flush).catch(fail);
+  }).catch(() => { document.getElementById('deny').hidden = false; });
+</script>
+</body>
+</html>

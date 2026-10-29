@@ -1,5 +1,6 @@
 import { assert, assertEquals, assertMatch } from 'jsr:@std/assert@1'
 import { clean, digestDue, digestText, urgentText } from './lib.ts'
+import { activityPlan, ACT_PAGE } from '../_shared/push.ts'
 
 const T = '2026-10-27T05:12:00Z'   // 14:12 KST
 Deno.test('줄 다듬기 — what 없으면 버림, 길이 제한·공백 정리', () => {
@@ -30,4 +31,15 @@ Deno.test('묶을 때 — 가장 오래된 대기 줄이 120분 넘게 기다렸
   assert(!digestDue(null, now))
   assert(!digestDue(new Date(now - 119 * 60e3).toISOString(), now))
   assert(digestDue(new Date(now - 121 * 60e3).toISOString(), now))
+})
+Deno.test('원장님 푸시 — 활성 admin 기기만, 제목 = 첫 줄, 본문 = 나머지, 활동 기록 화면 주소, 슈톡 숫자 안 올림 (202610290001)', () => {
+  const sub = (id: number, user_id: string, mode = 'all') => ({ id, user_id, endpoint: 'e' + id, p256dh: 'p', auth: 'a', mode, fail_count: 0 })
+  const subs = [sub(1, 'boss'), sub(2, 'boss', 'mention'), sub(3, 'teacher'), sub(4, 'old-boss')]
+  const items = activityPlan({ id: 7, kind: '즉시', text: '[시험 범위] 김현지 · 저장 (입력 완료) · 고1 화정 · 26-2-기말\n교과서: 천재수 공통국어2' }, subs, new Set(['boss']))
+  assertEquals(items.map((x) => x.sub.id), [1, 2])
+  assertEquals(items[0].payload, { title: '[시험 범위] 김현지 · 저장 (입력 완료) · 고1 화정 · 26-2-기말', body: '교과서: 천재수 공통국어2', url: ACT_PAGE + '#n7', tag: 'act7', task: false, badge: false })
+  const one = activityPlan({ id: 8, kind: '요약', text: '티쳐스 활동 요약 · 10/27 14:00~15:30 · 4건\n· 출석 출석 3건 (김상우 2, 최예나 1)\n· 수업 기록 1건 (이수경)' }, subs, new Set(['boss']))
+  assertEquals(one[0].payload.body, '출석 출석 3건 (김상우 2, 최예나 1) · 수업 기록 1건 (이수경)')
+  assertEquals(activityPlan({ id: 9, kind: '즉시', text: '한 줄뿐' }, subs, new Set(['boss']))[0].payload.body, '한 줄뿐')
+  assertEquals(activityPlan({ id: 9, kind: '즉시', text: 'x' }, subs, new Set()).length, 0)
 })

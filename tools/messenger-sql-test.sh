@@ -466,6 +466,53 @@ ok "$(as $B "select public.activity_say('x', null)" | grep -c 'permission denied
 ok "$(svc "select public.activity_say('  ', null)" | grep -c empty)" 1 "빈 글 거절"
 ok "$(as $B "select count(*) from public.msg_messages where id=$AM")" 1 "활성 교사는 활동 알림 글을 읽을 수 있다(슈톡 대화에 보임)"
 
+echo "── 활동 알림을 슈톡 밖으로 — 원장님만 (202610290001)"
+P -f supabase/migrations/202610290001_activity_private.sql >/dev/null || { echo "활동 알림 분리 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610290001_activity_private.sql >/dev/null && ok y y "활동 알림 분리 마이그레이션 다시 실행해도 오류 없음"
+ok "$(P -tAc "select string_agg(column_name, ',') from information_schema.columns where table_schema='public' and table_name='activity_log' and column_name in ('message_id','notice_id')")" "notice_id" "message_id → notice_id"
+ok "$(as $B "select count(*) from public.activity_log")" 0 "선생님은 활동 기록 0줄(원장님만)"
+ok "$(as $A "select what||'|'||author from public.activity_log")" "시험 범위|김현지" "원장님은 활동 기록을 읽음"
+ok "$(anon "select count(*) from public.activity_log" | grep -c 'permission denied')" 1 "공개 키는 여전히 못 읽음"
+ok "$(as $B "select public.activity_say('x', null)" | grep -c 'does not exist')" 1 "activity_say(슈톡 글)는 없어짐"
+AN=$(svc "insert into public.activity_notices (kind, text) values ('즉시', '[시험 범위] 김현지 · 저장') returning id")
+ok "$(echo $AN | grep -c '^[0-9]')" 1 "service_role 은 알림 글을 넣음"
+ok "$(as $A "select kind||'|'||text||'|'||coalesce(pushed_at::text,'-') from public.activity_notices where id=$AN")" "즉시|[시험 범위] 김현지 · 저장|-" "원장님은 알림 글을 읽음(아직 안 보냄)"
+ok "$(as $B "select count(*) from public.activity_notices")" 0 "선생님은 알림 글 0줄"
+ok "$(anon "select count(*) from public.activity_notices" | grep -c 'permission denied')" 1 "공개 키는 알림 글을 못 읽음"
+ok "$(as $A "insert into public.activity_notices (text) values ('x')" | grep -c 'permission denied')" 1 "원장님도 직접 못 넣음(함수만)"
+ok "$(svc "insert into public.activity_notices (kind, text) values ('기타', 'x')" | grep -c 'check')" 1 "종류는 즉시·요약만"
+ok "$(as $A "select count(*) from public.msg_messages where bot->>'kind'='activity'")" 1 "그전에 올라간 슈톡 활동 알림 글은 그대로(기록)"
+
+echo "── 메시지 수정 (202610290002)"
+P -f supabase/migrations/202610290002_messenger_edit.sql >/dev/null || { echo "메시지 수정 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610290002_messenger_edit.sql >/dev/null && ok y y "메시지 수정 마이그레이션 다시 실행해도 오류 없음"
+EM=$(as $B "select (public.msg_send('[결석] 중3 김민준 결석입니다 @고희주 조교', '[]', array['$C']::uuid[])->'message'->>'id')")
+ET=$(as $B "select id from public.msg_tasks where message_id=$EM")
+ok "$(as $C "select public.msg_edit($EM, '남이 고침')" | grep -c not_allowed)" 1 "남의 글은 못 고침"
+ok "$(as $A "select public.msg_edit($EM, '관리자가 고침')" | grep -c not_allowed)" 1 "관리자도 남의 글은 못 고침"
+ok "$(as $E "select public.msg_edit($EM, 'x')" | grep -c not_teacher)" 1 "계정 없는 로그인은 못 고침"
+ok "$(anon "select public.msg_edit($EM, 'x')" | grep -c 'permission denied')" 1 "공개 키는 함수 실행 불가"
+ok "$(as $B "select public.msg_edit($EM, '   ')" | grep -c empty)" 1 "빈 글로는 못 고침"
+ok "$(as $B "select public.msg_edit($EM, repeat('가', 4001))" | grep -c too_long)" 1 "4,000자 넘으면 거절"
+ok "$(as $B "select public.msg_edit(999999, 'x')" | grep -c not_found)" 1 "없는 메시지"
+ok "$(as $B "select (public.msg_edit($EM, '[결석] 중3 김민준 결석입니다 @고희주 조교')->'message'->>'edited_at') is null")" "t" "바뀐 게 없으면 edited_at 그대로"
+ER=$(as $B "select public.msg_edit($EM, '[결석] 중3 김민준 내일 결석입니다 @고희주 조교')")
+ok "$(echo "$ER" | python3 -c "import sys,json;d=json.load(sys.stdin);print(d['message']['body'],d['message']['edited_at'] is not None,d['message']['deleted_at'],d['message']['author_name'],d['tasks'][0]['text'],sep='|')")" "[결석] 중3 김민준 내일 결석입니다 @고희주 조교|True|None|이은지|[결석] 중3 김민준 내일 결석입니다" "글·edited_at 바뀜 · 작성자 그대로 · 대기 중 할 일 글도 새 글에 맞춤(@이름·조교 뺌)"
+ok "$(as $C "select text||'|'||status||'|'||(updated_at > created_at) from public.msg_tasks where id=$ET")" "[결석] 중3 김민준 내일 결석입니다|대기|true" "할 일 줄 글·updated_at 갱신(화면 폴링이 받음)"
+ok "$(as $B "select updated_at = edited_at from public.msg_messages where id=$EM")" "t" "updated_at 도 바뀜(다른 화면 폴링)"
+as $C "select public.msg_task_set($ET, true)" >/dev/null
+as $B "select public.msg_edit($EM, '[결석] 중3 김민준 모레 결석입니다 @고희주 조교')" >/dev/null
+ok "$(as $C "select text from public.msg_tasks where id=$ET")" "[결석] 중3 김민준 내일 결석입니다" "끝난(완료) 할 일 글은 그대로"
+ok "$(as $B "select public.msg_edit($EM, '@고희주')->'tasks'->0->>'text'")" "[결석] 중3 김민준 내일 결석입니다" "완료된 할 일은 새 글로 바뀌지 않음(이름만 남은 글도)"
+EF=$(as $B "select (public.msg_send('', '$F', array['$C']::uuid[])->'message'->>'id')")
+ok "$(as $B "select (public.msg_edit($EF, '')->'message'->>'body')||'|'||(public.msg_edit($EF, '')->'message'->'files'->0->>'name')")" "|시험지.pdf" "파일만 있는 글은 빈 글로 고쳐도 되고 파일은 그대로"
+ok "$(as $B "select public.msg_edit($EF, '파일 봐 주세요 @고희주')->'tasks'->0->>'text'")" "파일 봐 주세요" "파일 글의 할 일도 새 글로"
+ok "$(as $B "select public.msg_edit($EF, '@고희주')->'tasks'->0->>'text'")" "파일 확인" "이름만 남으면 '파일 확인'"
+as $B "select public.msg_delete($EM)" >/dev/null
+ok "$(as $B "select public.msg_edit($EM, 'x')" | grep -c msg_deleted)" 1 "지운 글은 못 고침"
+ok "$(as $A "select public.msg_edit($AM, '활동 알림 고침')" | grep -c not_allowed)" 1 "작성자 없는 글(활동 알림·클로슈)은 못 고침"
+ok "$(as $B "update public.msg_messages set body='직접' where id=$EF" | grep -c 'permission denied')" 1 "표에 직접 고치기 불가"
+
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null
 [ $fail -eq 0 ]
