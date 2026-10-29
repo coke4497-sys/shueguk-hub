@@ -1821,17 +1821,20 @@ async function showTask(pg, sel){
     ok(await page.evaluate(() => document.querySelectorAll('#hstabs button').length === 2 && document.querySelector('#hstabs button.on').dataset.hs === 'task' && document.getElementById('hstitle').textContent === '내 업무 기록'), '처음은 업무 기록 탭');
     calls.length = 0;
     await page.click('#hstabs button[data-hs="work"]');
-    await page.waitForFunction(() => document.getElementById('hstitle').textContent === '내 출퇴근 기록' && document.querySelectorAll('#hslist .hsrow').length === 4);
-    const r = await page.evaluate(() => ({ tiles: [...document.querySelectorAll('#hstiles .hstile')].map(t => t.querySelector('b').textContent + ' ' + t.querySelector('span').textContent), line: document.getElementById('hsline').textContent,
-      days: [...document.querySelectorAll('#hslist .hsday')].map(d => d.textContent), rows: [...document.querySelectorAll('#hslist .hsrow')].map(x => [x.className, x.textContent.trim()]),
-      note: document.getElementById('hsnote').textContent, link: !!document.querySelector('#hsnote a[href="worklog.html"]'), more: document.getElementById('hsMore').hidden, moreTxt: document.getElementById('hsMore').textContent }));
+    await page.waitForFunction(() => document.getElementById('hstitle').textContent === '내 출퇴근 기록' && document.querySelectorAll('#hslist .hwr').length === 4);
+    const r = await page.evaluate(() => ({ tiles: [...document.querySelectorAll('#hstiles .hwt')].map(t => t.querySelector('.v').textContent + ' ' + t.querySelector('.lb').textContent), line: document.getElementById('hsline').textContent,
+      days: [...document.querySelectorAll('#hslist .hwday .hd')].map(d => d.textContent.replace(/\s+/g, ' ').trim()), rows: [...document.querySelectorAll('#hslist .hwr')].map(x => [x.className, x.textContent.replace(/\s+/g, ' ').trim(), [...x.querySelectorAll('.g3 .v')].map(v => v.textContent), x.querySelector('.st') ? x.querySelector('.st').textContent : '']),
+      note: document.getElementById('hsnote').textContent, link: !!document.querySelector('#hsnote a[href="worklog.html"]'), more: document.getElementById('hsMore').hidden, moreTxt: document.getElementById('hsMore').textContent,
+      lineCls: document.getElementById('hsline').className, tileCls: [...document.querySelectorAll('#hstiles .hwt')].map(t => t.className), panel: getComputedStyle(document.querySelector('#hsback .ppanel')).maxWidth, seg: document.querySelector('#hstabs button.on').textContent, closeTop: !!document.querySelector('#hsback .wthead #hsClose') }));
     const sameWeek = (() => { const k = new Date(wy + 'T00:00:00Z').getUTCDay(); const wed = dayOf(wy, (k === 1 || k === 2) ? 3 - k : -((k - 3 + 7) % 7)); return yday >= wed; })();
-    ok(/^6시간 25분 이번 주 · 1일$/.test(r.tiles[0]) && /^6시간 25분 이번 달 · 1일$/.test(r.tiles[1]) && /^4시간 지난달 · 1일$/.test(r.tiles[2]), '타일 — 이번 주·이번 달 6시간 25분(퇴근 없는 어제는 0) · 지난달 4시간 ' + JSON.stringify(r.tiles) + (sameWeek ? '' : ' (어제는 지난 주)'));
-    ok(/퇴근을 누르지 않은 날이 1일/.test(r.line), '한 줄 — 퇴근 안 누른 날 1일 안내');
-    ok(r.days.length === 3 && /· 오늘 · 6시간 25분$/.test(r.days[0]) && /0분$/.test(r.days[1]) && /4시간$/.test(r.days[2]), '날짜별 묶음 — 오늘(6시간 25분) → 어제(0분) → 지난달 ' + JSON.stringify(r.days));
-    ok(/화정센터오후 6:00 → 오후 10:05 · 4시간 5분/.test(r.rows[0][1].replace(/\s+/g, '')) || /화정센터.*오후 6:00 → 오후 10:05.*4시간 5분/.test(r.rows[0][1]), '오늘 첫 줄 — 화정센터 오후 6:00 → 오후 10:05 · 4시간 5분 ' + r.rows[0][1]);
-    ok(/본원.*오후 3:40 → 오후 6:00 \(센터 옮김\).*2시간 20분/.test(r.rows[1][1]), '오늘 둘째 줄 — 본원 → 센터 옮김 2시간 20분 ' + r.rows[1][1]);
-    ok(/hsrow x/.test(r.rows[2][0]) && /본원.*오후 4:00 → 퇴근 기록 없음/.test(r.rows[2][1]) && !/시간/.test(r.rows[2][1].replace(/오후 4:00/, '')), '어제 — 퇴근 기록 없음(시간 없음) ' + r.rows[2][1]);
+    ok(r.tiles.length === 3 && /^6시간 25분 이번 주 · 1일$/.test(r.tiles[0]) && /^6시간 25분 이번 달 · 1일$/.test(r.tiles[1]) && /^4시간 지난달 · 1일$/.test(r.tiles[2]), '타일 — 이번 주·이번 달 6시간 25분(퇴근 없는 어제는 0) · 지난달 4시간 ' + JSON.stringify(r.tiles) + (sameWeek ? '' : ' (어제는 지난 주)'));
+    ok(r.panel === '516px' && r.closeTop && r.seg === '출퇴근 기록' && r.tileCls[0] === 'hwt main' && r.tileCls[1] === 'hwt' && /hwst miss/.test(r.lineCls), '디자인 1a — 폭 516·머리 원형 닫기·세그먼트 탭·이번 주 강조 카드·누락 상태 문구(분홍) ' + JSON.stringify([r.panel, r.tileCls, r.lineCls]));
+    const ydMd = parseInt(yday.slice(5, 7), 10) + '/' + parseInt(yday.slice(8, 10), 10);
+    ok(r.line.includes('퇴근을 누르지 않은 날이 1일 있어요 (' + ydMd + ')') && /합계에 들어가지 않습니다/.test(r.line), '상태 문구 — 퇴근 안 누른 날 1일 + 날짜 ' + r.line);
+    ok(r.days.length === 3 && /오늘.*6시간 25분$/.test(r.days[0]) && /퇴근 기록 없음$/.test(r.days[1]) && !/오늘/.test(r.days[1]) && /4시간$/.test(r.days[2]), '날짜별 묶음 — 오늘(6시간 25분) → 어제(퇴근 기록 없음) → 지난달(4시간) ' + JSON.stringify(r.days));
+    ok(r.rows[0][0] === 'hwr' && /화정센터/.test(r.rows[0][1]) && r.rows[0][2].join('|') === '오후 6:00|오후 10:05|4시간 5분' && r.rows[0][3] === '', '오늘 첫 줄 — 화정센터 · 출근 오후 6:00 / 퇴근 오후 10:05 / 근무 4시간 5분 ' + JSON.stringify(r.rows[0]));
+    ok(r.rows[1][0] === 'hwr' && /본원/.test(r.rows[1][1]) && r.rows[1][2].join('|') === '오후 3:40|오후 6:00|2시간 20분' && r.rows[1][3] === '센터 옮김', '오늘 둘째 줄 — 본원 · 센터 옮김 칩 · 2시간 20분 ' + JSON.stringify(r.rows[1]));
+    ok(r.rows[2][0] === 'hwr miss' && r.rows[2][2].join('|') === '오후 4:00|기록 없음|?' && r.rows[2][3] === '퇴근 기록 누락', '어제 — 분홍 줄 · 퇴근 기록 누락 칩 · 퇴근 "기록 없음" · 근무 "?" ' + JSON.stringify(r.rows[2]));
     ok(!JSON.stringify(r.rows).includes('오후 2:00'), '남의 기록(이은지 오후 2:00)은 보이지 않는다');
     ok(/조교 근무 일지/.test(r.note) && r.link && /누른 그대로/.test(r.note), '조교 안내 — 급여용 시간은 근무 일지로(링크) ' + r.note);
     ok(!r.more && r.moreTxt === '지난 달 더 보기', '[지난 달 더 보기] 버튼');
@@ -1841,21 +1844,21 @@ async function showTask(pg, sel){
     await page.click('#hsMore');
     await page.waitForFunction(() => !document.getElementById('hsMore').disabled && document.getElementById('hsMore').textContent === '지난 달 더 보기');
     await page.waitForTimeout(150);
-    ok(calls.filter(c => c[0] === 'plog' && /at=lt\./.test(c[1])).length === 1 && await page.evaluate(() => document.querySelectorAll('#hslist .hsrow').length === 4 && !document.getElementById('hsMore').hidden), '더 보기 — 한 달 앞 구간만 다시 받고(at=lt), 기록 없어 줄 그대로, 버튼은 남음(12달까지)');
+    ok(calls.filter(c => c[0] === 'plog' && /at=lt\./.test(c[1])).length === 1 && await page.evaluate(() => document.querySelectorAll('#hslist .hwr').length === 4 && !document.getElementById('hsMore').hidden), '더 보기 — 한 달 앞 구간만 다시 받고(at=lt), 기록 없어 줄 그대로, 버튼은 남음(12달까지)');
     await page.click('#hstabs button[data-hs="task"]');
     await page.waitForFunction(() => document.getElementById('hstitle').textContent === '내 업무 기록' && document.querySelectorAll('#hslist .hsrow').length === 4 && document.getElementById('hsMore').hidden);
-    ok(await page.evaluate(() => /수업 기록 줄은/.test(document.getElementById('hsnote').textContent) && document.querySelector('#hstabs button.on').dataset.hs === 'task'), '업무 기록 탭으로 돌아오면 안내·목록도 돌아온다');
+    ok(await page.evaluate(() => /수업 기록 줄은/.test(document.getElementById('hsnote').textContent) && document.querySelector('#hstabs button.on').dataset.hs === 'task' && document.getElementById('hstiles').className === 'hstiles' && document.getElementById('hsline').className === 'hsline'), '업무 기록 탭으로 돌아오면 안내·목록·타일 모양도 돌아온다');
     // Codex 검토 — 월·화의 '이번 주'는 다가오는 수요일이 아니라 지난 수요일부터 (weekWed는 수업 주차용)
     ok(await page.evaluate(() => { const f = window.__hsWeekStart; return f('2026-11-02') === '2026-10-28' && f('2026-11-03') === '2026-10-28' && f('2026-11-04') === '2026-11-04' && f('2026-11-08') === '2026-11-04'; }), '월·화의 이번 주 시작은 지난 수요일(11/2·11/3 → 10/28), 수~일은 그 주 수요일');
     // Codex 검토 — [지난 달 더 보기] 응답이 오기 전에 탭을 옮겼다 돌아와도 옛 구간이 새 목록에 섞이지 않는다
     slowPlog = true;
     await page.click('#hstabs button[data-hs="work"]');
-    await page.waitForFunction(() => document.getElementById('hstitle').textContent === '내 출퇴근 기록' && document.querySelectorAll('#hslist .hsrow').length === 4);
+    await page.waitForFunction(() => document.getElementById('hstitle').textContent === '내 출퇴근 기록' && document.querySelectorAll('#hslist .hwr').length === 4);
     await page.click('#hsMore');                       // 느린 응답(0.8초) 시작
     await page.click('#hstabs button[data-hs="task"]');
     await page.click('#hstabs button[data-hs="work"]'); // 돌아오면 첫 조회가 앞 요청에 막히지 않고 다시 돈다
     await page.waitForTimeout(1300);
-    ok(await page.evaluate(() => document.querySelectorAll('#hslist .hsrow').length === 4 && /6시간 25분\s*이번 달/.test(document.querySelectorAll('#hstiles .hstile')[1].textContent) && !document.getElementById('hsMore').disabled), '탭을 옮겼다 돌아와도 최근 기록·합계 그대로, [더 보기] 다시 눌림');
+    ok(await page.evaluate(() => document.querySelectorAll('#hslist .hwr').length === 4 && document.querySelectorAll('#hstiles .hwt')[1].querySelector('.v').textContent === '6시간 25분' && !document.getElementById('hsMore').disabled), '탭을 옮겼다 돌아와도 최근 기록·합계 그대로, [더 보기] 다시 눌림');
     slowPlog = false;
     await page.keyboard.press('Escape');
     await ctx.close();
