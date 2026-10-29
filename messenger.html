@@ -552,7 +552,7 @@
   .ci.actlink .meta{font-size:12.5px;color:var(--cap);}
   .ci.actlink .chev{flex:none;font-size:20px;color:#4a4266;}
   button.ci.actlink{width:100%;font:inherit;text-align:left;border:0;}
-  /* 쪽지 창 (2026-10-29) */
+  /* DM(쪽지) 창 (2026-10-29 — 2026-10-29 원장님 "쪽지->DM", 화면 이름만 DM · 열·함수 이름 note 는 그대로) */
   .ntpanel{max-width:480px;}
   .ntq{display:flex;gap:6px;flex-wrap:wrap;}
   .ntq button{border:0;border-radius:999px;background:var(--soft);color:var(--ink2);font-size:12.5px;padding:5px 11px;font-family:inherit;}
@@ -563,6 +563,11 @@
   .ntcnt{font-size:13px;color:var(--ink2);min-height:1.2em;}
   .ntpanel textarea{width:100%;min-height:92px;border:0;border-radius:12px;background:var(--soft);padding:10px 12px;font:inherit;font-size:14.5px;resize:vertical;box-sizing:border-box;}
   .ntpanel textarea:focus{outline:2px solid var(--lavBar);}
+  .ntpend{display:flex;flex-wrap:wrap;gap:6px;}
+  .ntpend:empty{display:none;}
+  .ntpanel.drop{outline:2px dashed var(--lavBar);outline-offset:-6px;}
+  .ci .files{margin:6px 0 2px;}
+  .hsrow .files{margin:4px 0 2px;}
   /* 내 업무 기록 창 (2026-10-29) */
   .hspanel{max-width:560px;}
   .hstiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
@@ -1033,7 +1038,7 @@
         <div id="pend"></div>
         <div class="tags" id="tags" role="group" aria-label="꼬리표"></div>
         <div class="ahint" id="ahint" hidden></div>
-        <div class="wrow"><button type="button" id="noteBtn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>쪽지 보내기</button><button type="button" id="waitBtn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>대기생 등록</button></div>
+        <div class="wrow"><button type="button" id="noteBtn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>DM 보내기</button><button type="button" id="waitBtn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>대기생 등록</button></div>
         <div class="crow">
           <span class="ctag" id="ctag" hidden></span>
           <textarea id="inp" rows="1" aria-label="메시지 쓰기" placeholder="메시지 쓰기 · @이름을 넣으면 그 사람 할 일로 올라가요"></textarea>
@@ -1147,13 +1152,14 @@
 <!-- 쪽지 보내기(2026-10-29 원장님) — 받는 사람의 업무 진행 상황에 쌓이고 [확인]으로 끝난다. 대화에는 남지 않는다 -->
 <div class="pback" id="ntback" hidden>
   <div class="ppanel ntpanel" role="dialog" aria-modal="true" aria-labelledby="nttitle">
-    <span class="btitle" id="nttitle">쪽지 보내기</span>
-    <p class="pnote">받는 사람의 업무 진행 상황에 쪽지가 올라갑니다. 대화에는 남지 않고, 받은 사람이 [확인]을 누르면 끝나요. 여러 명을 골라도 됩니다.</p>
+    <span class="btitle" id="nttitle">DM 보내기</span>
+    <p class="pnote">받는 사람의 업무 진행 상황에 DM이 올라갑니다. 대화에는 남지 않고, 받은 사람이 [확인]을 누르면 끝나요. 여러 명을 골라도 됩니다. 캡처한 그림은 Ctrl+V로 붙여 넣으면 함께 갑니다.</p>
     <div class="ntq" id="ntq" role="group" aria-label="빠른 고르기"><button type="button" data-q="all">모두</button><button type="button" data-q="tch">선생님 모두</button><button type="button" data-q="ast">조교 모두</button><button type="button" data-q="none">비우기</button></div>
     <div id="ntchips"></div>
     <div class="ntcnt" id="ntcnt" aria-live="polite"></div>
-    <textarea id="ntText" maxlength="300" placeholder="쪽지 내용 — 예: 내일 3시 회의실 예약 부탁드립니다" aria-label="쪽지 내용"></textarea>
-    <div class="prow"><button class="hbtn big" type="button" id="ntSend">쪽지 보내기</button><button class="hbtn big plain" type="button" id="ntClose">닫기</button></div>
+    <textarea id="ntText" maxlength="300" placeholder="DM 내용 — 예: 내일 3시 회의실 예약 부탁드립니다" aria-label="DM 내용"></textarea>
+    <div class="ntpend" id="ntPend"></div>
+    <div class="prow"><button class="hbtn big" type="button" id="ntSend">DM 보내기</button><button class="hbtn big plain" type="button" id="ntAttach">파일 첨부</button><input type="file" id="ntFile" multiple hidden><button class="hbtn big plain" type="button" id="ntClose">닫기</button></div>
     <p class="pnote" id="ntStatus" aria-live="polite"></p>
   </div>
 </div>
@@ -1164,7 +1170,7 @@
     <div class="hstiles" id="hstiles"></div>
     <p class="hsline" id="hsline"></p>
     <div id="hslist"></div>
-    <p class="pnote">슈톡에서 맡은 일·쪽지·직접 추가한 업무가 쌓입니다. 수업 기록 줄은 학습 관리 → 수업 기록 보기에서 봐요.</p>
+    <p class="pnote">슈톡에서 맡은 일·DM·직접 추가한 업무가 쌓입니다. 수업 기록 줄은 학습 관리 → 수업 기록 보기에서 봐요.</p>
     <div class="prow"><button class="hbtn plain" type="button" id="hsMore" hidden>지난 기록 더 보기</button><button class="hbtn plain" type="button" id="hsClose">닫기</button></div>
   </div>
 </div>
@@ -2560,9 +2566,9 @@
     return now - c > LATE_MS ? '<span class="age">' + Math.floor((now - c) / 3600e3) + '시간 지남</span>' : '';
   }
   // 대화로 가는 단추 — 내가 직접 추가한 업무(202610250002)는 메시지가 없어 가지 않는다
-  function goAttr(t){ return t.message_id ? ' data-go="' + t.message_id + '" title="누르면 대화에서 이 메시지로"' : t.note ? ' title="쪽지"' : ' title="내가 직접 추가한 업무"'; }
+  function goAttr(t){ return t.message_id ? ' data-go="' + t.message_id + '" title="누르면 대화에서 이 메시지로"' : t.note ? ' title="DM"' : ' title="내가 직접 추가한 업무"'; }
   // 쪽지(202610290003)는 '쪽지 · 보낸 사람'으로 — 카드·기록 창 공용
-  function byHtml(t){ return t.self_added ? '<span class="selfm">직접 추가</span>' : (t.note ? '<span class="notem">쪽지</span> ' : '') + esc(t.requester_name); }
+  function byHtml(t){ return t.self_added ? '<span class="selfm">직접 추가</span>' : (t.note ? '<span class="notem">DM</span> ' : '') + esc(t.requester_name); }
   function taskHtml(t, p){
     var sp = splitTask(tagSplit(t.text).rest), has = sp.steps.length || sp.urls.length, open = has && openTask[t.id];
     var tag = tagPill(tagSplit(t.text).tag), seen = !!t.seen_at;
@@ -2572,7 +2578,7 @@
       : '<button class="ctx" type="button"' + goAttr(t) + '>' + tag + esc(sp.title || '메시지 확인') + '</button>';
     var ack = t.assignee === ME.id && !seen && 'seen_at' in t ? '<button class="ack sm" type="button" data-ack="' + t.id + '">확인</button>' : '';
     return '<div class="ci' + (open ? ' open' : '') + '"><button class="bx" type="button" data-tk="' + t.id + '" aria-label="완료로 표시"' + (canCheck(t) ? '' : ' disabled title="맡은 사람·맡긴 사람만 체크할 수 있어요"') + '></button>'
-      + '<div class="cbody"><div class="ttl">' + title + '</div>' + (open ? detailHtml(sp, t) : '')
+      + '<div class="cbody"><div class="ttl">' + title + '</div>' + (open ? detailHtml(sp, t) : '') + filesHtml(t.files)
       + '<div class="meta">' + byHtml(t) + ' · ' + hm(t.created_at) + ageHtml(t) + (seen ? '<span class="seen">✓ 확인함</span>' : '') + (isProg(t) ? '<span class="pg">진행 중</span>' : '') + dueHtml + histHtml(t) + '</div></div>'
       + '<div class="cact">' + ack + (canManage(t) ? '<button class="cxb" type="button" data-cx="' + t.id + '" aria-label="관리" title="완료 · 진행 중 · 미루기 · 넘기기 · 취소">' + DOTS + '</button>' : '') + '</div></div>';
   }
@@ -2582,7 +2588,7 @@
       + '<div class="cbody"><div class="ttl"><button class="ctx" type="button"' + goAttr(t) + '>' + tag + esc(sp.title) + '</button></div><div class="meta">' + byHtml(t) + ' · 취소 ' + hm(t.done_at) + (t.done_by_name ? ' (' + esc(t.done_by_name) + ')' : '') + '<span class="why">사유: ' + esc(t.cancel_reason || '') + '</span>' + histHtml(t) + '</div></div>'
       + '<div class="cact">' + (canCancel(t) && (!t.message_id || msgAlive(t.message_id)) ? '<button class="cxb txt" type="button" data-uncx="' + t.id + '" title="취소를 풀고 다시 할 일로">되돌리기</button>' : '') + '</div></div>';
     return '<div class="ci d"><button class="bx on" type="button" data-tk="' + t.id + '" data-done="1" aria-label="완료 취소"' + (canCheck(t) ? '' : ' disabled') + '>' + CHECK + '</button>'
-      + '<div class="cbody"><div class="ttl"><button class="ctx" type="button"' + goAttr(t) + '>' + tag + esc(sp.title) + '</button></div><div class="meta">' + byHtml(t) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</div></div></div>';
+      + '<div class="cbody"><div class="ttl"><button class="ctx" type="button"' + goAttr(t) + '>' + tag + esc(sp.title) + '</button></div>' + filesHtml(t.files) + '<div class="meta">' + byHtml(t) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</div></div></div>';
   }
   function renderBoard(){
     var map = people(), list = Object.keys(map).map(function(k){ return map[k]; });
@@ -2618,7 +2624,7 @@
       if (!tot) items += '<div class="none">오늘 배정된 업무가 없어요.</div>';
       if (p.key === ME.id) items += histLinkHtml();   // 내 업무 목록 맨 아래 [내 업무 기록] (2026-10-29 원장님 — 본인 것만)
       if (p.key === ME.id && ME.role === 'admin') items += actLinkHtml();   // 원장님 업무 목록 맨 아래 [티쳐스 활동 기록] (2026-10-29 원장님 — 원장님에게만)
-      var noteBtn = p.key !== ME.id && MBY[p.key] ? '<button class="ntto" type="button" data-note="' + esc(p.key) + '" title="이 사람에게 쪽지 보내기">쪽지</button>' : '';
+      var noteBtn = p.key !== ME.id && MBY[p.key] ? '<button class="ntto" type="button" data-note="' + esc(p.key) + '" title="이 사람에게 DM 보내기">DM</button>' : '';
       return '<section class="pc' + (sel ? ' sel' : '') + (p.on ? '' : ' offd') + '" data-person="' + esc(p.key) + '"' + (p.on ? '' : ' title="출근 전 · 내용은 볼 수 있어요"') + '><div class="ph1"><span class="pn">' + esc(p.name) + '</span><span class="prl">' + (p.key === ME.id ? '나 · ' : '') + esc(p.role ? roleLabel(p.role) : '') + '</span>' + noteBtn
         + '<span class="pcnt' + (full ? ' full' : '') + '">' + p.fin + ' / ' + tot + (full ? ' 완료' : '') + '</span>' + psubHtml(p) + '</div>'
         + items + '</section>';
@@ -2631,6 +2637,7 @@
     if (saHost){ saHost.parentNode.insertBefore(SA, saHost.nextSibling); if (saFocus){ saIn.focus(); try { saIn.setSelectionRange(saPos, saPos); } catch (e){} } }
     else if (SA.parentNode) SA.parentNode.removeChild(SA);
     if (Object.keys(qWant).length) fillQuotes();   // 취소 줄의 원문(지웠는지)을 받아 온다
+    loadThumbs();   // DM 첨부 그림(202610290004)
   }
   // 내 업무 직접 추가(2026-10-25 원장님 "본인의 업무를 스스로 추가") — 대화에 글을 남기지 않고 내 카드에만. 202610250002
   // 폼은 한 번 만들어 두고 다시 그릴 때마다 내 구역으로 옮긴다(3초 폴링으로 다시 그려도 쓰던 글이 사라지지 않게)
@@ -2663,7 +2670,7 @@
   // ── 쪽지 보내기 (2026-10-29 원장님 "개인에게, 또는 복수 선택한 인원에게 쪽지를 보내고 받은 쪽지는 업무 진행 상황 리스트에 쌓이고 거기에서 확인 처리", 202610290003) ──
   // 쪽지 = 대화에 남지 않는 메시지 없는 할 일 — 받는 사람마다 한 줄, 확인만 하면 끝(ack_only). 받는 사람 휴대폰 알림은 넘김 알림과 같은 길(hand).
   // 입구 둘: 입력 상자 위 [쪽지 보내기](받는 사람을 창에서 고름) · 업무 진행 상황의 사람 머리 [쪽지](그 사람이 미리 골라짐).
-  var NT = { sel: {}, busy: false, inited: false };
+  var NT = { sel: {}, files: [], busy: false, inited: false };
   function ntPeople(){
     return MEMBERS.filter(function(m){ return m.id !== ME.id; }).sort(function(a, b){ return isTeacherRole(b.role) - isTeacherRole(a.role) || a.name.localeCompare(b.name, 'ko'); });
   }
@@ -2680,9 +2687,23 @@
       $('ntchips').addEventListener('click', function(e){ var b = e.target.closest('button[data-nt]'); if (!b) return; var id = b.getAttribute('data-nt'); if (NT.sel[id]) delete NT.sel[id]; else NT.sel[id] = 1; ntRender(); });
       $('ntSend').onclick = ntSend; $('ntClose').onclick = ntClose;
       $('ntback').addEventListener('click', function(e){ if (e.target === $('ntback')) ntClose(); });
+      // 파일 첨부 · 캡처 붙여넣기 · 끌어 놓기(202610290004) — 메시지 입력 상자와 같은 규칙(20MB·10개, 캡처 이름)
+      $('ntAttach').onclick = function(){ $('ntFile').click(); };
+      $('ntFile').onchange = function(){ ntAddFiles(this.files); this.value = ''; };
+      $('ntPend').addEventListener('click', function(e){ var b = e.target.closest('[data-ntrm]'); if (b){ NT.files.splice(Number(b.dataset.ntrm), 1); ntDrawPending(); } });
+      document.addEventListener('paste', function(e){
+        if ($('ntback').hidden || NT.busy) return;
+        var fs = clipFiles(e); if (!fs.length) return;   // 글만 붙여 넣으면 그대로
+        e.preventDefault(); ntAddFiles(fs, true);
+      });
+      var pan = document.querySelector('#ntback .ntpanel');
+      ['dragenter', 'dragover'].forEach(function(k){ pan.addEventListener(k, function(e){ if (e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') >= 0){ e.preventDefault(); pan.classList.add('drop'); } }); });
+      pan.addEventListener('dragleave', function(e){ if (!pan.contains(e.relatedTarget)) pan.classList.remove('drop'); });
+      pan.addEventListener('drop', function(e){ pan.classList.remove('drop'); if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){ e.preventDefault(); ntAddFiles(e.dataTransfer.files); } });
       document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('ntback').hidden) ntClose(); });
     }
     NT.sel = {}; (ids || []).forEach(function(id){ if (MBY[id] && id !== ME.id) NT.sel[id] = 1; });
+    NT.files = []; ntDrawPending();
     $('ntStatus').textContent = ''; ntRender();
     $('ntback').hidden = false;
     if (ids && ids.length) $('ntText').focus();
@@ -2699,22 +2720,47 @@
     $('ntcnt').textContent = names.length ? '받는 사람 ' + names.length + '명 · ' + names.join(', ') : '받는 사람을 골라 주십시오.';
     $('ntSend').disabled = !names.length || NT.busy;
   }
+  function ntAddFiles(list, pasted){
+    var skipped = [], n = 0;
+    Array.prototype.forEach.call(list, function(f, i){
+      if (pasted && /^image\//.test(f.type || '') && (!f.name || /^image\.\w+$/i.test(f.name))){ try { f = new File([f], pasteName(f, i), { type: f.type }); } catch(e){} }
+      if (!f.size || f.size > MAX_FILE) skipped.push(f.name || '이름 없는 파일');
+      else if (NT.files.length < MAX_FILES){ NT.files.push(f); n++; }
+      else skipped.push(f.name);
+    });
+    $('ntStatus').textContent = skipped.length ? '20MB가 넘거나 빈 파일, 10개를 넘는 파일은 뺐습니다: ' + skipped.join(', ') : (pasted && n ? '그림을 붙였습니다. [DM 보내기]를 누르면 함께 갑니다.' : '');
+    ntDrawPending(); return n;
+  }
+  var ntUrls = [];
+  function ntDrawPending(){
+    ntUrls.forEach(function(u){ URL.revokeObjectURL(u); }); ntUrls = [];
+    $('ntPend').innerHTML = NT.files.map(function(f, i){
+      var img = '';
+      if (/^image\//.test(f.type || '')){ var u = URL.createObjectURL(f); ntUrls.push(u); img = '<img src="' + u + '" alt="">'; }
+      return '<span class="pf' + (img ? ' pimg' : '') + '">' + img + esc(f.name) + ' · ' + size(f.size) + '<button type="button" data-ntrm="' + i + '" aria-label="' + esc(f.name) + ' 빼기">×</button></span>';
+    }).join('');
+  }
   function handPush(id){ fn({ action: 'hand', task_id: id }, true).catch(function(){ setTimeout(function(){ fn({ action: 'hand', task_id: id }, true).catch(function(){}); }, 5000); }); }
   function ntSend(){
     if (NT.busy) return;
     var ids = ntPeople().filter(function(m){ return NT.sel[m.id]; }).map(function(m){ return m.id; }), txt = $('ntText').value.trim();
     if (!ids.length){ $('ntStatus').textContent = '받는 사람을 골라 주십시오.'; return; }
-    if (!txt){ $('ntStatus').textContent = '쪽지 내용을 적어 주십시오.'; $('ntText').focus(); return; }
-    NT.busy = true; $('ntSend').disabled = true; $('ntStatus').textContent = '보내는 중…';
-    rpc('msg_note_send', { p_to: ids, p_text: txt }).then(function(rows){
+    if (!txt && !NT.files.length){ $('ntStatus').textContent = 'DM 내용을 적어 주십시오.'; $('ntText').focus(); return; }
+    NT.busy = true; $('ntSend').disabled = true;
+    var files = NT.files.slice(), up = [];
+    $('ntStatus').textContent = files.length ? '파일을 올리는 중…' : '보내는 중…';
+    files.reduce(function(p, f){ return p.then(function(){ return upload(f).then(function(x){ up.push(x); }); }); }, Promise.resolve())
+    .then(function(){ var a = { p_to: ids, p_text: txt }; if (up.length) a.p_files = up; return rpc('msg_note_send', a); })   // 파일이 없으면 p_files 를 안 보낸다(202610290004 전 두 인자 함수도 됨)
+    .then(function(rows){
       rows = rows || [];
       addTasks(rows); renderBoard();
-      $('ntText').value = ''; NT.sel = {}; ntClose();
-      status(rows.length + '명에게 쪽지를 보냈습니다. 받는 사람의 업무 진행 상황에 올라갔어요.', 5000);
+      $('ntText').value = ''; NT.sel = {}; NT.files = []; ntDrawPending(); ntClose();
+      status(rows.length + '명에게 DM을 보냈습니다. 받는 사람의 업무 진행 상황에 올라갔어요.', 5000);
       rows.forEach(function(t){ if (t.hand_push) handPush(t.id); });   // 받는 사람 휴대폰 알림 — 서버가 한 번만 보낸다(실패하면 5초 뒤 한 번 더)
     }).catch(function(err){
+      if (up.length) fetch(STO + '/object/' + BUCKET, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ prefixes: up.map(function(x){ return x.path; }) }) }).catch(function(){});
       var raw = String(err && err.message) + JSON.stringify((err && err.data) || '');
-      $('ntStatus').textContent = /PGRST202|msg_note_send/.test(raw) ? '쪽지 기능은 데이터베이스 적용(202610290003) 뒤에 쓸 수 있습니다.' : /no_recipient/.test(raw) ? '받을 수 있는 사람이 없습니다(본인·비활성 계정은 뺍니다).' : /too_long/.test(raw) ? '300자까지 적을 수 있어요.' : errText(err);
+      $('ntStatus').textContent = /upload/.test(String(err && err.message)) ? '파일을 올리지 못했습니다. 다시 보내 주세요.' : /PGRST202|msg_note_send/.test(raw) ? (up.length ? 'DM 파일 첨부는 데이터베이스 적용(202610290004) 뒤에 쓸 수 있습니다.' : 'DM 기능은 데이터베이스 적용(202610290003) 뒤에 쓸 수 있습니다.') : /no_recipient/.test(raw) ? '받을 수 있는 사람이 없습니다(본인·비활성 계정은 뺍니다).' : /too_long/.test(raw) ? '300자까지 적을 수 있어요.' : errText(err);
     }).then(function(){ NT.busy = false; ntRender(); });
   }
 
@@ -2732,7 +2778,11 @@
       $('hsClose').onclick = hsClose; $('hsMore').onclick = function(){ hsLoad(true); };
       $('hsback').addEventListener('click', function(e){ if (e.target === $('hsback')) hsClose(); });
       document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('hsback').hidden) hsClose(); });
-      $('hslist').addEventListener('click', function(e){ var b = e.target.closest('button[data-go]'); if (!b) return; hsClose(); goTo(Number(b.dataset.go)); });
+      $('hslist').addEventListener('click', function(e){
+        var b = e.target.closest('button'); if (!b) return;
+        if (b.dataset.file){ if (b.classList.contains('thumb')) openLightbox(b.dataset.file, b.dataset.name); else download(b.dataset.file, b.dataset.name); return; }
+        if (b.dataset.go){ hsClose(); goTo(Number(b.dataset.go)); }
+      });
     }
     HS.rows = []; $('hstiles').innerHTML = ''; $('hsline').textContent = ''; $('hsMore').hidden = true;
     $('hslist').innerHTML = '<p class="hsempty">불러오는 중…</p>';
@@ -2772,7 +2822,7 @@
     // 여러 줄 글·링크는 펼친 채로 — 쪽지는 메시지가 없어 다음 날엔 여기서만 다시 읽을 수 있다 (Codex 검토)
     var body = sp.steps.length ? stepsHtml(sp) : '';
     if (sp.urls.length) body += '<div class="links">' + sp.urls.map(function(u){ return '<a class="lk" href="' + esc(u) + '" target="_blank" rel="noopener" title="' + esc(u) + '"><span aria-hidden="true">↗</span> ' + esc(shortUrl(u)) + '</a>'; }).join('') + '</div>';
-    return '<div class="hsrow' + (cx ? ' x' : '') + '"><span class="hbx' + (cx ? ' x' : '') + '" aria-hidden="true">' + (cx ? '×' : CHECK) + '</span><div class="hb"><div>' + tag + esc(sp.title || '메시지 확인') + '</div>' + (body ? '<div class="det hdet">' + body + '</div>' : '') + '<div class="hmeta">' + meta + '</div></div></div>';
+    return '<div class="hsrow' + (cx ? ' x' : '') + '"><span class="hbx' + (cx ? ' x' : '') + '" aria-hidden="true">' + (cx ? '×' : CHECK) + '</span><div class="hb"><div>' + tag + esc(sp.title || '메시지 확인') + '</div>' + (body ? '<div class="det hdet">' + body + '</div>' : '') + filesHtml(t.files) + '<div class="hmeta">' + meta + '</div></div></div>';
   }
   function hsRender(){
     var rows = HS.rows.slice().sort(function(a, b){ return Date.parse(b.done_at) - Date.parse(a.done_at); });
@@ -2785,6 +2835,7 @@
       return '<div class="hsday">' + (parseInt(d.slice(5, 7), 10)) + '/' + parseInt(d.slice(8, 10), 10) + ' (' + '일월화수목금토'[k] + ')' + (d === today ? ' · 오늘' : '') + ' · 완료 ' + fin + (cx ? ' · 취소 ' + cx : '') + '</div>' + list.map(hsRowHtml).join('');
     }).join('');
     $('hsMore').hidden = !HS.more;
+    loadThumbs();
   }
   // 고른 사람 머리 아래 한 줄 — '{센터} · {출근 시각 · 근무 중 / 출근 전 / 퇴근}' (2026-10-21 리디자인)
   function psubHtml(p){
@@ -2815,6 +2866,7 @@
     if (b.dataset.uncx){ cxUndo(Number(b.dataset.uncx), b); return; }
     if (b.dataset.note){ ntOpen([b.dataset.note]); return; }
     if (b.dataset.hist){ hsOpen(); return; }
+    if (b.dataset.file){ if (b.classList.contains('thumb')) openLightbox(b.dataset.file, b.dataset.name); else download(b.dataset.file, b.dataset.name); return; }   // DM 첨부
     if (b.dataset.go) goTo(Number(b.dataset.go));
   });
   // ── 할 일 취소 + 사유 (2026-10-20 원장님 "상황이 변경되어 그 업무를 진행하지 않아도 된다면 삭제 사유기록") ──
