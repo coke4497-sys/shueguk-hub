@@ -2731,7 +2731,7 @@
 
   // ── 내 업무 기록 (2026-10-29 원장님 "본인의 이전 업무 진행 상황을 확인할 수 있으면 — 내가 이런 일처리를 했구나 하면서 뿌듯") ──
   // 내 구역 맨 아래 [내 업무 기록] → 창: 이번 주(수요일부터)·이번 달·전체 완료 수 + 내가 끝낸 일(완료·취소)을 날짜별로. 내 것만(assignee = 나). 표 변경 없음.
-  var HS_PAGE = 100, HS = { rows: [], inited: false, busy: false, mode: 'task' };
+  var HS_PAGE = 100, HS = { rows: [], inited: false, busy: false, mode: 'task', gen: 0 };   // gen = 탭을 바꿀 때마다 +1, 늦게 온 응답은 버린다
   function histLinkHtml(){
     return '<button class="ci actlink hist" type="button" data-hist="1" id="histLink"><span class="abx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M8 3.5 5 6M16 3.5 19 6"/></svg></span>'
       + '<span class="cbody"><span class="ttl">내 업무 기록</span><span class="meta">지금까지 내가 끝낸 일 · 내 출퇴근 기록</span></span><span class="chev">›</span></button>';
@@ -2752,7 +2752,7 @@
   // 탭 바꾸기 — 타일·줄·안내·[더 보기]를 그 탭 것으로 비우고 다시 받는다
   var HS_NOTE_TASK = '슈톡에서 맡은 일·쪽지·직접 추가한 업무가 쌓입니다. 수업 기록 줄은 학습 관리 → 수업 기록 보기에서 봐요.';
   function hsMode(mode){
-    HS.mode = mode; HS.rows = []; HW.logs = []; HW.months = 1;
+    HS.mode = mode; HS.gen++; HS.rows = []; HS.busy = false; HW.logs = []; HW.months = 1; HW.busy = false;   // 앞 탭의 조회가 아직 안 끝났어도 새 탭 조회를 막지 않는다
     document.querySelectorAll('#hstabs button').forEach(function(b){ var on = b.dataset.hs === mode; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
     $('hstitle').textContent = mode === 'work' ? '내 출퇴근 기록' : '내 업무 기록';
     $('hstiles').innerHTML = ''; $('hsline').textContent = ''; $('hsMore').hidden = true; $('hsMore').textContent = '지난 기록 더 보기';
@@ -2776,17 +2776,17 @@
   function hwLoad(more){
     if (HW.busy) return;
     HW.busy = true; $('hsMore').disabled = true;
-    var back = more ? HW.months + 1 : 1, from = hwMonthStart(back), to = more ? hwMonthStart(HW.months) : null;
+    var gen = HS.gen, back = more ? HW.months + 1 : 1, from = hwMonthStart(back), to = more ? hwMonthStart(HW.months) : null;
     var fromIso = new Date(Date.parse(from + 'T00:00:00+09:00') + WORK_DAY_H * 3600e3).toISOString();
     var q = '/msg_presence_log?select=is_on,loc,at&user_id=eq.' + ME.id + '&at=gte.' + encodeURIComponent(fromIso) + '&order=at.asc&limit=3000';
     if (to) q += '&at=lt.' + encodeURIComponent(new Date(Date.parse(to + 'T00:00:00+09:00') + WORK_DAY_H * 3600e3).toISOString());
     api(q).then(function(rows){
-      if (HS.mode !== 'work') return;
+      if (gen !== HS.gen) return;   // 받는 사이 탭을 바꿨다 돌아왔으면 옛 구간을 새 목록에 섞지 않는다
       HW.logs = (rows || []).concat(more ? HW.logs : []);
       HW.months = back;
       hwRender();
-    }).catch(function(e){ if (HS.mode === 'work') $('hslist').innerHTML = '<p class="hsempty">출퇴근 기록을 불러오지 못했습니다. ' + esc(errText(e)) + '</p>'; })
-      .then(function(){ HW.busy = false; $('hsMore').disabled = false; });
+    }).catch(function(e){ if (gen === HS.gen) $('hslist').innerHTML = '<p class="hsempty">출퇴근 기록을 불러오지 못했습니다. ' + esc(errText(e)) + '</p>'; })
+      .then(function(){ if (gen === HS.gen){ HW.busy = false; $('hsMore').disabled = false; } });
   }
   // 기록 → 근무 구간 [{ymd, loc, start, end, min, how:'out'|'move'|'none'|'now'}] (staff.html 과 같은 규칙)
   function hwSegments(logs){
@@ -2802,7 +2802,7 @@
     return out;
   }
   function hwRender(){
-    var segs = hwSegments(HW.logs), today = workYmd(), wk = weekWed(today), mon = today.slice(0, 7), prev = hwMonthStart(1).slice(0, 7);
+    var segs = hwSegments(HW.logs), today = workYmd(), wk = hsWeekStart(today), mon = today.slice(0, 7), prev = hwMonthStart(1).slice(0, 7);
     var sum = { w: [0, {}], m: [0, {}], p: [0, {}] };
     segs.forEach(function(s){ if (s.ymd >= wk){ sum.w[0] += s.min; if (s.min) sum.w[1][s.ymd] = 1; } if (s.ymd.slice(0, 7) === mon){ sum.m[0] += s.min; if (s.min) sum.m[1][s.ymd] = 1; } if (s.ymd.slice(0, 7) === prev){ sum.p[0] += s.min; if (s.min) sum.p[1][s.ymd] = 1; } });
     var tile = function(label, x){ return '<div class="hstile"><b>' + esc(hwDur(x[0])) + '</b><span>' + label + ' · ' + Object.keys(x[1]).length + '일</span></div>'; };
@@ -2835,21 +2835,24 @@
   function hsLoad(more){
     if (HS.busy) return;
     HS.busy = true; $('hsMore').disabled = true;
-    var last = more && HS.rows.length ? HS.rows[HS.rows.length - 1].done_at : null;
+    var gen = HS.gen, last = more && HS.rows.length ? HS.rows[HS.rows.length - 1].done_at : null;
     var list = api(hsBase() + '&order=done_at.desc&limit=' + HS_PAGE + (last ? '&done_at=lt.' + encodeURIComponent(last) : ''));
     var cnt = more ? Promise.resolve(null) : api('/msg_tasks?select=done_at&assignee=eq.' + ME.id + '&status=eq.' + encodeURIComponent('완료') + '&order=done_at.desc&limit=1000');
     Promise.all([list, cnt]).then(function(res){
-      if (HS.mode !== 'task') return;   // 받는 사이 출퇴근 탭으로 옮겼으면 그 화면을 덮지 않는다
+      if (gen !== HS.gen) return;   // 받는 사이 탭을 바꿨으면 그 화면을 덮지 않는다
       var rows = (res[0] || []).filter(function(t){ return t.done_at; });
       HS.rows = more ? HS.rows.concat(rows) : rows;
       HS.more = rows.length >= HS_PAGE;
       if (res[1]) hsTiles(res[1]);
       hsRender();
-    }).catch(function(e){ $('hslist').innerHTML = '<p class="hsempty">기록을 불러오지 못했습니다. ' + esc(errText(e)) + '</p>'; })
-      .then(function(){ HS.busy = false; $('hsMore').disabled = false; });
+    }).catch(function(e){ if (gen === HS.gen) $('hslist').innerHTML = '<p class="hsempty">기록을 불러오지 못했습니다. ' + esc(errText(e)) + '</p>'; })
+      .then(function(){ if (gen === HS.gen){ HS.busy = false; $('hsMore').disabled = false; } });
   }
+  // 기록용 '이번 주' 시작 = 오늘을 지나지 않은 가장 가까운 수요일 — weekWed는 수업 주차라 월·화에 다가오는 수요일을 주므로 그때는 7일을 뺀다(staff.html setPeriod('week')와 같음, Codex 검토)
+  function hsWeekStart(y){ var w = weekWed(y); return w > y ? addDay(w, -7) : w; }
+  window.__hsWeekStart = hsWeekStart;   // 검사용(messenger-e2e ㉛)
   function hsTiles(done){
-    var today = todayYmd(), weekStart = Date.parse(weekWed(today) + 'T00:00:00+09:00'), monthStart = Date.parse(today.slice(0, 7) + '-01T00:00:00+09:00');
+    var today = todayYmd(), weekStart = Date.parse(hsWeekStart(today) + 'T00:00:00+09:00'), monthStart = Date.parse(today.slice(0, 7) + '-01T00:00:00+09:00');
     var w = 0, m = 0, all = done.length;
     done.forEach(function(r){ var at = Date.parse(r.done_at); if (at >= weekStart) w++; if (at >= monthStart) m++; });
     var allTxt = all >= 1000 ? '1000+' : String(all);

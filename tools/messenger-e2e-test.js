@@ -43,6 +43,7 @@ const TT = [], TTP = [], TTLOG = [], NOTES = [], SHIFTS = [], HOMES = {};
 let failTT = false;
 const WAIT = []; let waitMissing = false;   // 대기생 등록(student_waitlist, 202610290001)
 let noteMissing = false;   // 쪽지(202610290003)
+let slowPlog = false;      // 출퇴근 기록 추가 조회를 느리게(탭 전환 경주 검사)
 const BOT = { tick: { msgs: [], summary: false } };
 const STUDENTS = [
   { name: '김민준', school: '서정중', grade: '2026 중등 3학년', teacher: '이은지', enrolled: 'Y' }, { name: '박하늘', teacher: '김지원', enrolled: 'Y' },
@@ -203,7 +204,7 @@ async function showTask(pg, sel){
       if (p === '/rest/v1/rpc/msg_home_set'){ const b = JSON.parse(req.postData()); calls.push(['home', b]); if (b.p_loc) HOMES[b.p_user] = b.p_loc; else delete HOMES[b.p_user]; return json({ user_id: b.p_user, loc: b.p_loc }); }
       if (p === '/rest/v1/rpc/work_ensure'){ calls.push(['ensure', JSON.parse(req.postData())]); return json(null, 204); }
       if (p === '/rest/v1/work_shifts') return json(filterRows(SHIFTS, u));
-      if (p === '/rest/v1/msg_presence_log'){ if (u.searchParams.has('user_id')) calls.push(['plog', u.search]); return json(filterRows(PLOGS, u).sort((a, b) => a.at < b.at ? -1 : 1)); }
+      if (p === '/rest/v1/msg_presence_log'){ if (u.searchParams.has('user_id')) calls.push(['plog', u.search]); if (slowPlog && /at=lt\./.test(u.search)) await new Promise(r => setTimeout(r, 800)); return json(filterRows(PLOGS, u).sort((a, b) => a.at < b.at ? -1 : 1)); }
       if (p === '/rest/v1/rpc/msg_presence_set'){
         const b = JSON.parse(req.postData()); calls.push(['pres', b]);
         const old = PRESENCE[ME] || {};
@@ -1844,6 +1845,18 @@ async function showTask(pg, sel){
     await page.click('#hstabs button[data-hs="task"]');
     await page.waitForFunction(() => document.getElementById('hstitle').textContent === '내 업무 기록' && document.querySelectorAll('#hslist .hsrow').length === 4 && document.getElementById('hsMore').hidden);
     ok(await page.evaluate(() => /수업 기록 줄은/.test(document.getElementById('hsnote').textContent) && document.querySelector('#hstabs button.on').dataset.hs === 'task'), '업무 기록 탭으로 돌아오면 안내·목록도 돌아온다');
+    // Codex 검토 — 월·화의 '이번 주'는 다가오는 수요일이 아니라 지난 수요일부터 (weekWed는 수업 주차용)
+    ok(await page.evaluate(() => { const f = window.__hsWeekStart; return f('2026-11-02') === '2026-10-28' && f('2026-11-03') === '2026-10-28' && f('2026-11-04') === '2026-11-04' && f('2026-11-08') === '2026-11-04'; }), '월·화의 이번 주 시작은 지난 수요일(11/2·11/3 → 10/28), 수~일은 그 주 수요일');
+    // Codex 검토 — [지난 달 더 보기] 응답이 오기 전에 탭을 옮겼다 돌아와도 옛 구간이 새 목록에 섞이지 않는다
+    slowPlog = true;
+    await page.click('#hstabs button[data-hs="work"]');
+    await page.waitForFunction(() => document.getElementById('hstitle').textContent === '내 출퇴근 기록' && document.querySelectorAll('#hslist .hsrow').length === 4);
+    await page.click('#hsMore');                       // 느린 응답(0.8초) 시작
+    await page.click('#hstabs button[data-hs="task"]');
+    await page.click('#hstabs button[data-hs="work"]'); // 돌아오면 첫 조회가 앞 요청에 막히지 않고 다시 돈다
+    await page.waitForTimeout(1300);
+    ok(await page.evaluate(() => document.querySelectorAll('#hslist .hsrow').length === 4 && /6시간 25분\s*이번 달/.test(document.querySelectorAll('#hstiles .hstile')[1].textContent) && !document.getElementById('hsMore').disabled), '탭을 옮겼다 돌아와도 최근 기록·합계 그대로, [더 보기] 다시 눌림');
+    slowPlog = false;
     await page.keyboard.press('Escape');
     await ctx.close();
   }
