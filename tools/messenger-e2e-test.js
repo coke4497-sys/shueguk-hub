@@ -41,6 +41,7 @@ let noReads = false;
 let noPres = false, workClip = false, workAsk = false, workEarly = false;
 const TT = [], TTP = [], TTLOG = [], NOTES = [], SHIFTS = [], HOMES = {};
 let failTT = false;
+const WAIT = []; let waitMissing = false;   // 대기생 등록(student_waitlist, 202610290001)
 const BOT = { tick: { msgs: [], summary: false } };
 const STUDENTS = [
   { name: '김민준', school: '서정중', grade: '2026 중등 3학년', teacher: '이은지', enrolled: 'Y' }, { name: '박하늘', teacher: '김지원', enrolled: 'Y' },
@@ -311,6 +312,11 @@ async function showTask(pg, sel){
         return json({ message: ask, tasks: [k] });
       }
       if (p === '/rest/v1/students'){ calls.push(['stu']); return json(STUDENTS); }
+      if (p === '/rest/v1/student_waitlist'){
+        if (waitMissing) return json({ code: 'PGRST205', message: "Could not find the table 'public.student_waitlist' in the schema cache" }, 404);
+        if (req.method() === 'POST'){ const b = JSON.parse(req.postData()); calls.push(['wait', b]); const row = Object.assign({ id: 500 + WAIT.length, status: '대기' }, b); WAIT.push(row); return json([row], 201); }
+        return json(WAIT);
+      }
       if (p === '/rest/v1/tt_period') return json(TTP.filter(x => 'eq.' + x.week_wednesday === u.searchParams.get('week_wednesday')));
       if (p === '/rest/v1/tt_log'){
         const ad = u.searchParams.getAll('apply_date');
@@ -1507,6 +1513,62 @@ async function showTask(pg, sel){
     const other = await page.locator('#pchips .pchip:not(.on)').first();
     await other.click();
     ok(await page.locator('#cards .pc.sel .selfadd').count() === 0, '다른 사람을 고르면 추가 칸 없음');
+    await ctx.close();
+  }
+
+  console.log('㉘ 대기생 등록 — 보내기 버튼 위 (2026-10-29 원장님)');
+  {
+    STUDENTS[0].id = 7; STUDENTS[0].phone_parent1 = '01012345678'; STUDENTS[0].class_a = '금5:30';   // 재원 학생 고르기용
+    TT.length = 0;
+    TT.push({ book: '정규', class_id: 'r001', name: '고2 가', day: '수', start_time: '2:00', end_time: '3:30', teacher: '은지', roster: '라' },
+            { book: '내신', class_id: 'n001', name: '고2 화정A', day: '수', start_time: '5:30', end_time: '7:00', teacher: '은지', roster: '가 나' });
+    ({ ctx, page } = await open({ width: 390, height: 844 }));   // 휴대폰 — [보내기] 버튼이 보이는 화면
+    await page.waitForSelector('#msgs .m');
+    ok(await page.evaluate(() => { const b = document.getElementById('waitBtn'), s = document.getElementById('send'); const rb = b.getBoundingClientRect(), rs = s.getBoundingClientRect(); return rb.width > 0 && rs.width > 0 && rb.bottom <= rs.top && Math.abs(rb.right - rs.right) < 24; }), '[대기생 등록] 버튼이 보내기 버튼 바로 위에 있다(휴대폰)');
+    await ctx.close();
+    ({ ctx, page } = await open({ width: 1280, height: 900 }));
+    await page.waitForSelector('#msgs .m');
+    ok(await page.evaluate(() => { const b = document.getElementById('waitBtn'), c = document.querySelector('#composer .crow'); const rb = b.getBoundingClientRect(), rc = c.getBoundingClientRect(); return rb.width > 0 && rb.bottom <= rc.top && Math.abs(rb.right - rc.right) < 24; }), '[대기생 등록] 버튼이 입력 상자 위 오른쪽(컴퓨터)');
+    await page.click('#waitBtn');
+    await page.waitForFunction(() => !document.getElementById('wtback').hidden && document.querySelectorAll('#wtClass option').length > 1);
+    let r = await page.evaluate(() => ({ kind: document.querySelector('#wtKind button.on').textContent, who: document.getElementById('wtWho').textContent, year: document.getElementById('wtYear').value,
+      opts: [...document.querySelectorAll('#wtClass option')].map(o => o.textContent), schools: [...document.querySelectorAll('#wtSchools option')].map(o => o.value) }));
+    ok(r.kind === '예비 슈스 대기' && r.who === '고희주' && +r.year === new Date().getFullYear(), '창 — 예비 슈스가 기본 · 저장한 사람 = 나 · 연도 올해');
+    ok(r.opts[0] === '미정' && r.opts.some(t => /고2 가 · .* · 은지T · 1명/.test(t)) && !r.opts.some(t => /고2 화정A/.test(t)), '정규 반 드롭다운 = 미정 + 정규 반(인원 표시)');
+    ok(r.schools.includes('서정중') && r.schools.includes('화정고'), '학교 자동완성은 재원 명단의 학교');
+    await page.click('#wtSave');
+    ok(/이름을 적어/.test(await page.locator('#wtStatus').textContent()), '이름 없이 올리면 거절');
+    await page.selectOption('#wtClass', 'r001');
+    ok(await page.inputValue('#wtCap') === '1', '반을 고르면 정원 = 지금 인원(1)');
+    await page.fill('#wtYear', '2027'); await page.selectOption('#wtGrade', '고1'); await page.fill('#wtSchool', '화수고'); await page.fill('#wtName', '새대기'); await page.fill('#wtPhone', '010-9999-0000'); await page.fill('#wtMemo', '2월 입학 희망');
+    const nMsg = await page.locator('#msgs .m').count();
+    await page.click('#wtSave');
+    await page.waitForFunction(() => document.getElementById('wtback').hidden);
+    let w = calls.filter(c => c[0] === 'wait').pop()[1];
+    ok(w.kind === '예비' && w.year === 2027 && w.grade === '고1' && w.school === '화수고' && w.name === '새대기' && w.phone_parent === '01099990000' && w.want_book === '정규' && w.want_class_id === 'r001' && /고2 가/.test(w.want_class_name) && w.cap === 1 && w.memo === '2월 입학 희망' && w.author_name === '고희주' && w.student_id === null, '저장 본문 — 연도·학년·학교·이름·연락처(숫자만)·희망 반·정원·메모·저장한 사람 ' + JSON.stringify(w));
+    ok(/대기 명단에 올렸습니다/.test(await page.locator('#status').textContent()) && await page.locator('#msgs .m').count() === nMsg, '올리면 창이 닫히고 상태 줄 안내 · 대화에는 글이 안 남음');
+    // 재원 슈스 반 이동 대기
+    await page.click('#waitBtn');
+    await page.click('#wtKind button[data-kind="재원"]');
+    await page.click('#wtSave');
+    ok(/학생을 골라/.test(await page.locator('#wtStatus').textContent()), '재원은 명단에서 고르지 않으면 거절');
+    await page.fill('#wtName', '김민준 · 서정중 · 중3');
+    await page.dispatchEvent('#wtName', 'change');
+    r = await page.evaluate(() => ({ school: document.getElementById('wtSchool').value, grade: document.getElementById('wtGrade').value, phone: document.getElementById('wtPhone').value, info: document.getElementById('wtStuInfo').textContent }));
+    ok(r.school === '서정중' && r.grade === '중3' && r.phone === '01012345678' && /지금 반: 가 금5:30/.test(r.info), '재원 학생을 고르면 학교·학년·연락처·지금 반이 채워짐 ' + JSON.stringify(r));
+    await page.click('#wtBook button[data-book="내신"]');
+    await page.selectOption('#wtClass', 'n001');
+    await page.fill('#wtCap', '4');
+    await page.click('#wtSave');
+    await page.waitForFunction(() => document.getElementById('wtback').hidden);
+    w = calls.filter(c => c[0] === 'wait').pop()[1];
+    ok(w.kind === '재원' && w.student_id === 7 && w.name === '김민준' && w.want_book === '내신' && w.want_class_id === 'n001' && w.cap === 4, '재원 저장 본문 — student_id · 내신 반 · 손으로 고친 정원 ' + JSON.stringify(w));
+    // 표 없음(마이그레이션 전)
+    waitMissing = true;
+    await page.click('#waitBtn'); await page.click('#wtKind button[data-kind="예비"]'); await page.fill('#wtName', '아무개'); await page.click('#wtSave');
+    await page.waitForFunction(() => /202610290001/.test(document.getElementById('wtStatus').textContent));
+    ok(true, '표가 없으면 마이그레이션 안내');
+    waitMissing = false;
     await ctx.close();
   }
 
