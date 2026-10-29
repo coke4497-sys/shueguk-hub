@@ -267,7 +267,7 @@ async function showTask(pg, sel){
         t.status = b.p_done ? '완료' : '대기'; t.done_at = b.p_done ? ts() : null; t.done_by_name = b.p_done ? '고희주' : null; t.updated_at = ts();
         return json(t);
       }
-      if (p === '/rest/v1/rpc/msg_edit'){   // 메시지 수정(202610290001) — 글쓴이 본인만, 글만 바꾸고 대기 중인 할 일 글을 새 글에 맞춤
+      if (p === '/rest/v1/rpc/msg_edit'){   // 메시지 수정(202610290002) — 글쓴이 본인만, 글만 바꾸고 대기 중인 할 일 글을 새 글에 맞춤
         const b = JSON.parse(req.postData()); calls.push(['edit', b]);
         const m = MSGS.find(x => x.id === b.p_id);
         if (!m || m.author !== ME) return json({ code: '42501', message: 'not_allowed' }, 403);
@@ -727,6 +727,21 @@ async function showTask(pg, sel){
   handlers.notificationclick(ev({ notification: { data: { url: 'messenger.html#m10' }, close(){} } }));
   await Promise.all(waits);
   ok(focused === 1 && posted[0] && posted[0].type === 'msg-open' && posted[0].url === 'messenger.html#m10' && opened.length === 1, '열린 대화방이 있으면 그 창으로 가서 메시지를 보여 준다');
+  // 티쳐스 활동 알림(202610290001) — badge:false 는 앱 숫자를 올리지 않고, 알림을 누르면 activity.html 로(열린 대화방에는 보내지 않음)
+  waits = []; handlers.message(ev({ data: { type: 'badge-clear' } })); await Promise.all(waits);
+  waits = []; handlers.push(ev({ data: { json(){ return { title: '[시험 범위] 김현지 · 저장', body: '교과서: 천재수 공통국어2', url: 'https://x/shueguk-hub/activity.html#n3', tag: 'act3', badge: false }; } } }));
+  await Promise.all(waits);
+  ok(notes[notes.length - 1].t === '[시험 범위] 김현지 · 저장' && stored === '0', '활동 알림은 뜨되 앱 아이콘 숫자는 그대로');
+  waits = []; posted.length = 0; focused = 0;
+  handlers.notificationclick(ev({ notification: { data: { url: 'https://x/shueguk-hub/activity.html#n3' }, close(){} } }));
+  await Promise.all(waits);
+  ok(opened[opened.length - 1] === 'https://x/shueguk-hub/activity.html#n3' && posted.length === 0 && focused === 0, '활동 알림을 누르면 대화방 창이 있어도 활동 기록 화면을 새로 연다');
+  waits = []; let navTo = ''; const nOpen = opened.length;
+  fakeClients.list.push({ url: 'https://x/shueguk-hub/activity.html', postMessage(){}, navigate(u){ navTo = u; return Promise.resolve(this); }, focus(){ focused++; return Promise.resolve(); } });
+  handlers.notificationclick(ev({ notification: { data: { url: 'https://x/shueguk-hub/activity.html#n4' }, close(){} } }));
+  await Promise.all(waits);
+  ok(navTo === 'https://x/shueguk-hub/activity.html#n4' && focused === 1 && opened.length === nOpen && posted.length === 0, '활동 기록 화면이 열려 있으면 그 창을 그 알림으로 옮겨 띄운다');
+  fakeClients.list.pop();
   await ctx.close();
 
   console.log('㉗ 읽은 자리 — 계정 기준(다른 기기에서 읽은 것도) (2026-10-29 원장님)');

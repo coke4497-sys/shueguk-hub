@@ -434,6 +434,24 @@ ok "$(as $B "select public.msg_task_set($SID, true)->>'status'")" "완료" "내 
 ok "$(as $B "select public.msg_task_set($SID, false)->>'status'")" "대기" "체크 풀기"
 ok "$(as $B "select public.msg_task_cancel($SID, '필요 없어짐')->>'status'")" "취소" "메시지 없는 업무도 취소"
 
+echo "── 클로슈가 올리는 할 일 (202610290001)"
+P -f supabase/migrations/202610290001_messenger_bot_task.sql >/dev/null || { echo "클로슈 할 일 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610290001_messenger_bot_task.sql >/dev/null && ok y y "클로슈 할 일 마이그레이션 다시 실행해도 오류 없음"
+BT=$(svc "select (public.msg_bot_task('$B', '  솔라피 승인 확인  ', now() + interval '1 day', '알림톡 마무리', 'task:t1')).id")
+ok "$(P -tAc "select message_id is null, self_added, assignee='$B', requester='$B', requester_name, text, status, due_at is not null, due_note from public.msg_tasks where id=$BT")" "t|f|t|t|클로슈|솔라피 승인 확인|대기|t|알림톡 마무리" "메시지 없이 그 사람 카드에 · 맡긴 사람 이름 클로슈 · 언제까지"
+ok "$(svc "select (public.msg_bot_task('$B', 'x', null, '메모', null)).due_note")" "" "약속 시각이 없으면 메모도 비움"
+ok "$(svc "select public.msg_bot_task('$B', 'x', null, '', 'task:t1')" | grep -c exists)" 1 "같은 열쇠는 한 번만"
+ok "$(svc "select public.msg_bot_task('$E', 'x')" | grep -c bad_person)" 1 "활성 교사가 아니면 거절"
+ok "$(svc "select public.msg_bot_task('$B', '  ')" | grep -c empty)" 1 "빈 글은 거절"
+ok "$(svc "select public.msg_bot_task('$B', repeat('가', 301))" | grep -c too_long)" 1 "300자 넘으면 거절"
+ok "$(svc "select public.msg_bot_task('$B', 'x', now() - interval '1 minute')" | grep -c past_due)" 1 "지난 시각은 거절"
+ok "$(as $A "select public.msg_bot_task('$B', 'x')" | grep -c 'permission denied')" 1 "교사는 실행 불가(service_role만)"
+ok "$(anon "select public.msg_bot_task('$B', 'x')" | grep -c 'permission denied')" 1 "공개 키도 실행 불가"
+ok "$(as $B "select public.msg_task_set($BT, true)->>'status'")" "완료" "받은 사람이 체크"
+ok "$(as $B "select public.msg_task_set($BT, false)->>'status'")" "대기" "체크 풀기"
+ok "$(as $B "select public.msg_task_defer($BT, now() + interval '2 day', '내일 못 봄')->>'due_note'")" "내일 못 봄" "받은 사람이 미루기"
+ok "$(as $B "select public.msg_task_cancel($BT, '승인 전')->>'status'")" "취소" "받은 사람이 취소"
+
 echo "── 티쳐스 활동 기록·알림 (202610270001)"
 P -f supabase/migrations/202610270001_activity_log.sql >/dev/null || { echo "활동 기록 마이그레이션 실패"; exit 1; }
 P -f supabase/migrations/202610270001_activity_log.sql >/dev/null && ok y y "활동 기록 마이그레이션 다시 실행해도 오류 없음"
@@ -448,9 +466,26 @@ ok "$(as $B "select public.activity_say('x', null)" | grep -c 'permission denied
 ok "$(svc "select public.activity_say('  ', null)" | grep -c empty)" 1 "빈 글 거절"
 ok "$(as $B "select count(*) from public.msg_messages where id=$AM")" 1 "활성 교사는 활동 알림 글을 읽을 수 있다(슈톡 대화에 보임)"
 
-echo "── 메시지 수정 (202610290001)"
-P -f supabase/migrations/202610290001_messenger_edit.sql >/dev/null || { echo "메시지 수정 마이그레이션 실패"; exit 1; }
-P -f supabase/migrations/202610290001_messenger_edit.sql >/dev/null && ok y y "메시지 수정 마이그레이션 다시 실행해도 오류 없음"
+echo "── 활동 알림을 슈톡 밖으로 — 원장님만 (202610290001)"
+P -f supabase/migrations/202610290001_activity_private.sql >/dev/null || { echo "활동 알림 분리 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610290001_activity_private.sql >/dev/null && ok y y "활동 알림 분리 마이그레이션 다시 실행해도 오류 없음"
+ok "$(P -tAc "select string_agg(column_name, ',') from information_schema.columns where table_schema='public' and table_name='activity_log' and column_name in ('message_id','notice_id')")" "notice_id" "message_id → notice_id"
+ok "$(as $B "select count(*) from public.activity_log")" 0 "선생님은 활동 기록 0줄(원장님만)"
+ok "$(as $A "select what||'|'||author from public.activity_log")" "시험 범위|김현지" "원장님은 활동 기록을 읽음"
+ok "$(anon "select count(*) from public.activity_log" | grep -c 'permission denied')" 1 "공개 키는 여전히 못 읽음"
+ok "$(as $B "select public.activity_say('x', null)" | grep -c 'does not exist')" 1 "activity_say(슈톡 글)는 없어짐"
+AN=$(svc "insert into public.activity_notices (kind, text) values ('즉시', '[시험 범위] 김현지 · 저장') returning id")
+ok "$(echo $AN | grep -c '^[0-9]')" 1 "service_role 은 알림 글을 넣음"
+ok "$(as $A "select kind||'|'||text||'|'||coalesce(pushed_at::text,'-') from public.activity_notices where id=$AN")" "즉시|[시험 범위] 김현지 · 저장|-" "원장님은 알림 글을 읽음(아직 안 보냄)"
+ok "$(as $B "select count(*) from public.activity_notices")" 0 "선생님은 알림 글 0줄"
+ok "$(anon "select count(*) from public.activity_notices" | grep -c 'permission denied')" 1 "공개 키는 알림 글을 못 읽음"
+ok "$(as $A "insert into public.activity_notices (text) values ('x')" | grep -c 'permission denied')" 1 "원장님도 직접 못 넣음(함수만)"
+ok "$(svc "insert into public.activity_notices (kind, text) values ('기타', 'x')" | grep -c 'check')" 1 "종류는 즉시·요약만"
+ok "$(as $A "select count(*) from public.msg_messages where bot->>'kind'='activity'")" 1 "그전에 올라간 슈톡 활동 알림 글은 그대로(기록)"
+
+echo "── 메시지 수정 (202610290002)"
+P -f supabase/migrations/202610290002_messenger_edit.sql >/dev/null || { echo "메시지 수정 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610290002_messenger_edit.sql >/dev/null && ok y y "메시지 수정 마이그레이션 다시 실행해도 오류 없음"
 EM=$(as $B "select (public.msg_send('[결석] 중3 김민준 결석입니다 @고희주 조교', '[]', array['$C']::uuid[])->'message'->>'id')")
 ET=$(as $B "select id from public.msg_tasks where message_id=$EM")
 ok "$(as $C "select public.msg_edit($EM, '남이 고침')" | grep -c not_allowed)" 1 "남의 글은 못 고침"

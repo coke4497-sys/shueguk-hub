@@ -77,4 +77,4 @@ $$;
 revoke all on function public.msg_edit(bigint, text) from public, anon;
 grant execute on function public.msg_edit(bigint, text) to authenticated;
 
-comment on function public.msg_edit(bigint, text) is '슈톡 메시지 글 고치기 — 글쓴이 본인만, 대기 중인 할 일 글도 함께(202610290001)';
+comment on function public.msg_edit(bigint, text) is '슈톡 메시지 글 고치기 — 글쓴이 본인만, 대기 중인 할 일 글도 함께(202610290002)';

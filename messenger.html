@@ -181,7 +181,7 @@
   /* 클로슈 (202610200007) */
   .m.botm .bb{background:#EEF4F1;}
   .m.kko .bb{background:#FBF4DF;}
-  .m.act .bb{background:#F3EEF8;}   /* 티쳐스 활동 알림(202610270001 — 원장님께만) */
+  .m.act .bb{background:#F3EEF8;}   /* 티쳐스 활동 알림(202610270001 — 10/29 전 슈톡 글, 지금은 activity.html 로 따로) */
   .bopts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
   .bopt{border:0;border-radius:999px;background:var(--lav);color:var(--lavInk);font-size:13px;padding:6px 12px;}
   .bdone{font-size:12.5px;color:var(--okInk);background:var(--ok);border-radius:10px;padding:5px 10px;margin-top:6px;display:inline-block;}
@@ -703,7 +703,7 @@
   .m.mine .bb{background:var(--pSage);border-color:transparent;border-radius:18px 18px 6px 18px;}
   .m.botm .bb{background:#EEF4F1;}
   .m.kko .bb{background:#FBF4DF;}
-  .m.act .bb{background:#F3EEF8;}   /* 티쳐스 활동 알림(202610270001 — 원장님께만) */
+  .m.act .bb{background:#F3EEF8;}   /* 티쳐스 활동 알림(202610270001 — 10/29 전 슈톡 글, 지금은 activity.html 로 따로) */
   .bb.del{border:0;}
   .t{font-size:11px;color:var(--mut);}
   .t.mt{display:block;align-self:flex-end;margin-top:4px;}
@@ -1133,13 +1133,14 @@
     boot();
     activityFlush();
   });
-  // 티쳐스 활동 알림(202610270001) — 원장님이 슈톡을 열 때 2시간 넘게 기다린 잦은 일(출석·수업 기록 등)을 묶어 한 글로 받는다.
+  // 티쳐스 활동 알림(202610270001·202610290001) — 원장님이 슈톡을 열 때 2시간 넘게 기다린 잦은 일(출석·수업 기록 등)을 묶어 휴대폰 알림으로 받는다.
   // 활동이 이어지는 동안은 화면들이 활동을 보낼 때마다 함수가 스스로 묶고, 마지막 일 뒤 아무 일이 없을 때를 위해 여기서 한 번 더 부른다.
+  // 2026-10-29 원장님 '따로 두기' — 알림 글은 이제 슈톡 대화에 오지 않는다(허브 activity.html + 푸시만). 묶음을 재촉하는 호출만 남겼다.
   function activityFlush(){
     if (!ME || ME.role !== 'admin') return;
     fetch(SB + '/functions/v1/activity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'flush' }), keepalive: true })
       .then(function(r){ return r.json().catch(function(){ return {}; }); })
-      .then(function(d){ if (d && d.digest === 'sent') setTimeout(poll, 1500); })
+      .then(function(){})
       .catch(function(){});
   }
 
@@ -1511,10 +1512,10 @@
     var cont = prev && prev.author === m.author && prev.author_name === m.author_name && ((prev.bot && prev.bot.kind) || '') === ((m.bot && m.bot.kind) || '') && !prev.deleted_at && ymd(prev.created_at) === ymd(m.created_at)
       && Date.parse(m.created_at) - Date.parse(prev.created_at) < 5 * 60e3;
     var kko = m.bot && m.bot.kind === 'kakao';   // 카카오채널 학부모님 문의(202610200009)
-    var act = m.bot && m.bot.kind === 'activity';   // 티쳐스 활동 알림(202610270001 — 엣지 함수 activity 가 올림, 원장님께만 알림)
+    var act = m.bot && m.bot.kind === 'activity';   // 티쳐스 활동 알림(202610270001 — 10/29 전에 올라간 슈톡 글. 지금은 슈톡에 올리지 않는다, 202610290001)
     var mem = MBY[m.author], tn = kko ? ['#F9EFD0', '#7A5F1E'] : act ? ['#EDE4F4', '#5A4A6A'] : m.bot ? ['#4C6E66', '#fff'] : tone(m.author_name);
     var canDel = !m.deleted_at && (mine || ME.role === 'admin');
-    var canEdit = mine && !m.deleted_at && !m.bot && ('edited_at' in m);   // 글쓴이 본인만(202610290001 — edited_at 열이 없으면 수정 버튼을 숨김)
+    var canEdit = mine && !m.deleted_at && !m.bot && ('edited_at' in m);   // 글쓴이 본인만(202610290002 — edited_at 열이 없으면 수정 버튼을 숨김)
     // 답장 인용(위)·할 일 상태 줄(아래)은 말풍선 안에 — 2026-10-21 화면 개선안. 지운 메시지는 말풍선 없이 회색 한 줄
     var inner = m.deleted_at ? '' : quoteHtml(m) + (m.body ? '<div class="bt">' + bodyHtml(m.body) + '</div>' : '') + chipsHtml(m.id);
     var bb = m.deleted_at ? '<div class="bb del">삭제된 메시지 · ' + hm(m.created_at) + '</div>'
@@ -1531,7 +1532,7 @@
       + (canDel ? '<button class="mact" type="button" data-del="' + m.id + '">지우기</button>' : '') + '</div>'
       + (m.deleted_at ? '' : filesHtml(m.files)) + (m.bot ? botAskHtml(m) : '') + (mine && !m.deleted_at ? '<span class="t mt">' + hm(m.created_at) + edHtml(m) + '</span>' : '') + '</div></div>';
   }
-  // 고친 글은 시각 옆에 '수정됨'(마우스를 올리면 고친 때) — 202610290001
+  // 고친 글은 시각 옆에 '수정됨'(마우스를 올리면 고친 때) — 202610290002
   function edHtml(m){ return m.edited_at ? ' <span class="edl" title="' + esc(hm(m.edited_at)) + '에 고침">수정됨</span>' : ''; }
   function atBottom(){ var el = $('msgs'); return el.scrollHeight - el.scrollTop - el.clientHeight < 80; }
   function renderMsgs(mode){
@@ -1844,7 +1845,7 @@
     }).catch(function(e){ status(errText(e)); });
   }
 
-  // ── 메시지 수정 (2026-10-29 원장님 "올린 사람이 본인의 대화는 수정할 수 있도록", 202610290001) ─────────
+  // ── 메시지 수정 (2026-10-29 원장님 "올린 사람이 본인의 대화는 수정할 수 있도록", 202610290002) ─────────
   // 내 글의 [수정] → 입력칸에 그 글을 넣고(꼬리표는 알약으로) 위에 '수정 중' 줄. [수정]/Enter 로 저장, [취소]/Esc 로 그만둔다.
   // 글만 바뀐다 — 첨부 파일·답장 원글·@로 부른 사람은 그대로(서버 msg_edit 가 대기 중인 할 일 글만 새 글에 맞춘다). 쓰던 글은 잠시 치워 뒀다 되돌린다.
   var editing = null, editDraft = null;
@@ -1882,7 +1883,7 @@
       status('메시지를 고쳤습니다.', 2500);
     }).catch(function(e){
       var t = String((e && e.message) || '') + JSON.stringify((e && e.data) || '');
-      status(/not_allowed/.test(t) ? '내가 올린 글만 고칠 수 있어요.' : /msg_deleted/.test(t) ? '지운 메시지는 고칠 수 없어요.' : /msg_edit|PGRST202/.test(t) ? '수정 기능 준비가 아직 끝나지 않았습니다(마이그레이션 202610290001).' : errText(e), 6000);
+      status(/not_allowed/.test(t) ? '내가 올린 글만 고칠 수 있어요.' : /msg_deleted/.test(t) ? '지운 메시지는 고칠 수 없어요.' : /msg_edit|PGRST202/.test(t) ? '수정 기능 준비가 아직 끝나지 않았습니다(마이그레이션 202610290002).' : errText(e), 6000);
     }).then(function(){ sending = false; $('send').disabled = false; inp.focus(); });
   }
   $('ecancel').onclick = cancelEdit;

@@ -3,6 +3,7 @@ import webpush from 'npm:web-push@3.6.7'
 
 export const SUBJECT = 'https://coke4497-sys.github.io/shueguk-hub/messenger.html'
 export const PAGE = 'https://coke4497-sys.github.io/shueguk-hub/messenger.html'
+export const ACT_PAGE = 'https://coke4497-sys.github.io/shueguk-hub/activity.html'   // 티쳐스 활동 알림(원장님 전용 화면, 202610290001)
 
 export function cut(s: string, n: number) {
   const t = String(s || '').replace(/\s+/g, ' ').trim()
@@ -135,6 +136,80 @@ export function handPlan(t: Hand, byName: string, subs: Sub[], active: Set<strin
     sub: s,
     payload: { title: byName + ' → 나에게 넘긴 일', body: cut(t.text, 140), url: t.message_id ? PAGE + '#m' + t.message_id : PAGE, tag: 'tk' + t.id, task: true },   // 내가 직접 추가한 업무(202610250002)는 메시지가 없다
   }))
+}
+
+// ── 티쳐스 활동 알림 (202610290001 — 슈톡 글 대신 activity_notices 표 + 원장님 기기에만 푸시) ──
+// 받는 기기 = 활성 원장님(admin)의 기기 전부(출근 여부·mode 와 상관없이 — 원장님은 늘 받는다). 알림을 누르면 허브 activity.html 로.
+// badge:false — 슈톡 앱 아이콘의 빨간 숫자는 올리지 않는다(슈톡 대화에 없는 글이라 숫자를 지울 길이 없어서).
+export type Notice = { id: number; kind: string; text: string }
+export function activityPlan(n: Notice, subs: Sub[], admins: Set<string>) {
+  const lines = String(n.text || '').split('\n').map((x) => x.trim()).filter(Boolean)
+  const title = cut(lines[0] || '티쳐스 활동', 60)
+  const body = cut(lines.slice(1).map((x) => x.replace(/^·\s*/, '')).join(' · ') || lines[0] || '', 140)   // 요약 글의 '· ' 항목은 점을 떼고 이어 붙인다
+  return subs.filter((s) => admins.has(s.user_id)).map((s) => ({
+    sub: s,
+    payload: { title, body, url: ACT_PAGE + '#n' + n.id, tag: 'act' + n.id, task: false, badge: false },
+  }))
+}
+// deno-lint-ignore no-explicit-any
+async function adminSubs(admin: any) {
+  const [a, s] = await Promise.all([
+    admin.from('teacher_accounts').select('user_id').eq('active', true).eq('role', 'admin'),
+    admin.from('msg_push_subs').select('*'),
+  ])
+  if (a.error || s.error) return null
+  return { admins: new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id)), subs: (s.data || []) as Sub[] }
+}
+// 알림 글 한 건 — 보낼 자리(pushed_at)를 잡고 보낸다. 한 기기에도 못 보냈고 실패가 있으면 자리를 되돌린다(다음 호출이 다시 보냄),
+// 일부 기기만 실패하면 그 기기를 push_retry 에 적어 둔다(retryActivity). pushMessage 와 같은 짜임.
+// deno-lint-ignore no-explicit-any
+export async function pushActivity(admin: any, id: number) {
+  const got = await adminSubs(admin)
+  if (!got) return { status: 503, body: { error: 'lookup_failed' } }
+  const at = new Date().toISOString()
+  const { data: claimed, error: ce } = await admin.from('activity_notices').update({ pushed_at: at }).eq('id', id).is('pushed_at', null).select('id,kind,text')
+  if (ce) return { status: 503, body: { error: 'claim_failed' } }
+  if (!claimed || !claimed.length) return { status: 200, body: { skipped: true } }
+  const items = activityPlan(claimed[0], got.subs, got.admins)
+  const r = await deliver(admin, items)
+  const { failedIds, ...cnt } = r
+  if (!r.sent && r.failed) {
+    await checked(() => admin.from('activity_notices').update({ pushed_at: null }).eq('id', id).eq('pushed_at', at), 'unclaim notice ' + id)
+    return { status: 503, body: { error: 'deliver_failed', targets: items.length, ...cnt } }
+  }
+  if (failedIds.length && !(await saveRetry(admin, 'activity_notices', id, { push_retry: failedIds }))) {
+    await checked(() => admin.from('activity_notices').update({ pushed_at: null }).eq('id', id).eq('pushed_at', at), 'unclaim notice ' + id)
+    return { status: 503, body: { error: 'retry_save_failed', targets: items.length, ...cnt } }
+  }
+  return { status: 200, body: { targets: items.length, ...cnt } }
+}
+// 일부 기기만 못 받은 알림 글을 그 기기에만 다시 — 목록을 비우며 잡고(두 호출이 겹쳐도 한쪽만), 또 실패한 기기만 다시 적는다
+// deno-lint-ignore no-explicit-any
+export async function retryActivity(admin: any, id: number) {
+  const { data: c, error: ce } = await admin.from('activity_notices').update({ push_retry: null }).eq('id', id).not('push_retry', 'is', null).select('id,kind,text,push_retry')
+  if (ce) return { status: 503 }
+  if (!c || !c.length) return { status: 200, skipped: true }
+  const ids = c[0].push_retry
+  const restore = (v: unknown) => keepRetry(admin, 'activity_notices', id, 'push_retry', v)
+  const got = await adminSubs(admin)
+  if (!got) { await restore(ids); return { status: 503 } }
+  const r = await deliver(admin, onlySubs(activityPlan(c[0], got.subs, got.admins), ids))
+  if (r.failedIds.length && !(await restore(r.failedIds))) return { status: 503, lost: r.failedIds }
+  return { status: r.failed ? 503 : 200 }
+}
+// 못 보낸 알림 글을 다시 — 엣지 함수 activity 가 불릴 때마다(1분 넘게 안 보낸 것·일부 기기만 못 받은 것, 이레 안)
+// deno-lint-ignore no-explicit-any
+export async function repushActivity(admin: any) {
+  if (!setup()) return { tried: 0 }
+  const since = new Date(Date.now() - 7 * 86400e3).toISOString(), before = new Date(Date.now() - 60e3).toISOString()
+  const [w, p] = await Promise.all([
+    admin.from('activity_notices').select('id').is('pushed_at', null).gte('at', since).lte('at', before).order('id').limit(20),
+    admin.from('activity_notices').select('id').not('push_retry', 'is', null).gte('at', since).order('id').limit(20),
+  ])
+  let tried = 0, failed = 0
+  for (const n of w.data || []) { tried++; if ((await pushActivity(admin, n.id)).status !== 200) failed++ }
+  for (const n of p.data || []) { tried++; if ((await retryActivity(admin, n.id)).status !== 200) failed++ }
+  return { tried, failed }
 }
 
 let ready = false
