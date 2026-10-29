@@ -583,7 +583,7 @@
   .hsrow .hgo{border:0;background:transparent;color:var(--lavInk);font-size:12px;padding:0;font-family:inherit;text-decoration:underline;cursor:pointer;}
   .hsempty{font-size:13.5px;color:var(--cap);margin:6px 0;}
   /* 출퇴근 기록 탭 — design_handoff_attendance 1a 수치 그대로 */
-  .hstiles.hw{grid-template-columns:1.3fr 1fr 1fr;}
+  .hstiles.hw{grid-template-columns:1fr 1fr;}   /* 이번 주 · 지난주 / 이번 달 · 지난달 (2026-10-29 원장님 '이번주, 지난주, 이번달, 지난달') */
   .hwt{background:#f6f7f4;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;text-align:left;}
   .hwt .lb{font-size:13px;color:#54655c;}
   .hwt .v{font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:24px;line-height:1.25;color:#2b3a33;}
@@ -2846,12 +2846,13 @@
   // 시간을 숫자(도현체)와 단위(작게)로 — '10시간 2분' → 10<u>시간</u> 2<u>분</u>
   function hwDurHtml(min){ min = Math.round(min || 0); var h = Math.floor(min / 60), m = min % 60; if (!min) return '0<u>분</u>'; return (h ? h + '<u>시간</u>' : '') + (h && m ? ' ' : '') + (m ? m + '<u>분</u>' : ''); }
   function hwRender(){
-    var segs = hwSegments(HW.logs), today = workYmd(), wk = hsWeekStart(today), mon = today.slice(0, 7), prev = hwMonthStart(1).slice(0, 7);
-    var sum = { w: [0, {}], m: [0, {}], p: [0, {}] };
-    segs.forEach(function(s){ if (s.ymd >= wk){ sum.w[0] += s.min; if (s.min) sum.w[1][s.ymd] = 1; } if (s.ymd.slice(0, 7) === mon){ sum.m[0] += s.min; if (s.min) sum.m[1][s.ymd] = 1; } if (s.ymd.slice(0, 7) === prev){ sum.p[0] += s.min; if (s.min) sum.p[1][s.ymd] = 1; } });
+    var segs = hwSegments(HW.logs), today = workYmd(), wk = hsWeekStart(today), lwk = addDay(wk, -7), mon = today.slice(0, 7), prev = hwMonthStart(1).slice(0, 7);
+    var sum = { w: [0, {}], lw: [0, {}], m: [0, {}], p: [0, {}] };
+    var add = function(k, s){ sum[k][0] += s.min; if (s.min) sum[k][1][s.ymd] = 1; };
+    segs.forEach(function(s){ if (s.ymd >= wk) add('w', s); else if (s.ymd >= lwk) add('lw', s); if (s.ymd.slice(0, 7) === mon) add('m', s); if (s.ymd.slice(0, 7) === prev) add('p', s); });
     var tile = function(label, x, main){ return '<div class="hwt' + (main ? ' main' : '') + (x[0] ? '' : ' zero') + '"><span class="lb">' + label + ' · ' + Object.keys(x[1]).length + '일</span><span class="v">' + hwDurHtml(x[0]) + '</span></div>'; };
     $('hstiles').className = 'hstiles hw';
-    $('hstiles').innerHTML = tile('이번 주', sum.w, true) + tile('이번 달', sum.m) + tile('지난달', sum.p);
+    $('hstiles').innerHTML = tile('이번 주', sum.w, true) + tile('지난주', sum.lw) + tile('이번 달', sum.m) + tile('지난달', sum.p);
     var missDays = []; segs.forEach(function(s){ if (s.how === 'none' && missDays.indexOf(s.ymd) < 0) missDays.push(s.ymd); });
     missDays.sort().reverse();
     var line = $('hsline');

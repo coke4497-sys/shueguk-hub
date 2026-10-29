@@ -1781,8 +1781,11 @@ async function showTask(pg, sel){
       days: [...document.querySelectorAll('#hslist .hsday')].map(d => d.textContent), rows: [...document.querySelectorAll('#hslist .hsrow')].map(x => [x.classList.contains('x'), x.querySelector('.hb > div').textContent, x.querySelector('.hmeta').textContent]), more: document.getElementById('hsMore').hidden }));
     const q = calls.filter(c => c[0] === 'tasksq').length;
     ok(r.tiles.join('|') === '2 이번 주 완료|2 이번 달 완료|3 전체 완료' && /지금까지 3개의 일을 끝냈습니다/.test(r.line), '타일 — 이번 주 2 · 이번 달 2 · 전체 3(취소·남은 일·남의 일 제외) ' + JSON.stringify(r.tiles));
-    const kymd = iso => new Date(Date.parse(iso) + 9 * 3600e3).toISOString().slice(0, 10), todayLbl = kymd(ago(3)) === kymd(ts()) ? ' · 오늘' : '';   // 자정 직후(한국 시각)에 돌리면 3시간 전은 어제
-    ok(r.days.length === 2 && new RegExp(todayLbl + ' · 완료 2 · 취소 1$').test(r.days[0]) && /완료 1$/.test(r.days[1]) && !/오늘/.test(r.days[1]), '날짜별 묶음 — 오늘(완료 2 · 취소 1) → 40일 전(완료 1) ' + JSON.stringify(r.days));
+    // 자정 전후(한국 시각)에 돌리면 1·2·3시간 전이 오늘·어제로 갈릴 수 있어 기대 머리를 날짜별로 다시 만든다
+    const kymd = iso => new Date(Date.parse(iso) + 9 * 3600e3).toISOString().slice(0, 10), tdy = kymd(ts());
+    const exp = {}; [[ago(1), '완료'], [ago(2), '완료'], [ago(3), '취소'], [ago(40 * 24), '완료']].forEach(([at, st]) => { const d = kymd(at); exp[d] = exp[d] || { f: 0, x: 0 }; exp[d][st === '완료' ? 'f' : 'x']++; });
+    const expDays = Object.keys(exp).sort().reverse().map(d => parseInt(d.slice(5, 7), 10) + '/' + parseInt(d.slice(8, 10), 10) + ' (' + '일월화수목금토'[new Date(d + 'T00:00:00Z').getUTCDay()] + ')' + (d === tdy ? ' · 오늘' : '') + ' · 완료 ' + exp[d].f + (exp[d].x ? ' · 취소 ' + exp[d].x : ''));
+    ok(JSON.stringify(r.days) === JSON.stringify(expDays), '날짜별 묶음 — 오늘(완료 2 · 취소 1) → 40일 전(완료 1), 자정 근처면 날짜가 갈림 ' + JSON.stringify(r.days));
     ok(r.rows.length === 4 && r.rows[0][1] === '교재 주문' && /^이은지 · 완료 오/.test(r.rows[0][2]) && /대화에서 보기/.test(r.rows[0][2]) && r.rows[1][1] === '복사기 토너 주문 부탁해요' && /^쪽지 이은지 · 완료/.test(r.rows[1][2]) && r.rows[2][0] && /취소 오.*사유: 다른 사람이 처리함/.test(r.rows[2][2]) && !/대화에서 보기/.test(r.rows[2][2]) && r.rows[3][1] === '지난달 정산', '줄 — 최근 것부터 · 쪽지 표시 · 취소는 ×와 사유 · 메시지가 있는 것만 [대화에서 보기] ' + JSON.stringify(r.rows));
     ok(r.more, '100개 안이면 [더 보기] 없음');
     r = await page.evaluate(() => { const rows = [...document.querySelectorAll('#hslist .hsrow')]; return { steps: rows[1].querySelectorAll('.hdet .steps li').length, link: !!rows[1].querySelector('.hdet .ilk'), none: rows.filter(x => x.querySelector('.hdet')).length }; });
@@ -1827,8 +1830,8 @@ async function showTask(pg, sel){
       note: document.getElementById('hsnote').textContent, link: !!document.querySelector('#hsnote a[href="worklog.html"]'), more: document.getElementById('hsMore').hidden, moreTxt: document.getElementById('hsMore').textContent,
       lineCls: document.getElementById('hsline').className, tileCls: [...document.querySelectorAll('#hstiles .hwt')].map(t => t.className), panel: getComputedStyle(document.querySelector('#hsback .ppanel')).maxWidth, seg: document.querySelector('#hstabs button.on').textContent, closeTop: !!document.querySelector('#hsback .wthead #hsClose') }));
     const sameWeek = (() => { const k = new Date(wy + 'T00:00:00Z').getUTCDay(); const wed = dayOf(wy, (k === 1 || k === 2) ? 3 - k : -((k - 3 + 7) % 7)); return yday >= wed; })();
-    ok(r.tiles.length === 3 && /^6시간 25분 이번 주 · 1일$/.test(r.tiles[0]) && /^6시간 25분 이번 달 · 1일$/.test(r.tiles[1]) && /^4시간 지난달 · 1일$/.test(r.tiles[2]), '타일 — 이번 주·이번 달 6시간 25분(퇴근 없는 어제는 0) · 지난달 4시간 ' + JSON.stringify(r.tiles) + (sameWeek ? '' : ' (어제는 지난 주)'));
-    ok(r.panel === '516px' && r.closeTop && r.seg === '출퇴근 기록' && r.tileCls[0] === 'hwt main' && r.tileCls[1] === 'hwt' && /hwst miss/.test(r.lineCls), '디자인 1a — 폭 516·머리 원형 닫기·세그먼트 탭·이번 주 강조 카드·누락 상태 문구(분홍) ' + JSON.stringify([r.panel, r.tileCls, r.lineCls]));
+    ok(r.tiles.length === 4 && /^6시간 25분 이번 주 · 1일$/.test(r.tiles[0]) && /^0분 지난주 · 0일$/.test(r.tiles[1]) && /^6시간 25분 이번 달 · 1일$/.test(r.tiles[2]) && /^4시간 지난달 · 1일$/.test(r.tiles[3]), '타일 넷 — 이번 주 6시간 25분 · 지난주 0분(퇴근 없는 어제는 0) · 이번 달 6시간 25분 · 지난달 4시간 ' + JSON.stringify(r.tiles) + (sameWeek ? '' : ' (어제는 지난 주)'));
+    ok(r.panel === '516px' && r.closeTop && r.seg === '출퇴근 기록' && r.tileCls.join(',') === 'hwt main,hwt zero,hwt,hwt' && /hwst miss/.test(r.lineCls), '디자인 1a — 폭 516·머리 원형 닫기·세그먼트 탭·이번 주 강조 카드·누락 상태 문구(분홍) ' + JSON.stringify([r.panel, r.tileCls, r.lineCls]));
     const ydMd = parseInt(yday.slice(5, 7), 10) + '/' + parseInt(yday.slice(8, 10), 10);
     ok(r.line.includes('퇴근을 누르지 않은 날이 1일 있어요 (' + ydMd + ')') && /합계에 들어가지 않습니다/.test(r.line), '상태 문구 — 퇴근 안 누른 날 1일 + 날짜 ' + r.line);
     ok(r.days.length === 3 && /오늘.*6시간 25분$/.test(r.days[0]) && /퇴근 기록 없음$/.test(r.days[1]) && !/오늘/.test(r.days[1]) && /4시간$/.test(r.days[2]), '날짜별 묶음 — 오늘(6시간 25분) → 어제(퇴근 기록 없음) → 지난달(4시간) ' + JSON.stringify(r.days));
@@ -1858,7 +1861,7 @@ async function showTask(pg, sel){
     await page.click('#hstabs button[data-hs="task"]');
     await page.click('#hstabs button[data-hs="work"]'); // 돌아오면 첫 조회가 앞 요청에 막히지 않고 다시 돈다
     await page.waitForTimeout(1300);
-    ok(await page.evaluate(() => document.querySelectorAll('#hslist .hwr').length === 4 && document.querySelectorAll('#hstiles .hwt')[1].querySelector('.v').textContent === '6시간 25분' && !document.getElementById('hsMore').disabled), '탭을 옮겼다 돌아와도 최근 기록·합계 그대로, [더 보기] 다시 눌림');
+    ok(await page.evaluate(() => document.querySelectorAll('#hslist .hwr').length === 4 && document.querySelectorAll('#hstiles .hwt')[2].querySelector('.v').textContent === '6시간 25분' && !document.getElementById('hsMore').disabled), '탭을 옮겼다 돌아와도 최근 기록·합계 그대로, [더 보기] 다시 눌림');
     slowPlog = false;
     await page.keyboard.press('Escape');
     await ctx.close();
