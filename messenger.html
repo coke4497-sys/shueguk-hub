@@ -538,6 +538,15 @@
   .cxb.txt{width:auto;padding:4px 10px;border-radius:999px;font-size:12.5px;}
   .none{font-size:13px;color:var(--cap);}
   .pc .none{background:var(--soft);border-radius:16px;padding:28px 16px;text-align:center;}
+  /* 원장님 업무 목록 맨 아래 [티쳐스 활동 기록] 입구 (2026-10-29) */
+  .ci.actlink{display:flex;align-items:center;text-decoration:none;color:inherit;background:var(--lav);cursor:pointer;}
+  .ci.actlink:hover{background:#e3d7ee;}
+  .ci.actlink .abx{flex:none;width:34px;height:34px;border-radius:50%;background:#fff;display:inline-flex;align-items:center;justify-content:center;color:#4a4266;}
+  .ci.actlink .abx svg{width:18px;height:18px;}
+  .ci.actlink .cbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .ci.actlink .ttl{font-weight:700;color:#4a4266;}
+  .ci.actlink .meta{font-size:12.5px;color:var(--cap);}
+  .ci.actlink .chev{flex:none;font-size:20px;color:#4a4266;}
   .none.empty{text-align:center;padding:28px 0;}
   .ci.ls .cbody{gap:4px;}
   .ci.ls .ttl{display:block;}
@@ -1165,6 +1174,7 @@
       renderMsgs('first'); renderBoard();
       loadReads();
       var hm0 = location.hash.match(/^#m(\d+)$/); if (hm0) goTo(Number(hm0[1]));
+      if (location.hash === '#board'){ setTab('board'); history.replaceState(null, '', location.pathname + location.search); }   // 활동 기록 화면의 '슈톡 업무 진행' 링크로 돌아올 때
       pushInit(); loadPres(); loadLessons(true); loadShifts(); renderPres();
       setLive(true); schedule();
     }).catch(function(e){
@@ -2209,6 +2219,7 @@
       var items = p.les.map(lessonHtml).join('') + todo.map(function(t){ return taskHtml(t, p); }).join('')
         + p.done.sort(function(a, b){ return Date.parse(b.done_at) - Date.parse(a.done_at); }).map(function(t){ return doneHtml(t, p); }).join('');
       if (!tot) items += '<div class="none">오늘 배정된 업무가 없어요.</div>';
+      if (p.key === ME.id && ME.role === 'admin') items += actLinkHtml();   // 원장님 업무 목록 맨 아래 [티쳐스 활동 기록] (2026-10-29 원장님 — 원장님에게만)
       return '<section class="pc' + (sel ? ' sel' : '') + (p.on ? '' : ' offd') + '" data-person="' + esc(p.key) + '"' + (p.on ? '' : ' title="출근 전 · 내용은 볼 수 있어요"') + '><div class="ph1"><span class="pn">' + esc(p.name) + '</span><span class="prl">' + (p.key === ME.id ? '나 · ' : '') + esc(p.role ? roleLabel(p.role) : '') + '</span>'
         + '<span class="pcnt' + (full ? ' full' : '') + '">' + p.fin + ' / ' + tot + (full ? ' 완료' : '') + '</span>' + psubHtml(p) + '</div>'
         + items + '</section>';
@@ -2244,6 +2255,12 @@
       status(/PGRST202|msg_task_add/.test(raw) ? '내 업무 추가는 데이터베이스 적용(202610250002) 뒤에 쓸 수 있습니다.' : /too_long/.test(raw) ? '300자까지 적을 수 있어요.' : errText(err), 6000);
     }).then(function(){ saBusy = false; SA_BTN.disabled = false; });
   });
+  // 티쳐스 활동 기록 입구(2026-10-29 원장님 "슈톡의 업무 진행의 제 업무 리스트 하단에 배치, 저에게만 보이도록") — 원장님(admin) 구역에만,
+  // 슈국 운영 메뉴의 카드는 여기로 옮겼다. 읽기 권한(private.activity_viewer)도 원장님만이라 다른 사람에게는 그리지 않는다.
+  function actLinkHtml(){
+    return '<a class="ci actlink" href="activity.html" id="actLink"><span class="abx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></span>'
+      + '<span class="cbody"><span class="ttl">티쳐스 활동 기록</span><span class="meta">시험 범위 · 시간표 · 리포트 · 출석 … 누가 무엇을 했는지와 내게 보낸 알림 (원장님만)</span></span><span class="chev">›</span></a>';
+  }
   // 고른 사람 머리 아래 한 줄 — '{센터} · {출근 시각 · 근무 중 / 출근 전 / 퇴근}' (2026-10-21 리디자인)
   function psubHtml(p){
     var x = MBY[p.key] && staffOf(MBY[p.key]);
