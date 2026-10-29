@@ -178,12 +178,30 @@
       const uid = ctx && ctx.profile && ctx.profile.user_id;
       if (!uid) return;
       const el = document.getElementById("msgBadge");
+      // 읽은 자리 = 이 기기(localStorage)와 서버(msg_reads — 다른 기기에서 읽은 것) 중 더 앞선 것(2026-10-29 원장님 "한 계정에서 읽은 메시지는
+      // 다른 기기에도 읽은 것으로"). 서버가 앞서면 이 기기에도 적는다. 표가 없거나 못 읽으면 이 기기 자리만.
+      function serverMark(){
+        return fetch(SB + "/rest/v1/msg_reads?select=user_id,last_id&user_id=eq." + uid)
+          .then(r => r.ok ? r.json() : [])
+          .then(rows => { const r = (rows || []).find(x => x.user_id === uid) || (rows || [])[0]; return r && r.user_id === uid ? Number(r.last_id) || 0 : 0; })
+          .catch(() => 0);
+      }
       function count(){
-        const mark = Number(localStorage.getItem("msg_read_" + uid) || 0);
-        fetch(SB + "/rest/v1/msg_messages?select=id&id=gt." + mark + "&or=(author.is.null,author.neq." + uid + ")&deleted_at=is.null",
-          { headers: { Prefer: "count=exact", Range: "0-0" } })
+        serverMark().then(sv => {
+          let mark = Number(localStorage.getItem("msg_read_" + uid) || 0);
+          if (sv > mark){ mark = sv; try { localStorage.setItem("msg_read_" + uid, String(sv)); } catch (e) {} }
+          return fetch(SB + "/rest/v1/msg_messages?select=id&id=gt." + mark + "&or=(author.is.null,author.neq." + uid + ")&deleted_at=is.null",
+            { headers: { Prefer: "count=exact", Range: "0-0" } });
+        })
           .then(r => { if (!r.ok && r.status !== 206) throw 0; const cr = r.headers.get("content-range") || ""; return Number(cr.split("/")[1]) || 0; })
-          .then(n => { el.hidden = !n; el.textContent = n > 99 ? "99+" : String(n); el.setAttribute("aria-label", "새 메시지 " + n + "개"); })
+          .then(n => {
+            el.hidden = !n; el.textContent = n > 99 ? "99+" : String(n); el.setAttribute("aria-label", "새 메시지 " + n + "개");
+            // 다른 기기에서 다 읽었으면 이 기기 홈 화면 아이콘 숫자도 0으로(서비스 워커 msg-sw.js badge-clear)
+            if (!n){
+              if (navigator.clearAppBadge) navigator.clearAppBadge().catch(() => {});
+              const sw = navigator.serviceWorker && navigator.serviceWorker.controller; if (sw) sw.postMessage({ type: "badge-clear" });
+            }
+          })
           .catch(() => { el.hidden = true; });
       }
       count();
