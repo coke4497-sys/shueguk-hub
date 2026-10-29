@@ -327,8 +327,8 @@ async function showTask(pg, sel){
       if (p === '/rest/v1/students'){ calls.push(['stu']); return json(STUDENTS); }
       if (p === '/rest/v1/student_waitlist'){
         if (waitMissing) return json({ code: 'PGRST205', message: "Could not find the table 'public.student_waitlist' in the schema cache" }, 404);
-        if (req.method() === 'POST'){ const b = JSON.parse(req.postData()); calls.push(['wait', b]); const row = Object.assign({ id: 500 + WAIT.length, status: '대기' }, b); WAIT.push(row); return json([row], 201); }
-        return json(WAIT);
+        if (req.method() === 'POST'){ const b = JSON.parse(req.postData()); calls.push(['wait', b]); const row = Object.assign({ id: 500 + WAIT.length, status: '대기', started_on: new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10) }, b); WAIT.push(row); return json([row], 201); }
+        calls.push(['waitlist', u.search]); return json(WAIT.filter(x => x.status === '대기'));
       }
       if (p === '/rest/v1/tt_period') return json(TTP.filter(x => 'eq.' + x.week_wednesday === u.searchParams.get('week_wednesday')));
       if (p === '/rest/v1/tt_log'){
@@ -1610,7 +1610,8 @@ async function showTask(pg, sel){
     await page.waitForFunction(() => !document.getElementById('wtback').hidden && document.querySelectorAll('#wtClass option').length > 1);
     let r = await page.evaluate(() => ({ kind: document.querySelector('#wtKind button.on').textContent, who: document.getElementById('wtWho').textContent, year: document.getElementById('wtYear').value,
       opts: [...document.querySelectorAll('#wtClass option')].map(o => o.textContent), schools: [...document.querySelectorAll('#wtSchools option')].map(o => o.value) }));
-    ok(r.kind === '예비 슈스 대기' && r.who === '고희주' && +r.year === new Date().getFullYear(), '창 — 예비 슈스가 기본 · 저장한 사람 = 나 · 연도 올해');
+    const kst = new Date(Date.now() + 9 * 3600e3), nextYr = kst.getUTCMonth() + 1 >= 3 ? kst.getUTCFullYear() + 1 : kst.getUTCFullYear();
+    ok(r.kind === '예비 슈스 대기' && r.who === '고희주' && +r.year === nextYr, '창 — 예비 슈스가 기본 · 저장한 사람 = 나 · 연도 = 다음 학년도(3월부터 내년) ' + r.year);
     ok(r.opts[0] === '미정' && r.opts.some(t => /고2 가 · .* · 은지T · 1명/.test(t)) && !r.opts.some(t => /고2 화정A/.test(t)), '정규 반 드롭다운 = 미정 + 정규 반(인원 표시)');
     ok(r.schools.includes('서정중') && r.schools.includes('화정고'), '학교 자동완성은 재원 명단의 학교');
     await page.click('#wtSave');
@@ -1640,6 +1641,40 @@ async function showTask(pg, sel){
     await page.waitForFunction(() => document.getElementById('wtback').hidden);
     w = calls.filter(c => c[0] === 'wait').pop()[1];
     ok(w.kind === '재원' && w.student_id === 7 && w.name === '김민준' && w.want_book === '내신' && w.want_class_id === 'n001' && w.cap === 4, '재원 저장 본문 — student_id · 내신 반 · 손으로 고친 정원 ' + JSON.stringify(w));
+    // 명단 보기(2026-10-29 원장님 "여기서 명단 보기를 띄울 수 있었으면")
+    WAIT.unshift({ id: 400, kind: '예비', name: '이른대기', year: 2027, grade: '중3', school: '서정중', phone_parent: '01047144636', student_id: null, want_book: '정규', want_class_id: 'r001', want_class_name: '고2 가 · 수 2:00 · 은지T', cap: 3, memo: '설명회 연락', started_on: '2026-10-01', status: '대기', author_name: '이수경' });
+    WAIT.push({ id: 401, kind: '예비', name: '끝난대기', year: 2027, grade: '중3', school: '가람중', phone_parent: '', student_id: null, want_book: '', want_class_id: '', want_class_name: '', cap: null, memo: '', started_on: '2026-09-01', status: '완료', author_name: '이수경' });
+    await page.click('#waitBtn');
+    await page.waitForFunction(() => !document.getElementById('wtback').hidden);
+    ok(await page.evaluate(() => document.getElementById('wtListBox').hidden && !document.getElementById('wtForm').hidden && document.getElementById('wttitle').textContent === '대기생 등록'), '창은 등록 화면으로 열린다');
+    await page.click('#wtKind button[data-kind="예비"]');
+    await page.click('#wtView button[data-view="list"]');
+    await page.waitForFunction(() => /\d+명/.test(document.getElementById('wtListHead').textContent));
+    r = await page.evaluate(() => ({ title: document.getElementById('wttitle').textContent, form: document.getElementById('wtForm').hidden, save: document.getElementById('wtSave').hidden, head: document.getElementById('wtListHead').textContent,
+      rows: [...document.querySelectorAll('#wtList .wtli')].map(e => ({ nm: e.querySelector('b').textContent, can: e.classList.contains('can'), l2: e.querySelector('.l2').textContent, memo: (e.querySelector('.memo') || {}).textContent || '', days: e.querySelector('.days').textContent })),
+      foot: document.querySelector('#wtListBox .wtlfoot a').getAttribute('href') }));
+    ok(r.title === '대기 명단' && r.form && r.save, '[명단 보기] — 제목이 바뀌고 등록 칸·올리기 버튼이 숨는다');
+    ok(r.rows.map(x => x.nm).join(',') === '이른대기,새대기' && /예비 슈스 대기 2명 · 이동 가능 1명/.test(r.head), '예비 대기만 · 대기 시작일 순 · 완료 줄 제외 · 머리 "2명 · 이동 가능 1명" ' + JSON.stringify([r.rows.map(x => x.nm), r.head]));
+    ok(r.rows[0].can && /010-4714-4636/.test(r.rows[0].l2) && /희망 고2 가 · 수 2:00 · 은지T · 1명 \/ 정원 3 · 자리 있음/.test(r.rows[0].l2) && /이수경 적음/.test(r.rows[0].l2) && r.rows[0].memo === '설명회 연락' && /일째/.test(r.rows[0].days), '정원(3) > 지금 인원(1)이면 초록 줄 + 연락처·희망 반·인원·적은 사람·메모 ' + JSON.stringify(r.rows[0]));
+    ok(!r.rows[1].can && /1명 \/ 정원 1/.test(r.rows[1].l2) && /오늘부터/.test(r.rows[1].days), '정원 1 = 지금 인원 1이면 보통 줄 · 오늘 올린 줄은 "오늘부터" ' + JSON.stringify(r.rows[1]));
+    ok(/superstar\.html#wait$/.test(r.foot), '전환·고치기·취소는 슈퍼스타 관리 대기 슈스 링크');
+    r = await page.evaluate(() => [...document.querySelectorAll('#wtFilt .wtfilt')].map(d => [...d.querySelectorAll('button')].map(b => b.textContent.replace(/\s+/g, ' ').trim())));
+    ok(r.length === 2 && r[0].join('|') === '전체|중3 1|고1 1' && r[1].join('|') === '전체|서정중 1|화수고 1', '학년·학교 알약 = 대기 중인 줄의 학년(중3→고1 순)·학교(가나다) + 인원 ' + JSON.stringify(r));
+    await page.click('#wtFilt button[data-f="fg"][data-v="고1"]');
+    r = await page.evaluate(() => ({ nm: [...document.querySelectorAll('#wtList .wtli b')].map(e => e.textContent), head: document.getElementById('wtListHead').textContent, on: document.querySelector('#wtFilt button[data-f="fg"].on').textContent }));
+    ok(r.nm.join(',') === '새대기' && /2명 · 보는 중 1명/.test(r.head) && /고1/.test(r.on), '학년 고1을 고르면 그 학년만 · 머리 "2명 · 보는 중 1명" ' + JSON.stringify(r));
+    await page.click('#wtFilt button[data-f="fs"][data-v="서정중"]');
+    ok(/고른 학년·학교에 대기 중인 학생이 없습니다/.test(await page.locator('#wtList').textContent()), '학년 고1 + 학교 서정중 = 없음 안내');
+    await page.click('#wtFilt button[data-f="fg"][data-v=""]');
+    r = await page.evaluate(() => [...document.querySelectorAll('#wtList .wtli b')].map(e => e.textContent));
+    ok(r.join(',') === '이른대기', '학년 전체 + 학교 서정중 = 이른대기만');
+    await page.click('#wtFilt button[data-f="fs"][data-v=""]');
+    await page.click('#wtKind button[data-kind="재원"]');
+    r = await page.evaluate(() => ({ head: document.getElementById('wtListHead').textContent, rows: [...document.querySelectorAll('#wtList .wtli')].map(e => e.querySelector('.l2').textContent) }));
+    ok(/반 이동 대기 1명 · 이동 가능 1명/.test(r.head) && r.rows.length === 1 && /지금 가 금5:30/.test(r.rows[0]) && /2명 \/ 정원 4 · 자리 있음/.test(r.rows[0]), '재원 알약을 누르면 반 이동 대기 명단(지금 반 · 희망 반 인원/정원 4 > 2명 = 자리 있음) ' + JSON.stringify(r));
+    await page.click('#wtView button[data-view="form"]');
+    ok(await page.evaluate(() => !document.getElementById('wtForm').hidden && document.getElementById('wtListBox').hidden && document.getElementById('wttitle').textContent === '대기생 등록'), '[등록]으로 돌아온다');
+    await page.click('#wtClose');
     // 표 없음(마이그레이션 전)
     waitMissing = true;
     await page.click('#waitBtn'); await page.click('#wtKind button[data-kind="예비"]'); await page.fill('#wtName', '아무개'); await page.click('#wtSave');

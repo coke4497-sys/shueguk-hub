@@ -889,6 +889,32 @@
   .wtwho b{color:var(--ink);}
   #wtStatus{font-size:12.5px;color:var(--lavInk);min-height:1em;}
   #wtStatus.err{color:#a2453b;}
+  /* 대기 명단 보기 (2026-10-29 원장님 "여기서 명단 보기를 띄울 수 있었으면") — 같은 창 안에서 등록 ↔ 명단 */
+  .wtview{display:flex;gap:6px;}
+  .wtview button{border:0;border-radius:999px;background:var(--soft);color:var(--ink2);font-size:12.5px;padding:5px 12px;font-family:inherit;}
+  .wtview button.on{background:var(--lav);color:var(--lavInk);font-weight:700;}
+  .wtlhead{font-size:12.5px;color:var(--ink2);display:flex;justify-content:space-between;align-items:center;gap:8px;}
+  .wtlhead b{color:var(--ink);}
+  .wtlist{max-height:52vh;overflow:auto;display:flex;flex-direction:column;gap:6px;}
+  .wtli{padding:8px 10px;border-radius:12px;background:var(--soft);font-size:13px;line-height:1.5;}
+  .wtli.can{background:#E3F1E7;}
+  .wtli .l1{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;}
+  .wtli .no{font-size:11.5px;color:var(--cap);min-width:1.2em;}
+  .wtli .l1 b{font-size:14px;}
+  .wtli .sub{color:var(--ink2);font-size:12.5px;}
+  .wtli .days{margin-left:auto;font-size:11.5px;color:var(--cap);white-space:nowrap;}
+  .wtli .l2{font-size:12.5px;color:var(--ink2);}
+  .wtli .l2 a{color:var(--lavInk);text-decoration:none;}
+  .wtli .room{color:#2f6b45;font-weight:700;}
+  .wtli .memo{font-size:12.5px;color:var(--ink);margin-top:2px;white-space:pre-wrap;}
+  .wtlempty{font-size:13px;color:var(--cap);padding:10px 2px;}
+  .wtlfoot{font-size:12px;color:var(--cap);}
+  .wtfilt{display:flex;flex-wrap:wrap;gap:5px;align-items:center;font-size:12px;}
+  .wtfilt .lab{color:var(--cap);margin-right:2px;}
+  .wtfilt button{border:0;border-radius:999px;background:var(--soft);padding:3px 10px;font-family:inherit;font-size:12px;color:var(--ink2);}
+  .wtfilt button.on{background:var(--lav);color:var(--lavInk);font-weight:700;}
+  .wtfilt button small{font-weight:400;opacity:.8;}
+  .wtlfoot a{color:var(--lavInk);}
 </style>
 </head>
 <body data-tab="chat">
@@ -1009,6 +1035,14 @@
   <div class="ppanel wtpanel wtf" role="dialog" aria-modal="true" aria-labelledby="wttitle">
     <span class="btitle" id="wttitle">대기생 등록</span>
     <div class="cxm" id="wtKind"><button type="button" data-kind="예비" class="on">예비 슈스 대기</button><button type="button" data-kind="재원">재원 슈스 반 이동 대기</button></div>
+    <div class="wtview" id="wtView"><button type="button" data-view="form" class="on">등록</button><button type="button" data-view="list">명단 보기</button></div>
+    <div id="wtListBox" hidden>
+      <div class="wtlhead"><span id="wtListHead">명단을 불러오는 중…</span><button class="hbtn plain" type="button" id="wtReload">새로고침</button></div>
+      <div id="wtFilt"></div>
+      <div class="wtlist" id="wtList"></div>
+      <p class="wtlfoot">등록으로 전환·고치기·대기 취소는 <a href="https://coke4497-sys.github.io/shueguk-report/superstar.html#wait" target="_blank" rel="noopener">슈퍼스타 관리 → 대기 슈스</a>에서 합니다.</p>
+    </div>
+    <div id="wtForm">
     <p class="pnote" id="wtNote">아직 등록 전인 학생을 대기 명단에 올립니다. 슈퍼스타 관리 → 대기 슈스에서 같은 명단을 봐요.</p>
     <div class="dfrow"><div><label for="wtYear">연도</label><input type="number" id="wtYear" min="2020" max="2099"></div><div><label for="wtGrade">학년</label><select id="wtGrade"><option value="">미정</option><option>중1</option><option>중2</option><option>중3</option><option>고1</option><option>고2</option><option>고3</option></select></div></div>
     <div class="dfrow"><div><label for="wtSchool">학교</label><input type="text" id="wtSchool" list="wtSchools" placeholder="예) 화정고" autocomplete="off"><datalist id="wtSchools"></datalist></div><div><label for="wtName">이름</label><input type="text" id="wtName" list="wtNames" placeholder="예) 김하늘" autocomplete="off"><datalist id="wtNames"></datalist></div></div>
@@ -1020,6 +1054,7 @@
     <div class="dfrow"><div><label for="wtCap">정원 (이 인원 아래로 내려가면 이동 가능)</label><input type="number" id="wtCap" min="1" max="99" placeholder="반을 고르면 지금 인원으로"></div></div>
     <div><label for="wtMemo">메모</label><textarea id="wtMemo" maxlength="500" placeholder="예) 2월 입학 상담 · 금요일 수업 희망"></textarea></div>
     <div class="wtwho">저장한 사람 <b id="wtWho"></b></div>
+    </div>
     <div id="wtStatus" aria-live="polite"></div>
     <div class="prow"><button class="hbtn big" type="button" id="wtSave">대기 명단에 올리기</button><button class="hbtn plain" type="button" id="wtClose">닫기</button></div>
   </div>
@@ -2106,7 +2141,7 @@
    * 재원 슈스는 재원 명단에서 이름을 고르면 학교·학년·연락처·지금 반이 채워지고 student_id 를 잇는다. 희망 반은 tt_classes 에서
    * 고르고(인원 표시) 정원은 그 반 지금 인원으로 자동(고칠 수 있음) — 인원이 정원 아래로 내려가면 슈퍼스타 관리에서 줄 색이 바뀐다.
    * 대화에는 글을 남기지 않는다. */
-  var WTM = { kind: '예비', book: '정규', stu: null, ttc: null, pick: null, capTouched: false, inited: false, busy: false };
+  var WTM = { kind: '예비', book: '정규', stu: null, ttc: null, pick: null, capTouched: false, inited: false, busy: false, view: 'form', wl: null, wlBusy: false, fg: '', fs: '' };   // fg·fs = 명단 보기의 학년·학교 거르기('' = 전체)
   var WT_LEFT = /^(퇴원|n|no|off|x|중단|비재원)$/i;
   function wtmShortGrade(g){ g = String(g || '').trim(); var m = /(고등|중등)\s*(\d)/.exec(g); if (m) return (m[1] === '고등' ? '고' : '중') + m[2]; m = /^([중고])\s*(\d)/.exec(g); return m ? m[1] + m[2] : ''; }
   function wtmKey(s){ return String(s.name).trim() + ' · ' + (String(s.school || '').trim() || '학교 미상') + ' · ' + (wtmShortGrade(s.grade) || '학년 미상'); }
@@ -2142,6 +2177,59 @@
     $('wtClsLabel').textContent = k === '예비' ? '희망 반 — 미정으로 두어도 됩니다' : '이동 희망 반 — 미정으로 두어도 됩니다';
     $('wtName').setAttribute('list', k === '재원' ? 'wtNames' : '');
     $('wtName').placeholder = k === '재원' ? '이름을 적으면 재원 명단에서 골라요' : '예) 김하늘';
+    if (WTM.view === 'list') wtmListRender();
+  }
+  // ── 명단 보기 (2026-10-29 원장님 "여기서 명단 보기를 띄울 수 있었으면") — 대기 중인 줄만, 대기 시작일 순. 슈퍼스타 관리 대기 슈스와 같은 표·같은 이동 가능 판정(지금 인원 < 정원).
+  function wtmSetView(v){
+    WTM.view = v;
+    Array.prototype.forEach.call($('wtView').querySelectorAll('button'), function(b){ b.classList.toggle('on', b.getAttribute('data-view') === v); });
+    $('wtForm').hidden = v !== 'form'; $('wtListBox').hidden = v !== 'list'; $('wtSave').hidden = v !== 'form';
+    $('wttitle').textContent = v === 'list' ? '대기 명단' : '대기생 등록';
+    wtmStatus('');
+    if (v === 'list'){ if (WTM.wl) wtmListRender(); else wtmListLoad(); }
+  }
+  function wtmListLoad(){
+    if (WTM.wlBusy) return; WTM.wlBusy = true;
+    $('wtListHead').textContent = '명단을 불러오는 중…';
+    api('/student_waitlist?status=eq.대기&order=started_on.asc,id.asc&select=id,kind,name,year,grade,school,phone_parent,student_id,want_book,want_class_id,want_class_name,cap,memo,started_on,author_name&limit=1000').then(function(rows){
+      WTM.wl = rows || []; wtmListRender();
+    }).catch(function(e){
+      WTM.wl = null; $('wtList').innerHTML = ''; $('wtListHead').textContent = e && e.status === 404 ? '대기 명단 표가 아직 없습니다 (허브 마이그레이션 202610290001).' : '명단을 불러오지 못했어요: ' + errText(e);
+    }).then(function(){ WTM.wlBusy = false; });
+  }
+  function wtmPhoneFmt(p){ p = String(p || '').replace(/\D/g, ''); return p.length === 11 ? p.slice(0, 3) + '-' + p.slice(3, 7) + '-' + p.slice(7) : p.length === 10 ? p.slice(0, 3) + '-' + p.slice(3, 6) + '-' + p.slice(6) : p; }
+  function wtmDays(ymd){ var d = Math.round((Date.parse(todayYmd() + 'T00:00:00Z') - Date.parse(String(ymd) + 'T00:00:00Z')) / 864e5); return isNaN(d) ? '' : d <= 0 ? '오늘부터' : d + '일째'; }
+  // 학년별·학교별 거르기(2026-10-29 원장님 "학년별 학교별로 볼 수 있어야") — 슈퍼스타 관리 wtFiltHtml 과 같은 규칙.
+  var WTM_GRADES = ['중1', '중2', '중3', '고1', '고2', '고3'];
+  function wtmFiltHtml(all){
+    if (!all.length) return '';
+    var g = {}, sc = {}; all.forEach(function(r){ var a = String(r.grade || '').trim() || '미정', b = String(r.school || '').trim() || '학교 미상'; g[a] = (g[a] || 0) + 1; sc[b] = (sc[b] || 0) + 1; });
+    var gk = Object.keys(g).sort(function(a, b){ var x = WTM_GRADES.indexOf(a), y = WTM_GRADES.indexOf(b); return (x < 0 ? 99 : x) - (y < 0 ? 99 : y) || a.localeCompare(b, 'ko'); });
+    var sk = Object.keys(sc).sort(function(a, b){ return a.localeCompare(b, 'ko'); });
+    var pill = function(key, v, n, on){ return '<button type="button" data-f="' + key + '" data-v="' + esc(v) + '" class="' + (on ? 'on' : '') + '">' + esc(v || '전체') + (n != null ? ' <small>' + n + '</small>' : '') + '</button>'; };
+    return '<div class="wtfilt"><span class="lab">학년</span>' + pill('fg', '', null, !WTM.fg) + gk.map(function(k){ return pill('fg', k, g[k], WTM.fg === k); }).join('') + '</div>'
+      + '<div class="wtfilt"><span class="lab">학교</span>' + pill('fs', '', null, !WTM.fs) + sk.map(function(k){ return pill('fs', k, sc[k], WTM.fs === k); }).join('') + '</div>';
+  }
+  function wtmListRender(){
+    var all = (WTM.wl || []).filter(function(r){ return r.kind === WTM.kind; }), canN = 0;
+    $('wtFilt').innerHTML = wtmFiltHtml(all);
+    var filt = !!(WTM.fg || WTM.fs);
+    var rows = all.filter(function(r){ return (!WTM.fg || (String(r.grade || '').trim() || '미정') === WTM.fg) && (!WTM.fs || (String(r.school || '').trim() || '학교 미상') === WTM.fs); });
+    var html = rows.map(function(r, i){
+      var c = r.want_class_id ? (WTM.ttc || []).find(function(x){ return x.book === r.want_book && x.class_id === r.want_class_id; }) : null;
+      var cnt = c ? wtmCount(c) : null, can = !!(c && r.cap != null && cnt < r.cap); if (can) canN++;
+      var s = r.student_id && WTM.stu ? WTM.stu.find(function(x){ return x.id === r.student_id; }) : null;
+      var l2 = [];
+      if (r.phone_parent) l2.push('<a href="tel:' + esc(r.phone_parent) + '">' + esc(wtmPhoneFmt(r.phone_parent)) + '</a>');
+      if (r.kind === '재원' && s) l2.push('지금 ' + esc(wtmCur(s) || '미배정'));
+      if (c) l2.push('희망 ' + esc(r.want_class_name || wtmLabel(c)) + ' · ' + cnt + '명' + (r.cap != null ? ' / 정원 ' + r.cap : '') + (can ? ' · <span class="room">자리 있음</span>' : ''));
+      else l2.push(r.want_class_name ? '희망 ' + esc(r.want_class_name) + ' (지금 시간표에 없음)' : '희망 반 미정');
+      if (r.author_name) l2.push(esc(r.author_name) + ' 적음');
+      return '<div class="wtli' + (can ? ' can' : '') + '" data-id="' + r.id + '"><div class="l1"><span class="no">' + (i + 1) + '</span><b>' + esc(r.name) + '</b><span class="sub">' + esc([r.school, r.grade, r.year ? r.year + '년' : ''].filter(String).join(' · ')) + '</span><span class="days">' + esc(wtmDays(r.started_on)) + '</span></div>'
+        + '<div class="l2">' + l2.join(' · ') + '</div>' + (r.memo ? '<div class="memo">' + esc(r.memo) + '</div>' : '') + '</div>';
+    }).join('');
+    $('wtList').innerHTML = html || '<div class="wtlempty">' + (filt ? '고른 학년·학교에 대기 중인 학생이 없습니다.' : WTM.kind === '예비' ? '대기 중인 예비 슈스가 없습니다.' : '반 이동을 기다리는 재원 슈스가 없습니다.') + '</div>';
+    $('wtListHead').innerHTML = (WTM.kind === '예비' ? '예비 슈스 대기' : '반 이동 대기') + ' <b>' + all.length + '명</b>' + (filt ? ' · 보는 중 <b>' + rows.length + '명</b>' : '') + (WTM.kind === '재원' || canN ? ' · 이동 가능 <b>' + canN + '명</b>' : '') + ' · 대기 시작일 순';
   }
   function wtmPick(){
     if (WTM.kind !== '재원') return;
@@ -2152,13 +2240,18 @@
     if (s.phone_parent1) $('wtPhone').value = String(s.phone_parent1).trim();
     $('wtStuInfo').innerHTML = '지금 반: <b>' + esc(wtmCur(s) || '시간표 미배정') + '</b>';
   }
+  // 대기 연도 기본값 = 다음 학년도(2026-10-29 원장님 "2027로" — 대기는 다음 해 등록을 기다리는 것). 3월부터는 내년, 1·2월은 올해(한국 날짜).
+  function wtmDefaultYear(){ var y = todayYmd(); var yr = +y.slice(0, 4), m = +y.slice(5, 7); return m >= 3 ? yr + 1 : yr; }
   function wtmStatus(m, err){ var el = $('wtStatus'); el.textContent = m || ''; el.classList.toggle('err', !!err); }
   function wtmOpen(){
     if (!ME) return;
     if (!WTM.inited){
       WTM.inited = true;
-      $('wtYear').value = new Date().getFullYear();
+      $('wtYear').value = wtmDefaultYear();
       $('wtKind').addEventListener('click', function(e){ var b = e.target.closest('button[data-kind]'); if (b) wtmSetKind(b.getAttribute('data-kind')); });
+      $('wtView').addEventListener('click', function(e){ var b = e.target.closest('button[data-view]'); if (b) wtmSetView(b.getAttribute('data-view')); });
+      $('wtFilt').addEventListener('click', function(e){ var b = e.target.closest('button[data-f]'); if (!b) return; WTM[b.getAttribute('data-f')] = b.getAttribute('data-v'); wtmListRender(); });
+      $('wtReload').onclick = function(){ WTM.wl = null; WTM.ttc = null; wtmLoad().then(wtmListLoad); };
       $('wtBook').addEventListener('click', function(e){ var b = e.target.closest('button[data-book]'); if (!b) return; WTM.book = b.getAttribute('data-book'); $('wtClass').value = ''; wtmFillClass(); });
       $('wtClass').addEventListener('change', wtmCapAuto);
       $('wtCap').addEventListener('input', function(){ WTM.capTouched = true; });
@@ -2168,7 +2261,7 @@
       wtmSetKind('예비');
     }
     $('wtWho').textContent = ME.name; wtmStatus('');
-    $('wtback').hidden = false; wtmLoad(); $('wtName').focus();
+    $('wtback').hidden = false; wtmLoad().then(function(){ if (WTM.view === 'list') wtmListLoad(); }); if (WTM.view === 'form') $('wtName').focus();
   }
   function wtmClose(){ $('wtback').hidden = true; }
   function wtmSave(){
@@ -2186,7 +2279,7 @@
     api('/student_waitlist', { method: 'POST', headers: { 'Prefer': 'return=representation' }, body: JSON.stringify(body) }).then(function(){
       ['wtName', 'wtPhone', 'wtMemo'].forEach(function(id){ $(id).value = ''; });
       if (WTM.kind === '재원') $('wtSchool').value = '';
-      $('wtClass').value = ''; $('wtCap').value = ''; WTM.capTouched = false; WTM.pick = null; $('wtStuInfo').textContent = '';
+      $('wtClass').value = ''; $('wtCap').value = ''; WTM.capTouched = false; WTM.pick = null; $('wtStuInfo').textContent = ''; WTM.wl = null;
       wtmClose();
       status('✓ ' + body.name + ' 학생을 ' + (body.kind === '예비' ? '예비 슈스' : '반 이동') + ' 대기 명단에 올렸습니다. 슈퍼스타 관리 → 대기 슈스에서 확인해요.', 7000);
     }).catch(function(e){
