@@ -513,6 +513,30 @@ ok "$(as $B "select public.msg_edit($EM, 'x')" | grep -c msg_deleted)" 1 "지운
 ok "$(as $A "select public.msg_edit($AM, '활동 알림 고침')" | grep -c not_allowed)" 1 "작성자 없는 글(활동 알림·클로슈)은 못 고침"
 ok "$(as $B "update public.msg_messages set body='직접' where id=$EF" | grep -c 'permission denied')" 1 "표에 직접 고치기 불가"
 
+echo "── 쪽지 보내기 (202610290003)"
+P -f supabase/migrations/202610290003_messenger_note.sql >/dev/null || { echo "쪽지 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610290003_messenger_note.sql >/dev/null && ok y y "쪽지 마이그레이션 다시 실행해도 오류 없음"
+NM0=$(as $A "select count(*) from public.msg_messages")
+ok "$(as $A "select count(*) from public.msg_note_send(array['$B','$C','$B','$D','$A']::uuid[], '내일 3시 회의실 예약 부탁드립니다')")" 2 "쪽지 = 받는 사람마다 한 줄(중복·비활성·본인 제외)"
+NT=$(as $A "select id from public.msg_tasks where note and assignee='$C' order by id desc limit 1")
+ok "$(as $C "select assignee_name||'|'||requester_name||'|'||status||'|'||ack_only||'|'||note||'|'||coalesce(message_id::text,'null')||'|'||text from public.msg_tasks where id=$NT")" "고희주|이수경|대기|true|true|null|내일 3시 회의실 예약 부탁드립니다" "맡은 사람=받는 사람 · 맡긴 사람=보낸 사람 · 확인만 · 메시지 없음"
+ok "$(as $C "select (hand_push='$C')||'|'||(hand_by='$A') from public.msg_tasks where id=$NT")" "true|true" "휴대폰 알림 자리(hand_push·hand_by)를 채움"
+ok "$(as $A "select count(*) from public.msg_messages")" "$NM0" "대화에는 글이 남지 않음"
+ok "$(as $B "select public.msg_task_seen($NT)" | grep -c not_allowed)" 1 "남이 대신 확인 불가"
+ok "$(as $C "select public.msg_task_seen($NT)->>'status'")" "완료" "받은 사람이 [확인]하면 완료"
+ok "$(as $C "select done_by_name from public.msg_tasks where id=$NT")" "고희주" "완료한 사람 기록"
+ok "$(as $A "select public.msg_note_send(array['$B']::uuid[], '   ')" | grep -c empty)" 1 "빈 쪽지 거절"
+ok "$(as $A "select public.msg_note_send(array['$B']::uuid[], repeat('가', 501))" | grep -c too_long)" 1 "500자 넘으면 거절"
+ok "$(as $A "select public.msg_note_send(array['$A','$D']::uuid[], 'x')" | grep -c no_recipient)" 1 "본인·비활성만 고르면 거절"
+ok "$(as $A "select public.msg_note_send('{}'::uuid[], 'x')" | grep -c no_recipient)" 1 "받는 사람이 없으면 거절"
+ok "$(as $E "select public.msg_note_send(array['$B']::uuid[], 'x')" | grep -c not_teacher)" 1 "계정 없는 로그인은 못 보냄"
+ok "$(anon "select public.msg_note_send(array['$B']::uuid[], 'x')" | grep -c 'permission denied')" 1 "공개 키는 함수 실행 불가"
+NT2=$(as $A "select id from public.msg_tasks where note and assignee='$B' order by id desc limit 1")
+ok "$(as $B "select public.msg_task_delegate($NT2, '$C', '')" | grep -c ack_only)" 1 "쪽지는 넘기지 못함(확인만)"
+ok "$(as $B "select public.msg_task_cancel($NT2, '잘못 보냄')" | grep -c not_allowed)" 1 "받은 사람은 쪽지를 취소 못 함(보낸 사람·관리자만)"
+ok "$(as $A "select public.msg_task_cancel($NT2, '잘못 보냄')->>'status'")" "취소" "보낸 사람은 취소"
+ok "$(as $C "insert into public.msg_tasks (assignee, assignee_name, requester, requester_name, text, note) values ('$B','이은지','$C','고희주','직접','t')" | grep -c 'permission denied')" 1 "표에 직접 쪽지 못 넣음(함수만)"
+
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null
 [ $fail -eq 0 ]
