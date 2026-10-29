@@ -452,6 +452,22 @@ async function showTask(pg, sel){
     ok(ps[1].p_body === '캡처 보냅니다' && ps[1].p_files.length === 1 && /^캡처_/.test(ps[1].p_files[0].name) && ps[1].p_files[0].mime === 'image/png', '글과 그림이 한 메시지로');
     await page.waitForSelector('.thumb');
     ok(true, '대화에 그림 칸');
+    // 그림 큰 보기(2026-10-29 원장님 "다운로드 하지 않고 확대해 볼 수 있게")
+    let dlFired = false; page.once('download', () => { dlFired = true; });
+    await page.locator('.thumb').last().click();
+    await page.waitForFunction(() => !document.querySelector('#lbback').hidden && /^blob:/.test(document.querySelector('#lbimg').src));
+    await sleep(300);
+    ok(!dlFired, '그림을 누르면 내려받지 않고 큰 보기 창');
+    ok(/^캡처_/.test(await page.locator('#lbname').textContent()), '창 아래 파일 이름');
+    const fitW = (await page.locator('#lbimg').boundingBox()).width;
+    await page.click('#lbzoom');
+    ok(await page.evaluate(() => document.querySelector('#lbback').classList.contains('zoom')) && (await page.locator('#lbzoom').textContent()) === '화면에 맞추기', '[원본 크기] → 확대 상태');
+    await page.click('#lbimg');
+    ok(!(await page.evaluate(() => document.querySelector('#lbback').classList.contains('zoom'))), '그림을 다시 누르면 화면 맞춤');
+    const [lbdl] = await Promise.all([page.waitForEvent('download'), page.click('#lbdl')]);
+    ok(/^캡처_.*\.png$/.test(lbdl.suggestedFilename()), '창의 [내려받기]로 원래 이름 저장');
+    await page.keyboard.press('Escape');
+    ok(await page.locator('#lbback').isHidden() && fitW > 0, 'Esc로 닫힘');
   }
 
   console.log('⑧ 할 일 → 메시지로');
@@ -651,6 +667,42 @@ async function showTask(pg, sel){
   ok(focused === 1 && posted[0] && posted[0].type === 'msg-open' && posted[0].url === 'messenger.html#m10' && opened.length === 1, '열린 대화방이 있으면 그 창으로 가서 메시지를 보여 준다');
   await ctx.close();
 
+  console.log('㉗ 읽은 자리 — 계정 기준(다른 기기에서 읽은 것도) (2026-10-29 원장님)');
+  {
+    const othersAll = MSGS.filter(m => m.author !== ME && !m.deleted_at).sort((a, b) => a.id - b.id);
+    const sv = othersAll[othersAll.length - 3].id;   // 다른 기기에서 여기까지 읽었다
+    READS[ME] = sv;
+    ({ ctx, page } = await open());   // 새 기기 — 이 기기 읽은 자리는 비어 있다
+    await page.waitForSelector('#newline');
+    const nlAfter = await page.evaluate(() => { const nl = document.querySelector('#newline'); let e = nl.nextElementSibling; while (e && !e.classList.contains('m')) e = e.nextElementSibling; return e ? Number(e.id.slice(1)) : 0; });
+    ok(nlAfter > sv && !othersAll.some(m => m.id > sv && m.id < nlAfter), "'여기부터 새 메시지'가 서버 읽은 자리 뒤에 (" + nlAfter + ' > ' + sv + ')');
+    ok(Number(await page.evaluate(id => localStorage.getItem('msg_read_' + id), ME)) >= sv, '서버 자리를 이 기기에도 적음');
+    await ctx.close();
+    // 보는 중에 다른 기기가 더 읽으면 대화 탭 숫자가 줄어든다
+    ({ ctx, page } = await open({ width: 390, height: 844 }));
+    await page.waitForSelector('#msgs .m');
+    await page.click('#tabBoard');
+    await page.evaluate(([me, mk]) => localStorage.setItem('msg_read_' + me, String(mk)), [ME, sv]);
+    READS[ME] = sv;
+    addMsg(BOSS, '다른 기기 읽기 전', [], ts()); addMsg(BOSS, '다른 기기 읽기 전 2', [], ts());
+    await page.waitForFunction(() => Number(document.querySelector('#chatBadge').textContent) >= 4, null, { timeout: 9000 }).catch(() => {});
+    const beforeN = Number(await page.locator('#chatBadge').textContent());
+    READS[ME] = MSGS[MSGS.length - 2].id;   // 다른 기기에서 하나 빼고 다 읽음
+    await page.waitForFunction(() => document.querySelector('#chatBadge').textContent === '1', null, { timeout: 9000 }).catch(() => {});
+    ok(beforeN >= 4 && (await page.locator('#chatBadge').textContent()) === '1', '다른 기기에서 읽으면 이 기기 숫자도 줄어듦 (' + beforeN + ' → 1)');
+    ok(Number(await page.evaluate(id => localStorage.getItem('msg_read_' + id), ME)) === READS[ME], '폴링으로 받은 서버 자리를 이 기기에 적음');
+    await ctx.close();
+    MSGS.splice(MSGS.length - 2, 2);
+    // 티쳐스 첫 화면 숫자도 서버 자리로
+    READS[ME] = 999999;
+    ({ ctx, page } = await open());
+    await page.goto(`http://127.0.0.1:${PORT}/index.html`);
+    await page.waitForSelector('a.card.wide'); await sleep(800);
+    ok(await page.locator('#msgBadge').isHidden() && (await page.evaluate(id => localStorage.getItem('msg_read_' + id), ME)) === '999999', '첫 화면 — 다른 기기에서 다 읽었으면 숫자 없음 + 이 기기에 적음');
+    await ctx.close();
+    READS[ME] = 0;
+  }
+
   console.log('⑮ 티쳐스 첫 화면');
   ({ ctx, page } = await open());
   await page.goto(`http://127.0.0.1:${PORT}/index.html`);
@@ -659,7 +711,7 @@ async function showTask(pg, sel){
   const wb = await page.locator('a.card.wide').boundingBox(), g = await page.locator('#grid').boundingBox(), c1 = await page.locator('a.card').nth(2).boundingBox();
   ok(wb && Math.abs(wb.width - g.width) < 2 && wb.y > c1.y + c1.height - 1, '슈톡은 3행 두 칸 너비');
   await page.waitForFunction(() => !document.querySelector('#msgBadge').hidden);
-  const others = MSGS.filter(m => m.author !== ME && !m.deleted_at && m.id > 0).length;
+  const others = MSGS.filter(m => m.author !== ME && !m.deleted_at && m.id > (READS[ME] || 0)).length;   // 읽은 자리는 서버(계정) 기준도 본다(2026-10-29)
   ok((await page.locator('#msgBadge').textContent()) === String(others), '슈톡 카드에 안 읽은 메시지 수 (' + others + ')');
   await page.evaluate(id => localStorage.setItem('msg_read_' + id, '999999'), ME);
   await page.reload(); await page.waitForSelector('a.card.wide'); await sleep(800);

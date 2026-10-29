@@ -156,6 +156,18 @@
   .thumb{display:block;border:0;padding:0;background:#fff;border-radius:10px;overflow:hidden;max-width:260px;}
   .thumb img{display:block;max-width:260px;max-height:260px;object-fit:cover;}
   .thumb .ph{display:block;width:200px;height:140px;background:var(--soft);}
+  /* 그림 큰 보기(2026-10-29 원장님 "첨부한 사진을 다운로드 하지 않고 확대해 볼 수 있게") — 화면 안 겹창, 누르면 원본 크기·손가락으로 확대 */
+  .lbback{position:fixed;inset:0;background:rgba(20,25,22,.93);z-index:60;display:flex;flex-direction:column;}
+  .lbback[hidden]{display:none;}
+  .lbwrap{flex:1;min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center;touch-action:pan-x pan-y pinch-zoom;-webkit-overflow-scrolling:touch;}
+  .lbwrap img{display:block;max-width:100%;max-height:calc(100vh - 56px);object-fit:contain;cursor:zoom-in;user-select:none;}
+  .lbback.zoom .lbwrap{display:block;}
+  .lbback.zoom .lbwrap img{max-width:none;max-height:none;cursor:zoom-out;margin:0 auto;}
+  .lbbar{flex:none;display:flex;align-items:center;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(20,25,22,.85);color:#fff;font-size:13px;}
+  .lbbar .lbname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .lbbar button{border:0;border-radius:999px;padding:7px 13px;font:inherit;font-size:13px;background:rgba(255,255,255,.16);color:#fff;cursor:pointer;}
+  .lbbar button:hover{background:rgba(255,255,255,.28);}
+  .lbbar .lbstat{color:#cdd6d1;font-size:12px;}
   .tks{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;}
   .tk{border:0;font-size:12px;padding:3px 10px;border-radius:999px;}
   .tk.wait{background:var(--wait);color:var(--waitInk);}
@@ -959,6 +971,10 @@
     <div id="rdbody"></div>
   </div>
 </div>
+<div class="lbback" id="lbback" hidden role="dialog" aria-modal="true" aria-label="그림 크게 보기">
+  <div class="lbwrap" id="lbwrap"><img id="lbimg" alt=""></div>
+  <div class="lbbar"><span class="lbname" id="lbname"></span><span class="lbstat" id="lbstat"></span><button type="button" id="lbzoom">원본 크기</button><button type="button" id="lbdl">내려받기</button><button type="button" id="lbclose">닫기</button></div>
+</div>
 <div class="pback" id="cxback" hidden>
   <div class="ppanel cxpanel" role="dialog" aria-modal="true" aria-labelledby="cxtitle">
     <span class="btitle" id="cxtitle">업무 체크리스트</span>
@@ -1133,12 +1149,15 @@
       return Promise.all([
         api('/msg_messages?select=*&order=id.desc&limit=' + PAGE),
         api('/msg_tasks?select=*&status=eq.' + encodeURIComponent('대기') + '&order=id.asc&limit=1000'),
-        api('/msg_tasks?select=*&done_at=gte.' + encodeURIComponent(new Date(dayStartMs()).toISOString()) + '&order=id.asc&limit=1000')
+        api('/msg_tasks?select=*&done_at=gte.' + encodeURIComponent(new Date(dayStartMs()).toISOString()) + '&order=id.asc&limit=1000'),
+        // 서버의 읽은 자리를 처음 그리기 전에 받는다 — 다른 기기에서 읽은 데가 '여기부터 새 메시지' 기준(2026-10-29). 표가 없으면(0012 전) 없는 대로
+        api('/msg_reads?select=user_id,last_id').catch(function(e){ if (e && (e.status === 404 || /msg_reads/.test(String(e.message)))) noReads(); return null; })
       ]);
     }).then(function(res){
       var rows = res[0] || [];
       hasOlder = rows.length === PAGE;
       addMsgs(rows); addTasks(res[1]); addTasks(res[2]);
+      if (res[3]){ applyReads(res[3]); syncMark(); readMark = Math.max(readMark, myMark()); }
       return loadTasksFor(rows);
     }).then(function(){
       ready = true;
@@ -1421,7 +1440,7 @@
     return '<div class="files">' + files.map(function(f){
       if (/^image\//.test(f.mime || '')){
         var src = blobs[f.path];
-        return '<button class="thumb" type="button" data-file="' + esc(f.path) + '" data-name="' + esc(f.name) + '" aria-label="' + esc(f.name) + ' 내려받기">'
+        return '<button class="thumb" type="button" data-file="' + esc(f.path) + '" data-name="' + esc(f.name) + '" aria-label="' + esc(f.name) + ' 크게 보기">'
           + (src ? '<img src="' + src + '" alt="' + esc(f.name) + '">' : '<span class="ph" data-img="' + esc(f.path) + '"></span>') + '</button>';
       }
       return '<button class="file" type="button" data-file="' + esc(f.path) + '" data-name="' + esc(f.name) + '">' + FILE_SVG + '<span>' + esc(f.name) + ' <small>· ' + size(f.size) + '</small></span></button>';
@@ -1540,7 +1559,7 @@
   // 안 읽은 수 = 불러온 메시지 중 읽은 자리 뒤 + (읽은 자리가 불러온 첫 메시지보다 앞이면) 그 사이를 서버에서 센 수 — Codex 검토
   var gap = { key: '', n: 0 }, offSeen = {};
   function unreadCount(){
-    var mark = Number(localStorage.getItem('msg_read_' + (ME && ME.id)) || 0), n = 0;
+    var mark = myMark(), n = 0;
     MSGS.forEach(function(m){ if (m.id > mark && m.author !== ME.id && !m.deleted_at) n++; });
     if (firstId != null && mark < firstId - 1){
       var key = mark + '|' + firstId;
@@ -1580,7 +1599,7 @@
     if (!ME || document.hidden || boardOnly() || !$('results').hidden || !atBottom()) { tellReading(false); updateBadges(); return; }
     tellReading(true);
     var last = lastMsgId();
-    if (last > Number(localStorage.getItem('msg_read_' + ME.id) || 0)) localStorage.setItem('msg_read_' + ME.id, String(last));
+    if (last > localMark()) localStorage.setItem('msg_read_' + ME.id, String(last));
     sendRead(last);
     $('jump').hidden = true;
     clearAppBadge();
@@ -1629,11 +1648,37 @@
     }).catch(function(){ status('파일을 받지 못했습니다. 잠시 뒤 다시 눌러 주세요.'); });
   }
 
+  // 그림 큰 보기(2026-10-29 원장님 "첨부한 사진을 다운로드 하지 않고 확대해 볼 수 있게") — 미리보기와 같은 원본 파일(blobs)을 겹창에 띄운다.
+  // 그림을 누르면 화면 맞춤 ↔ 원본 크기(스크롤) 전환, 손가락 벌리기(핀치)는 브라우저 확대 그대로. 내려받기는 창 아래 버튼.
+  var LB = null;   // { path, name }
+  function openLightbox(path, name){
+    LB = { path: path, name: name };
+    var back = $('lbback'), img = $('lbimg');
+    back.classList.remove('zoom'); img.removeAttribute('src'); img.alt = name || '';
+    $('lbname').textContent = name || ''; $('lbstat').textContent = '불러오는 중…'; $('lbzoom').textContent = '원본 크기';
+    back.hidden = false;
+    var show = function(src){ if (!LB || LB.path !== path) return; img.src = src; $('lbstat').textContent = ''; };
+    if (blobs[path] && blobs[path] !== 'loading') show(blobs[path]);
+    else fetchBlob(path).then(function(b){ blobs[path] = URL.createObjectURL(b); show(blobs[path]); }).catch(function(){ if (LB && LB.path === path) $('lbstat').textContent = '그림을 불러오지 못했습니다'; });
+  }
+  function closeLightbox(){ LB = null; $('lbback').hidden = true; $('lbimg').removeAttribute('src'); }
+  function lbZoom(on){
+    var back = $('lbback'); if (on == null) on = !back.classList.contains('zoom');
+    back.classList.toggle('zoom', on); $('lbzoom').textContent = on ? '화면에 맞추기' : '원본 크기';
+    if (on){ var w = $('lbwrap'); w.scrollLeft = Math.max(0, (w.scrollWidth - w.clientWidth) / 2); }
+  }
+  $('lbclose').onclick = closeLightbox;
+  $('lbzoom').onclick = function(){ lbZoom(); };
+  $('lbdl').onclick = function(){ if (LB) download(LB.path, LB.name); };
+  $('lbimg').addEventListener('click', function(e){ e.stopPropagation(); lbZoom(); });
+  $('lbwrap').addEventListener('click', function(e){ if (e.target === this) closeLightbox(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && LB) closeLightbox(); });
+
   // ── 대화 쪽 클릭 ─────────────────────────────────
   $('msgs').addEventListener('click', function(e){
     var b = e.target.closest('button'); if (!b) return;
     if (b.id === 'older'){ b.disabled = true; b.textContent = '불러오는 중…'; loadOlder().then(function(){ renderMsgs('older'); }).catch(function(){ status('이전 대화를 불러오지 못했습니다.'); renderMsgs('keep'); }); return; }
-    if (b.dataset.file){ download(b.dataset.file, b.dataset.name); return; }
+    if (b.dataset.file){ if (b.classList.contains('thumb')) openLightbox(b.dataset.file, b.dataset.name); else download(b.dataset.file, b.dataset.name); return; }
     if (b.dataset.reply){ setReply(Number(b.dataset.reply)); return; }
     if (b.dataset.goMsg){ goTo(Number(b.dataset.goMsg)); return; }
     if (b.dataset.expand){ var k = Number(b.dataset.expand); openChips[k] = !openChips[k]; renderMsgs('keep'); return; }
@@ -1666,9 +1711,25 @@
   var READS = null, readsOk = true, readSent = 0, readSending = false, rdOpen = null;
   var HEART_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>';
   var HEART_ON = HEART_SVG.replace('fill="none"', 'fill="currentColor"');
+  // 내 읽은 자리 = 이 기기(localStorage)와 서버(msg_reads — 다른 기기에서 읽은 것) 중 더 앞선 것(2026-10-29 원장님 "한 계정에서 읽은 메시지는
+  // 다른 기기에도 읽은 것으로"). 서버가 앞서면 이 기기에도 적어 둔다(syncMark) — 티쳐스 첫 화면 숫자도 같은 값을 본다.
+  function localMark(){ return ME ? Number(localStorage.getItem('msg_read_' + ME.id) || 0) : 0; }
+  function myMark(){ return Math.max(localMark(), (ME && READS && READS[ME.id]) || 0); }
+  function syncMark(){
+    var sv = (ME && READS && READS[ME.id]) || 0;
+    if (sv > localMark()){ localStorage.setItem('msg_read_' + ME.id, String(sv)); return true; }
+    return false;
+  }
+  function applyReads(rows){
+    var nx = {}, changed = !READS;
+    (rows || []).forEach(function(r){ nx[r.user_id] = Number(r.last_id) || 0; if (!READS || READS[r.user_id] !== nx[r.user_id]) changed = true; });
+    if (READS) Object.keys(READS).forEach(function(k){ if (!(k in nx)) changed = true; });
+    READS = nx;
+    return changed;
+  }
   function lastReadOf(uid){
     var v = READS && READS[uid] ? READS[uid] : 0;
-    if (ME && uid === ME.id) v = Math.max(v, Number(localStorage.getItem('msg_read_' + ME.id) || 0));
+    if (ME && uid === ME.id) v = Math.max(v, localMark());
     return v;
   }
   // 이 메시지를 받을 사람 — 쓴 사람 빼고 지금 활성 교사(클로슈·카카오채널 글은 모두)
@@ -1701,10 +1762,8 @@
   function loadReads(){
     if (!readsOk || !ME) return;
     api('/msg_reads?select=user_id,last_id').then(function(rows){
-      var nx = {}, changed = !READS;
-      (rows || []).forEach(function(r){ nx[r.user_id] = Number(r.last_id) || 0; if (!READS || READS[r.user_id] !== nx[r.user_id]) changed = true; });
-      if (READS) Object.keys(READS).forEach(function(k){ if (!(k in nx)) changed = true; });
-      READS = nx;
+      var changed = applyReads(rows);
+      if (syncMark()) updateBadges();   // 다른 기기에서 더 읽었으면 이 기기 숫자도 줄인다
       if (changed) paintReads();
     }).catch(function(e){ if (e && (e.status === 404 || /msg_reads/.test(String(e.message)))) noReads(); });
   }
