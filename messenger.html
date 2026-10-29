@@ -1044,7 +1044,7 @@
     </div>
     <div id="wtForm">
     <p class="pnote" id="wtNote">아직 등록 전인 학생을 대기 명단에 올립니다. 슈퍼스타 관리 → 대기 슈스에서 같은 명단을 봐요.</p>
-    <div class="dfrow"><div><label for="wtYear">연도</label><input type="number" id="wtYear" min="2020" max="2099"></div><div><label for="wtGrade">학년</label><select id="wtGrade"><option value="">미정</option><option>중1</option><option>중2</option><option>중3</option><option>고1</option><option>고2</option><option>고3</option></select></div></div>
+    <div class="dfrow"><div><label for="wtYear">연도</label><input type="number" id="wtYear" min="2020" max="2099"></div><div><label for="wtGrade">학년</label><select id="wtGrade"><option value="">미정</option><option>초5</option><option>초6</option><option>중1</option><option>중2</option><option>중3</option><option>고1</option><option>고2</option><option>고3</option></select></div></div>
     <div class="dfrow"><div><label for="wtSchool">학교</label><input type="text" id="wtSchool" list="wtSchools" placeholder="예) 화정고" autocomplete="off"><datalist id="wtSchools"></datalist></div><div><label for="wtName">이름</label><input type="text" id="wtName" list="wtNames" placeholder="예) 김하늘" autocomplete="off"><datalist id="wtNames"></datalist></div></div>
     <div class="wtinfo" id="wtStuInfo"></div>
     <div><label for="wtPhone">학부모님 연락처</label><input type="text" id="wtPhone" inputmode="numeric" placeholder="01012345678" autocomplete="off"></div>
@@ -2200,7 +2200,7 @@
   function wtmPhoneFmt(p){ p = String(p || '').replace(/\D/g, ''); return p.length === 11 ? p.slice(0, 3) + '-' + p.slice(3, 7) + '-' + p.slice(7) : p.length === 10 ? p.slice(0, 3) + '-' + p.slice(3, 6) + '-' + p.slice(6) : p; }
   function wtmDays(ymd){ var d = Math.round((Date.parse(todayYmd() + 'T00:00:00Z') - Date.parse(String(ymd) + 'T00:00:00Z')) / 864e5); return isNaN(d) ? '' : d <= 0 ? '오늘부터' : d + '일째'; }
   // 학년별·학교별 거르기(2026-10-29 원장님 "학년별 학교별로 볼 수 있어야") — 슈퍼스타 관리 wtFiltHtml 과 같은 규칙.
-  var WTM_GRADES = ['중1', '중2', '중3', '고1', '고2', '고3'];
+  var WTM_GRADES = ['초5', '초6', '중1', '중2', '중3', '고1', '고2', '고3'];   // 초5·초6 = 2027 초6처럼 이른 대기(2026-10-29 원장님)
   function wtmFiltHtml(all){
     if (!all.length) return '';
     var g = {}, sc = {}; all.forEach(function(r){ var a = String(r.grade || '').trim() || '미정', b = String(r.school || '').trim() || '학교 미상'; g[a] = (g[a] || 0) + 1; sc[b] = (sc[b] || 0) + 1; });
