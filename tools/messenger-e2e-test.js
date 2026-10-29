@@ -1654,26 +1654,28 @@ async function showTask(pg, sel){
       rows: [...document.querySelectorAll('#wtList .wtli')].map(e => ({ nm: e.querySelector('b').textContent, can: e.classList.contains('can'), l2: e.querySelector('.l2').textContent, memo: (e.querySelector('.memo') || {}).textContent || '', days: e.querySelector('.days').textContent })),
       foot: document.querySelector('#wtListBox .wtlfoot a').getAttribute('href') }));
     ok(r.title === '대기 명단' && r.form && r.save, '[명단 보기] — 제목이 바뀌고 등록 칸·올리기 버튼이 숨는다');
-    ok(r.rows.map(x => x.nm).join(',') === '이른대기,새대기' && /예비 슈스 대기 2명 · 이동 가능 1명/.test(r.head), '예비 대기만 · 대기 시작일 순 · 완료 줄 제외 · 머리 "2명 · 이동 가능 1명" ' + JSON.stringify([r.rows.map(x => x.nm), r.head]));
-    ok(r.rows[0].can && /010-4714-4636/.test(r.rows[0].l2) && /희망 고2 가 · 수 2:00 · 은지T · 1명 \/ 정원 3 · 자리 있음/.test(r.rows[0].l2) && /이수경 적음/.test(r.rows[0].l2) && r.rows[0].memo === '설명회 연락' && /일째/.test(r.rows[0].days), '정원(3) > 지금 인원(1)이면 초록 줄 + 연락처·희망 반·인원·적은 사람·메모 ' + JSON.stringify(r.rows[0]));
+    if (process.env.SHOT){ await page.locator('#wtback .wtpanel').screenshot({ path: path.join(process.env.SHOT, 'wait-list.png') }); await page.click('#wtView button[data-view="form"]'); await page.locator('#wtback .wtpanel').screenshot({ path: path.join(process.env.SHOT, 'wait-form.png') }); await page.click('#wtView button[data-view="list"]'); }
+    ok(r.rows.map(x => x.nm).join(',') === '이른대기,새대기' && /2027 예비 · 2명 · 이동 가능 1명/.test(r.head), '예비 대기만 · 대기 시작일 순 · 완료 줄 제외 · 머리 "2027 예비 · 2명 · 이동 가능 1명" ' + JSON.stringify([r.rows.map(x => x.nm), r.head]));
+    ok(r.rows[0].can && /010-4714-4636/.test(r.rows[0].l2) && /희망 고2 가 · 수 2:00 · 은지T · 1명 \/ 정원 3 · 자리 있음/.test(r.rows[0].l2) && /작성자 이수경/.test(r.rows[0].l2) && r.rows[0].memo === '설명회 연락' && /일째/.test(r.rows[0].days), '정원(3) > 지금 인원(1)이면 초록 줄 + 연락처·희망 반·인원·적은 사람·메모 ' + JSON.stringify(r.rows[0]));
     ok(!r.rows[1].can && /1명 \/ 정원 1/.test(r.rows[1].l2) && /오늘부터/.test(r.rows[1].days), '정원 1 = 지금 인원 1이면 보통 줄 · 오늘 올린 줄은 "오늘부터" ' + JSON.stringify(r.rows[1]));
     ok(/superstar\.html#wait$/.test(r.foot), '전환·고치기·취소는 슈퍼스타 관리 대기 슈스 링크');
-    r = await page.evaluate(() => [...document.querySelectorAll('#wtFilt .wtfilt')].map(d => [...d.querySelectorAll('button')].map(b => b.textContent.replace(/\s+/g, ' ').trim())));
-    ok(r.length === 2 && r[0].join('|') === '전체|중3 1|고1 1' && r[1].join('|') === '전체|서정중 1|화수고 1', '학년·학교 알약 = 대기 중인 줄의 학년(중3→고1 순)·학교(가나다) + 인원 ' + JSON.stringify(r));
+    r = await page.evaluate(() => ({ g: [...document.querySelectorAll('#wtFilt .wtfilt button')].map(b => b.textContent.replace(/\s+/g, ' ').trim()), s: [...document.querySelectorAll('#wtFilt select[data-f="fs"] option')].map(o => o.textContent), days: [...document.querySelectorAll('#wtList .wtli .days')].map(e => e.className) }));
+    ok(r.g.join('|') === '전체|중31|고11' && r.s.join('|') === '전체 학교 (2곳)|서정중 · 1명|화수고 · 1명', '학년 칩 = 대기 줄의 학년(중3→고1 순) + 인원 · 학교 = 드롭다운(전체 학교 2곳 + 학교 · n명) ' + JSON.stringify(r));
+    ok(r.days.join('|') === 'days|days', '1년 안 된 대기는 보통 배지(1년 넘으면 분홍 .long)', r.days.join('|'));
     await page.click('#wtFilt button[data-f="fg"][data-v="고1"]');
     r = await page.evaluate(() => ({ nm: [...document.querySelectorAll('#wtList .wtli b')].map(e => e.textContent), head: document.getElementById('wtListHead').textContent, on: document.querySelector('#wtFilt button[data-f="fg"].on').textContent }));
     ok(r.nm.join(',') === '새대기' && /2명 · 보는 중 1명/.test(r.head) && /고1/.test(r.on), '학년 고1을 고르면 그 학년만 · 머리 "2명 · 보는 중 1명" ' + JSON.stringify(r));
-    await page.click('#wtFilt button[data-f="fs"][data-v="서정중"]');
-    ok(/고른 학년·학교에 대기 중인 학생이 없습니다/.test(await page.locator('#wtList').textContent()), '학년 고1 + 학교 서정중 = 없음 안내');
+    await page.selectOption('#wtFilt select[data-f="fs"]', '서정중');
+    ok(/고른 학년·학교에 대기 중인 학생이 없습니다/.test(await page.locator('#wtList').textContent()) && !!(await page.$('#wtFilt .clr')), '학년 고1 + 학교 서정중(드롭다운) = 없음 안내 + [전체로]');
     await page.click('#wtFilt button[data-f="fg"][data-v=""]');
     r = await page.evaluate(() => [...document.querySelectorAll('#wtList .wtli b')].map(e => e.textContent));
     ok(r.join(',') === '이른대기', '학년 전체 + 학교 서정중 = 이른대기만');
-    await page.click('#wtFilt button[data-f="fs"][data-v=""]');
+    await page.click('#wtFilt .clr');
     await page.click('#wtKind button[data-kind="재원"]');
     r = await page.evaluate(() => ({ head: document.getElementById('wtListHead').textContent, rows: [...document.querySelectorAll('#wtList .wtli')].map(e => e.querySelector('.l2').textContent) }));
-    ok(/반 이동 대기 1명 · 이동 가능 1명/.test(r.head) && r.rows.length === 1 && /지금 가 금5:30/.test(r.rows[0]) && /2명 \/ 정원 4 · 자리 있음/.test(r.rows[0]), '재원 알약을 누르면 반 이동 대기 명단(지금 반 · 희망 반 인원/정원 4 > 2명 = 자리 있음) ' + JSON.stringify(r));
+    ok(/반 이동 · 1명 · 이동 가능 1명/.test(r.head) && r.rows.length === 1 && /지금 가 금5:30/.test(r.rows[0]) && /2명 \/ 정원 4 · 자리 있음/.test(r.rows[0]), '재원 알약을 누르면 반 이동 대기 명단(지금 반 · 희망 반 인원/정원 4 > 2명 = 자리 있음) ' + JSON.stringify(r));
     await page.click('#wtView button[data-view="form"]');
-    ok(await page.evaluate(() => !document.getElementById('wtForm').hidden && document.getElementById('wtListBox').hidden && document.getElementById('wttitle').textContent === '대기생 등록'), '[등록]으로 돌아온다');
+    ok(await page.evaluate(() => !document.getElementById('wtForm').hidden && document.getElementById('wtListBox').hidden && document.getElementById('wtCnt').hidden && document.getElementById('wttitle').textContent === '대기생 등록'), '[등록]으로 돌아온다(인원 줄은 숨김)');
     await page.click('#wtClose');
     // 표 없음(마이그레이션 전)
     waitMissing = true;
