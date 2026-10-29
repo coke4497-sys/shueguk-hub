@@ -2229,7 +2229,8 @@
         + '<div class="l2">' + l2.join(' · ') + '</div>' + (r.memo ? '<div class="memo">' + esc(r.memo) + '</div>' : '') + '</div>';
     }).join('');
     $('wtList').innerHTML = html || '<div class="wtlempty">' + (filt ? '고른 학년·학교에 대기 중인 학생이 없습니다.' : WTM.kind === '예비' ? '대기 중인 예비 슈스가 없습니다.' : '반 이동을 기다리는 재원 슈스가 없습니다.') + '</div>';
-    $('wtListHead').innerHTML = (WTM.kind === '예비' ? '예비 슈스 대기' : '반 이동 대기') + ' <b>' + all.length + '명</b>' + (filt ? ' · 보는 중 <b>' + rows.length + '명</b>' : '') + (WTM.kind === '재원' || canN ? ' · 이동 가능 <b>' + canN + '명</b>' : '') + ' · 대기 시작일 순';
+    var ys = {}; all.forEach(function(r){ if (r.year) ys[r.year] = 1; }); var yl = Object.keys(ys).sort().join('·');   // '2027 예비 슈스'처럼 연도를 앞에(2026-10-29 원장님)
+    $('wtListHead').innerHTML = (WTM.kind === '예비' ? (yl ? yl + ' ' : '') + '예비 슈스 대기' : '반 이동 대기') + ' <b>' + all.length + '명</b>' + (filt ? ' · 보는 중 <b>' + rows.length + '명</b>' : '') + (WTM.kind === '재원' || canN ? ' · 이동 가능 <b>' + canN + '명</b>' : '') + ' · 대기 시작일 순';
   }
   function wtmPick(){
     if (WTM.kind !== '재원') return;
