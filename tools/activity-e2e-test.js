@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* 티쳐스 활동 기록(activity.html — 2026-10-29 원장님 '따로 두기', 마이그레이션 202610290001) 검증.
  *   NODE_PATH=$(npm root -g) node tools/activity-e2e-test.js
- * 가짜 수파베이스로 원장님만 보기·슈국 운영 카드·flush 호출·알림 글·날짜별 기록·거르기·더 보기·#n 강조·휴대폰을 확인한다. */
+ * 가짜 수파베이스로 원장님만 보기·슈톡 업무 진행의 입구(원장님 구역 맨 아래)·flush 호출·알림 글·날짜별 기록·거르기·더 보기·#n 강조·휴대폰을 확인한다. */
 const path = require('path'), fs = require('fs'), http = require('http');
 const { chromium } = require('playwright');
 const ROOT = path.resolve(__dirname, '..');
@@ -48,6 +48,8 @@ const NOTES = [
       const p = url.slice(SB.length), auth = req.headers()['authorization'] || '';
       const me = ACC[(auth.match(/^Bearer tok-(.+)$/) || [])[1]];
       if (p.startsWith('/rest/v1/teacher_accounts')) return json(me ? [me] : []);
+      if (p === '/rest/v1/rpc/msg_members') return json(Object.values(ACC).map(a => ({ user_id: a.user_id, name: a.display_name, role: a.role })));   // 슈톡 업무 진행(원장님 업무 목록 아래 입구)
+      if (p === '/rest/v1/msg_reads') return json([]);
       if (p.startsWith('/functions/v1/activity')){ calls.push({ auth, body: JSON.parse(req.postData() || '{}') }); return json({ digest: 'none', repush: { tried: 0 } }); }
       const off = Number((p.match(/offset=(\d+)/) || [])[1] || 0), lim = Number((p.match(/limit=(\d+)/) || [])[1] || 1000);
       if (p.startsWith('/rest/v1/activity_log')){ calls.push({ auth, log: p }); if (!me || me.role !== 'admin') return json([]); return json(off === 0 ? LOG : []); }
@@ -66,13 +68,27 @@ const NOTES = [
   await page.waitForSelector('#deny:not([hidden])');
   ok(await page.locator('#app').isHidden() && !calls.some(c => c.log), '조교는 안내만 — 표도 flush 도 부르지 않음');
   await ctx.close();
-  ({ ctx, page } = await open('ops.html', HEEJU));
-  await page.waitForSelector('.card'); await page.waitForTimeout(300);
-  ok(!(await page.textContent('#list')).includes('티쳐스 활동 기록'), '조교 운영 메뉴에는 카드 없음');
-  await ctx.close();
   ({ ctx, page } = await open('ops.html', BOSS));
-  await page.waitForFunction(() => document.querySelector('#list').textContent.includes('티쳐스 활동 기록'));
-  ok(await page.locator('a.card[href="activity.html"]').count() === 1, '원장님 운영 메뉴에 [티쳐스 활동 기록] 카드');
+  await page.waitForSelector('.card'); await page.waitForTimeout(400);
+  ok(!(await page.textContent('#list')).includes('티쳐스 활동 기록'), '슈국 운영 메뉴에는 카드가 없다(슈톡 업무 진행으로 옮김)');
+  await ctx.close();
+  // 입구 = 슈톡 업무 진행 → 원장님 업무 목록 맨 아래 (2026-10-29 원장님 "제 업무 리스트 하단에, 저에게만")
+  ({ ctx, page } = await open('messenger.html', BOSS, '#board'));
+  await page.waitForSelector('#cards .pc[data-person="' + BOSS + '"]');
+  const lnk = page.locator('#cards .pc[data-person="' + BOSS + '"] #actLink');
+  ok(await lnk.count() === 1 && (await lnk.getAttribute('href')) === 'activity.html' && (await lnk.textContent()).includes('티쳐스 활동 기록'), '원장님 업무 구역에 [티쳐스 활동 기록] 링크');
+  ok(await page.evaluate(() => { const sec = document.querySelector('#cards .pc.sel'); return sec && sec.lastElementChild && sec.lastElementChild.id === 'actLink'; }), '그 링크가 업무 목록 맨 아래');
+  ok(await page.evaluate(() => document.body.dataset.tab === 'board' && !location.hash), '#board 로 열면 업무 진행 보기 + 해시는 지움');
+  await ctx.close();
+  ({ ctx, page } = await open('activity.html', BOSS));
+  await page.waitForSelector('#app:not([hidden])');
+  ok((await page.getAttribute('.links a:first-child', 'href')) === 'messenger.html#board', '활동 기록 화면의 돌아가기 = 슈톡 업무 진행');
+  await ctx.close();
+  ({ ctx, page } = await open('messenger.html', HEEJU, '#board'));
+  await page.waitForSelector('#cards .pc[data-person="' + HEEJU + '"]');
+  ok(await page.locator('#actLink').count() === 0, '조교 화면에는 어느 구역에도 링크 없음');
+  await page.evaluate(() => { const b = document.querySelector('[data-pick]:not(.on)'); if (b) b.click(); }); await page.waitForTimeout(200);
+  ok(await page.locator('#actLink').count() === 0, '조교가 원장님 구역을 골라도 링크 없음');
   await ctx.close();
 
   console.log('② 알림 · 기록');
