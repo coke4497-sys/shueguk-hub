@@ -48,7 +48,7 @@ const STUDENTS = [
   { name: '고은비', teacher: '고희주', enrolled: 'Y' }, { name: '최퇴원', teacher: '이은지', enrolled: '퇴원' }];   // 시간표·기간·주간 기록·수업 기록 (오늘 수업 줄)
 function addMsg(author, body, files, createdIso){
   const t = createdIso || ts();
-  const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null, reply_to: null, hearts: [] };
+  const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null, edited_at: null, reply_to: null, hearts: [] };
   MSGS.push(m); return m;
 }
 function addTask(m, assignee, text, createdIso){
@@ -267,6 +267,19 @@ async function showTask(pg, sel){
         t.status = b.p_done ? '완료' : '대기'; t.done_at = b.p_done ? ts() : null; t.done_by_name = b.p_done ? '고희주' : null; t.updated_at = ts();
         return json(t);
       }
+      if (p === '/rest/v1/rpc/msg_edit'){   // 메시지 수정(202610290002) — 글쓴이 본인만, 글만 바꾸고 대기 중인 할 일 글을 새 글에 맞춤
+        const b = JSON.parse(req.postData()); calls.push(['edit', b]);
+        const m = MSGS.find(x => x.id === b.p_id);
+        if (!m || m.author !== ME) return json({ code: '42501', message: 'not_allowed' }, 403);
+        if (m.deleted_at) return json({ message: 'msg_deleted' }, 400);
+        if (m.body !== b.p_body){
+          m.body = b.p_body; m.edited_at = ts(); m.updated_at = m.edited_at;
+          let text = b.p_body; Object.values(NAME).forEach(n => { text = text.split('@' + n).join(''); });
+          text = text.replace(/@(모두|전체|조교|선생님)/g, '').replace(/\s+/g, ' ').trim() || '메시지 확인';
+          TASKS.forEach(k => { if (k.message_id === m.id && k.status === '대기' && k.text !== text){ k.text = text; k.updated_at = m.updated_at; } });
+        }
+        return json({ message: m, tasks: TASKS.filter(k => k.message_id === m.id) });
+      }
       if (p === '/rest/v1/rpc/msg_delete'){
         const b = JSON.parse(req.postData()); calls.push(['del', b]);
         const m = MSGS.find(x => x.id === b.p_id);
@@ -468,6 +481,55 @@ async function showTask(pg, sel){
     ok(/^캡처_.*\.png$/.test(lbdl.suggestedFilename()), '창의 [내려받기]로 원래 이름 저장');
     await page.keyboard.press('Escape');
     ok(await page.locator('#lbback').isHidden() && fitW > 0, 'Esc로 닫힘');
+  }
+
+  console.log('⑦-3 메시지 수정 (2026-10-29 원장님 "올린 사람이 본인의 대화는 수정할 수 있도록")');
+  {
+    ok(await page.locator('#m' + m3.id + ' [data-edit]').count() === 0, '남의 메시지엔 수정 없음');
+    await page.fill('#inp', '쓰던 글');
+    await page.click('.tg[data-tag="결석"]');
+    await page.click('#send');
+    await page.waitForFunction(() => [...document.querySelectorAll('.m.mine .bt')].some(b => b.textContent.includes('쓰던 글')));
+    const em = MSGS[MSGS.length - 1];
+    ok(em.body === '[결석] 쓰던 글', '수정할 내 글(꼬리표 포함) 보냄');
+    await page.fill('#inp', '아직 안 보낸 글');
+    await page.hover('#m' + em.id);
+    await page.click('#m' + em.id + ' [data-edit]');
+    ok(!(await page.locator('#ebar').isHidden()) && (await page.locator('#etext').textContent()).includes('수정 중'), '[수정] → 수정 중 줄');
+    ok((await page.inputValue('#inp')) === '쓰던 글', '입력칸에 그 글(꼬리표는 알약으로)');
+    ok(await page.evaluate(() => document.querySelector('.tg[data-tag="결석"]').classList.contains('on')), '꼬리표 알약이 켜짐');
+    ok((await page.locator('#send').textContent()) === '수정' && await page.evaluate(() => document.querySelector('#attach').disabled), '버튼 [수정] · 파일 첨부 잠김');
+    await page.keyboard.press('Escape');
+    ok(await page.locator('#ebar').isHidden() && (await page.inputValue('#inp')) === '아직 안 보낸 글' && (await page.locator('#send').textContent()) === '보내기', 'Esc → 수정 취소, 쓰던 글 되돌림');
+    await page.fill('#inp', '');
+    await page.hover('#m' + em.id);
+    await page.click('#m' + em.id + ' [data-edit]');
+    await page.fill('#inp', '고친 글 @이은지 부탁해요');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(id => (document.querySelector('#m' + id + ' .bt') || {}).textContent.includes('고친 글'), em.id);
+    const ed = calls.filter(c => c[0] === 'edit').pop();
+    ok(ed && ed[1].p_id === em.id && ed[1].p_body === '[결석] 고친 글 @이은지 부탁해요', 'msg_edit 호출 — 꼬리표 그대로 붙여 글만');
+    ok(calls.filter(c => c[0] === 'send').pop()[1].p_body === '[결석] 쓰던 글', '수정은 msg_send 를 부르지 않음');
+    ok((await page.locator('#m' + em.id + ' .edl').count()) >= 1 && (await page.locator('#m' + em.id + ' .edl').first().textContent()) === '수정됨', '시각 옆 수정됨');
+    ok(await page.locator('#ebar').isHidden() && (await page.inputValue('#inp')) === '' && !(await page.evaluate(() => document.querySelector('#attach').disabled)), '저장 뒤 수정 줄 닫힘·입력칸 비움·첨부 풀림');
+    // 바뀐 게 없으면 저장하지 않는다
+    await page.hover('#m' + em.id);
+    await page.click('#m' + em.id + ' [data-edit]');
+    const edN = calls.filter(c => c[0] === 'edit').length;
+    await page.click('#send');
+    ok(await page.locator('#ebar').isHidden() && calls.filter(c => c[0] === 'edit').length === edN, '바뀐 게 없으면 서버를 부르지 않고 닫음');
+    // 답장을 누르면 수정은 그만둔다
+    await page.hover('#m' + em.id);
+    await page.click('#m' + em.id + ' [data-edit]');
+    await page.hover('#m' + m3.id);
+    await page.click('#m' + m3.id + ' [data-reply]');
+    ok(await page.locator('#ebar').isHidden() && !(await page.locator('#rbar').isHidden()), '답장을 시작하면 수정 줄은 닫힘');
+    await page.click('#rcancel');
+    // 다른 화면에서 고친 글은 폴링으로 받는다
+    const om = MSGS.find(x => x.id === m3.id);
+    om.body = '중3 김민준 결석입니다 (고침) @고희주'; om.edited_at = ts(); om.updated_at = om.edited_at;
+    await page.waitForFunction(id => (document.querySelector('#m' + id + ' .bt') || {}).textContent.includes('(고침)'), m3.id, { timeout: 8000 });
+    ok((await page.locator('#m' + m3.id + ' .edl').count()) >= 1, '남이 고친 글도 폴링으로 바뀌고 수정됨 표시');
   }
 
   console.log('⑧ 할 일 → 메시지로');
