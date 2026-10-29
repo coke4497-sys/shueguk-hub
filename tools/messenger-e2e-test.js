@@ -42,6 +42,7 @@ let noPres = false, workClip = false, workAsk = false, workEarly = false;
 const TT = [], TTP = [], TTLOG = [], NOTES = [], SHIFTS = [], HOMES = {};
 let failTT = false;
 const WAIT = []; let waitMissing = false;   // 대기생 등록(student_waitlist, 202610290001)
+let noteMissing = false;   // 쪽지(202610290003)
 const BOT = { tick: { msgs: [], summary: false } };
 const STUDENTS = [
   { name: '김민준', school: '서정중', grade: '2026 중등 3학년', teacher: '이은지', enrolled: 'Y' }, { name: '박하늘', teacher: '김지원', enrolled: 'Y' },
@@ -99,7 +100,7 @@ function filterRows(rows, u){
 // 2026-10-21 리디자인 — 컴퓨터도 채팅과 업무 진행 상황을 메뉴로 바꿔 본다. 검사가 누르거나 입력하는 곳이
 // 다른 보기에 있으면 그 메뉴를 먼저 누른다(사람이 하는 그대로). 보이는지 묻는 검사(isHidden 등)는 건드리지 않는다
 const BOARD_RE = /#cards|\.pc\b|#pchips|\.pchip|\.ci\b|\.bx\b|#sum\b|\.fl\b|#flsel|\.pcnt|data-cx|data-uncx|data-open|\.det\b|\.gomsg|\.cxb|data-person|data-pick|data-tk|\.lk\b|\.more\b/;
-const CHAT_RE = /#m\d|#msgs|#inp|#send\b|#tags|#composer|#mention|#results|#find\b|#fq|#ftags|#fclose|#rbar|#pend|#attach|#jump|#rcancel|#ctag|#ahint|\.tk\b|\.hrt|\.rc\b|data-reply|data-del|\.quote|#older|\.bopt|data-ack|#file\b/;
+const CHAT_RE = /#noteBtn|#waitBtn|#m\d|#msgs|#inp|#send\b|#tags|#composer|#mention|#results|#find\b|#fq|#ftags|#fclose|#rbar|#pend|#attach|#jump|#rcancel|#ctag|#ahint|\.tk\b|\.hrt|\.rc\b|data-reply|data-del|\.quote|#older|\.bopt|data-ack|#file\b/;
 const STAFF_RE = /#staff|\.sw\b|data-sw|\.chloc|#presListBtn/;
 async function ensureTab(pg, sel){
   if (typeof sel !== 'string' || /^#tab/.test(sel)) return;
@@ -261,6 +262,14 @@ async function showTask(pg, sel){
         const now = ts();
         const k = { id: ++tid, message_id: null, assignee: ME, assignee_name: NAME[ME], requester: ME, requester_name: NAME[ME], text: b.p_text.trim(), status: '대기', done_by_name: null, done_at: null, seen_at: null, ack_only: false, cancel_reason: '', due_at: null, due_note: '', history: [], hand_push: null, self_added: true, created_at: now, updated_at: now };
         TASKS.push(k); return json(k);
+      }
+      if (p === '/rest/v1/rpc/msg_note_send'){   // 쪽지(202610290003) — 받는 사람마다 확인만 하면 끝인 메시지 없는 할 일 + 알림 자리
+        if (noteMissing) return json({ code: 'PGRST202', message: 'Could not find the function public.msg_note_send' }, 404);
+        const b = JSON.parse(req.postData()); calls.push(['note', b]);
+        const ids = [...new Set(b.p_to || [])].filter(id => id !== ME && MEMBERS.some(m => m.user_id === id));
+        if (!ids.length) return json({ message: 'no_recipient' }, 400);
+        const rows = ids.map(id => { const now = ts(), m = MEMBERS.find(x => x.user_id === id); const k = { id: ++tid, message_id: null, assignee: id, assignee_name: m.name, requester: ME, requester_name: NAME[ME], text: b.p_text.trim(), status: '대기', done_by_name: null, done_at: null, seen_at: null, ack_only: true, note: true, cancel_reason: '', due_at: null, due_note: '', history: [], hand_push: id, hand_by: ME, created_at: now, updated_at: now }; TASKS.push(k); return k; });
+        return json(rows);
       }
       if (p === '/rest/v1/rpc/msg_task_set'){
         const b = JSON.parse(req.postData()); calls.push(['task', b]);
@@ -870,7 +879,7 @@ async function showTask(pg, sel){
   await page.waitForFunction(() => document.querySelector('#inp').value === '');
   const sGa = calls.filter(c => c[0] === 'send').pop();
   const astIds = MEMBERS.filter(m => m.role === 'assistant' && m.user_id !== ME).map(m => m.user_id).sort();
-  ok(sGa[1].p_body === '@조교 복사기 정리해 주세요' && JSON.stringify([...sGa[1].p_mentions].sort()) === JSON.stringify(astIds), '@조교 → 나 빼고 조교만 (' + sGa[1].p_mentions.length + '명)');
+  ok(sGa[1].p_body === '@조교 복사기 정리해 주세요' && JSON.stringify([...sGa[1].p_mentions].sort()) === JSON.stringify(astIds), '@조교 → 나 빼고 조교만 (' + sGa[1].p_mentions.length + '명) ' + JSON.stringify(sGa[1].p_body));
   await page.click('#inp'); await page.keyboard.type('@선');
   await page.waitForSelector('#mention.on');
   ok((await page.locator('#mention button').first().textContent()).includes('선생님 모두'), '@ 목록에 \'선생님 모두\'');
@@ -1683,6 +1692,107 @@ async function showTask(pg, sel){
     await page.waitForFunction(() => /202610290001/.test(document.getElementById('wtStatus').textContent));
     ok(true, '표가 없으면 마이그레이션 안내');
     waitMissing = false;
+    await ctx.close();
+  }
+
+
+  console.log('㉙ 쪽지 보내기 — 받는 사람의 업무 진행 상황에 쌓이고 [확인]으로 끝남 (2026-10-29 원장님)');
+  {
+    ({ ctx, page } = await open({ width: 1280, height: 900 }));
+    await page.waitForSelector('#msgs .m');
+    ok(await page.evaluate(() => { const n = document.getElementById('noteBtn'), w = document.getElementById('waitBtn'); const rn = n.getBoundingClientRect(), rw = w.getBoundingClientRect(); return rn.width > 0 && Math.abs(rn.top - rw.top) < 4 && rn.right <= rw.left; }), '[쪽지 보내기] 버튼이 [대기생 등록] 왼쪽 같은 줄');
+    await page.click('#noteBtn');
+    await page.waitForFunction(() => !document.getElementById('ntback').hidden);
+    let r = await page.evaluate(() => ({ groups: [...document.querySelectorAll('#ntchips .ntg')].map(e => e.textContent), chips: [...document.querySelectorAll('#ntchips button')].map(b => b.textContent), cnt: document.getElementById('ntcnt').textContent, dis: document.getElementById('ntSend').disabled }));
+    ok(r.groups.join('|') === '선생님' && r.chips.join(',') === '김지원,이수경,이은지' && /골라 주십시오/.test(r.cnt) && r.dis, '창 — 나를 뺀 사람 칩(선생님 묶음, 가나다) · 조교는 나뿐이라 묶음 없음 · 받는 사람 없으면 보내기 잠김 ' + JSON.stringify(r));
+    await page.click('#ntq button[data-q="tch"]');
+    ok(await page.evaluate(() => document.querySelectorAll('#ntchips button.on').length === 3 && /받는 사람 3명/.test(document.getElementById('ntcnt').textContent)), '[선생님 모두] → 3명');
+    await page.click('#ntq button[data-q="none"]');
+    ok(await page.evaluate(() => document.querySelectorAll('#ntchips button.on').length === 0), '[비우기] → 0명');
+    await page.click(`#ntchips button[data-nt="${EUNJI}"]`); await page.click(`#ntchips button[data-nt="${BOSS}"]`);
+    ok(await page.evaluate(() => document.getElementById('ntcnt').textContent === '받는 사람 2명 · 이수경, 이은지' && !document.getElementById('ntSend').disabled), '칩을 눌러 두 명 고름 → "받는 사람 2명 · 이수경, 이은지"');
+    if (process.env.SHOT){ await page.fill('#ntText', '내일 3시 회의실 예약 부탁드립니다'); await page.screenshot({ path: path.join(process.env.SHOT, 'note.png') }); await page.fill('#ntText', ''); }
+    await page.click(`#ntchips button[data-nt="${BOSS}"]`);
+    ok(await page.evaluate(() => document.getElementById('ntcnt').textContent === '받는 사람 1명 · 이은지'), '같은 칩을 다시 누르면 빠짐');
+    await page.click('#ntSend');
+    ok(/쪽지 내용을 적어/.test(await page.locator('#ntStatus').textContent()), '내용 없이 보내면 거절');
+    const nMsg = await page.locator('#msgs .m').count();
+    await page.fill('#ntText', '내일 3시 회의실 예약 부탁드립니다');
+    await page.click('#ntSend');
+    await page.waitForFunction(() => document.getElementById('ntback').hidden);
+    const nt = calls.filter(c => c[0] === 'note').pop()[1];
+    ok(nt.p_to.length === 1 && nt.p_to[0] === EUNJI && nt.p_text === '내일 3시 회의실 예약 부탁드립니다', '보내기 → msg_note_send(p_to·p_text) ' + JSON.stringify(nt));
+    ok(/1명에게 쪽지를 보냈습니다/.test(await page.locator('#status').textContent()) && await page.locator('#msgs .m').count() === nMsg, '보내면 창이 닫히고 상태 줄 안내 · 대화에는 글이 안 남음');
+    const noteId = TASKS.filter(t => t.note).pop().id;
+    for (let i = 0; i < 40 && !calls.some(c => c[0] === 'fn' && c[1].action === 'hand' && c[1].task_id === noteId); i++) await sleep(100);
+    ok(calls.some(c => c[0] === 'fn' && c[1].action === 'hand' && c[1].task_id === noteId), '받는 사람 휴대폰 알림(hand)을 부름');
+    await page.click('#tabBoard');
+    await page.click(`#pchips [data-pick="${EUNJI}"]`);
+    r = await page.evaluate(id => { const sec = document.querySelector(`.pc[data-person="${id}"]`); const ci = [...sec.querySelectorAll('.ci')].find(x => x.querySelector('.notem')); return ci ? { ttl: ci.querySelector('.ttl').textContent, meta: ci.querySelector('.meta').textContent, bx: ci.querySelector('.bx').disabled, ack: !!ci.querySelector('.ack'), cnt: sec.querySelector('.pcnt').textContent } : null; }, EUNJI);
+    if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'note-card.png') });
+    ok(r && /회의실 예약/.test(r.ttl) && /^쪽지 고희주 · /.test(r.meta) && r.bx && !r.ack, '이은지 카드에 "쪽지 고희주" 줄 — 남은 일로 세고 내가 체크·확인은 못 함 ' + JSON.stringify(r));
+    ok(await page.evaluate(a => !!document.querySelector(`.pc[data-person="${a[0]}"] .ph1 button[data-note="${a[0]}"]`) && !document.querySelector(`.pc[data-person="${a[1]}"] .ph1 button[data-note]`), [EUNJI, ME]), '남의 카드 머리에만 [쪽지] 버튼(내 카드에는 없음)');
+    await page.click(`.pc[data-person="${EUNJI}"] .ph1 button[data-note]`);
+    await page.waitForFunction(() => !document.getElementById('ntback').hidden);
+    ok(await page.evaluate(() => document.getElementById('ntcnt').textContent === '받는 사람 1명 · 이은지' && document.activeElement === document.getElementById('ntText')), '카드 머리 [쪽지] → 그 사람이 미리 골라지고 글 칸에 커서');
+    await page.keyboard.press('Escape');
+    ok(await page.evaluate(() => document.getElementById('ntback').hidden), 'Esc 로 닫힘');
+    // 받는 쪽 — 이은지가 나에게 보낸 쪽지가 폴링으로 내 카드에 오고 [확인]으로 끝난다
+    { const now = ts(); TASKS.push({ id: ++tid, message_id: null, assignee: ME, assignee_name: '고희주', requester: EUNJI, requester_name: '이은지', text: '복사기 토너 주문 부탁해요', status: '대기', done_by_name: null, done_at: null, seen_at: null, ack_only: true, note: true, cancel_reason: '', due_at: null, due_note: '', history: [], hand_push: null, hand_by: EUNJI, created_at: now, updated_at: now }); }
+    const myNote = tid;
+    await page.waitForFunction(a => !!document.querySelector(`.pc[data-person="${a[1]}"] .ci button[data-ack="${a[0]}"]`), [myNote, ME], { timeout: 8000 });
+    await page.click(`#pchips [data-pick="${ME}"]`);
+    r = await page.evaluate(a => { const ci = document.querySelector(`.pc[data-person="${a[1]}"] .ci button[data-ack="${a[0]}"]`).closest('.ci'); return { meta: ci.querySelector('.meta').textContent, bx: ci.querySelector('.bx').disabled, cx: !!ci.querySelector('[data-cx]') }; }, [myNote, ME]);
+    ok(/^쪽지 이은지 · /.test(r.meta) && !r.bx, '받은 쪽지가 내 카드에 "쪽지 이은지" + [확인] ' + JSON.stringify(r));
+    await page.click(`.pc[data-person="${ME}"] .ci button[data-ack="${myNote}"]`);
+    await page.waitForFunction(a => !!document.querySelector(`.pc[data-person="${a[1]}"] .ci.d button[data-tk="${a[0]}"]`), [myNote, ME]);
+    const sn = calls.filter(c => c[0] === 'seen').pop()[1];
+    ok(sn.p_id === myNote && TASKS.find(t => t.id === myNote).status === '완료', '[확인] → msg_task_seen → 쪽지는 확인이 곧 완료');
+    ok(await page.evaluate(a => /쪽지 이은지 · 완료/.test(document.querySelector(`.pc[data-person="${a[1]}"] .ci.d button[data-tk="${a[0]}"]`).closest('.ci').querySelector('.meta').textContent) && document.getElementById('cxback').hidden, [myNote, ME]), '완료 줄로 내려가고(쪽지 이은지 · 완료) 체크리스트 창은 열리지 않음');
+    // 함수 없음(마이그레이션 전)
+    noteMissing = true;
+    await page.click('#noteBtn'); await page.click(`#ntchips button[data-nt="${EUNJI}"]`); await page.fill('#ntText', 'x'); await page.click('#ntSend');
+    await page.waitForFunction(() => /202610290003/.test(document.getElementById('ntStatus').textContent));
+    ok(true, '함수가 없으면 마이그레이션 안내');
+    noteMissing = false;
+    await page.click('#ntClose');
+    await ctx.close();
+  }
+
+  console.log('㉚ 내 업무 기록 — 내가 끝낸 일 돌아보기 (2026-10-29 원장님)');
+  {
+    TASKS.length = 0;
+    const m1 = addMsg(EUNJI, '교재 주문 @고희주', [], ago(30));
+    const mk = (over, assignee, text, status, doneAgoH, more) => { const now = ts(); const k = Object.assign({ id: ++tid, message_id: null, assignee, assignee_name: NAME[assignee], requester: EUNJI, requester_name: '이은지', text, status, done_by_name: '고희주', done_at: ago(doneAgoH), seen_at: null, ack_only: false, note: false, cancel_reason: '', due_at: null, due_note: '', history: [], hand_push: null, created_at: now, updated_at: now }, more || {}); TASKS.push(k); return k; };
+    const k1 = mk(0, ME, '교재 주문', '완료', 1, { message_id: m1.id });
+    mk(0, ME, '복사기 토너 주문 부탁해요\n① 검정 2개\n② 컬러 1개 — https://example.com/toner', '완료', 2, { note: true, requester_name: '이은지' });
+    mk(0, ME, '시험지 복사', '취소', 3, { cancel_reason: '다른 사람이 처리함' });
+    mk(0, ME, '지난달 정산', '완료', 40 * 24);
+    mk(0, ME, '아직 남은 일', '대기', 0, { done_at: null, done_by_name: null });
+    mk(0, EUNJI, '남의 완료', '완료', 1);
+    ({ ctx, page } = await open({ width: 1280, height: 900 }));
+    await page.waitForSelector('#msgs .m');
+    await page.click('#tabBoard');
+    ok(await page.evaluate(a => !!document.querySelector(`.pc[data-person="${a[0]}"] #histLink`) && !document.querySelector(`.pc[data-person="${a[1]}"] button[data-hist]`) && document.querySelectorAll('[data-hist]').length === 1, [ME, EUNJI]), '[내 업무 기록] 입구는 내 구역 맨 아래에만');
+    await page.click('#histLink');
+    await page.waitForFunction(() => !document.getElementById('hsback').hidden && document.querySelectorAll('#hstiles .hstile').length === 3);
+    let r = await page.evaluate(() => ({ tiles: [...document.querySelectorAll('#hstiles .hstile')].map(t => t.querySelector('b').textContent + ' ' + t.querySelector('span').textContent), line: document.getElementById('hsline').textContent,
+      days: [...document.querySelectorAll('#hslist .hsday')].map(d => d.textContent), rows: [...document.querySelectorAll('#hslist .hsrow')].map(x => [x.classList.contains('x'), x.querySelector('.hb > div').textContent, x.querySelector('.hmeta').textContent]), more: document.getElementById('hsMore').hidden }));
+    const q = calls.filter(c => c[0] === 'tasksq').length;
+    ok(r.tiles.join('|') === '2 이번 주 완료|2 이번 달 완료|3 전체 완료' && /지금까지 3개의 일을 끝냈습니다/.test(r.line), '타일 — 이번 주 2 · 이번 달 2 · 전체 3(취소·남은 일·남의 일 제외) ' + JSON.stringify(r.tiles));
+    ok(r.days.length === 2 && /· 오늘 · 완료 2 · 취소 1$/.test(r.days[0]) && /완료 1$/.test(r.days[1]) && !/오늘/.test(r.days[1]), '날짜별 묶음 — 오늘(완료 2 · 취소 1) → 40일 전(완료 1) ' + JSON.stringify(r.days));
+    ok(r.rows.length === 4 && r.rows[0][1] === '교재 주문' && /^이은지 · 완료 오/.test(r.rows[0][2]) && /대화에서 보기/.test(r.rows[0][2]) && r.rows[1][1] === '복사기 토너 주문 부탁해요' && /^쪽지 이은지 · 완료/.test(r.rows[1][2]) && r.rows[2][0] && /취소 오.*사유: 다른 사람이 처리함/.test(r.rows[2][2]) && !/대화에서 보기/.test(r.rows[2][2]) && r.rows[3][1] === '지난달 정산', '줄 — 최근 것부터 · 쪽지 표시 · 취소는 ×와 사유 · 메시지가 있는 것만 [대화에서 보기] ' + JSON.stringify(r.rows));
+    ok(r.more, '100개 안이면 [더 보기] 없음');
+    r = await page.evaluate(() => { const rows = [...document.querySelectorAll('#hslist .hsrow')]; return { steps: rows[1].querySelectorAll('.hdet .steps li').length, link: !!rows[1].querySelector('.hdet .ilk'), none: rows.filter(x => x.querySelector('.hdet')).length }; });
+    ok(r.steps === 2 && r.link && r.none === 1, '여러 줄 쪽지는 기록에서도 단계·링크를 펼쳐 보여 준다(한 줄짜리는 펼침 없음) ' + JSON.stringify(r));
+    if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'history.png') });
+    await page.click('#hslist button[data-go]');
+    await page.waitForFunction(() => document.getElementById('hsback').hidden);
+    ok(await page.evaluate(() => document.body.dataset.tab === 'chat'), '[대화에서 보기] → 창이 닫히고 그 메시지로(채팅 보기)');
+    await page.click('#tabBoard'); await page.click('#histLink');
+    await page.waitForFunction(() => !document.getElementById('hsback').hidden && document.querySelectorAll('#hslist .hsrow').length === 4);
+    await page.keyboard.press('Escape');
+    ok(await page.evaluate(() => document.getElementById('hsback').hidden), 'Esc 로 닫힘');
     await ctx.close();
   }
 

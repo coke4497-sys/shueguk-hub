@@ -128,13 +128,13 @@ export async function workingToday(admin: any, now = Date.now()): Promise<Set<st
   } catch (_) { return null }
 }
 
-// 넘겨받은 사람에게 보낼 내용 — 순수 함수(시험용)
-export type Hand = { id: number; message_id: number | null; text: string; to: string; status: string }
+// 넘겨받은 사람에게 보낼 내용 — 순수 함수(시험용). 쪽지(note — 202610290003)도 같은 길로 가고 제목만 '○○ → 나에게 쪽지'.
+export type Hand = { id: number; message_id: number | null; text: string; to: string; status: string; note?: boolean }
 export function handPlan(t: Hand, byName: string, subs: Sub[], active: Set<string>) {
   if (t.status !== '대기' || !active.has(t.to)) return []
   return subs.filter((s) => s.user_id === t.to).map((s) => ({
     sub: s,
-    payload: { title: byName + ' → 나에게 넘긴 일', body: cut(t.text, 140), url: t.message_id ? PAGE + '#m' + t.message_id : PAGE, tag: 'tk' + t.id, task: true },   // 내가 직접 추가한 업무(202610250002)는 메시지가 없다
+    payload: { title: byName + (t.note ? ' → 나에게 쪽지' : ' → 나에게 넘긴 일'), body: cut(t.text, 140), url: t.message_id ? PAGE + '#m' + t.message_id : PAGE, tag: 'tk' + t.id, task: true },   // 내가 직접 추가한 업무(202610250002)·쪽지는 메시지가 없다
   }))
 }
 
@@ -365,7 +365,7 @@ export async function retryHand(admin: any, id: number) {
   const turn: [string, unknown] | undefined = typeof h.gen === 'number' ? ['hand_gen', h.gen] : h.by_id ? ['hand_by', h.by_id] : undefined
   const restore = (v: unknown) => keepRetry(admin, 'msg_tasks', id, 'hand_retry', v, turn)
   const [t, s, a] = await Promise.all([
-    admin.from('msg_tasks').select('id,message_id,text,status,assignee,hand_by,hand_gen,updated_at').eq('id', id).maybeSingle(),
+    admin.from('msg_tasks').select('*').eq('id', id).maybeSingle(),   // * — note(쪽지, 202610290003) 열이 아직 없는 DB 에서도 돈다
     admin.from('msg_push_subs').select('*').in('id', h.subs),
     admin.from('teacher_accounts').select('user_id').eq('active', true),
   ])
@@ -383,7 +383,7 @@ export async function retryHand(admin: any, id: number) {
 // 다 읽고 → hand_push 를 비우며 잡고 → 보냄. 전체 실패면 자리를 되돌리고, 일부 실패면 그 기기만 hand_retry 에. by 가 있으면 그 사람이 넘긴 일만.
 // deno-lint-ignore no-explicit-any
 export async function pushHand(admin: any, id: number, by?: string) {
-  let tq = admin.from('msg_tasks').select('id,message_id,text,status,hand_push,hand_by,hand_gen').eq('id', id).not('hand_push', 'is', null)
+  let tq = admin.from('msg_tasks').select('*').eq('id', id).not('hand_push', 'is', null)   // * — note(쪽지, 202610290003) 열이 아직 없는 DB 에서도 돈다
   if (by) tq = tq.eq('hand_by', by)
   const [t, a] = await Promise.all([tq.maybeSingle(), admin.from('teacher_accounts').select('user_id,display_name').eq('active', true)])
   if (t.error || a.error) return { status: 503, body: { error: 'lookup_failed' } }
@@ -397,7 +397,7 @@ export async function pushHand(admin: any, id: number, by?: string) {
   // 처음 읽은 위임 차례(맡은 사람·넘긴 사람)가 그대로일 때만 잡는다 — 그 사이 B→C→B 로 다시 넘겼으면 옛 이름으로 보내지 않게 (Codex 검토)
   const cq = admin.from('msg_tasks').update({ hand_push: null, hand_retry: null }).eq('id', id).eq('hand_push', to)
     .eq('hand_by', t.data.hand_by).eq('hand_gen', t.data.hand_gen)
-  const { data: claimed, error: ce } = await cq.select('id,message_id,text,status,updated_at')
+  const { data: claimed, error: ce } = await cq.select('*')
   if (ce) return { status: 503, body: { error: 'claim_failed' } }
   if (!claimed || !claimed.length) return { status: 200, body: { skipped: true } }
   // 위임 차례 = 맡은 사람 + 넘긴 사람. updated_at 은 확인·미루기·진행 표시에도 바뀌어 차례로 쓰지 않는다 (Codex 검토)
