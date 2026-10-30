@@ -38,11 +38,25 @@ const tpl = (label, ready) => ({ label, notice: true, ready, vars: ['학생명',
   text: '[이수경국어학원] ' + label + '\n#{학생명} 학생에게 ' + label + '가 도착했어요.\n\n▶ #{제목}\n\n학생 페이지에서 내용을 확인해 주세요.',
   buttons: [{ name: '학생 페이지 링크', type: 'WL' }] });
 const CFG = { result: 'success', ready: true, smsFallback: true, templates: {
-  absent: { label: '결석 안내', ready: true, text: '', vars: [] },
-  notice_sched: tpl('수업 일정 안내', true), notice_mock: tpl('주말 실전 모의고사 신청 안내', false) } };
+  notice_sched: tpl('수업 일정 안내', true), notice_mock: tpl('주말 실전 모의고사 신청 안내', false),
+  // 출석 알림 네 종류 — 백엔드 ALIM_TPL_ 과 같은 변수·문구(options 는 결석 예고만)
+  absent: { label: '결석 안내', ready: true, vars: ['학생명', '수업일', '반이름'], text: '[이수경국어학원] 결석 안내\n#{학생명} 학생이 #{수업일} #{반이름} 수업에 결석했습니다.' },
+  preabsent: { label: '결석 예고 안내', ready: true, vars: ['학생명', '수업일', '반이름', '알린분', '사유', '보충안내'],
+    text: '[이수경국어학원] 결석 예고 안내\n#{학생명} 학생이 #{수업일} #{반이름} 수업에 결석한다는 연락을 #{알린분} 받았습니다.\n사유: #{사유}\n#{보충안내}\n내용이 다르면 학원으로 연락 부탁드립니다.',
+    options: { '알린분': ['학부모님께', '학생에게'], '보충안내': ['보충 일정은 별도 안내드립니다.', '당일 결석이므로 보충을 진행하지 않습니다.'] } },
+  noshow: { label: '미등원 안내', ready: true, vars: ['학생명', '수업일', '반이름', '학원번호'],
+    text: '[이수경국어학원] 미등원 안내\n#{학생명} 학생이 #{수업일} #{반이름} 수업 시간에 아직 등원하지 않았습니다.\n학생과 학부모님께 연락을 드렸으나 연결되지 않았습니다.\n확인 후 학원(#{학원번호})으로 연락 부탁드립니다.' },
+  arrived: { label: '지각 등원 안내', ready: false, vars: ['학생명', '수업일', '반이름', '등원시각'],
+    text: '[이수경국어학원] 지각 등원 안내\n#{학생명} 학생이 #{수업일} #{반이름} 수업에 지금 등원했습니다. (#{등원시각} 도착)\n앞서 보내 드린 미등원 안내는 확인하지 않으셔도 됩니다.' } } };
 const sends = [], getsCalled = [], posts = [];
 const GLITCH = { n: 0, down: 0 };
 const KD = n => new Date(Date.now() + 9 * 3600e3 + n * 86400e3).toISOString().slice(0, 10);   // 한국 날짜 — 발송 내역은 최근 7일만 보인다
+const DOWK = ['일', '월', '화', '수', '목', '금', '토'], dowOf = y => DOWK[new Date(y + 'T00:00:00Z').getUTCDay()];
+// 출석 알림 검사용 — 오늘 요일(미등원)·내일 요일(결석 예고) 반, 지난 금요일(결석)은 r001
+CLASSES.push({ book: '정규', class_id: 'r002', day: dowOf(KD(0)), start_time: '7:30', teacher: '은지', name: '고2 나', roster: '김철수 고이0 고이1', location: '화정센터' });
+CLASSES.push({ book: '정규', class_id: 'r003', day: dowOf(KD(1)), start_time: '5:00', teacher: '선주', name: '정리정독 중2', roster: '이중등', location: '정리정독' });
+let LAST_FRI = KD(0); for (let i = 0; i < 7; i++) if (dowOf(KD(-i)) === '금'){ LAST_FRI = KD(-i); break; }
+const mdOf = y => (+y.slice(5, 7)) + '/' + (+y.slice(8, 10));
 const cancels = [];
 let LOG = [{ ts: KD(-1) + ' 18:00', kind: 'notice_sched', student: '김철수', who: '학부모1', to: '01022220001', cls: '공지', date: 'N:2026-09-28|지난 안내', ok: true, message: '' },
   { ts: KD(-1) + ' 18:00', kind: 'notice_sched', student: '새친구', who: '학생', to: '01099990001', cls: '공지', date: 'N:2026-09-28|지난 안내', ok: true, message: '' },
@@ -95,8 +109,8 @@ function applyFilter(rows, url){
           sends.push(b);
           const sent = b.items.map(it => ({ student: it.student, who: it.who, ok: it.to !== '01011110004', dup: it.student === '고이0' || LOG.some(r => r.ok && r.student === it.student && r.who === it.who && r.date === it.date), message: it.to === '01011110004' ? '수신 불가' : '보냈어요' }));
           sent.forEach((x, i) => { if (x.ok && !x.dup) LOG.unshift(b.schedule
-            ? { ts: KD(0) + ' 10:0' + (i % 10), kind: b.kind, student: x.student, who: x.who, to: b.items[i].to, cls: '공지', date: b.items[i].date, ok: false, res: '예약', sched: b.schedule, groupId: 'GS9', message: '', by: b.by || '' }
-            : { ts: KD(0) + ' 10:0' + (i % 10), kind: b.kind, student: x.student, who: x.who, to: b.items[i].to, cls: '공지', date: b.items[i].date, ok: true, message: '', by: b.by || '' }); });
+            ? { ts: KD(0) + ' 10:0' + (i % 10), kind: b.kind, student: x.student, who: x.who, to: b.items[i].to, cls: b.items[i].cls, date: b.items[i].date, ok: false, res: '예약', sched: b.schedule, groupId: 'GS9', message: '', by: b.by || '' }
+            : { ts: KD(0) + ' 10:0' + (i % 10), kind: b.kind, student: x.student, who: x.who, to: b.items[i].to, cls: b.items[i].cls, date: b.items[i].date, ok: true, message: '', by: b.by || '' }); });
           if (GLITCH.n > 0){ GLITCH.n--; return json({ result: 'error', message: 'id 파라미터가 없습니다. 예: ?id=서정고3화작' }); }
           return json({ result: 'success', sent, okCount: sent.filter(x => x.ok && !x.dup).length, failCount: sent.filter(x => !x.ok).length });
         }
@@ -122,9 +136,11 @@ function applyFilter(rows, url){
 
   console.log('① 설정·종류');
   const opts = await pg.$$eval('#kindSel option', els => els.map(o => o.value + ':' + o.textContent + ':' + o.disabled));
-  ok(opts.join('|') === 'notice_sched:수업 일정 안내:false|notice_mock:주말 실전 모의고사 신청 안내 (준비 전):true', '공지 종류만(결석 제외), 준비 전은 잠금 — ' + opts.join('|'));
+  ok(opts.join('|') === 'notice_sched:수업 일정 안내:false|notice_mock:주말 실전 모의고사 신청 안내 (준비 전):true|absent:결석 안내:false|preabsent:결석 예고 안내:false|noshow:미등원 안내:false|arrived:지각 등원 안내 (준비 전):true',
+     '공지 묶음 뒤에 출석 알림 묶음(결석·예고·미등원·지각 등원 — 2026-10-30), 준비 전은 잠금 — ' + opts.join('|'));
+  ok((await pg.$$eval('#kindSel optgroup', els => els.map(o => o.label))).join('|') === '공지 알림|출석 알림 — 수업·학생을 골라 보냅니다', '드롭다운이 공지·출석 두 묶음');
   ok(await pg.inputValue('#kindSel') === 'notice_sched', '기본 = 준비된 첫 종류');
-  ok(/1개 \/ 2개/.test(await pg.textContent('#cfgState')), '상태 줄에 보낼 수 있는 종류 수');
+  ok(/4개 \/ 6개/.test(await pg.textContent('#cfgState')), '상태 줄에 보낼 수 있는 종류 수(출석 알림 포함) — ' + (await pg.textContent('#cfgState')));
   ok(!(await pg.$$eval('#clsSel option', els => els.map(o => o.value))).some(v => v.includes('w260912a')), "'이 주만' 반은 목록에 없음");
   ok((await pg.$$eval('.who', els => els.map(e => e.checked))).every(Boolean), '받는 분 학생·학부모1·학부모2 기본 체크');
   await pg.waitForSelector('.log-row', { state: 'attached' });   // 발송 내역 탭은 접혀 있어도 표는 만들어 둔다
@@ -262,10 +278,10 @@ function applyFilter(rows, url){
   const bd = await pg.$$eval('#cfgBadges .bdg', els => els.map(e => e.textContent + (e.classList.contains('no') ? '!' : '')));
   ok(bd.join('|') === '없음!|없음!' && /솔라피 API 키 · Secret/.test(await pg.textContent('#cfgBadges')) && /문자 대체 발신번호/.test(await pg.textContent('#cfgBadges')), '솔라피 연결 카드 — API 키·발신번호 저장 상태 (' + bd.join('|') + ')');
   const tp = await pg.$$eval('#tplPills .bdg', els => els.map(e => e.textContent + (e.classList.contains('wait') ? '!' : '')));
-  ok(tp.join('|') === '결석 안내 승인됨|수업 일정 안내 승인됨|주말 실전 모의고사 신청 안내 승인됨' && /승인 3 \/ 3/.test(await pg.textContent('#tplCount')) && (await pg.textContent('#pfBadge')) === '없음', '카카오 채널·템플릿 카드 — 채널 없음 · 템플릿 승인 3/3 (' + tp.join('|') + ')');
+  ok(tp.join('|') === '결석 안내 승인됨|결석 예고 안내 승인됨|미등원 안내 승인됨|지각 등원 안내 준비 전!|수업 일정 안내 승인됨|주말 실전 모의고사 신청 안내 승인됨' && /승인 5 \/ 6/.test(await pg.textContent('#tplCount')) && (await pg.textContent('#pfBadge')) === '없음', '카카오 채널·템플릿 카드 — 채널 없음 · 템플릿 승인 5/6 (' + tp.join('|') + ')');
   ok(!(await pg.isVisible('#tplTexts')), '템플릿 문구는 접혀 있음');
   await pg.click('#tplFold summary');
-  ok(/학생 페이지 링크/.test(await pg.textContent('#tplTexts')) && (await pg.$$('#tplTexts .tpl-h')).length === 3, '펼치면 결석·공지 종류 문구와 버튼');
+  ok(/학생 페이지 링크/.test(await pg.textContent('#tplTexts')) && (await pg.$$('#tplTexts .tpl-h')).length === 6, '펼치면 출석·공지 종류 문구와 버튼');
   await pg.click('#cfgFold summary');
   await pg.click('#cfgFold .go-row .btn.lav');
   ok(/채운 칸이 없습니다/.test(await pg.textContent('#cfErr')) && !posts.length, '빈 칸이면 저장 안 함');
@@ -371,6 +387,88 @@ function applyFilter(rows, url){
   await pg.waitForFunction(() => /보냈습니다/.test(document.getElementById('result').textContent));
   const tos = sends[0].items.map(i => i.to);
   ok(sends.length === 1 && tos.length === 2 && new Set(tos).size === 2 && sends[0].items.some(i => i.student === '김철수' && i.who === '학부모1'), '보낸 묶음에 같은 번호 없음 — ' + JSON.stringify(sends[0].items.map(i => i.student + i.who)));
+
+  console.log('⑬ 출석 알림 — 결석·결석 예고·미등원을 여기서 (2026-10-30 원장님 "모든 알림톡을 여기서")');
+  await pg.goto(`http://localhost:${PORT}/alimtalk.html`);
+  await pg.waitForFunction(() => document.querySelectorAll('#clsSel option[value*="|"]').length > 0 && /보낼 수 있는/.test(document.getElementById('cfgState').textContent));
+  await pg.selectOption('#kindSel', 'absent');
+  ok(await pg.isVisible('#attBox') && !(await pg.isVisible('#noticeBox')) && !(await pg.isVisible('#modeSeg')) && !(await pg.isVisible('#pickMain')) && !(await pg.isVisible('#when')),
+     '결석 안내 — 수업 상자가 열리고 제목·받을 학생 고르기·예약 줄은 숨김');
+  ok(await pg.inputValue('#attDate') === KD(0) && (await pg.getAttribute('#attDate', 'max')) === KD(0) && !(await pg.getAttribute('#attDate', 'min')), '날짜 기본 오늘 · 오늘까지(지난 날짜도 됨)');
+  ok(await pg.isDisabled('#goBtn') && /수업\(반\)을 골라/.test(await pg.textContent('#sum')), '반을 안 고르면 잠김');
+  await pg.fill('#attDate', LAST_FRI); await pg.dispatchEvent('#attDate', 'change');
+  const co = await pg.$$eval('#atClsSel option', els => els.map(o => o.value + ':' + o.textContent));
+  ok(co.some(x => /^정규\|r001:금 5:30 · 고1 가 · 이수경T \(6명\)/.test(x)) && !co.some(x => /r002|r003|w2609/.test(x)) || dowOf(KD(0)) === '금', '그 요일(금)의 반만 — ' + co.join(' / '));
+  await pg.selectOption('#atClsSel', '정규|r001');
+  const sb = await pg.$$eval('#atStus button', els => els.map(b => b.textContent + (b.disabled ? '!' : '') + (b.dataset.all ? '*' : '')));
+  ok(sb.join('|') === '모두 담기*|모두 빼기*|김철수|박민수|한동명!|새친구!|코드없음|번호없음', '반 명단 → 학생 알약(동명이인·미등록은 눌리지 않음) — ' + sb.join('|'));
+  ok(/보낼 학생을 눌러/.test(await pg.textContent('#sum')), '학생을 안 담으면 안내');
+  await pg.click('#atStus [data-s="1"]'); await pg.click('#atStus [data-s="2"]'); await pg.click('#atStus [data-s="5"]');
+  sum = await pg.textContent('#sum');
+  ok(/학생 3명/.test(sum) && /5건/.test(sum) && !/접근코드/.test(sum), '담은 3명 · 접근코드 없는 학생도 보냄 · 5건 — ' + sum.slice(0, 60));
+  ok(/학생 3명/.test(await pg.textContent('#atCount')), '상자 아래 학생 수');
+  const pv13 = await pg.textContent('#prev');
+  ok(pv13.indexOf('김철수 학생이 ' + mdOf(LAST_FRI) + '(금) 5:30 고1 가 수업에 결석했습니다.') >= 0, '미리보기 = 수업일(M/D(요일) 시작)·반이름 — ' + pv13.split('\n')[1]);
+  ok(!(await pg.isDisabled('#goBtn')) && /받는 분 3명 × 학생 3명 → 5건/.test(await pg.textContent('#goNote')), '보내기 열림');
+  if (process.env.SHOT) await pg.screenshot({ path: path.join(process.env.SHOT, 'alim-absent.png'), fullPage: true });
+  await pg.click('#atStus [data-all="1"]');
+  ok(/학생 4명/.test(await pg.textContent('#atCount')) && (await pg.$$('#atStus .btn.on')).length === 4, '[모두 담기] — 가릴 수 있는 4명');
+  await pg.click('#atStus [data-all="0"]');
+  ok(await pg.isDisabled('#goBtn') && !(await pg.textContent('#atCount')), '[모두 빼기] — 잠김');
+  await pg.click('#atStus [data-s="1"]'); await pg.click('#atStus [data-s="2"]');
+  sends.length = 0;
+  await pg.click('#goBtn');
+  await pg.waitForFunction(() => /보냈습니다/.test(document.getElementById('result').textContent));
+  ok(/“결석 안내” 알림톡을 학생 2명에게 4건/.test(confirmMsg) && confirmMsg.indexOf(mdOf(LAST_FRI) + '(금) 5:30 고1 가') > 0 && /김철수, 박민수/.test(confirmMsg), '확인 창 — 종류·수업·학생 이름 (' + confirmMsg.replace(/\n/g, ' / ') + ')');
+  ok(sends.length === 1 && sends[0].kind === 'absent' && !sends[0].schedule, 'alimSend kind=absent · 예약 없음');
+  const it13 = sends[0].items;
+  ok(it13.length === 4 && it13.every(x => x.date === LAST_FRI && x.cls === '고1 가'), '중복 키 = 수업일 yyyy-MM-dd · 반이름(슈국 스케쥴 출석 창과 같음)');
+  ok(it13[0].vars['학생명'] === '김철수' && it13[0].vars['수업일'] === mdOf(LAST_FRI) + '(금) 5:30' && it13[0].vars['반이름'] === '고1 가' && !('제목' in it13[0].vars) && !('접근코드' in it13[0].vars), '변수 학생명·수업일·반이름만');
+  await pg.click('#tabs [data-tab="log"]');
+  await pg.waitForFunction(() => /결석 안내/.test(document.getElementById('log').textContent));
+  const lr = await pg.$eval('.log-row', r => r.textContent);
+  ok(/결석 안내/.test(lr) && lr.indexOf(mdOf(LAST_FRI) + ' (금) · 고1 가') > 0 && /4건/.test(lr), '발송 내역 줄 — 종류·수업일·반 (' + lr.slice(0, 60) + ')');
+  await pg.click('#tabs [data-tab="send"]');
+
+  console.log('⑬-2 결석 예고 — 내일부터 · 알린 분·사유·보충 안내 · 예약 가능');
+  await pg.selectOption('#kindSel', 'preabsent');
+  ok(await pg.inputValue('#attDate') === KD(1) && (await pg.getAttribute('#attDate', 'min')) === KD(1) && await pg.isVisible('#when'), '날짜 기본 내일 · 내일부터 · 예약 줄 보임');
+  ok((await pg.$$('#atStus button')).length === 0 && (await pg.$$eval('#atClsSel option', els => els.map(o => o.value))).includes('정규|r003'), '수업을 바꾸면 담은 학생은 비우고 내일 요일 반 목록');
+  await pg.selectOption('#atClsSel', '정규|r003');
+  await pg.click('#atStus [data-s="8"]');
+  ok(/누가 알렸는지·결석 사유을\(를\) 골라 주세요/.test(await pg.textContent('#goNote')) && await pg.isDisabled('#goBtn'), '알린 분·사유 없으면 잠김(보충 안내는 첫째가 기본) — ' + (await pg.textContent('#goNote')));
+  ok((await pg.$$eval('[data-opt="mk"] .btn', els => els.map(b => b.textContent + (b.classList.contains('on') ? '*' : '')))).join('|') === '보충 일정은 별도 안내드립니다.*|당일 결석이므로 보충을 진행하지 않습니다.', '보충 안내 알약 — 첫째 기본');
+  ok((await pg.$$('[data-opt="from"] .btn.on')).length === 0, '알린 분은 기본값 없음');
+  await pg.click('[data-opt="from"] .btn:has-text("학부모님께")');
+  await pg.fill('#atReason', '병원 진료');
+  await pg.click('[data-opt="mk"] .btn:has-text("당일 결석")');
+  const pv13b = await pg.textContent('#prev');
+  ok(/이중등 학생이 .*\(.\) 5:00 정리정독 중2 수업에 결석한다는 연락을 학부모님께 받았습니다\./.test(pv13b) && /사유: 병원 진료/.test(pv13b) && /당일 결석이므로 보충을 진행하지 않습니다\./.test(pv13b), '미리보기 — 알린 분·사유·보충 안내');
+  ok(!(await pg.isDisabled('#goBtn')) && /받는 분 3명 × 학생 1명 → 2건/.test(await pg.textContent('#goNote')), '다 채우면 열림');
+  if (process.env.SHOT) await pg.screenshot({ path: path.join(process.env.SHOT, 'alim-preabsent.png'), fullPage: true });
+  sends.length = 0;
+  await pg.click('#goBtn');
+  await pg.waitForFunction(() => /보냈습니다/.test(document.getElementById('result').textContent));
+  const v13b = sends[0].items[0].vars;
+  ok(sends[0].kind === 'preabsent' && sends[0].items[0].date === KD(1) && v13b['알린분'] === '학부모님께' && v13b['사유'] === '병원 진료' && v13b['보충안내'] === '당일 결석이므로 보충을 진행하지 않습니다.' && v13b['반이름'] === '정리정독 중2', 'alimSend preabsent — 변수 전부 · 수업일 내일');
+
+  console.log('⑬-3 미등원 — 오늘만 · 학원 번호는 그 수업 센터');
+  await pg.selectOption('#kindSel', 'noshow');
+  ok(await pg.inputValue('#attDate') === KD(0) && (await pg.getAttribute('#attDate', 'min')) === KD(0) && (await pg.getAttribute('#attDate', 'max')) === KD(0) && !(await pg.isVisible('#when')), '날짜 오늘로 고정 · 예약 없음');
+  await pg.selectOption('#atClsSel', '정규|r002');
+  ok((await pg.$eval('[data-opt="center"] .btn.on', b => b.textContent)) === '화정센터 031-979-4497', '반을 고르면 학원 번호 = 그 수업 센터(화정센터)');
+  await pg.click('#atStus [data-s="100"]');
+  ok(/학원\(031-979-4497\)으로 연락/.test(await pg.textContent('#prev')) && /고이0 학생이 .* 7:30 고2 나 수업 시간에 아직 등원하지/.test(await pg.textContent('#prev')), '미리보기 — 센터 번호');
+  await pg.click('[data-opt="center"] .btn:has-text("본원")');
+  ok(/학원\(031-973-4497\)/.test(await pg.textContent('#prev')), '센터를 바꾸면 번호도');
+  if (process.env.SHOT) await pg.screenshot({ path: path.join(process.env.SHOT, 'alim-noshow.png'), fullPage: true });
+  sends.length = 0;
+  await pg.click('#goBtn');
+  await pg.waitForFunction(() => /보냈습니다/.test(document.getElementById('result').textContent));
+  ok(sends[0].kind === 'noshow' && sends[0].items[0].vars['학원번호'] === '031-973-4497' && sends[0].items[0].date === KD(0) && sends[0].items[0].cls === '고2 나', 'alimSend noshow — 학원번호·오늘·반이름');
+  ok(await pg.$eval('#kindSel option[value="arrived"]', o => o.disabled), '준비 전 종류(지각 등원)는 잠김');
+  await pg.selectOption('#kindSel', 'notice_sched');
+  ok(await pg.isVisible('#noticeBox') && await pg.isVisible('#modeSeg') && !(await pg.isVisible('#attBox')) && await pg.isVisible('#when'), '공지 종류로 돌아오면 제목·받을 학생·예약 줄이 다시');
 
   await browser.close(); server.close();
   console.log(bad ? `\n${bad}건 실패 / ${n}건` : `\n✓ ${n}건 모두 통과`);
