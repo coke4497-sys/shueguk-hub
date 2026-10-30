@@ -41,6 +41,9 @@ let noReads = false;
 let noPres = false, workClip = false, workAsk = false, workEarly = false;
 const TT = [], TTP = [], TTLOG = [], NOTES = [], SHIFTS = [], HOMES = {};
 let failTT = false;
+const WAIT = []; let waitMissing = false;   // 대기생 등록(student_waitlist, 202610290001)
+let noteMissing = false;   // 쪽지(202610290003)
+let slowPlog = false;      // 출퇴근 기록 추가 조회를 느리게(탭 전환 경주 검사)
 const BOT = { tick: { msgs: [], summary: false } };
 const STUDENTS = [
   { name: '김민준', school: '서정중', grade: '2026 중등 3학년', teacher: '이은지', enrolled: 'Y' }, { name: '박하늘', teacher: '김지원', enrolled: 'Y' },
@@ -48,7 +51,7 @@ const STUDENTS = [
   { name: '고은비', teacher: '고희주', enrolled: 'Y' }, { name: '최퇴원', teacher: '이은지', enrolled: '퇴원' }];   // 시간표·기간·주간 기록·수업 기록 (오늘 수업 줄)
 function addMsg(author, body, files, createdIso){
   const t = createdIso || ts();
-  const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null, reply_to: null, hearts: [] };
+  const m = { id: ++mid, author, author_name: NAME[author], body, files: files || [], created_at: t, updated_at: t, deleted_at: null, edited_at: null, reply_to: null, hearts: [] };
   MSGS.push(m); return m;
 }
 function addTask(m, assignee, text, createdIso){
@@ -98,7 +101,7 @@ function filterRows(rows, u){
 // 2026-10-21 리디자인 — 컴퓨터도 채팅과 업무 진행 상황을 메뉴로 바꿔 본다. 검사가 누르거나 입력하는 곳이
 // 다른 보기에 있으면 그 메뉴를 먼저 누른다(사람이 하는 그대로). 보이는지 묻는 검사(isHidden 등)는 건드리지 않는다
 const BOARD_RE = /#cards|\.pc\b|#pchips|\.pchip|\.ci\b|\.bx\b|#sum\b|\.fl\b|#flsel|\.pcnt|data-cx|data-uncx|data-open|\.det\b|\.gomsg|\.cxb|data-person|data-pick|data-tk|\.lk\b|\.more\b/;
-const CHAT_RE = /#m\d|#msgs|#inp|#send\b|#tags|#composer|#mention|#results|#find\b|#fq|#ftags|#fclose|#rbar|#pend|#attach|#jump|#rcancel|#ctag|#ahint|\.tk\b|\.hrt|\.rc\b|data-reply|data-del|\.quote|#older|\.bopt|data-ack|#file\b/;
+const CHAT_RE = /#noteBtn|#waitBtn|#m\d|#msgs|#inp|#send\b|#tags|#composer|#mention|#results|#find\b|#fq|#ftags|#fclose|#rbar|#pend|#attach|#jump|#rcancel|#ctag|#ahint|\.tk\b|\.hrt|\.rc\b|data-reply|data-del|\.quote|#older|\.bopt|data-ack|#file\b/;
 const STAFF_RE = /#staff|\.sw\b|data-sw|\.chloc|#presListBtn/;
 async function ensureTab(pg, sel){
   if (typeof sel !== 'string' || /^#tab/.test(sel)) return;
@@ -201,7 +204,7 @@ async function showTask(pg, sel){
       if (p === '/rest/v1/rpc/msg_home_set'){ const b = JSON.parse(req.postData()); calls.push(['home', b]); if (b.p_loc) HOMES[b.p_user] = b.p_loc; else delete HOMES[b.p_user]; return json({ user_id: b.p_user, loc: b.p_loc }); }
       if (p === '/rest/v1/rpc/work_ensure'){ calls.push(['ensure', JSON.parse(req.postData())]); return json(null, 204); }
       if (p === '/rest/v1/work_shifts') return json(filterRows(SHIFTS, u));
-      if (p === '/rest/v1/msg_presence_log') return json(filterRows(PLOGS, u).sort((a, b) => a.at < b.at ? -1 : 1));
+      if (p === '/rest/v1/msg_presence_log'){ if (u.searchParams.has('user_id')) calls.push(['plog', u.search]); if (slowPlog && /at=lt\./.test(u.search)) await new Promise(r => setTimeout(r, 800)); return json(filterRows(PLOGS, u).sort((a, b) => a.at < b.at ? -1 : 1)); }
       if (p === '/rest/v1/rpc/msg_presence_set'){
         const b = JSON.parse(req.postData()); calls.push(['pres', b]);
         const old = PRESENCE[ME] || {};
@@ -255,11 +258,38 @@ async function showTask(pg, sel){
         else { if (!String(b.p_reason || '').trim()) return json({ message: 'need_reason' }, 400); t.status = '취소'; t.cancel_reason = b.p_reason.trim(); t.done_by_name = '고희주'; t.done_at = ts(); }
         t.updated_at = ts(); return json(t);
       }
+      if (p === '/rest/v1/rpc/msg_task_add'){   // 내 업무 직접 추가(202610250002)
+        const b = JSON.parse(req.postData()); calls.push(['add', b]);
+        const now = ts();
+        const k = { id: ++tid, message_id: null, assignee: ME, assignee_name: NAME[ME], requester: ME, requester_name: NAME[ME], text: b.p_text.trim(), status: '대기', done_by_name: null, done_at: null, seen_at: null, ack_only: false, cancel_reason: '', due_at: null, due_note: '', history: [], hand_push: null, self_added: true, created_at: now, updated_at: now };
+        TASKS.push(k); return json(k);
+      }
+      if (p === '/rest/v1/rpc/msg_note_send'){   // 쪽지(202610290003) — 받는 사람마다 확인만 하면 끝인 메시지 없는 할 일 + 알림 자리
+        if (noteMissing) return json({ code: 'PGRST202', message: 'Could not find the function public.msg_note_send' }, 404);
+        const b = JSON.parse(req.postData()); calls.push(['note', b]);
+        const ids = [...new Set(b.p_to || [])].filter(id => id !== ME && MEMBERS.some(m => m.user_id === id));
+        if (!ids.length) return json({ message: 'no_recipient' }, 400);
+        const rows = ids.map(id => { const now = ts(), m = MEMBERS.find(x => x.user_id === id); const k = { id: ++tid, message_id: null, assignee: id, assignee_name: m.name, requester: ME, requester_name: NAME[ME], text: b.p_text.trim(), status: '대기', done_by_name: null, done_at: null, seen_at: null, ack_only: true, note: true, cancel_reason: '', due_at: null, due_note: '', history: [], hand_push: id, hand_by: ME, created_at: now, updated_at: now }; TASKS.push(k); return k; });
+        return json(rows);
+      }
       if (p === '/rest/v1/rpc/msg_task_set'){
         const b = JSON.parse(req.postData()); calls.push(['task', b]);
         const t = TASKS.find(x => x.id === b.p_id);
         t.status = b.p_done ? '완료' : '대기'; t.done_at = b.p_done ? ts() : null; t.done_by_name = b.p_done ? '고희주' : null; t.updated_at = ts();
         return json(t);
+      }
+      if (p === '/rest/v1/rpc/msg_edit'){   // 메시지 수정(202610290002) — 글쓴이 본인만, 글만 바꾸고 대기 중인 할 일 글을 새 글에 맞춤
+        const b = JSON.parse(req.postData()); calls.push(['edit', b]);
+        const m = MSGS.find(x => x.id === b.p_id);
+        if (!m || m.author !== ME) return json({ code: '42501', message: 'not_allowed' }, 403);
+        if (m.deleted_at) return json({ message: 'msg_deleted' }, 400);
+        if (m.body !== b.p_body){
+          m.body = b.p_body; m.edited_at = ts(); m.updated_at = m.edited_at;
+          let text = b.p_body; Object.values(NAME).forEach(n => { text = text.split('@' + n).join(''); });
+          text = text.replace(/@(모두|전체|조교|선생님)/g, '').replace(/\s+/g, ' ').trim() || '메시지 확인';
+          TASKS.forEach(k => { if (k.message_id === m.id && k.status === '대기' && k.text !== text){ k.text = text; k.updated_at = m.updated_at; } });
+        }
+        return json({ message: m, tasks: TASKS.filter(k => k.message_id === m.id) });
       }
       if (p === '/rest/v1/rpc/msg_delete'){
         const b = JSON.parse(req.postData()); calls.push(['del', b]);
@@ -271,6 +301,7 @@ async function showTask(pg, sel){
       if (p === '/rest/v1/rpc/msg_push_state'){ const b = JSON.parse(req.postData()); const x = PUSHSUBS[b.p_endpoint]; return json({ saved: !!x, mode: x ? x.mode : 'all', devices: Object.keys(PUSHSUBS).length }); }
       if (p === '/rest/v1/rpc/msg_push_save'){ const b = JSON.parse(req.postData()); calls.push(['psave', b]); PUSHSUBS[b.p_sub.endpoint] = { mode: b.p_mode }; return json({ id: 1, mode: b.p_mode }); }
       if (p === '/rest/v1/rpc/msg_push_remove'){ const b = JSON.parse(req.postData()); calls.push(['premove', b]); delete PUSHSUBS[b.p_endpoint]; return json({ removed: 1 }); }
+      if (p === '/functions/v1/activity'){ const b = JSON.parse(req.postData() || '{}'); calls.push(['activity', b]); return json({ digest: 'none' }); }   // 티쳐스 활동 알림(202610270001) — 원장님이 열면 flush
       if (p === '/functions/v1/msg-push'){
         const b = JSON.parse(req.postData()); calls.push(['fn', b]);
         if (b.action === 'key') return json({ key: 'BEl62iUYgUivxIkv69yViEuiBIa-Ib9-SkvMeAtA3LFgDzkrxZJjSgSnfckjBJuBkr3qBUYIHBQFLXYp5Nksh8U' });
@@ -304,10 +335,16 @@ async function showTask(pg, sel){
         return json({ message: ask, tasks: [k] });
       }
       if (p === '/rest/v1/students'){ calls.push(['stu']); return json(STUDENTS); }
+      if (p === '/rest/v1/student_waitlist'){
+        if (waitMissing) return json({ code: 'PGRST205', message: "Could not find the table 'public.student_waitlist' in the schema cache" }, 404);
+        if (req.method() === 'POST'){ const b = JSON.parse(req.postData()); calls.push(['wait', b]); const row = Object.assign({ id: 500 + WAIT.length, status: '대기', started_on: new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10) }, b); WAIT.push(row); return json([row], 201); }
+        calls.push(['waitlist', u.search]); return json(WAIT.filter(x => x.status === '대기'));
+      }
       if (p === '/rest/v1/tt_period') return json(TTP.filter(x => 'eq.' + x.week_wednesday === u.searchParams.get('week_wednesday')));
       if (p === '/rest/v1/tt_log'){
-        const ad = u.searchParams.getAll('apply_date');
-        return json(TTLOG.filter(x => ad.every(c => c.startsWith('eq.') ? x.apply_date === c.slice(3) : c.startsWith('gte.') ? x.apply_date >= c.slice(4) : c.startsWith('lte.') ? x.apply_date <= c.slice(4) : true)));
+        const ad = u.searchParams.getAll('apply_date'), kq = u.searchParams.get('kind') || '';
+        const kinds = kq.startsWith('in.(') ? decodeURIComponent(kq.slice(4, -1)).split(',') : null;   // kind=in.(…) 거르기 — 없으면 1회 이동이 휴강으로도 잡힌다
+        return json(TTLOG.filter(x => (!kinds || kinds.includes(x.kind)) && ad.every(c => c.startsWith('eq.') ? x.apply_date === c.slice(3) : c.startsWith('gte.') ? x.apply_date >= c.slice(4) : c.startsWith('lte.') ? x.apply_date <= c.slice(4) : true)));
       }
       if (p === '/rest/v1/class_notes') return json(NOTES.filter(x => 'eq.' + x.ymd === u.searchParams.get('ymd')));
       if (p.startsWith('/storage/v1/object/authenticated/msg-files/')){
@@ -341,6 +378,12 @@ async function showTask(pg, sel){
   ok(await page.locator('#live').textContent() === '실시간', '실시간 표시');
   ok((await page.locator('#m' + m1.id + ' .av').textContent()) === '티', '선생님·원장님 동그라미는 \'티\' (2026-10-21 리디자인)');
   ok((await page.locator('#m' + m3.id + ' .av').textContent()) === '티' && (await page.locator('#m' + m3.id + ' .nmc').textContent()) === '이은지', '이름 칩 + 동그라미 \'티\'');
+  { // 이름 끝이 '대표님'이면 동그라미 '대'(2026-10-27 원장님) — 화면 함수 둘을 그대로 떼어 확인
+    const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'messenger.html'), 'utf8');
+    const pick = (n) => (src.match(new RegExp('function ' + n + '\\([^\\n]*\\}')) || [''])[0];
+    const g = new Function(pick('roleGlyph') + ' return roleGlyph;')(), a = new Function(pick('avChar') + ' return avChar;')();
+    ok(g('teacher', '박언호대표님') === '대' && g('teacher', '이은지') === '티' && g('assistant', '고희주') === '조' && a('박언호대표님') === '대' && a('이수경') === '슈' && a('김지원') === '지', "'박언호대표님' 동그라미는 '대'(roleGlyph·avChar)");
+  }
 
   console.log('② 업무 카드');
   const firstCard = page.locator('.pc').first();
@@ -439,6 +482,71 @@ async function showTask(pg, sel){
     ok(ps[1].p_body === '캡처 보냅니다' && ps[1].p_files.length === 1 && /^캡처_/.test(ps[1].p_files[0].name) && ps[1].p_files[0].mime === 'image/png', '글과 그림이 한 메시지로');
     await page.waitForSelector('.thumb');
     ok(true, '대화에 그림 칸');
+    // 그림 큰 보기(2026-10-29 원장님 "다운로드 하지 않고 확대해 볼 수 있게")
+    let dlFired = false; page.once('download', () => { dlFired = true; });
+    await page.locator('.thumb').last().click();
+    await page.waitForFunction(() => !document.querySelector('#lbback').hidden && /^blob:/.test(document.querySelector('#lbimg').src));
+    await sleep(300);
+    ok(!dlFired, '그림을 누르면 내려받지 않고 큰 보기 창');
+    ok(/^캡처_/.test(await page.locator('#lbname').textContent()), '창 아래 파일 이름');
+    const fitW = (await page.locator('#lbimg').boundingBox()).width;
+    await page.click('#lbzoom');
+    ok(await page.evaluate(() => document.querySelector('#lbback').classList.contains('zoom')) && (await page.locator('#lbzoom').textContent()) === '화면에 맞추기', '[원본 크기] → 확대 상태');
+    await page.click('#lbimg');
+    ok(!(await page.evaluate(() => document.querySelector('#lbback').classList.contains('zoom'))), '그림을 다시 누르면 화면 맞춤');
+    const [lbdl] = await Promise.all([page.waitForEvent('download'), page.click('#lbdl')]);
+    ok(/^캡처_.*\.png$/.test(lbdl.suggestedFilename()), '창의 [내려받기]로 원래 이름 저장');
+    await page.keyboard.press('Escape');
+    ok(await page.locator('#lbback').isHidden() && fitW > 0, 'Esc로 닫힘');
+  }
+
+  console.log('⑦-3 메시지 수정 (2026-10-29 원장님 "올린 사람이 본인의 대화는 수정할 수 있도록")');
+  {
+    ok(await page.locator('#m' + m3.id + ' [data-edit]').count() === 0, '남의 메시지엔 수정 없음');
+    await page.fill('#inp', '쓰던 글');
+    await page.click('.tg[data-tag="결석"]');
+    await page.click('#send');
+    await page.waitForFunction(() => [...document.querySelectorAll('.m.mine .bt')].some(b => b.textContent.includes('쓰던 글')));
+    const em = MSGS[MSGS.length - 1];
+    ok(em.body === '[결석] 쓰던 글', '수정할 내 글(꼬리표 포함) 보냄');
+    await page.fill('#inp', '아직 안 보낸 글');
+    await page.hover('#m' + em.id);
+    await page.click('#m' + em.id + ' [data-edit]');
+    ok(!(await page.locator('#ebar').isHidden()) && (await page.locator('#etext').textContent()).includes('수정 중'), '[수정] → 수정 중 줄');
+    ok((await page.inputValue('#inp')) === '쓰던 글', '입력칸에 그 글(꼬리표는 알약으로)');
+    ok(await page.evaluate(() => document.querySelector('.tg[data-tag="결석"]').classList.contains('on')), '꼬리표 알약이 켜짐');
+    ok((await page.locator('#send').textContent()) === '수정' && await page.evaluate(() => document.querySelector('#attach').disabled), '버튼 [수정] · 파일 첨부 잠김');
+    await page.keyboard.press('Escape');
+    ok(await page.locator('#ebar').isHidden() && (await page.inputValue('#inp')) === '아직 안 보낸 글' && (await page.locator('#send').textContent()) === '보내기', 'Esc → 수정 취소, 쓰던 글 되돌림');
+    await page.fill('#inp', '');
+    await page.hover('#m' + em.id);
+    await page.click('#m' + em.id + ' [data-edit]');
+    await page.fill('#inp', '고친 글 @이은지 부탁해요');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(id => (document.querySelector('#m' + id + ' .bt') || {}).textContent.includes('고친 글'), em.id);
+    const ed = calls.filter(c => c[0] === 'edit').pop();
+    ok(ed && ed[1].p_id === em.id && ed[1].p_body === '[결석] 고친 글 @이은지 부탁해요', 'msg_edit 호출 — 꼬리표 그대로 붙여 글만');
+    ok(calls.filter(c => c[0] === 'send').pop()[1].p_body === '[결석] 쓰던 글', '수정은 msg_send 를 부르지 않음');
+    ok((await page.locator('#m' + em.id + ' .edl').count()) >= 1 && (await page.locator('#m' + em.id + ' .edl').first().textContent()) === '수정됨', '시각 옆 수정됨');
+    ok(await page.locator('#ebar').isHidden() && (await page.inputValue('#inp')) === '' && !(await page.evaluate(() => document.querySelector('#attach').disabled)), '저장 뒤 수정 줄 닫힘·입력칸 비움·첨부 풀림');
+    // 바뀐 게 없으면 저장하지 않는다
+    await page.hover('#m' + em.id);
+    await page.click('#m' + em.id + ' [data-edit]');
+    const edN = calls.filter(c => c[0] === 'edit').length;
+    await page.click('#send');
+    ok(await page.locator('#ebar').isHidden() && calls.filter(c => c[0] === 'edit').length === edN, '바뀐 게 없으면 서버를 부르지 않고 닫음');
+    // 답장을 누르면 수정은 그만둔다
+    await page.hover('#m' + em.id);
+    await page.click('#m' + em.id + ' [data-edit]');
+    await page.hover('#m' + m3.id);
+    await page.click('#m' + m3.id + ' [data-reply]');
+    ok(await page.locator('#ebar').isHidden() && !(await page.locator('#rbar').isHidden()), '답장을 시작하면 수정 줄은 닫힘');
+    await page.click('#rcancel');
+    // 다른 화면에서 고친 글은 폴링으로 받는다
+    const om = MSGS.find(x => x.id === m3.id);
+    om.body = '중3 김민준 결석입니다 (고침) @고희주'; om.edited_at = ts(); om.updated_at = om.edited_at;
+    await page.waitForFunction(id => (document.querySelector('#m' + id + ' .bt') || {}).textContent.includes('(고침)'), m3.id, { timeout: 8000 });
+    ok((await page.locator('#m' + m3.id + ' .edl').count()) >= 1, '남이 고친 글도 폴링으로 바뀌고 수정됨 표시');
   }
 
   console.log('⑧ 할 일 → 메시지로');
@@ -636,7 +744,58 @@ async function showTask(pg, sel){
   handlers.notificationclick(ev({ notification: { data: { url: 'messenger.html#m10' }, close(){} } }));
   await Promise.all(waits);
   ok(focused === 1 && posted[0] && posted[0].type === 'msg-open' && posted[0].url === 'messenger.html#m10' && opened.length === 1, '열린 대화방이 있으면 그 창으로 가서 메시지를 보여 준다');
+  // 티쳐스 활동 알림(202610290001) — badge:false 는 앱 숫자를 올리지 않고, 알림을 누르면 activity.html 로(열린 대화방에는 보내지 않음)
+  waits = []; handlers.message(ev({ data: { type: 'badge-clear' } })); await Promise.all(waits);
+  waits = []; handlers.push(ev({ data: { json(){ return { title: '[시험 범위] 김현지 · 저장', body: '교과서: 천재수 공통국어2', url: 'https://x/shueguk-hub/activity.html#n3', tag: 'act3', badge: false }; } } }));
+  await Promise.all(waits);
+  ok(notes[notes.length - 1].t === '[시험 범위] 김현지 · 저장' && stored === '0', '활동 알림은 뜨되 앱 아이콘 숫자는 그대로');
+  waits = []; posted.length = 0; focused = 0;
+  handlers.notificationclick(ev({ notification: { data: { url: 'https://x/shueguk-hub/activity.html#n3' }, close(){} } }));
+  await Promise.all(waits);
+  ok(opened[opened.length - 1] === 'https://x/shueguk-hub/activity.html#n3' && posted.length === 0 && focused === 0, '활동 알림을 누르면 대화방 창이 있어도 활동 기록 화면을 새로 연다');
+  waits = []; let navTo = ''; const nOpen = opened.length;
+  fakeClients.list.push({ url: 'https://x/shueguk-hub/activity.html', postMessage(){}, navigate(u){ navTo = u; return Promise.resolve(this); }, focus(){ focused++; return Promise.resolve(); } });
+  handlers.notificationclick(ev({ notification: { data: { url: 'https://x/shueguk-hub/activity.html#n4' }, close(){} } }));
+  await Promise.all(waits);
+  ok(navTo === 'https://x/shueguk-hub/activity.html#n4' && focused === 1 && opened.length === nOpen && posted.length === 0, '활동 기록 화면이 열려 있으면 그 창을 그 알림으로 옮겨 띄운다');
+  fakeClients.list.pop();
   await ctx.close();
+
+  console.log('㉗ 읽은 자리 — 계정 기준(다른 기기에서 읽은 것도) (2026-10-29 원장님)');
+  {
+    const othersAll = MSGS.filter(m => m.author !== ME && !m.deleted_at).sort((a, b) => a.id - b.id);
+    const sv = othersAll[othersAll.length - 3].id;   // 다른 기기에서 여기까지 읽었다
+    READS[ME] = sv;
+    ({ ctx, page } = await open());   // 새 기기 — 이 기기 읽은 자리는 비어 있다
+    await page.waitForSelector('#newline');
+    const nlAfter = await page.evaluate(() => { const nl = document.querySelector('#newline'); let e = nl.nextElementSibling; while (e && !e.classList.contains('m')) e = e.nextElementSibling; return e ? Number(e.id.slice(1)) : 0; });
+    ok(nlAfter > sv && !othersAll.some(m => m.id > sv && m.id < nlAfter), "'여기부터 새 메시지'가 서버 읽은 자리 뒤에 (" + nlAfter + ' > ' + sv + ')');
+    ok(Number(await page.evaluate(id => localStorage.getItem('msg_read_' + id), ME)) >= sv, '서버 자리를 이 기기에도 적음');
+    await ctx.close();
+    // 보는 중에 다른 기기가 더 읽으면 대화 탭 숫자가 줄어든다
+    ({ ctx, page } = await open({ width: 390, height: 844 }));
+    await page.waitForSelector('#msgs .m');
+    await page.click('#tabBoard');
+    await page.evaluate(([me, mk]) => localStorage.setItem('msg_read_' + me, String(mk)), [ME, sv]);
+    READS[ME] = sv;
+    addMsg(BOSS, '다른 기기 읽기 전', [], ts()); addMsg(BOSS, '다른 기기 읽기 전 2', [], ts());
+    await page.waitForFunction(() => Number(document.querySelector('#chatBadge').textContent) >= 4, null, { timeout: 9000 }).catch(() => {});
+    const beforeN = Number(await page.locator('#chatBadge').textContent());
+    READS[ME] = MSGS[MSGS.length - 2].id;   // 다른 기기에서 하나 빼고 다 읽음
+    await page.waitForFunction(() => document.querySelector('#chatBadge').textContent === '1', null, { timeout: 9000 }).catch(() => {});
+    ok(beforeN >= 4 && (await page.locator('#chatBadge').textContent()) === '1', '다른 기기에서 읽으면 이 기기 숫자도 줄어듦 (' + beforeN + ' → 1)');
+    ok(Number(await page.evaluate(id => localStorage.getItem('msg_read_' + id), ME)) === READS[ME], '폴링으로 받은 서버 자리를 이 기기에 적음');
+    await ctx.close();
+    MSGS.splice(MSGS.length - 2, 2);
+    // 티쳐스 첫 화면 숫자도 서버 자리로
+    READS[ME] = 999999;
+    ({ ctx, page } = await open());
+    await page.goto(`http://127.0.0.1:${PORT}/index.html`);
+    await page.waitForSelector('a.card.wide'); await sleep(800);
+    ok(await page.locator('#msgBadge').isHidden() && (await page.evaluate(id => localStorage.getItem('msg_read_' + id), ME)) === '999999', '첫 화면 — 다른 기기에서 다 읽었으면 숫자 없음 + 이 기기에 적음');
+    await ctx.close();
+    READS[ME] = 0;
+  }
 
   console.log('⑮ 티쳐스 첫 화면');
   ({ ctx, page } = await open());
@@ -646,7 +805,7 @@ async function showTask(pg, sel){
   const wb = await page.locator('a.card.wide').boundingBox(), g = await page.locator('#grid').boundingBox(), c1 = await page.locator('a.card').nth(2).boundingBox();
   ok(wb && Math.abs(wb.width - g.width) < 2 && wb.y > c1.y + c1.height - 1, '슈톡은 3행 두 칸 너비');
   await page.waitForFunction(() => !document.querySelector('#msgBadge').hidden);
-  const others = MSGS.filter(m => m.author !== ME && !m.deleted_at && m.id > 0).length;
+  const others = MSGS.filter(m => m.author !== ME && !m.deleted_at && m.id > (READS[ME] || 0)).length;   // 읽은 자리는 서버(계정) 기준도 본다(2026-10-29)
   ok((await page.locator('#msgBadge').textContent()) === String(others), '슈톡 카드에 안 읽은 메시지 수 (' + others + ')');
   await page.evaluate(id => localStorage.setItem('msg_read_' + id, '999999'), ME);
   await page.reload(); await page.waitForSelector('a.card.wide'); await sleep(800);
@@ -722,7 +881,7 @@ async function showTask(pg, sel){
   await page.waitForFunction(() => document.querySelector('#inp').value === '');
   const sGa = calls.filter(c => c[0] === 'send').pop();
   const astIds = MEMBERS.filter(m => m.role === 'assistant' && m.user_id !== ME).map(m => m.user_id).sort();
-  ok(sGa[1].p_body === '@조교 복사기 정리해 주세요' && JSON.stringify([...sGa[1].p_mentions].sort()) === JSON.stringify(astIds), '@조교 → 나 빼고 조교만 (' + sGa[1].p_mentions.length + '명)');
+  ok(sGa[1].p_body === '@조교 복사기 정리해 주세요' && JSON.stringify([...sGa[1].p_mentions].sort()) === JSON.stringify(astIds), '@조교 → 나 빼고 조교만 (' + sGa[1].p_mentions.length + '명) ' + JSON.stringify(sGa[1].p_body));
   await page.click('#inp'); await page.keyboard.type('@선');
   await page.waitForSelector('#mention.on');
   ok((await page.locator('#mention button').first().textContent()).includes('선생님 모두'), '@ 목록에 \'선생님 모두\'');
@@ -1114,8 +1273,12 @@ async function showTask(pg, sel){
     { book: '내신', class_id: 'n005', name: '고1 빈반', day: dn, start_time: '3:00', end_time: '4:00', teacher: '은지', roster: '' },
     { book: '내신', class_id: wid + 'a', name: '고1 직보', day: dn, start_time: '1:00', end_time: '3:00', teacher: '지원', roster: '' },
     { book: '내신', class_id: 'n006', name: '고3파이널A', day: dn, start_time: '7:00', end_time: '9:00', teacher: '슈', roster: '아' },
-    { book: '내신', class_id: 'n007', name: '고1 모르는T', day: dn, start_time: '7:00', end_time: '9:00', teacher: '현지', roster: '자' });
-  TTLOG.push({ kind: '주간반휴강', from_class_id: 'n004', apply_date: today });
+    { book: '내신', class_id: 'n007', name: '고1 모르는T', day: dn, start_time: '7:00', end_time: '9:00', teacher: '현지', roster: '자' },
+    { book: '내신', class_id: 'n008', name: '논술B 수학', day: dn, start_time: '8:30', end_time: '10:00', teacher: '은지', roster: '(화정)차' },   // 유일한 학생을 1회 이동으로 옮김
+    { book: '내신', class_id: 'n009', name: '고1 반만이동', day: dn, start_time: '6:00', end_time: '7:00', teacher: '지원', roster: '카 타' });   // 한 명만 옮김
+  TTLOG.push({ kind: '주간반휴강', from_class_id: 'n004', apply_date: today },
+             { kind: '1회', student: '차', from_class_id: 'n008', to_class_id: wid + 'b', apply_date: today },
+             { kind: '1회', student: '카', from_class_id: 'n009', to_class_id: wid + 'b', apply_date: today });
   NOTES.push({ book: '내신', class_id: 'n002', ymd: today, report_status: '요청', requested_at: ago(0.5), updated_at: ago(0.5) },
              { book: '내신', class_id: 'n001', ymd: today, report_status: '', requested_at: null, updated_at: ago(0.2) });
   PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, changed_at: NOWISO() };
@@ -1135,6 +1298,8 @@ async function showTask(pg, sel){
   ok((await page.locator('.pc[data-person="44444444-4444-4444-4444-444444444444"]').textContent()).includes('고1 직보'), '오늘 \'이 주만\' 반은 그 담당T 카드에');
   ok((await page.locator('.pc[data-person="' + BOSS + '"]').textContent()).includes('고3파이널A'), '담당T \'슈\'는 이수경');
   ok(!(await page.locator('#cards').textContent()).includes('모르는T'), '못 가린 담당T 수업은 붙이지 않음');
+  ok(!(await ec.textContent()).includes('논술B 수학'), '학생이 모두 1회 이동으로 옮겨 간 수업은 오늘 수업 줄에서 뺀다 (2026-10-30 박언호 대표님)');
+  ok((await page.locator('.pc[data-person="44444444-4444-4444-4444-444444444444"]').textContent()).includes('고1 반만이동'), '한 명이라도 남은 수업은 그대로');
   ok(!(await ec.evaluate(e => e.classList.contains('offd'))), '출근한 사람 카드는 그대로');
   const jw = page.locator('.pc[data-person="44444444-4444-4444-4444-444444444444"]');
   ok(await jw.evaluate(e => e.classList.contains('offd')) && (await jw.textContent()).includes('피드백 확인'), '출근 전 카드는 흐리게, 내용은 보임');
@@ -1271,6 +1436,12 @@ async function showTask(pg, sel){
     ok((await kr.count()) === 1 && (await kr.locator('.av').textContent()) === '카' && (await kr.locator('.nm').textContent()).includes('학부모님 문의') && await kr.evaluate(e => e.classList.contains('kko')), '카카오채널 글 — 동그라미 카·학부모님 문의 표시');
     ok(!(await kr.evaluate(e => e.classList.contains('cont'))), '클로슈 글 바로 뒤의 카카오채널 글도 이름·동그라미를 따로 보임 (Codex 검토)');
   }
+  { // 티쳐스 활동 알림(202610270001) — 작성자 없는 글 bot.kind 'activity' = 동그라미 '알'·'활동 알림'·연보라 말풍선
+    const am = addMsg(null, '[시험 범위] 김현지 · 저장 (입력 완료) · 고1 화정 · 26-2-기말\n교과서: 천재수 공통국어2', []); am.author_name = '활동 알림'; am.bot = { kind: 'activity', to: [ME] };
+    await page.waitForSelector('#m' + am.id, { timeout: 8000 }).catch(() => {});
+    const ar = page.locator('#m' + am.id);
+    ok((await ar.count()) === 1 && (await ar.locator('.av').textContent()) === '알' && (await ar.locator('.nm').textContent()).includes('티쳐스 활동') && await ar.evaluate(e => e.classList.contains('act') && e.classList.contains('botm')), '활동 알림 글 — 동그라미 알·티쳐스 활동 표시·act 말풍선');
+  }
   if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'bot.png') });
   await page.evaluate(() => { window.Date = Object.getPrototypeOf(window.Date); });
   await ctx.close();
@@ -1334,7 +1505,7 @@ async function showTask(pg, sel){
     const kd2 = new Date(Date.now() + 9 * 3600e3), today2 = kd2.toISOString().slice(0, 10), dn2 = '일월화수목금토'[kd2.getUTCDay()];
     Object.keys(PRESENCE).forEach(k => delete PRESENCE[k]); PLOGS.length = 0; TT.length = 0; TTLOG.length = 0; workClip = workAsk = workEarly = false;   // 앞 검사의 출근·시간표를 비우고 시작
     PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, changed_at: NOWISO() };
-    SHIFTS.push({ ymd: today2, user_id: ME, loc: '화정센터', start_hm: '16:00', end_hm: '22:00' });
+    SHIFTS.push({ ymd: new Date(Date.now() + 4 * 3600e3).toISOString().slice(0, 10), user_id: ME, loc: '화정센터', start_hm: '16:00', end_hm: '22:00' });
     TT.push({ book: '내신', class_id: 'n201', name: '고1 민트반', day: dn2, start_time: '3:00', end_time: '4:30', teacher: '지원', location: '민트초코', roster: '가' });
     TTP.length = 0; TTP.push({ week_wednesday: (y => { const d = new Date(y + 'T00:00:00Z'), k = d.getUTCDay(); d.setUTCDate(d.getUTCDate() + (k === 1 || k === 2 ? 3 - k : -((k - 3 + 7) % 7))); return d.toISOString().slice(0, 10); })(today2), book: '내신' });
     const kk = addMsg(BOSS, '[컴퓨터에서] 카카오채널 연결 — ① 안내 먼저 확인 ② 스킬 추가: 주소 https://x.example/f?k=(토큰 내용) ③ 폴백 블록에서 배포 @고희주', [], ts());
@@ -1364,8 +1535,8 @@ async function showTask(pg, sel){
     ok(locs.join(',') === '본원,화정센터,정리정독,민초센터,도래울센터', '다섯 센터가 늘 보임 — 본원 → 화정센터 → 정리정독 → 민트초코 → 도래울 (' + locs.join(',') + ')');
     ok((await page.locator('#staffList .cc[data-loc="도래울센터"]').textContent()).includes('일정이 있는 사람이 없습니다'), '사람 없는 센터는 \'일정이 있는 사람이 없습니다\'');
     const myRow = page.locator('#staffList .pr[data-uid="' + ME + '"]');
-    ok((await myRow.locator('.prs').textContent()).startsWith('오후 4:00 출근 예정'), '근무표 시작 시각 \'출근 예정\' (' + (await myRow.locator('.prs').textContent()) + ')');
-    ok(await page.locator('#staffList .cc[data-loc="민초센터"] .ccn').textContent() === '민트초코 센터' && (await page.locator('#staffList .pr[data-uid="44444444-4444-4444-4444-444444444444"] .prs').textContent()) === '오후 3:00 출근 예정', '선생님은 오늘 첫 수업 위치·시각');
+    ok((await myRow.locator('.prs').textContent()).startsWith('출근 전'), '출근 예정 시각은 안 보이고 \'출근 전\' (' + (await myRow.locator('.prs').textContent()) + ')');
+    ok(await page.locator('#staffList .cc[data-loc="민초센터"] .ccn').textContent() === '민트초코 센터' && (await page.locator('#staffList .pr[data-uid="44444444-4444-4444-4444-444444444444"] .prs').textContent()) === '출근 전', '선생님은 오늘 첫 수업 위치(예정 시각 표시 없음)');
     const eRow = page.locator('#staffList .pr[data-uid="' + EUNJI + '"]');
     ok(await eRow.locator('.prn.on.r-t').count() === 1 && (await eRow.locator('.prs').textContent()).includes('근무 중') && await eRow.locator('.sw.on').isDisabled(), '출근한 선생님 — 이름 칩 색·근무 중·스위치는 본인만');
     ok(await page.locator('#staffList .pr[data-uid="' + BOSS + '"]').count() === 0, '일정도 출근도 없는 사람은 목록에 없음');
@@ -1407,6 +1578,311 @@ async function showTask(pg, sel){
     ok(sw && Math.round(sw.width) === 68, '휴대폰 스위치 68px');
     ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), '가로 넘침 없음');
     if (process.env.SHOT){ await page.screenshot({ path: path.join(process.env.SHOT, 'redesign-phone-staff.png') }); await page.click('#tabChat'); await page.screenshot({ path: path.join(process.env.SHOT, 'redesign-phone-chat.png') }); await page.click('#tabBoard'); await page.screenshot({ path: path.join(process.env.SHOT, 'redesign-phone-board.png') }); }
+    await ctx.close();
+  }
+
+  console.log('㉖ 내 업무 직접 추가 (2026-10-25 원장님)');
+  {
+    ({ ctx, page } = await open({ width: 1280, height: 900 }));
+    await page.waitForSelector('#msgs .m');
+    await page.click('#tabBoard');
+    await page.waitForSelector('#cards .pc.sel[data-person="' + ME + '"] .selfadd');
+    const nMsg = await page.locator('#msgs .m').count();
+    ok(await page.locator('#cards .pc:not([data-person="' + ME + '"]) .selfadd').count() === 0, '추가 칸은 내 구역에만');
+    await page.fill('#saIn', '  3시까지 시험지 복사  ');
+    await page.press('#saIn', 'Enter');
+    await page.waitForFunction(() => [...document.querySelectorAll('#cards .pc.sel .ci')].some(e => e.textContent.includes('3시까지 시험지 복사')));
+    const add = calls.filter(c => c[0] === 'add').pop();
+    ok(add && add[1].p_text.trim() === '3시까지 시험지 복사', '추가 → msg_task_add');
+    const row = page.locator('#cards .pc.sel .ci', { hasText: '3시까지 시험지 복사' });
+    ok((await row.locator('.meta').textContent()).includes('직접 추가') && await row.locator('[data-go]').count() === 0, '내 업무는 \'직접 추가\' 표시 · 대화로 가는 단추 없음');
+    ok(await page.inputValue('#saIn') === '' && await page.locator('#msgs .m').count() === nMsg, '칸은 비워지고 대화에는 글이 안 남음');
+    await page.fill('#saIn', '쓰던 글');
+    await page.focus('#saIn');
+    await sleep(3800);   // 폴링으로 다시 그려도
+    ok(await page.inputValue('#saIn') === '쓰던 글' && await page.evaluate(() => document.activeElement && document.activeElement.id === 'saIn'), '다시 그려도 쓰던 글·커서가 남음');
+    await row.locator('[data-tk]').click();
+    await page.waitForFunction(() => [...document.querySelectorAll('#cards .pc.sel .ci.d')].some(e => e.textContent.includes('3시까지 시험지 복사')));
+    ok(calls.filter(c => c[0] === 'task').pop()[1].p_done === true, '체크하면 완료');
+    const other = await page.locator('#pchips .pchip:not(.on)').first();
+    await other.click();
+    ok(await page.locator('#cards .pc.sel .selfadd').count() === 0, '다른 사람을 고르면 추가 칸 없음');
+    await ctx.close();
+  }
+
+  console.log('㉘ 대기생 등록 — 보내기 버튼 위 (2026-10-29 원장님)');
+  {
+    STUDENTS[0].id = 7; STUDENTS[0].phone_parent1 = '01012345678'; STUDENTS[0].class_a = '금5:30';   // 재원 학생 고르기용
+    TT.length = 0;
+    TT.push({ book: '정규', class_id: 'r001', name: '고2 가', day: '수', start_time: '2:00', end_time: '3:30', teacher: '은지', roster: '라' },
+            { book: '내신', class_id: 'n001', name: '고2 화정A', day: '수', start_time: '5:30', end_time: '7:00', teacher: '은지', roster: '가 나' });
+    ({ ctx, page } = await open({ width: 390, height: 844 }));   // 휴대폰 — [보내기] 버튼이 보이는 화면
+    await page.waitForSelector('#msgs .m');
+    ok(await page.evaluate(() => { const b = document.getElementById('waitBtn'), s = document.getElementById('send'); const rb = b.getBoundingClientRect(), rs = s.getBoundingClientRect(); return rb.width > 0 && rs.width > 0 && rb.bottom <= rs.top && Math.abs(rb.right - rs.right) < 24; }), '[대기생 등록] 버튼이 보내기 버튼 바로 위에 있다(휴대폰)');
+    await ctx.close();
+    ({ ctx, page } = await open({ width: 1280, height: 900 }));
+    await page.waitForSelector('#msgs .m');
+    ok(await page.evaluate(() => { const b = document.getElementById('waitBtn'), c = document.querySelector('#composer .crow'); const rb = b.getBoundingClientRect(), rc = c.getBoundingClientRect(); return rb.width > 0 && rb.bottom <= rc.top && Math.abs(rb.right - rc.right) < 24; }), '[대기생 등록] 버튼이 입력 상자 위 오른쪽(컴퓨터)');
+    await page.click('#waitBtn');
+    await page.waitForFunction(() => !document.getElementById('wtback').hidden && document.querySelectorAll('#wtClass option').length > 1);
+    let r = await page.evaluate(() => ({ kind: document.querySelector('#wtKind button.on').textContent, who: document.getElementById('wtWho').textContent, year: document.getElementById('wtYear').value,
+      opts: [...document.querySelectorAll('#wtClass option')].map(o => o.textContent), schools: [...document.querySelectorAll('#wtSchools option')].map(o => o.value) }));
+    const kst = new Date(Date.now() + 9 * 3600e3), nextYr = kst.getUTCMonth() + 1 >= 3 ? kst.getUTCFullYear() + 1 : kst.getUTCFullYear();
+    ok(r.kind === '예비 슈스 대기' && r.who === '고희주' && +r.year === nextYr, '창 — 예비 슈스가 기본 · 저장한 사람 = 나 · 연도 = 다음 학년도(3월부터 내년) ' + r.year);
+    ok(r.opts[0] === '미정' && r.opts.some(t => /고2 가 · .* · 은지T · 1명/.test(t)) && !r.opts.some(t => /고2 화정A/.test(t)), '정규 반 드롭다운 = 미정 + 정규 반(인원 표시)');
+    ok(r.schools.includes('서정중') && r.schools.includes('화정고'), '학교 자동완성은 재원 명단의 학교');
+    r = await page.evaluate(() => ({ g: [...document.querySelectorAll('#wtGrade option')].map(o => o.value + '=' + o.textContent).join('|'), hint: document.getElementById('wtYearHint').textContent }));
+    const nowYr = nextYr - 1;
+    ok(r.g === '=미정|초5=초5 · 지금 초4|초6=초6 · 지금 초5|중1=중1 · 지금 초6|중2=중2 · 지금 중1|중3=중3 · 지금 중2|고1=고1 · 지금 중3|고2=고2 · 지금 고1|고3=고3 · 지금 고2' && r.hint === nextYr + ' 학년도 기준 — 예) ' + nextYr + ' 고2 = 지금 고1', '학년 선택지 = 연도 기준 + 지금 학년(2027 고2 = 지금 고1 · 고3 = 지금 고2) + 안내 줄 ' + r.g);
+    await page.fill('#wtYear', String(nowYr));
+    r = await page.evaluate(() => ({ g: [...document.querySelectorAll('#wtGrade option')].map(o => o.textContent).slice(6).join('|'), hint: document.getElementById('wtYearHint').textContent }));
+    ok(r.g === '고1|고2|고3' && r.hint === nowYr + ' 학년도 기준 — 지금 학년 그대로', '연도를 지금 학년도로 바꾸면 표기 없이 고1|고2|고3 ' + r.hint);
+    await page.click('#wtKind button[data-kind="재원"]');
+    ok(await page.$eval('#wtYear', e => e.value) === String(nowYr), '재원 종류 = 지금 학년도');
+    await page.click('#wtKind button[data-kind="예비"]');
+    ok(await page.$eval('#wtYear', e => e.value) === String(nextYr), '예비로 돌아오면 다음 학년도');
+    await page.click('#wtSave');
+    ok(/이름을 적어/.test(await page.locator('#wtStatus').textContent()), '이름 없이 올리면 거절');
+    await page.selectOption('#wtClass', 'r001');
+    ok(await page.inputValue('#wtCap') === '1', '반을 고르면 정원 = 지금 인원(1)');
+    await page.fill('#wtYear', '2027'); await page.selectOption('#wtGrade', '고1'); await page.fill('#wtSchool', '화수고'); await page.fill('#wtName', '새대기'); await page.fill('#wtPhone', '010-9999-0000'); await page.fill('#wtMemo', '2월 입학 희망');
+    const nMsg = await page.locator('#msgs .m').count();
+    await page.click('#wtSave');
+    await page.waitForFunction(() => document.getElementById('wtback').hidden);
+    let w = calls.filter(c => c[0] === 'wait').pop()[1];
+    ok(w.kind === '예비' && w.year === 2027 && w.grade === '고1' && w.school === '화수고' && w.name === '새대기' && w.phone_parent === '01099990000' && w.want_book === '정규' && w.want_class_id === 'r001' && /고2 가/.test(w.want_class_name) && w.cap === 1 && w.memo === '2월 입학 희망' && w.author_name === '고희주' && w.student_id === null, '저장 본문 — 연도·학년·학교·이름·연락처(숫자만)·희망 반·정원·메모·저장한 사람 ' + JSON.stringify(w));
+    ok(/대기 명단에 올렸습니다/.test(await page.locator('#status').textContent()) && await page.locator('#msgs .m').count() === nMsg, '올리면 창이 닫히고 상태 줄 안내 · 대화에는 글이 안 남음');
+    // 재원 슈스 반 이동 대기
+    await page.click('#waitBtn');
+    await page.click('#wtKind button[data-kind="재원"]');
+    await page.click('#wtSave');
+    ok(/학생을 골라/.test(await page.locator('#wtStatus').textContent()), '재원은 명단에서 고르지 않으면 거절');
+    await page.fill('#wtName', '김민준 · 서정중 · 중3');
+    await page.dispatchEvent('#wtName', 'change');
+    r = await page.evaluate(() => ({ school: document.getElementById('wtSchool').value, grade: document.getElementById('wtGrade').value, phone: document.getElementById('wtPhone').value, info: document.getElementById('wtStuInfo').textContent }));
+    ok(r.school === '서정중' && r.grade === '중3' && r.phone === '01012345678' && /지금 반: 가 금5:30/.test(r.info), '재원 학생을 고르면 학교·학년·연락처·지금 반이 채워짐 ' + JSON.stringify(r));
+    await page.click('#wtBook button[data-book="내신"]');
+    await page.selectOption('#wtClass', 'n001');
+    await page.fill('#wtCap', '4');
+    await page.click('#wtSave');
+    await page.waitForFunction(() => document.getElementById('wtback').hidden);
+    w = calls.filter(c => c[0] === 'wait').pop()[1];
+    ok(w.kind === '재원' && w.student_id === 7 && w.name === '김민준' && w.want_book === '내신' && w.want_class_id === 'n001' && w.cap === 4, '재원 저장 본문 — student_id · 내신 반 · 손으로 고친 정원 ' + JSON.stringify(w));
+    // 명단 보기(2026-10-29 원장님 "여기서 명단 보기를 띄울 수 있었으면")
+    WAIT.unshift({ id: 400, kind: '예비', name: '이른대기', year: 2027, grade: '중3', school: '서정중', phone_parent: '01047144636', student_id: null, want_book: '정규', want_class_id: 'r001', want_class_name: '고2 가 · 수 2:00 · 은지T', cap: 3, memo: '설명회 연락', started_on: '2026-10-01', status: '대기', author_name: '이수경' });
+    WAIT.push({ id: 401, kind: '예비', name: '끝난대기', year: 2027, grade: '중3', school: '가람중', phone_parent: '', student_id: null, want_book: '', want_class_id: '', want_class_name: '', cap: null, memo: '', started_on: '2026-09-01', status: '완료', author_name: '이수경' });
+    await page.click('#waitBtn');
+    await page.waitForFunction(() => !document.getElementById('wtback').hidden);
+    ok(await page.evaluate(() => document.getElementById('wtListBox').hidden && !document.getElementById('wtForm').hidden && document.getElementById('wttitle').textContent === '대기생 등록'), '창은 등록 화면으로 열린다');
+    await page.click('#wtKind button[data-kind="예비"]');
+    await page.click('#wtView button[data-view="list"]');
+    await page.waitForFunction(() => /\d+명/.test(document.getElementById('wtListHead').textContent));
+    r = await page.evaluate(() => ({ title: document.getElementById('wttitle').textContent, form: document.getElementById('wtForm').hidden, save: document.getElementById('wtSave').hidden, head: document.getElementById('wtListHead').textContent,
+      rows: [...document.querySelectorAll('#wtList .wtli')].map(e => ({ nm: e.querySelector('b').textContent, can: e.classList.contains('can'), l2: e.querySelector('.l2').textContent, memo: (e.querySelector('.memo') || {}).textContent || '', days: e.querySelector('.days').textContent })),
+      foot: document.querySelector('#wtListBox .wtlfoot a').getAttribute('href') }));
+    ok(r.title === '대기 명단' && r.form && r.save, '[명단 보기] — 제목이 바뀌고 등록 칸·올리기 버튼이 숨는다');
+    if (process.env.SHOT){ await page.locator('#wtback .wtpanel').screenshot({ path: path.join(process.env.SHOT, 'wait-list.png') }); await page.click('#wtView button[data-view="form"]'); await page.locator('#wtback .wtpanel').screenshot({ path: path.join(process.env.SHOT, 'wait-form.png') }); await page.click('#wtView button[data-view="list"]'); }
+    ok(r.rows.map(x => x.nm).join(',') === '이른대기,새대기' && /2027 예비 · 2명 · 이동 가능 1명/.test(r.head), '예비 대기만 · 대기 시작일 순 · 완료 줄 제외 · 머리 "2027 예비 · 2명 · 이동 가능 1명" ' + JSON.stringify([r.rows.map(x => x.nm), r.head]));
+    ok(r.rows[0].can && /010-4714-4636/.test(r.rows[0].l2) && /희망 고2 가 · 수 2:00 · 은지T · 1명 \/ 정원 3 · 자리 있음/.test(r.rows[0].l2) && /작성자 이수경/.test(r.rows[0].l2) && r.rows[0].memo === '설명회 연락' && /일째/.test(r.rows[0].days), '정원(3) > 지금 인원(1)이면 초록 줄 + 연락처·희망 반·인원·적은 사람·메모 ' + JSON.stringify(r.rows[0]));
+    ok(!r.rows[1].can && /1명 \/ 정원 1/.test(r.rows[1].l2) && /오늘부터/.test(r.rows[1].days), '정원 1 = 지금 인원 1이면 보통 줄 · 오늘 올린 줄은 "오늘부터" ' + JSON.stringify(r.rows[1]));
+    ok(/superstar\.html#wait$/.test(r.foot), '전환·고치기·취소는 슈퍼스타 관리 대기 슈스 링크');
+    r = await page.evaluate(() => ({ g: [...document.querySelectorAll('#wtFilt .wtfilt button')].map(b => b.textContent.replace(/\s+/g, ' ').trim()), s: [...document.querySelectorAll('#wtFilt select[data-f="fs"] option')].map(o => o.textContent), days: [...document.querySelectorAll('#wtList .wtli .days')].map(e => e.className) }));
+    ok(r.g.join('|') === '전체|중31|고11' && r.s.join('|') === '전체 학교 (2곳)|서정중 · 1명|화수고 · 1명', '학년 칩 = 대기 줄의 학년(중3→고1 순) + 인원 · 학교 = 드롭다운(전체 학교 2곳 + 학교 · n명) ' + JSON.stringify(r));
+    ok(r.days.join('|') === 'days|days', '1년 안 된 대기는 보통 배지(1년 넘으면 분홍 .long)', r.days.join('|'));
+    await page.click('#wtFilt button[data-f="fg"][data-v="고1"]');
+    r = await page.evaluate(() => ({ nm: [...document.querySelectorAll('#wtList .wtli b')].map(e => e.textContent), head: document.getElementById('wtListHead').textContent, on: document.querySelector('#wtFilt button[data-f="fg"].on').textContent }));
+    ok(r.nm.join(',') === '새대기' && /2명 · 보는 중 1명/.test(r.head) && /고1/.test(r.on), '학년 고1을 고르면 그 학년만 · 머리 "2명 · 보는 중 1명" ' + JSON.stringify(r));
+    await page.selectOption('#wtFilt select[data-f="fs"]', '서정중');
+    ok(/고른 학년·학교에 대기 중인 학생이 없습니다/.test(await page.locator('#wtList').textContent()) && !!(await page.$('#wtFilt .clr')), '학년 고1 + 학교 서정중(드롭다운) = 없음 안내 + [전체로]');
+    await page.click('#wtFilt button[data-f="fg"][data-v=""]');
+    r = await page.evaluate(() => [...document.querySelectorAll('#wtList .wtli b')].map(e => e.textContent));
+    ok(r.join(',') === '이른대기', '학년 전체 + 학교 서정중 = 이른대기만');
+    await page.click('#wtFilt .clr');
+    await page.click('#wtKind button[data-kind="재원"]');
+    r = await page.evaluate(() => ({ head: document.getElementById('wtListHead').textContent, rows: [...document.querySelectorAll('#wtList .wtli')].map(e => e.querySelector('.l2').textContent) }));
+    ok(/반 이동 · 1명 · 이동 가능 1명/.test(r.head) && r.rows.length === 1 && /지금 가 금5:30/.test(r.rows[0]) && /2명 \/ 정원 4 · 자리 있음/.test(r.rows[0]), '재원 알약을 누르면 반 이동 대기 명단(지금 반 · 희망 반 인원/정원 4 > 2명 = 자리 있음) ' + JSON.stringify(r));
+    await page.click('#wtView button[data-view="form"]');
+    ok(await page.evaluate(() => !document.getElementById('wtForm').hidden && document.getElementById('wtListBox').hidden && document.getElementById('wtCnt').hidden && document.getElementById('wttitle').textContent === '대기생 등록'), '[등록]으로 돌아온다(인원 줄은 숨김)');
+    await page.click('#wtClose');
+    // 표 없음(마이그레이션 전)
+    waitMissing = true;
+    await page.click('#waitBtn'); await page.click('#wtKind button[data-kind="예비"]'); await page.fill('#wtName', '아무개'); await page.click('#wtSave');
+    await page.waitForFunction(() => /202610290001/.test(document.getElementById('wtStatus').textContent));
+    ok(true, '표가 없으면 마이그레이션 안내');
+    waitMissing = false;
+    await ctx.close();
+  }
+
+
+  console.log('㉙ 쪽지 보내기 — 받는 사람의 업무 진행 상황에 쌓이고 [확인]으로 끝남 (2026-10-29 원장님)');
+  {
+    ({ ctx, page } = await open({ width: 1280, height: 900 }));
+    await page.waitForSelector('#msgs .m');
+    ok(await page.evaluate(() => { const n = document.getElementById('noteBtn'), w = document.getElementById('waitBtn'); const rn = n.getBoundingClientRect(), rw = w.getBoundingClientRect(); return rn.width > 0 && Math.abs(rn.top - rw.top) < 4 && rn.right <= rw.left; }), '[쪽지 보내기] 버튼이 [대기생 등록] 왼쪽 같은 줄');
+    await page.click('#noteBtn');
+    await page.waitForFunction(() => !document.getElementById('ntback').hidden);
+    let r = await page.evaluate(() => ({ groups: [...document.querySelectorAll('#ntchips .ntg')].map(e => e.textContent), chips: [...document.querySelectorAll('#ntchips button')].map(b => b.textContent), cnt: document.getElementById('ntcnt').textContent, dis: document.getElementById('ntSend').disabled }));
+    ok(r.groups.join('|') === '선생님' && r.chips.join(',') === '김지원,이수경,이은지' && /골라 주십시오/.test(r.cnt) && r.dis, '창 — 나를 뺀 사람 칩(선생님 묶음, 가나다) · 조교는 나뿐이라 묶음 없음 · 받는 사람 없으면 보내기 잠김 ' + JSON.stringify(r));
+    await page.click('#ntq button[data-q="tch"]');
+    ok(await page.evaluate(() => document.querySelectorAll('#ntchips button.on').length === 3 && /받는 사람 3명/.test(document.getElementById('ntcnt').textContent)), '[선생님 모두] → 3명');
+    await page.click('#ntq button[data-q="none"]');
+    ok(await page.evaluate(() => document.querySelectorAll('#ntchips button.on').length === 0), '[비우기] → 0명');
+    await page.click(`#ntchips button[data-nt="${EUNJI}"]`); await page.click(`#ntchips button[data-nt="${BOSS}"]`);
+    ok(await page.evaluate(() => document.getElementById('ntcnt').textContent === '받는 사람 2명 · 이수경, 이은지' && !document.getElementById('ntSend').disabled), '칩을 눌러 두 명 고름 → "받는 사람 2명 · 이수경, 이은지"');
+    if (process.env.SHOT){ await page.fill('#ntText', '내일 3시 회의실 예약 부탁드립니다'); await page.screenshot({ path: path.join(process.env.SHOT, 'note.png') }); await page.fill('#ntText', ''); }
+    await page.click(`#ntchips button[data-nt="${BOSS}"]`);
+    ok(await page.evaluate(() => document.getElementById('ntcnt').textContent === '받는 사람 1명 · 이은지'), '같은 칩을 다시 누르면 빠짐');
+    await page.click('#ntSend');
+    ok(/쪽지 내용을 적어/.test(await page.locator('#ntStatus').textContent()), '내용 없이 보내면 거절');
+    const nMsg = await page.locator('#msgs .m').count();
+    await page.fill('#ntText', '내일 3시 회의실 예약 부탁드립니다');
+    await page.click('#ntSend');
+    await page.waitForFunction(() => document.getElementById('ntback').hidden);
+    const nt = calls.filter(c => c[0] === 'note').pop()[1];
+    ok(nt.p_to.length === 1 && nt.p_to[0] === EUNJI && nt.p_text === '내일 3시 회의실 예약 부탁드립니다', '보내기 → msg_note_send(p_to·p_text) ' + JSON.stringify(nt));
+    ok(/1명에게 쪽지를 보냈습니다/.test(await page.locator('#status').textContent()) && await page.locator('#msgs .m').count() === nMsg, '보내면 창이 닫히고 상태 줄 안내 · 대화에는 글이 안 남음');
+    const noteId = TASKS.filter(t => t.note).pop().id;
+    for (let i = 0; i < 40 && !calls.some(c => c[0] === 'fn' && c[1].action === 'hand' && c[1].task_id === noteId); i++) await sleep(100);
+    ok(calls.some(c => c[0] === 'fn' && c[1].action === 'hand' && c[1].task_id === noteId), '받는 사람 휴대폰 알림(hand)을 부름');
+    await page.click('#tabBoard');
+    await page.click(`#pchips [data-pick="${EUNJI}"]`);
+    r = await page.evaluate(id => { const sec = document.querySelector(`.pc[data-person="${id}"]`); const ci = [...sec.querySelectorAll('.ci')].find(x => x.querySelector('.notem')); return ci ? { ttl: ci.querySelector('.ttl').textContent, meta: ci.querySelector('.meta').textContent, bx: ci.querySelector('.bx').disabled, ack: !!ci.querySelector('.ack'), cnt: sec.querySelector('.pcnt').textContent } : null; }, EUNJI);
+    if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'note-card.png') });
+    ok(r && /회의실 예약/.test(r.ttl) && /^쪽지 고희주 · /.test(r.meta) && r.bx && !r.ack, '이은지 카드에 "쪽지 고희주" 줄 — 남은 일로 세고 내가 체크·확인은 못 함 ' + JSON.stringify(r));
+    ok(await page.evaluate(a => !!document.querySelector(`.pc[data-person="${a[0]}"] .ph1 button[data-note="${a[0]}"]`) && !document.querySelector(`.pc[data-person="${a[1]}"] .ph1 button[data-note]`), [EUNJI, ME]), '남의 카드 머리에만 [쪽지] 버튼(내 카드에는 없음)');
+    await page.click(`.pc[data-person="${EUNJI}"] .ph1 button[data-note]`);
+    await page.waitForFunction(() => !document.getElementById('ntback').hidden);
+    ok(await page.evaluate(() => document.getElementById('ntcnt').textContent === '받는 사람 1명 · 이은지' && document.activeElement === document.getElementById('ntText')), '카드 머리 [쪽지] → 그 사람이 미리 골라지고 글 칸에 커서');
+    await page.keyboard.press('Escape');
+    ok(await page.evaluate(() => document.getElementById('ntback').hidden), 'Esc 로 닫힘');
+    // 받는 쪽 — 이은지가 나에게 보낸 쪽지가 폴링으로 내 카드에 오고 [확인]으로 끝난다
+    { const now = ts(); TASKS.push({ id: ++tid, message_id: null, assignee: ME, assignee_name: '고희주', requester: EUNJI, requester_name: '이은지', text: '복사기 토너 주문 부탁해요', status: '대기', done_by_name: null, done_at: null, seen_at: null, ack_only: true, note: true, cancel_reason: '', due_at: null, due_note: '', history: [], hand_push: null, hand_by: EUNJI, created_at: now, updated_at: now }); }
+    const myNote = tid;
+    await page.waitForFunction(a => !!document.querySelector(`.pc[data-person="${a[1]}"] .ci button[data-ack="${a[0]}"]`), [myNote, ME], { timeout: 8000 });
+    await page.click(`#pchips [data-pick="${ME}"]`);
+    r = await page.evaluate(a => { const ci = document.querySelector(`.pc[data-person="${a[1]}"] .ci button[data-ack="${a[0]}"]`).closest('.ci'); return { meta: ci.querySelector('.meta').textContent, bx: ci.querySelector('.bx').disabled, cx: !!ci.querySelector('[data-cx]') }; }, [myNote, ME]);
+    ok(/^쪽지 이은지 · /.test(r.meta) && !r.bx, '받은 쪽지가 내 카드에 "쪽지 이은지" + [확인] ' + JSON.stringify(r));
+    await page.click(`.pc[data-person="${ME}"] .ci button[data-ack="${myNote}"]`);
+    await page.waitForFunction(a => !!document.querySelector(`.pc[data-person="${a[1]}"] .ci.d button[data-tk="${a[0]}"]`), [myNote, ME]);
+    const sn = calls.filter(c => c[0] === 'seen').pop()[1];
+    ok(sn.p_id === myNote && TASKS.find(t => t.id === myNote).status === '완료', '[확인] → msg_task_seen → 쪽지는 확인이 곧 완료');
+    ok(await page.evaluate(a => /쪽지 이은지 · 완료/.test(document.querySelector(`.pc[data-person="${a[1]}"] .ci.d button[data-tk="${a[0]}"]`).closest('.ci').querySelector('.meta').textContent) && document.getElementById('cxback').hidden, [myNote, ME]), '완료 줄로 내려가고(쪽지 이은지 · 완료) 체크리스트 창은 열리지 않음');
+    // 함수 없음(마이그레이션 전)
+    noteMissing = true;
+    await page.click('#noteBtn'); await page.click(`#ntchips button[data-nt="${EUNJI}"]`); await page.fill('#ntText', 'x'); await page.click('#ntSend');
+    await page.waitForFunction(() => /202610290003/.test(document.getElementById('ntStatus').textContent));
+    ok(true, '함수가 없으면 마이그레이션 안내');
+    noteMissing = false;
+    await page.click('#ntClose');
+    await ctx.close();
+  }
+
+  console.log('㉚ 내 업무 기록 — 내가 끝낸 일 돌아보기 (2026-10-29 원장님)');
+  {
+    TASKS.length = 0;
+    const m1 = addMsg(EUNJI, '교재 주문 @고희주', [], ago(30));
+    const mk = (over, assignee, text, status, doneAgoH, more) => { const now = ts(); const k = Object.assign({ id: ++tid, message_id: null, assignee, assignee_name: NAME[assignee], requester: EUNJI, requester_name: '이은지', text, status, done_by_name: '고희주', done_at: ago(doneAgoH), seen_at: null, ack_only: false, note: false, cancel_reason: '', due_at: null, due_note: '', history: [], hand_push: null, created_at: now, updated_at: now }, more || {}); TASKS.push(k); return k; };
+    const k1 = mk(0, ME, '교재 주문', '완료', 1, { message_id: m1.id });
+    mk(0, ME, '복사기 토너 주문 부탁해요\n① 검정 2개\n② 컬러 1개 — https://example.com/toner', '완료', 2, { note: true, requester_name: '이은지' });
+    mk(0, ME, '시험지 복사', '취소', 3, { cancel_reason: '다른 사람이 처리함' });
+    mk(0, ME, '지난달 정산', '완료', 40 * 24);
+    mk(0, ME, '아직 남은 일', '대기', 0, { done_at: null, done_by_name: null });
+    mk(0, EUNJI, '남의 완료', '완료', 1);
+    ({ ctx, page } = await open({ width: 1280, height: 900 }));
+    await page.waitForSelector('#msgs .m');
+    await page.click('#tabBoard');
+    ok(await page.evaluate(a => !!document.querySelector(`.pc[data-person="${a[0]}"] #histLink`) && !document.querySelector(`.pc[data-person="${a[1]}"] button[data-hist]`) && document.querySelectorAll('[data-hist]').length === 1, [ME, EUNJI]), '[내 업무 기록] 입구는 내 구역 맨 아래에만');
+    await page.click('#histLink');
+    await page.waitForFunction(() => !document.getElementById('hsback').hidden && document.querySelectorAll('#hstiles .hstile').length === 3);
+    let r = await page.evaluate(() => ({ tiles: [...document.querySelectorAll('#hstiles .hstile')].map(t => t.querySelector('b').textContent + ' ' + t.querySelector('span').textContent), line: document.getElementById('hsline').textContent,
+      days: [...document.querySelectorAll('#hslist .hsday')].map(d => d.textContent), rows: [...document.querySelectorAll('#hslist .hsrow')].map(x => [x.classList.contains('x'), x.querySelector('.hb > div').textContent, x.querySelector('.hmeta').textContent]), more: document.getElementById('hsMore').hidden }));
+    const q = calls.filter(c => c[0] === 'tasksq').length;
+    ok(r.tiles.join('|') === '2 이번 주 완료|2 이번 달 완료|3 전체 완료' && /지금까지 3개의 일을 끝냈습니다/.test(r.line), '타일 — 이번 주 2 · 이번 달 2 · 전체 3(취소·남은 일·남의 일 제외) ' + JSON.stringify(r.tiles));
+    // 자정 전후(한국 시각)에 돌리면 1·2·3시간 전이 오늘·어제로 갈릴 수 있어 기대 머리를 날짜별로 다시 만든다
+    const kymd = iso => new Date(Date.parse(iso) + 9 * 3600e3).toISOString().slice(0, 10), tdy = kymd(ts());
+    const exp = {}; [[ago(1), '완료'], [ago(2), '완료'], [ago(3), '취소'], [ago(40 * 24), '완료']].forEach(([at, st]) => { const d = kymd(at); exp[d] = exp[d] || { f: 0, x: 0 }; exp[d][st === '완료' ? 'f' : 'x']++; });
+    const expDays = Object.keys(exp).sort().reverse().map(d => parseInt(d.slice(5, 7), 10) + '/' + parseInt(d.slice(8, 10), 10) + ' (' + '일월화수목금토'[new Date(d + 'T00:00:00Z').getUTCDay()] + ')' + (d === tdy ? ' · 오늘' : '') + ' · 완료 ' + exp[d].f + (exp[d].x ? ' · 취소 ' + exp[d].x : ''));
+    ok(JSON.stringify(r.days) === JSON.stringify(expDays), '날짜별 묶음 — 오늘(완료 2 · 취소 1) → 40일 전(완료 1), 자정 근처면 날짜가 갈림 ' + JSON.stringify(r.days));
+    ok(r.rows.length === 4 && r.rows[0][1] === '교재 주문' && /^이은지 · 완료 오/.test(r.rows[0][2]) && /대화에서 보기/.test(r.rows[0][2]) && r.rows[1][1] === '복사기 토너 주문 부탁해요' && /^쪽지 이은지 · 완료/.test(r.rows[1][2]) && r.rows[2][0] && /취소 오.*사유: 다른 사람이 처리함/.test(r.rows[2][2]) && !/대화에서 보기/.test(r.rows[2][2]) && r.rows[3][1] === '지난달 정산', '줄 — 최근 것부터 · 쪽지 표시 · 취소는 ×와 사유 · 메시지가 있는 것만 [대화에서 보기] ' + JSON.stringify(r.rows));
+    ok(r.more, '100개 안이면 [더 보기] 없음');
+    r = await page.evaluate(() => { const rows = [...document.querySelectorAll('#hslist .hsrow')]; return { steps: rows[1].querySelectorAll('.hdet .steps li').length, link: !!rows[1].querySelector('.hdet .ilk'), none: rows.filter(x => x.querySelector('.hdet')).length }; });
+    ok(r.steps === 2 && r.link && r.none === 1, '여러 줄 쪽지는 기록에서도 단계·링크를 펼쳐 보여 준다(한 줄짜리는 펼침 없음) ' + JSON.stringify(r));
+    if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'history.png') });
+    await page.click('#hslist button[data-go]');
+    await page.waitForFunction(() => document.getElementById('hsback').hidden);
+    ok(await page.evaluate(() => document.body.dataset.tab === 'chat'), '[대화에서 보기] → 창이 닫히고 그 메시지로(채팅 보기)');
+    await page.click('#tabBoard'); await page.click('#histLink');
+    await page.waitForFunction(() => !document.getElementById('hsback').hidden && document.querySelectorAll('#hslist .hsrow').length === 4);
+    await page.keyboard.press('Escape');
+    ok(await page.evaluate(() => document.getElementById('hsback').hidden), 'Esc 로 닫힘');
+    await ctx.close();
+  }
+
+  console.log('㉛ 내 출퇴근 기록 — 같은 창의 둘째 탭, 본인 것만 (2026-10-29 원장님 "본인에게만 보이는 출퇴근 이력")');
+  {
+    PLOGS.length = 0;
+    // 근무일(새벽 5시 경계) 기준 오늘·어제·지난달 15일에 기록을 둔다 — 시각은 한국 시각 고정(strings)
+    const wy = new Date(Date.now() - 5 * 3600e3 + 9 * 3600e3).toISOString().slice(0, 10);
+    const dayOf = (y, n) => { const d = new Date(y + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+    const yday = dayOf(wy, -1), pm = (() => { const d = new Date(wy.slice(0, 7) + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 8) + '15'; })();
+    const at = (y, hm) => new Date(y + 'T' + hm + ':00+09:00').toISOString();
+    let pid = 500;
+    const plog = (y, hm, on, loc) => PLOGS.push({ id: ++pid, user_id: ME, name: '고희주', is_on: on, loc, at: at(y, hm) });
+    plog(wy, '15:40', true, '본원'); plog(wy, '18:00', true, '화정센터'); plog(wy, '22:05', false, '화정센터');   // 오늘 — 센터 옮김 포함 6시간 25분
+    plog(yday, '16:00', true, '본원');                                                                              // 어제 — 퇴근 기록 없음
+    plog(pm, '16:00', true, '본원'); plog(pm, '20:00', false, '본원');                                             // 지난달 — 4시간
+    PLOGS.push({ id: ++pid, user_id: EUNJI, name: '이은지', is_on: true, loc: '본원', at: at(wy, '14:00') });        // 남의 기록 — 안 보여야 한다
+    ({ ctx, page } = await open({ width: 1280, height: 900 }));
+    await page.waitForSelector('#msgs .m');
+    await page.click('#tabBoard');
+    ok(await page.evaluate(() => /출퇴근 기록/.test(document.querySelector('#histLink .meta').textContent)), '입구 설명에 출퇴근 기록');
+    await page.click('#histLink');
+    await page.waitForFunction(() => !document.getElementById('hsback').hidden && document.querySelectorAll('#hstiles .hstile').length === 3);
+    ok(await page.evaluate(() => document.querySelectorAll('#hstabs button').length === 2 && document.querySelector('#hstabs button.on').dataset.hs === 'task' && document.getElementById('hstitle').textContent === '내 업무 기록'), '처음은 업무 기록 탭');
+    calls.length = 0;
+    await page.click('#hstabs button[data-hs="work"]');
+    await page.waitForFunction(() => document.getElementById('hstitle').textContent === '내 출퇴근 기록' && document.querySelectorAll('#hslist .hwr').length === 4);
+    const r = await page.evaluate(() => ({ tiles: [...document.querySelectorAll('#hstiles .hwt')].map(t => t.querySelector('.v').textContent + ' ' + t.querySelector('.lb').textContent), line: document.getElementById('hsline').textContent,
+      days: [...document.querySelectorAll('#hslist .hwday .hd')].map(d => d.textContent.replace(/\s+/g, ' ').trim()), rows: [...document.querySelectorAll('#hslist .hwr')].map(x => [x.className, x.textContent.replace(/\s+/g, ' ').trim(), [...x.querySelectorAll('.g3 .v')].map(v => v.textContent), x.querySelector('.st') ? x.querySelector('.st').textContent : '']),
+      note: document.getElementById('hsnote').textContent, link: !!document.querySelector('#hsnote a[href="worklog.html"]'), more: document.getElementById('hsMore').hidden, moreTxt: document.getElementById('hsMore').textContent,
+      lineCls: document.getElementById('hsline').className, tileCls: [...document.querySelectorAll('#hstiles .hwt')].map(t => t.className), panel: getComputedStyle(document.querySelector('#hsback .ppanel')).maxWidth, seg: document.querySelector('#hstabs button.on').textContent, closeTop: !!document.querySelector('#hsback .wthead #hsClose') }));
+    const sameWeek = (() => { const k = new Date(wy + 'T00:00:00Z').getUTCDay(); const wed = dayOf(wy, (k === 1 || k === 2) ? 3 - k : -((k - 3 + 7) % 7)); return yday >= wed; })();
+    ok(r.tiles.length === 4 && /^6시간 25분 이번 주 · 1일$/.test(r.tiles[0]) && /^0분 지난주 · 0일$/.test(r.tiles[1]) && /^6시간 25분 이번 달 · 1일$/.test(r.tiles[2]) && /^4시간 지난달 · 1일$/.test(r.tiles[3]), '타일 넷 — 이번 주 6시간 25분 · 지난주 0분(퇴근 없는 어제는 0) · 이번 달 6시간 25분 · 지난달 4시간 ' + JSON.stringify(r.tiles) + (sameWeek ? '' : ' (어제는 지난 주)'));
+    const mob = await page.evaluate(() => { const c = [...document.querySelectorAll('#hstiles .hwt')].map(e => e.getBoundingClientRect()); return { cols: new Set(c.map(x => Math.round(x.left))).size, bg: getComputedStyle(document.querySelector('#hstiles .hwt.top')).backgroundColor }; });
+    ok(mob.cols === 2 && mob.bg === 'rgb(234, 241, 236)', '이번 주 카드 — 2열 격자에 배경 #eaf1ec(전용 클래스 top) ' + JSON.stringify(mob));
+    ok(r.panel === '516px' && r.closeTop && r.seg === '출퇴근 기록' && r.tileCls.join(',') === 'hwt top,hwt zero,hwt,hwt' && /hwst miss/.test(r.lineCls), '디자인 1a — 폭 516·머리 원형 닫기·세그먼트 탭·이번 주 강조 카드·누락 상태 문구(분홍) ' + JSON.stringify([r.panel, r.tileCls, r.lineCls]));
+    const ydMd = parseInt(yday.slice(5, 7), 10) + '/' + parseInt(yday.slice(8, 10), 10);
+    ok(r.line.includes('퇴근을 누르지 않은 날이 1일 있어요 (' + ydMd + ')') && /합계에 들어가지 않습니다/.test(r.line), '상태 문구 — 퇴근 안 누른 날 1일 + 날짜 ' + r.line);
+    ok(r.days.length === 3 && /오늘.*6시간 25분$/.test(r.days[0]) && /퇴근 기록 없음$/.test(r.days[1]) && !/오늘/.test(r.days[1]) && /4시간$/.test(r.days[2]), '날짜별 묶음 — 오늘(6시간 25분) → 어제(퇴근 기록 없음) → 지난달(4시간) ' + JSON.stringify(r.days));
+    ok(r.rows[0][0] === 'hwr' && /화정센터/.test(r.rows[0][1]) && r.rows[0][2].join('|') === '오후 6:00|오후 10:05|4시간 5분' && r.rows[0][3] === '', '오늘 첫 줄 — 화정센터 · 출근 오후 6:00 / 퇴근 오후 10:05 / 근무 4시간 5분 ' + JSON.stringify(r.rows[0]));
+    ok(r.rows[1][0] === 'hwr' && /본원/.test(r.rows[1][1]) && r.rows[1][2].join('|') === '오후 3:40|오후 6:00|2시간 20분' && r.rows[1][3] === '센터 옮김', '오늘 둘째 줄 — 본원 · 센터 옮김 칩 · 2시간 20분 ' + JSON.stringify(r.rows[1]));
+    ok(r.rows[2][0] === 'hwr miss' && r.rows[2][2].join('|') === '오후 4:00|기록 없음|?' && r.rows[2][3] === '퇴근 기록 누락', '어제 — 분홍 줄 · 퇴근 기록 누락 칩 · 퇴근 "기록 없음" · 근무 "?" ' + JSON.stringify(r.rows[2]));
+    ok(!JSON.stringify(r.rows).includes('오후 2:00'), '남의 기록(이은지 오후 2:00)은 보이지 않는다');
+    ok(/조교 근무 일지/.test(r.note) && r.link && /누른 그대로/.test(r.note), '조교 안내 — 급여용 시간은 근무 일지로(링크) ' + r.note);
+    ok(!r.more && r.moreTxt === '지난 달 더 보기', '[지난 달 더 보기] 버튼');
+    const sent = (calls.filter(c => c[0] === 'plog').pop() || [])[1] || '';
+    ok(sent && new RegExp('user_id=eq\\.' + ME).test(sent) && /select=is_on,loc,at/.test(sent) && /at=gte\./.test(sent), '조회는 내 줄만(user_id=eq.나) ' + sent);
+    if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'work-history.png') });
+    await page.click('#hsMore');
+    await page.waitForFunction(() => !document.getElementById('hsMore').disabled && document.getElementById('hsMore').textContent === '지난 달 더 보기');
+    await page.waitForTimeout(150);
+    ok(calls.filter(c => c[0] === 'plog' && /at=lt\./.test(c[1])).length === 1 && await page.evaluate(() => document.querySelectorAll('#hslist .hwr').length === 4 && !document.getElementById('hsMore').hidden), '더 보기 — 한 달 앞 구간만 다시 받고(at=lt), 기록 없어 줄 그대로, 버튼은 남음(12달까지)');
+    await page.click('#hstabs button[data-hs="task"]');
+    await page.waitForFunction(() => document.getElementById('hstitle').textContent === '내 업무 기록' && document.querySelectorAll('#hslist .hsrow').length === 4 && document.getElementById('hsMore').hidden);
+    ok(await page.evaluate(() => /수업 기록 줄은/.test(document.getElementById('hsnote').textContent) && document.querySelector('#hstabs button.on').dataset.hs === 'task' && document.getElementById('hstiles').className === 'hstiles' && document.getElementById('hsline').className === 'hsline'), '업무 기록 탭으로 돌아오면 안내·목록·타일 모양도 돌아온다');
+    // Codex 검토 — 월·화의 '이번 주'는 다가오는 수요일이 아니라 지난 수요일부터 (weekWed는 수업 주차용)
+    ok(await page.evaluate(() => { const f = window.__hsWeekStart; return f('2026-11-02') === '2026-10-28' && f('2026-11-03') === '2026-10-28' && f('2026-11-04') === '2026-11-04' && f('2026-11-08') === '2026-11-04'; }), '월·화의 이번 주 시작은 지난 수요일(11/2·11/3 → 10/28), 수~일은 그 주 수요일');
+    // Codex 검토 — [지난 달 더 보기] 응답이 오기 전에 탭을 옮겼다 돌아와도 옛 구간이 새 목록에 섞이지 않는다
+    slowPlog = true;
+    await page.click('#hstabs button[data-hs="work"]');
+    await page.waitForFunction(() => document.getElementById('hstitle').textContent === '내 출퇴근 기록' && document.querySelectorAll('#hslist .hwr').length === 4);
+    await page.click('#hsMore');                       // 느린 응답(0.8초) 시작
+    await page.click('#hstabs button[data-hs="task"]');
+    await page.click('#hstabs button[data-hs="work"]'); // 돌아오면 첫 조회가 앞 요청에 막히지 않고 다시 돈다
+    await page.waitForTimeout(1300);
+    ok(await page.evaluate(() => document.querySelectorAll('#hslist .hwr').length === 4 && document.querySelectorAll('#hstiles .hwt')[2].querySelector('.v').textContent === '6시간 25분' && !document.getElementById('hsMore').disabled), '탭을 옮겼다 돌아와도 최근 기록·합계 그대로, [더 보기] 다시 눌림');
+    slowPlog = false;
+    await page.keyboard.press('Escape');
     await ctx.close();
   }
 

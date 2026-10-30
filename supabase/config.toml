@@ -9,3 +9,7 @@ verify_jwt = false
 
 [functions.kakao-skill]
 verify_jwt = false
+
+
+[functions.activity]
+verify_jwt = true

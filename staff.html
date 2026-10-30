@@ -139,7 +139,10 @@
   // ── 날짜 (한국 시간) ─────────────────────────────
   function kst(ms){ return new Date(ms + 9 * 3600e3); }
   function ymdOf(ms){ return kst(ms).toISOString().slice(0, 10); }
-  function today(){ return ymdOf(Date.now()); }
+  // 근무일 — 하루의 끝은 새벽 5시(2026-10-25 원장님, 슈톡 workYmd·서버 private.work_today()와 같은 기준). 자정 넘은 퇴근이 그 근무일에 붙는다
+  var WORK_DAY_H = 5;
+  function workYmdOf(ms){ return ymdOf(ms - WORK_DAY_H * 3600e3); }
+  function today(){ return workYmdOf(Date.now()); }
   function addDay(y, n){ var d = new Date(y + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
   function dayStart(y){ return Date.parse(y + 'T00:00:00+09:00'); }
   function wdOf(y){ return new Date(y + 'T00:00:00Z').getUTCDay(); }
@@ -158,7 +161,7 @@
     return h * 60 + m;
   }
   function teacherKey(t){   // messenger.html·question.html 과 같은 규칙 — 끝 두 글자, '슈'는 이수경
-    t = String(t || '').replace(/\s+/g, '').replace(/T$/, '').replace(/(선생님|쌤)$/, '').replace(/[A-Z]$/, '');
+    t = String(t || '').replace(/\s+/g, '').replace(/T$/, '').replace(/(선생님|쌤|대표님)$/, '').replace(/[A-Z]$/, '');   // '박언호대표님' → 언호
     if (t === '이수경' || t === '수경' || t === '슈') return '슈';
     return t.length >= 3 ? t.slice(-2) : t;
   }
@@ -195,6 +198,7 @@
     if (!f || !e || e < f){ $('range').textContent = '기간을 확인해 주십시오.'; return; }
     if ((dayStart(e) - dayStart(f)) / 864e5 > 92){ $('range').textContent = '한 번에 92일까지 볼 수 있습니다.'; return; }
     var seq = ++loadSeq, fromIso = new Date(dayStart(f)).toISOString(), toIso = new Date(dayStart(addDay(e, 1))).toISOString();
+    var logFrom = new Date(dayStart(f) + WORK_DAY_H * 3600e3).toISOString(), logTo = new Date(dayStart(addDay(e, 1)) + WORK_DAY_H * 3600e3).toISOString();
     $('range').textContent = dlabel(f) + ' ~ ' + dlabel(e) + ' · 불러오는 중…';
     var warn = [];
     var soft = function(label){ return function(err){ warn.push(label + (missingFn(err) ? ' — 데이터베이스 준비 전입니다(마이그레이션 202610200005). 클로슈에게 적용을 요청해 주세요.' : ' — 불러오지 못했습니다.')); return null; }; };
@@ -203,7 +207,7 @@
     var sel0 = '?select=book,class_id,name,day,start_time,end_time,teacher,roster';
     Promise.all([
       MEMBERS.length ? Promise.resolve(null) : rpc('msg_members'),
-      api('/msg_presence_log?select=user_id,name,loc,is_on,at&at=gte.' + encodeURIComponent(fromIso) + '&at=lt.' + encodeURIComponent(toIso) + '&order=at.asc&limit=5000').catch(soft('근무 기록')),
+      api('/msg_presence_log?select=user_id,name,loc,is_on,at&at=gte.' + encodeURIComponent(logFrom) + '&at=lt.' + encodeURIComponent(logTo) + '&order=at.asc&limit=5000').catch(soft('근무 기록')),
       api('/tt_classes' + sel0 + '&class_id=not.like.w*&limit=2000').catch(soft('시간표')),
       api('/tt_classes' + sel0 + '&class_id=like.w*&limit=2000').catch(function(){ return []; }),
       api('/tt_period?select=week_wednesday,book,overrides&week_wednesday=in.(' + wedList.join(',') + ')')
@@ -220,7 +224,7 @@
         $('who').innerHTML = '<option value="">모든 사람</option>' + MEMBERS.map(function(m){ return '<option value="' + esc(m.id) + '">' + esc(m.name) + '</option>'; }).join('');
         $('who').value = fil;
       }
-      D = build(f, e, toIso, { logs: r[1] || [], tt: (r[2] || []).concat(r[3] || []), periods: r[4] || [], ttlog: r[5] || [], tasks: r[6] || [], usage: r[8] || [] });
+      D = build(f, e, toIso, { logEnd: Date.parse(logTo), logs: r[1] || [], tt: (r[2] || []).concat(r[3] || []), periods: r[4] || [], ttlog: r[5] || [], tasks: r[6] || [], usage: r[8] || [] });
       D.warn = warn;
       $('range').textContent = dlabel(f) + ' ~ ' + dlabel(e);
       render();
@@ -243,16 +247,16 @@
       function close(atMs, how){
         var s = cur; cur = null; if (!s) return;
         var min = how === 'none' ? 0 : Math.max(0, (atMs - s.at) / 60000);
-        p.work.push({ ymd: ymdOf(s.at), loc: s.loc, start: s.at, end: how === 'none' ? null : atMs, min: min, how: how });
+        p.work.push({ ymd: workYmdOf(s.at), loc: s.loc, start: s.at, end: how === 'none' ? null : atMs, min: min, how: how });
         p.workMin += min;
       }
       byU[uid].forEach(function(l){
         var at = Date.parse(l.at);
-        if (cur && ymdOf(at) !== ymdOf(cur.at)) close(at, 'none');
+        if (cur && workYmdOf(at) !== workYmdOf(cur.at)) close(at, 'none');
         if (l.is_on){ if (cur) close(at, 'move'); cur = { at: at, loc: l.loc }; }
         else close(at, 'out');
       });
-      if (cur){ if (ymdOf(cur.at) === ymdOf(nowMs) && nowMs < endMs) close(nowMs, 'now'); else close(0, 'none'); }
+      if (cur){ if (workYmdOf(cur.at) === workYmdOf(nowMs) && nowMs < src.logEnd) close(nowMs, 'now'); else close(0, 'none'); }
     });
     // 2. 수업 — 날짜마다 그 주 기간(정규/내신 + 학년 예외)의 반, 그 날짜의 '이 주만' 반, 휴강·옮겨 간 원본 제외
     var per = {}; src.periods.forEach(function(x){ per[x.week_wednesday] = x; });

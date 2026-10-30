@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이수경국어 · 전체 커리큘럼</title>
+<script src="assets/teacher-auth.js" data-mode="protected"></script>
+<!-- 이수경국어 슈국 운영 · 전체 커리큘럼 (2026-10-25 원장님 "슈국 운영에 전체 커리큘럼 메뉴")
+     · 원본: 수파베이스 curriculum_weeks(학년 × 수요일 주 — 가 수업·나 수업·메모·내신 대비 종류)·curriculum_books(학교별 편제표)
+       — 202610250003 + 202610260001. 처음 값은 시트 「2026 슈국 커리큘럼 정리본」에서 한 번 옮김(supabase/커리큘럼-초기값.sql).
+     · 보기는 교사 계정 모두, 고치기는 원장님(관리자)만 — DB 함수 curriculum_set·curriculum_book_set 이 다시 확인한다.
+     · 주는 수요일 시작(월·화는 다가오는 수요일 주 — 슈국 스케쥴 weekStartOf 와 같음). 중1은 뺀다.
+     · 화면 = 2026-10-26 원장님 클로드 디자인 개선안(design_handoff_curriculum — 1a~4d). 값은 그 README 기준. -->
+<link rel="preconnect" href="https://bangdbhqpphqqdwcledg.supabase.co">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#cfdcd7; --box:#ffffff; --soft:#f6f7f4; --past:#fbfcfa; --line:#eef0ec; --input:#d6ddd8;
+    --ink:#2b3a33; --ink2:#33443c; --sub:#54655c; --dim:#6b7a72; --g9:#3a4d45; --g6:#4b6157; --g1:#eaefe9; --pub:#3f5a4b;
+    --pk:#f6dfe1; --pk1:#fbf0f1; --pk3:#e7aab4; --pk2:#ecd3d7; --pkt:#7a3f4a;
+    --lav:#e6e2f2; --lav2:#d8d2ec; --lavt:#4a4266; --note:#7a5a2a;
+    --sh:0 3px 18px rgba(58,77,69,.08);
+    --fT:'Gowun Batang',serif; --fB:'Gowun Dodum',-apple-system,sans-serif; --fD:'Do Hyeon',sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{ font-family:var(--fB); background:var(--bg); color:var(--ink2); line-height:1.5; }
+  button,input,select,textarea{font-family:inherit;}
+  button{cursor:pointer;}
+  .wrap{ max-width:1180px; margin:0 auto; padding:22px 32px 36px; display:flex; flex-direction:column; gap:20px; }
+  .num{ font-variant-numeric:tabular-nums; }
+  svg.i{ width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+
+  /* 머리 */
+  .back{ font-size:13px; color:var(--g6); text-decoration:none; display:inline-flex; align-items:center; gap:4px; margin-bottom:-10px; }
+  .back svg{ width:15px; height:15px; }
+  .head{ display:flex; align-items:center; justify-content:space-between; gap:14px 20px; flex-wrap:wrap; }
+  .head .tt{ display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  .head h1{ margin:0; font-family:var(--fT); font-weight:700; font-size:26px; color:var(--ink); }
+  .head .hs{ font-size:14px; color:var(--g6); }
+  .hr{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .tabs{ display:inline-flex; background:rgba(255,255,255,.55); border-radius:999px; padding:4px; gap:2px; }
+  .tabs button{ border:none; background:transparent; padding:9px 20px; border-radius:999px; font-size:15px; color:var(--g6); }
+  .tabs button.on{ background:#fff; color:var(--ink); box-shadow:0 1px 4px rgba(58,77,69,.12); }
+  select.ys{ padding:8px 12px; border:1px solid var(--input); border-radius:999px; font-size:14px; background:#fff; color:var(--ink2); }
+
+  .box{ background:var(--box); border-radius:24px; box-shadow:var(--sh); }
+  .loading,.empty{ padding:40px; text-align:center; color:var(--sub); font-size:15px; }
+
+  /* 수업 글 */
+  .ls{ display:flex; flex-direction:column; gap:4px; font-size:15px; line-height:1.6; color:var(--ink);
+    word-break:keep-all; overflow-wrap:anywhere; text-wrap:pretty; }
+  .ls .it{ display:flex; gap:6px; }
+  .ls .it b{ font-family:var(--fD); font-weight:400; color:var(--g6); min-width:14px; flex:none; }
+  .ls .ex{ padding-left:20px; font-size:13.5px; color:#54655c; }
+  .nil{ color:var(--dim); font-size:14px; }
+
+  /* 이번 주 — 주 넘기기 */
+  .wnav{ background:#fff; border-radius:22px; box-shadow:var(--sh); padding:14px 18px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .rb{ width:44px; height:44px; border-radius:50%; border:none; background:var(--soft); color:var(--ink2); display:inline-flex; align-items:center; justify-content:center; flex:none; }
+  .rb:hover:not(:disabled){ background:var(--g1); }
+  .rb:disabled{ opacity:.35; cursor:default; }
+  .wd{ font-family:var(--fD); font-size:32px; color:var(--ink); line-height:1.1; }
+  .wsub{ font-size:15px; color:var(--sub); }
+  .rel{ font-family:var(--fD); font-size:16px; color:var(--g9); background:var(--g1); border-radius:999px; padding:6px 14px; }
+  .nowb{ margin-left:auto; height:44px; border:none; border-radius:14px; padding:0 18px; background:var(--lav); color:var(--lavt); font-size:15px; display:inline-flex; align-items:center; gap:8px; }
+  .nowb:hover{ background:var(--lav2); }
+  .nowb.off{ background:var(--soft); color:var(--sub); cursor:default; }
+
+  /* 이번 주 — 비교 표(컴퓨터) */
+  .cmp{ display:grid; grid-template-columns:92px repeat(5, minmax(0,1fr)); overflow:hidden; }
+  .cmp > div{ padding:18px; border-top:1px solid var(--line); border-left:1px solid var(--line); }
+  .cmp > .r0{ border-top:none; }
+  .cmp > .c0{ border-left:none; font-family:var(--fT); font-weight:700; font-size:15px; color:var(--ink2); }
+  .cmp > .memo{ background:var(--soft); font-size:14px; color:var(--ink2); white-space:pre-line; word-break:keep-all; }
+  .gh{ display:flex; flex-direction:column; gap:6px; }
+  .gh .gn{ display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+  .gh .gn b{ font-family:var(--fD); font-weight:400; font-size:30px; color:var(--ink); line-height:1; }
+  .gh .gn span{ font-size:13px; color:var(--sub); }
+  .xt{ display:inline-block; align-self:flex-start; font-size:13px; color:var(--pkt); background:var(--pk); border-radius:999px; padding:2px 10px; }
+
+  /* 이번 주 — 휴대폰 */
+  .mtog{ display:flex; background:rgba(255,255,255,.45); border-radius:12px; padding:4px; gap:2px; }
+  .mtog button{ flex:1; border:none; background:transparent; border-radius:9px; padding:9px 6px; font-size:14px; color:var(--g6); min-height:40px; }
+  .mtog button.on{ background:#fff; color:var(--ink); }
+  .mcards{ display:flex; flex-direction:column; gap:12px; }
+  .mc{ background:#fff; border-radius:20px; box-shadow:0 3px 18px rgba(58,77,69,.06); padding:16px 18px; display:flex; flex-direction:column; gap:10px; }
+  .mc .gn b{ font-size:26px; }
+  .lbl{ font-family:var(--fT); font-weight:700; font-size:13px; color:var(--g6); margin-bottom:4px; }
+  .mc hr{ border:none; border-top:1px solid var(--line); margin:2px 0; }
+  .mmemo{ background:var(--soft); border-radius:12px; padding:9px 12px; font-size:13.5px; color:var(--ink2); white-space:pre-line; }
+  .mmemo b{ font-family:var(--fT); font-weight:700; color:var(--g6); margin-right:6px; }
+  .grow{ display:grid; grid-template-columns:44px 1fr; gap:10px; padding:10px 0; border-top:1px solid var(--line); }
+  .grow:first-of-type{ border-top:none; }
+  .grow > b{ font-family:var(--fD); font-weight:400; font-size:20px; color:var(--ink); line-height:1.3; }
+
+  /* 학년별 */
+  .bar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .pills{ display:flex; gap:8px; flex-wrap:wrap; }
+  .pill{ height:44px; padding:0 20px; border:none; border-radius:999px; background:rgba(255,255,255,.7); color:var(--ink2); font-family:var(--fD); font-size:19px; }
+  .pill.on{ background:var(--g9); color:#fff; }
+  .ahint{ margin-left:auto; display:inline-flex; align-items:center; gap:6px; font-size:13.5px; color:var(--g6); }
+  .ahint svg{ width:15px; height:15px; }
+  .ahint button{ border:none; background:var(--lav); color:var(--lavt); border-radius:999px; padding:6px 14px; font-size:13.5px; margin-left:6px; }
+
+  .pos{ padding:20px 22px 18px; display:flex; flex-direction:column; gap:14px; border-radius:22px; }
+  .pos .top{ display:flex; align-items:baseline; gap:10px 14px; flex-wrap:wrap; }
+  .pos .big{ font-family:var(--fD); font-size:40px; color:var(--ink); line-height:1; }
+  .pos .of{ font-family:var(--fD); font-size:20px; color:var(--sub); }
+  .pos .msg{ font-size:16px; color:var(--ink2); word-break:keep-all; }
+  .legend{ margin-left:auto; display:flex; gap:14px; flex-wrap:wrap; font-size:13px; color:var(--sub); }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .legend i{ width:12px; height:12px; border-radius:3px; display:inline-block; }
+  .strip{ display:flex; gap:6px; align-items:flex-end; }
+  .sm{ display:flex; flex-direction:column; gap:6px; flex:1 1 0; min-width:0; }
+  .sm .cells{ display:flex; gap:2px; align-items:flex-end; }
+  .sm .cells button{ flex:1 1 0; min-width:0; height:24px; border:none; border-radius:3px; padding:0; background:#eef0ec; box-shadow:inset 0 0 0 1px #dfe4df; }
+  .sm .cells button.p{ background:#c9d6ce; box-shadow:none; }
+  .sm .cells button.px{ background:var(--pk2); box-shadow:none; }
+  .sm .cells button.fx{ background:var(--pk3); box-shadow:none; }
+  .sm .cells button.now{ background:var(--g9); height:36px; box-shadow:none; }
+  .sm .ml{ font-family:var(--fD); font-size:13px; color:var(--sub); }
+  .flow{ display:flex; gap:8px; flex-wrap:wrap; }
+  .flow span{ font-size:13.5px; border-radius:999px; padding:6px 12px; background:var(--soft); color:var(--sub); }
+  .flow span b{ font-family:var(--fD); font-weight:400; margin-left:6px; }
+  .flow span.hot{ background:var(--pk); color:var(--pkt); }
+  .flow span.later{ background:var(--pk1); color:var(--pkt); }
+
+  .yl{ overflow:auto; max-height:calc(100vh - 120px); position:relative; }
+  .yl .ch{ position:sticky; top:0; z-index:3; background:#fff; display:grid; gap:20px; padding:16px 20px 12px; border-bottom:1px solid var(--line);
+    font-family:var(--fT); font-weight:700; font-size:14px; color:var(--g6); }
+  .yl .mh{ position:sticky; top:46px; z-index:2; background:#fff; padding:16px 20px 8px; display:flex; align-items:baseline; gap:8px; }
+  .yl .mh b{ font-family:var(--fD); font-weight:400; font-size:22px; color:var(--ink); }
+  .yl .mh span{ font-family:var(--fD); font-size:14px; color:var(--sub); }
+  .yr{ display:grid; gap:20px; padding:16px 20px; border-bottom:1px solid var(--line); background:#fff; position:relative; }
+  .cols4{ grid-template-columns:96px minmax(0,1fr) minmax(0,1fr) 210px; }
+  .cols3{ grid-template-columns:96px minmax(0,1.6fr) minmax(0,1fr); }
+  .yr .dt{ display:flex; flex-direction:column; gap:2px; }
+  .yr .dt b{ font-family:var(--fD); font-weight:400; font-size:22px; color:var(--ink); line-height:1.15; }
+  .yr .dt small{ font-size:12.5px; color:var(--sub); }
+  .yr .mm{ font-size:14px; color:var(--ink2); white-space:pre-line; word-break:keep-all; padding-right:26px; }
+  .yr.past{ background:var(--past); }
+  .yr.past .dt b{ color:var(--dim); }
+  .yr.ex{ background:var(--pk1); margin:0 8px; }
+  .yr.now{ background:var(--g1); }
+  .ntag{ align-self:flex-start; margin-top:6px; font-family:var(--fD); font-size:13px; color:#fff; background:var(--g9); border-radius:999px; padding:2px 10px; }
+  .yr.ex.last{ border-radius:0 0 14px 14px; border-bottom:none; margin-bottom:8px; }
+  .exh{ margin:8px 8px 0; background:var(--pk); color:var(--pkt); border-radius:14px 14px 0 0; padding:10px 16px; display:flex; align-items:center; gap:8px; font-size:14px; }
+  .exh b{ font-family:var(--fT); font-weight:700; }
+  .exh span{ font-size:13px; }
+  .yr.ed{ cursor:pointer; }
+  .yr.ed:hover{ filter:brightness(.985); }
+  .pen{ position:absolute; right:18px; top:18px; color:var(--g6); }
+  .pen svg{ width:15px; height:15px; }
+
+  /* 학년별 — 휴대폰 */
+  .ycards{ display:flex; flex-direction:column; gap:12px; }
+  .ycards .mh{ display:flex; align-items:baseline; gap:6px; padding:8px 4px 0; }
+  .ycards .mh b{ font-family:var(--fD); font-weight:400; font-size:22px; color:var(--ink); }
+  .ycards .mh span{ font-family:var(--fD); font-size:14px; color:var(--sub); }
+  .yc{ background:#fff; border-radius:18px; padding:14px 16px; display:flex; flex-direction:column; gap:8px; box-shadow:0 3px 18px rgba(58,77,69,.06); }
+  .yc.past{ background:#eef2ef; }
+  .yc.ex{ background:var(--pk1); }
+  .yc.now{ background:#fff; box-shadow:inset 0 0 0 2px var(--g9); }
+  .yc .top{ display:flex; align-items:center; gap:8px; }
+  .yc .top b{ font-family:var(--fD); font-weight:400; font-size:21px; color:var(--ink); }
+  .yc .top small{ font-size:12.5px; color:var(--sub); }
+  .yc .top .ntag{ margin:0 0 0 auto; }
+  .yc .top .pen{ position:static; margin-left:8px; }
+  .yc .top .ntag + .pen{ margin-left:8px; }
+  .yc .top .pen:first-of-type:not(.ntag + .pen){ margin-left:auto; }
+  .yc .lbl{ font-size:12.5px; margin:0; }
+  .yc .mmemo{ font-size:13.5px; }
+  .exm{ background:var(--pk); color:var(--pkt); border-radius:12px; padding:9px 14px; display:flex; align-items:center; gap:8px; font-size:13.5px; }
+  .exm b{ font-family:var(--fT); font-weight:700; }
+
+  /* 편제표 */
+  .bt{ display:grid; overflow:hidden; }
+  .bt > div{ padding:12px 14px 14px; border-top:1px solid var(--line); border-left:1px solid var(--line); display:flex; flex-direction:column; gap:6px; min-width:0; }
+  .bt > .c0{ border-left:none; }
+  .bt > .r0{ border-top:none; }
+  .bt .hd{ font-size:13.5px; color:var(--sub); flex-direction:row; align-items:center; gap:6px; padding:14px 14px 10px; }
+  .bt .hg{ font-family:var(--fD); font-size:19px; color:var(--ink); padding:16px 14px 0; border-top:none; }
+  .bt .hs{ border-top:none; }
+  .bt .sn{ font-family:var(--fT); font-weight:700; font-size:16px; color:var(--ink); }
+  .bt .sn small{ font-family:var(--fB); font-weight:400; font-size:12px; color:var(--note); }
+  .now-t{ font-size:11.5px; color:var(--g9); background:var(--g1); border-radius:999px; padding:1px 8px; }
+  .sj{ font-size:14.5px; color:var(--ink); }
+  .pb{ align-self:flex-start; font-size:12.5px; color:var(--pub); background:var(--g1); border-radius:999px; padding:2px 9px; }
+  .bn{ font-size:12.5px; color:var(--note); word-break:keep-all; }
+  .bt .ed{ cursor:pointer; }
+  .bt .ed:hover{ background:#f8faf8; }
+  .bt .mid{ flex-direction:row; flex-wrap:wrap; align-items:center; gap:6px 8px; }
+  .bt .mid .pb{ align-self:center; }
+
+  .spills{ display:flex; gap:8px; flex-wrap:wrap; }
+  .spills button{ height:40px; padding:0 16px; border:none; border-radius:999px; background:rgba(255,255,255,.7); color:var(--ink2); font-size:15px; }
+  .spills button.on{ background:var(--g9); color:#fff; }
+  .scard{ background:#fff; border-radius:20px; box-shadow:0 3px 18px rgba(58,77,69,.06); padding:16px 18px 6px; }
+  .scard .st{ display:flex; align-items:baseline; justify-content:space-between; padding-bottom:10px; border-bottom:1px solid var(--line); }
+  .scard .st b{ font-family:var(--fT); font-weight:700; font-size:19px; color:var(--ink); }
+  .scard .st span{ font-size:13px; color:var(--sub); }
+  .scard .smemo{ font-size:13px; color:var(--note); padding:8px 0 0; }
+  .srow{ display:grid; grid-template-columns:62px minmax(0,1fr) 16px; gap:10px; padding:12px 0; border-bottom:1px solid var(--line); align-items:start; }
+  .srow:last-child{ border-bottom:none; }
+  .srow .tm{ display:flex; flex-direction:column; gap:4px; align-items:flex-start; }
+  .srow .tm b{ font-family:var(--fD); font-weight:400; font-size:17px; color:var(--ink); }
+  .srow .ct{ display:flex; flex-direction:column; gap:5px; }
+  .srow .ct .sj{ font-size:15px; }
+  .srow .ct .bn{ font-size:13px; }
+  .srow.ed{ cursor:pointer; }
+  .srow .pe{ color:var(--g6); padding-top:4px; }
+  .srow .pe svg{ width:15px; height:15px; }
+
+  /* 고치기 창 */
+  .dback{ position:fixed; inset:0; background:rgba(43,58,51,.38); display:flex; align-items:center; justify-content:center; padding:16px; z-index:50; }
+  .dback[hidden]{ display:none; }
+  .dlg{ background:#fff; width:100%; max-width:560px; border-radius:24px; box-shadow:0 14px 44px rgba(43,58,51,.2); display:flex; flex-direction:column; max-height:calc(100vh - 32px); }
+  .dlg.narrow{ max-width:520px; }
+  .dlg .dh{ display:flex; align-items:flex-start; gap:12px; padding:22px 24px 6px; }
+  .dlg .dh .k{ font-family:var(--fD); font-size:15px; color:var(--g6); }
+  .dlg .dh h2{ margin:2px 0 0; font-family:var(--fT); font-weight:700; font-size:20px; color:var(--ink); }
+  .dlg .x{ margin-left:auto; width:40px; height:40px; border-radius:50%; border:none; background:var(--soft); color:var(--ink2); display:inline-flex; align-items:center; justify-content:center; flex:none; }
+  .dlg .db{ padding:10px 24px 16px; overflow:auto; max-height:520px; display:flex; flex-direction:column; gap:18px; }
+  .dlg .fl{ display:flex; flex-direction:column; gap:8px; }
+  .dlg .fl > span{ font-family:var(--fT); font-weight:700; font-size:14px; color:var(--ink2); }
+  .dlg textarea,.dlg input[type=text]{ width:100%; border:1px solid var(--input); border-radius:12px; background:#fbfcfa; padding:12px 14px; font-size:16px; line-height:1.7; color:var(--ink); }
+  .dlg textarea{ resize:vertical; }
+  .dlg textarea:focus,.dlg input[type=text]:focus{ outline:none; border-color:#8fa99a; background:#fff; }
+  .xp{ display:flex; gap:6px; flex-wrap:wrap; }
+  .xp button{ height:36px; padding:0 14px; border:none; border-radius:999px; background:var(--soft); color:var(--g6); font-size:14px; }
+  .xp button.on{ background:var(--pk); color:var(--pkt); box-shadow:inset 0 0 0 1.5px #d9a3ab; }
+  .dlg .dn{ font-size:13px; color:var(--sub); line-height:1.6; }
+  .dlg .err{ font-size:13.5px; color:var(--pkt); background:var(--pk1); border-radius:10px; padding:8px 12px; }
+  .dlg .err:empty{ display:none; }
+  .dlg .df{ display:flex; gap:10px; padding:14px 24px 22px; border-top:1px solid var(--line); }
+  .dlg .df button{ flex:1; height:50px; border-radius:14px; font-size:16px; }
+  .bcancel{ background:#fff; border:1px solid var(--input); color:var(--g6); }
+  .bsave{ background:var(--lav); border:none; color:var(--lavt); }
+  .bsave:hover:not(:disabled){ background:var(--lav2); }
+  .bsave:disabled{ opacity:.6; cursor:default; }
+  .grab{ display:none; width:40px; height:4px; border-radius:2px; background:var(--input); margin:10px auto 0; }
+
+  .status{ position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--g9); color:#fff; padding:9px 16px; border-radius:20px; font-size:14px; z-index:60; }
+  .status:empty{ display:none; }
+
+  @media (max-width:760px){
+    .wrap{ padding:16px 14px 28px; gap:12px; }
+    .head{ flex-direction:column; align-items:stretch; gap:12px; }
+    .head h1{ font-size:22px; }
+    .head .hs{ display:none; }
+    .hr{ width:100%; }
+    .tabs{ display:flex; flex:1; }
+    .tabs button{ flex:1; height:40px; padding:0; }
+    .pill{ flex:1; padding:0; font-size:18px; }
+    .pills{ flex-wrap:nowrap; width:100%; }
+    .ahint{ margin-left:0; }
+    .pos .big{ font-size:30px; }
+    .legend{ margin-left:0; }
+    .strip{ gap:3px; }
+    .sm .cells{ gap:1px; }
+    .sm .cells button{ height:18px; }
+    .sm .cells button.now{ height:26px; }
+    .sm .ml{ font-size:11px; }
+    .flow{ display:none; }
+    .dback.sheet{ align-items:flex-end; padding:0; }
+    .dback.sheet .dlg{ max-width:none; border-radius:24px 24px 0 0; max-height:92vh; }
+    .dback.sheet .grab{ display:block; }
+  }
+  @media print{
+    body{ background:#fff; }
+    .tabs,.wnav .rb,.nowb,.status,.ahint,.back{ display:none !important; }
+    .box,.mc,.yc{ box-shadow:none; border:1px solid #ccc; }
+    .yl{ max-height:none; overflow:visible; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="ops.html"><svg class="i" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>슈국 운영 메뉴</a>
+  <div class="head">
+    <div class="tt"><h1>전체 커리큘럼</h1><span class="hs" id="hs"></span></div>
+    <div class="hr">
+      <select class="ys" id="year" hidden></select>
+      <div class="tabs" id="tabs">
+        <button type="button" data-t="week" class="on">이번 주</button>
+        <button type="button" data-t="grade">학년별</button>
+        <button type="button" data-t="books">편제표</button>
+      </div>
+    </div>
+  </div>
+  <div id="view"><div class="box loading">커리큘럼을 불러오는 중…</div></div>
+</div>
+
+<div class="dback" id="dlgBack" hidden>
+  <div class="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgTitle" id="dlg">
+    <div class="grab"></div>
+    <div class="dh">
+      <div><div class="k" id="dlgSub"></div><h2 id="dlgTitle"></h2></div>
+      <button type="button" class="x" id="dlgX" aria-label="닫기"><svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="db" id="dlgBody"></div>
+    <div class="df">
+      <button type="button" class="bcancel" id="dlgCancel">취소</button>
+      <button type="button" class="bsave" id="dlgSave">저장</button>
+    </div>
+  </div>
+</div>
+<div class="status" id="status"></div>
+
+<script>
+(function(){
+  'use strict';
+  var REST = 'https://bangdbhqpphqqdwcledg.supabase.co/rest/v1';
+  var GRADES = ['중2', '중3', '고1', '고2', '고3'];
+  var GSUB = { '중2': '가 수업만', '중3': '가 · 나 수업', '고1': '가 독서 · 나 문학', '고2': '가 독서 · 나 문학', '고3': '가 독서 · 나 문학' };
+  var GA_LBL = { '고1': '가 수업 · 독서', '고2': '가 수업 · 독서', '고3': '가 수업 · 독서' };
+  var NA_LBL = { '고1': '나 수업 · 문학', '고2': '나 수업 · 문학', '고3': '나 수업 · 문학' };
+  var EXAMS = ['1학기 중간', '1학기 기말', '2학기 중간', '2학기 기말'];
+  var H_TERMS = ['1-1', '1-2', '2-1', '2-2', '3-1', '3-2'];
+  var M_TERMS = ['1학년', '2학년', '3학년'];
+  var DOW = ['일', '월', '화', '수', '목', '금', '토'];
+  var $ = function(id){ return document.getElementById(id); };
+  var IC = {
+    l: '<path d="M15 18l-6-6 6-6"/>', r: '<path d="M9 18l6-6-6-6"/>',
+    t: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>',
+    p: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>',
+    c: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'
+  };
+  function ic(k){ return '<svg class="i" viewBox="0 0 24 24">' + IC[k] + '</svg>'; }
+  var S = { tab: 'week', grade: '고1', level: '고등', school: '', week: '', year: 0, admin: false,
+            weeks: [], books: [], years: [], examCol: false, mmode: '학년' };
+  try {
+    S.tab = sessionStorage.getItem('cur_tab') || 'week';
+    S.grade = sessionStorage.getItem('cur_grade') || '고1';
+    S.level = sessionStorage.getItem('cur_level') || '고등';
+    S.mmode = localStorage.getItem('cur_mmode') || '학년';
+  } catch (e) {}
+  if (GRADES.indexOf(S.grade) < 0) S.grade = '고1';
+
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  var stT = null;
+  function status(msg, ms){ $('status').textContent = msg || ''; clearTimeout(stT); if (msg) stT = setTimeout(function(){ $('status').textContent = ''; }, ms || 3500); }
+  function api(path, opt){
+    opt = opt || {};
+    return fetch(REST + path, { method: opt.method || 'GET', headers: { 'Content-Type': 'application/json' }, body: opt.body, cache: 'no-store' }).then(function(r){
+      return r.text().then(function(t){
+        var d = null; try { d = t ? JSON.parse(t) : null; } catch (e) { d = t; }
+        if (!r.ok){ var e = new Error((d && d.message) || ('HTTP ' + r.status)); e.status = r.status; e.data = d; throw e; }
+        return d;
+      });
+    });
+  }
+  function rpc(name, body){ return api('/rpc/' + name, { method: 'POST', body: JSON.stringify(body || {}) }); }
+  function isMissing(e){ return e && (e.status === 404 || /PGRST20[25]|does not exist|Could not find/.test(String(e.message) + JSON.stringify(e.data || ''))); }
+  function narrow(w){ return window.matchMedia('(max-width:' + w + 'px)').matches; }
+
+  /* ── 날짜 ── 한국 날짜, 수요일 주(월·화는 다가오는 수요일) */
+  function ymd(d){ return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2); }
+  function parse(s){ var p = String(s).split('-'); return new Date(+p[0], +p[1] - 1, +p[2]); }
+  function addDays(s, n){ var d = parse(s); d.setDate(d.getDate() + n); return ymd(d); }
+  function todayKst(){ var n = new Date(Date.now() + 9 * 3600e3); return ymd(new Date(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate())); }
+  function weekOf(s){ var d = parse(s), w = d.getDay(); var back = w >= 3 ? w - 3 : (w === 0 ? 4 : -(3 - w)); d.setDate(d.getDate() - back); return ymd(d); }
+  function md(s){ var d = parse(s); return (d.getMonth() + 1) + '/' + d.getDate(); }
+  function mdDot(s){ var d = parse(s); return (d.getMonth() + 1) + '.' + d.getDate(); }
+  function mdLong(s){ var d = parse(s); return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 (' + DOW[d.getDay()] + ')'; }
+  /* 커리큘럼 연도 Y = Y-1년 12월 첫 수요일 ~ Y년 12월 마지막 수요일 (12월은 두 해에 겹칠 수 있다) */
+  function firstDecWed(y){ var d = new Date(y, 11, 1); while (d.getDay() !== 3) d.setDate(d.getDate() + 1); return ymd(d); }
+  function weeksOfYear(Y){ var out = [], w = firstDecWed(Y - 1), end = Y + '-12-31'; while (w <= end){ out.push(w); w = addDays(w, 7); } return out; }
+  function inYear(Y, w){ return w >= firstDecWed(Y - 1) && w <= Y + '-12-31'; }
+  function nowWeek(){ return weekOf(todayKst()); }
+
+  function weekRow(grade, w){
+    for (var i = 0; i < S.weeks.length; i++){ var r = S.weeks[i]; if (r.year === S.year && r.grade === grade && r.week === w) return r; }
+    return null;
+  }
+  /* 내신 대비 종류 — exam 열(202610260001)이 있으면 그 값, 없으면 글에서 짐작(마이그레이션과 같은 규칙) */
+  function examGuess(r){
+    if (!r) return '';
+    var t = (r.ga || '') + ' ' + (r.na || ''), m = /(중간|기말)고사\s*(대비|마무리)/.exec(t);
+    if (!m) return '';
+    var mo = parse(r.week).getMonth() + 1;
+    if (mo < 3) return '';
+    return (mo <= 7 ? '1학기 ' : '2학기 ') + m[1];
+  }
+  function examOf(r){ return !r ? '' : (S.examCol ? (r.exam || '') : examGuess(r)); }
+  function hasNa(g){ return g !== '중2' || S.weeks.some(function(r){ return r.year === S.year && r.grade === g && r.na; }); }
+
+  /* ── 수업 글 그리기 — 줄바꿈 그대로, '1.'은 항목, 그 아래 줄은 설명 ── */
+  function lessonHtml(text){
+    var lines = String(text || '').replace(/\r/g, '').split('\n').map(function(s){ return s.trim(); }).filter(Boolean);
+    if (!lines.length) return '';
+    return '<div class="ls">' + lines.map(function(s, i){
+      var m = /^(\d{1,2})[.)]\s*(.*)$/.exec(s);
+      if (m) return '<div class="it"><b class="num">' + m[1] + '.</b><span>' + esc(m[2]) + '</span></div>';
+      if (i === 0) return '<div>' + esc(s) + '</div>';
+      return '<div class="ex">' + esc(s.replace(/^[-–·•]\s*/, '')) + '</div>';
+    }).join('') + '</div>';
+  }
+
+  /* ── 불러오기 ── */
+  function load(){
+    return Promise.all([
+      api('/curriculum_weeks?select=*&order=week.asc'),
+      api('/curriculum_books?select=*&order=ord.asc,school.asc')
+    ]).then(function(res){
+      S.weeks = res[0] || []; S.books = res[1] || [];
+      S.examCol = S.weeks.length > 0 && Object.prototype.hasOwnProperty.call(S.weeks[0], 'exam');
+      var ys = {}; S.weeks.forEach(function(r){ ys[r.year] = 1; }); S.books.forEach(function(r){ ys[r.year] = 1; });
+      var now = nowWeek();
+      S.years = Object.keys(ys).map(Number).sort();
+      if (!S.years.length) S.years = [+now.slice(0, 4)];
+      if (!S.year){
+        var hit = S.years.filter(function(y){ return inYear(y, now) && S.weeks.some(function(r){ return r.year === y; }); });
+        S.year = hit.length ? hit[0] : S.years[S.years.length - 1];
+      }
+      S.week = clampWeek(now);
+      var sel = $('year');
+      sel.innerHTML = S.years.map(function(y){ return '<option value="' + y + '"' + (y === S.year ? ' selected' : '') + '>' + y + ' 커리큘럼</option>'; }).join('');
+      sel.hidden = S.years.length < 2;
+      render(true);
+    }).catch(function(e){
+      if (isMissing(e)){ $('view').innerHTML = '<div class="box empty">커리큘럼 표가 아직 데이터베이스에 없습니다.<br>마이그레이션 202610250003 을 적용한 뒤 다시 열어 주세요.</div>'; return; }
+      $('view').innerHTML = '<div class="box empty">불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.<br><small>' + esc(e.message) + '</small></div>';
+    });
+  }
+  function clampWeek(w){ var ws = weeksOfYear(S.year); if (w < ws[0]) return ws[0]; if (w > ws[ws.length - 1]) return ws[ws.length - 1]; return w; }
+
+  /* ── 그리기 ── */
+  var lastNarrow = null;
+  function render(first){
+    [].forEach.call($('tabs').children, function(b){ b.classList.toggle('on', b.dataset.t === S.tab); });
+    try { sessionStorage.setItem('cur_tab', S.tab); sessionStorage.setItem('cur_grade', S.grade); sessionStorage.setItem('cur_level', S.level); } catch (e) {}
+    $('hs').textContent = S.tab === 'books' ? '학교별 교과서 편제'
+      : (parse(weeksOfYear(S.year)[0]).getFullYear() + '년 12월 – ' + S.year + '년 12월 · 매주 수요일 기준');
+    lastNarrow = narrow(760) + '|' + narrow(900) + '|' + narrow(960);
+    if (S.tab === 'grade') return renderGrade(first);
+    if (S.tab === 'books') return renderBooks();
+    renderWeek();
+  }
+
+  /* 1. 이번 주 */
+  function relLabel(w){
+    var d = Math.round((parse(w) - parse(nowWeek())) / (7 * 86400e3));
+    return d === 0 ? '이번 주' : d === -1 ? '지난 주' : d === 1 ? '다음 주' : d < 0 ? (-d) + '주 전' : d + '주 뒤';
+  }
+  function cellHtml(g, r, k){
+    if (k === 'na' && g === '중2' && !(r && r.na)) return '<span class="nil">나 수업 없음</span>';
+    var t = r && r[k];
+    return t ? lessonHtml(t) : '<span class="nil">—</span>';
+  }
+  function ghHtml(g, r){
+    var x = examOf(r);
+    return '<div class="gh"><div class="gn"><b>' + g + '</b><span>' + GSUB[g] + '</span></div>' +
+      (x ? '<span class="xt">' + x + ' 대비</span>' : '') + '</div>';
+  }
+  function renderWeek(){
+    var w = S.week, ws = weeksOfYear(S.year), idx = ws.indexOf(w) + 1, isNow = w === nowWeek();
+    var mob = narrow(900);
+    var nav = '<div class="wnav">' +
+      '<button type="button" class="rb" data-wk="-7" aria-label="지난주"' + (idx <= 1 ? ' disabled' : '') + '>' + ic('l') + '</button>' +
+      (mob ? '<div style="flex:1;text-align:center"><div class="wd">' + mdLong(w) + '</div><div class="wsub num">' + parse(w).getFullYear() + '년 · ' + idx + '주차 / ' + ws.length + '주</div></div>'
+           : '<span class="wd">' + mdLong(w) + '</span><span class="wsub num">' + parse(w).getFullYear() + '년 · ' + idx + '주차 / ' + ws.length + '주</span>') +
+      '<button type="button" class="rb" data-wk="7" aria-label="다음 주"' + (idx >= ws.length ? ' disabled' : '') + '>' + ic('r') + '</button>' +
+      (mob ? '<div style="flex-basis:100%;display:flex;align-items:center">' : '') +
+      '<span class="rel">' + relLabel(w) + '</span>' +
+      '<button type="button" class="nowb' + (isNow ? ' off' : '') + '" data-wk="0"' + (isNow ? ' aria-disabled="true"' : '') + '>' + ic('t') + '이번 주로</button>' +
+      (mob ? '</div>' : '') + '</div>';
+    var body;
+    if (!mob){
+      var rows = [['', 'h'], ['가 수업', 'ga'], ['나 수업', 'na'], ['메모', 'note']];
+      body = '<div class="box cmp">' + rows.map(function(row, ri){
+        return '<div class="c0' + (ri === 0 ? ' r0' : '') + (row[1] === 'note' ? ' memo' : '') + '">' + row[0] + '</div>' + GRADES.map(function(g){
+          var r = weekRow(g, w), cls = ri === 0 ? ' class="r0"' : '';
+          if (row[1] === 'h') return '<div' + cls + '>' + ghHtml(g, r) + '</div>';
+          if (row[1] === 'note') return '<div class="memo">' + (r && r.note ? esc(r.note) : '<span class="nil">—</span>') + '</div>';
+          return '<div>' + cellHtml(g, r, row[1]) + '</div>';
+        }).join('');
+      }).join('') + '</div>';
+    } else {
+      var tog = '<div class="mtog" id="mtog"><button type="button" data-m="학년"' + (S.mmode === '학년' ? ' class="on"' : '') + '>학년 묶음</button>' +
+        '<button type="button" data-m="수업"' + (S.mmode === '수업' ? ' class="on"' : '') + '>수업 묶음 (가·나 비교)</button></div>';
+      if (S.mmode === '수업'){
+        var part = function(title, k){
+          var gs = GRADES.filter(function(g){ var r = weekRow(g, w); return k === 'note' ? (r && r.note) : (k === 'na' ? hasNa(g) : true); });
+          if (!gs.length) return '';
+          return '<div class="mc"><div class="lbl" style="font-size:15px">' + title + '</div><div>' + gs.map(function(g){
+            var r = weekRow(g, w);
+            return '<div class="grow"><b>' + g + '</b><div>' + (k === 'note' ? '<div style="font-size:14px;white-space:pre-line">' + esc(r.note) + '</div>' : cellHtml(g, r, k)) + '</div></div>';
+          }).join('') + '</div></div>';
+        };
+        body = tog + '<div class="mcards">' + part('가 수업', 'ga') + part('나 수업', 'na') + part('메모', 'note') + '</div>';
+      } else {
+        body = tog + '<div class="mcards">' + GRADES.map(function(g){
+          var r = weekRow(g, w), x = examOf(r);
+          var h = '<div class="gh"><div class="gn"><b>' + g + '</b><span>' + GSUB[g] + '</span></div>' + (x ? '<span class="xt">' + x + ' 대비</span>' : '') + '</div>';
+          h += '<div><div class="lbl">가 수업</div>' + cellHtml(g, r, 'ga') + '</div>';
+          if (hasNa(g)) h += '<hr><div><div class="lbl">나 수업</div>' + cellHtml(g, r, 'na') + '</div>';
+          if (r && r.note) h += '<div class="mmemo"><b>메모</b>' + esc(r.note) + '</div>';
+          return '<div class="mc">' + h + '</div>';
+        }).join('') + '</div>';
+      }
+    }
+    $('view').innerHTML = '<div style="display:flex;flex-direction:column;gap:' + (mob ? 12 : 20) + 'px">' + nav + body + '</div>';
+  }
+
+  /* 2. 학년별 */
+  function examBlocks(g){
+    var ws = weeksOfYear(S.year), out = [], cur = null;
+    ws.forEach(function(w, i){
+      var x = examOf(weekRow(g, w));
+      if (x && cur && cur.name === x && cur.endIdx === i - 1){ cur.end = w; cur.endIdx = i; cur.n++; return; }
+      cur = null;
+      if (x){ cur = { name: x, start: w, end: w, startIdx: i, endIdx: i, n: 1 }; out.push(cur); }
+    });
+    return out;
+  }
+  function posMsg(blocks, now, ws){
+    var i = ws.indexOf(now);
+    for (var k = 0; k < blocks.length; k++){
+      var b = blocks[k];
+      if (i >= b.startIdx && i <= b.endIdx) return b.name + '고사 대비 ' + (i - b.startIdx + 1) + '주째예요 (' + mdDot(b.end) + '까지)';
+      if (b.startIdx > i) return b.name + '고사 대비까지 ' + (b.startIdx - i) + '주 남았어요 · ' + mdDot(b.start) + '부터';
+    }
+    return '남은 내신 대비 주가 없어요';
+  }
+  function renderGrade(first){
+    var g = S.grade, ws = weeksOfYear(S.year), now = nowWeek(), ni = ws.indexOf(now), na = hasNa(g);
+    var blocks = examBlocks(g), mob = narrow(760);
+    var bar = '<div class="bar"><div class="pills" id="gpills">' + GRADES.map(function(x){
+      return '<button type="button" class="pill' + (x === g ? ' on' : '') + '" data-g="' + x + '">' + x + '</button>'; }).join('') + '</div>' +
+      (S.admin ? '<span class="ahint">' + ic('p') + '원장님 계정 · 줄을 누르면 고칠 수 있어요</span>' : '') + '</div>';
+    /* 위치 상자 + 57주 띠 */
+    var exIdx = {}; blocks.forEach(function(b){ for (var k = b.startIdx; k <= b.endIdx; k++) exIdx[k] = b.name; });
+    var months = [], mk = {};
+    ws.forEach(function(w, i){ var d = parse(w), key = d.getFullYear() + '-' + d.getMonth(); if (!mk[key]){ mk[key] = { m: d.getMonth() + 1, ws: [] }; months.push(mk[key]); } mk[key].ws.push(i); });
+    var strip = '<div class="strip">' + months.map(function(mo){
+      return '<div class="sm" style="flex-grow:' + mo.ws.length + '"><div class="cells">' + mo.ws.map(function(i){
+        var w = ws[i], x = exIdx[i], cls = i === ni ? 'now' : (ni >= 0 && i < ni) ? (x ? 'px' : 'p') : (x ? 'fx' : '');
+        if (ni < 0 && w < now) cls = x ? 'px' : 'p';
+        var tip = mdLong(w).replace(/ \(.\)$/, '') + ' · ' + (i + 1) + '주차' + (x ? ' · ' + x + ' 대비' : '');
+        return '<button type="button" class="' + cls + '" data-jump="' + w + '" title="' + tip + '" aria-label="' + tip + '"></button>';
+      }).join('') + '</div><div class="ml">' + mo.m + (mob ? '' : '월') + '</div></div>';
+    }).join('') + '</div>';
+    var legend = '<div class="legend"><span><i style="background:#c9d6ce"></i>지난 주</span><span><i style="background:#3a4d45"></i>이번 주</span>' +
+      '<span><i style="background:#eef0ec;box-shadow:inset 0 0 0 1px #dfe4df"></i>앞으로</span><span><i style="background:#e7aab4"></i>내신 대비</span></div>';
+    var nextSeen = false;
+    var flow = blocks.length ? '<div class="flow">' + blocks.map(function(b){
+      var st, cls = '';
+      if (ni >= 0 && b.endIdx < ni) st = '끝남';
+      else if (ni >= b.startIdx && ni <= b.endIdx){ st = '진행 중'; cls = 'hot'; nextSeen = true; }
+      else if (!nextSeen){ st = (ni >= 0 ? (b.startIdx - ni) + '주 뒤' : '예정'); cls = 'hot'; nextSeen = true; }
+      else { st = (ni >= 0 ? (b.startIdx - ni) + '주 뒤' : '예정'); cls = 'later'; }
+      return '<span class="' + cls + '">' + b.name + ' ' + mdDot(b.start) + ' – ' + mdDot(b.end) + '<b>' + st + '</b></span>';
+    }).join('') + '</div>' : '';
+    var pos = '<div class="box pos"><div class="top">' +
+      (ni >= 0 ? '<span class="big num">' + (ni + 1) + '</span><span class="of num">/ ' + ws.length + '주</span><span class="msg">' + posMsg(blocks, now, ws) + '</span>'
+               : '<span class="msg">이번 주는 ' + S.year + ' 커리큘럼 기간 밖이에요</span>') +
+      (mob ? '' : legend) + '</div>' + strip + (mob ? legend : '') + flow + '</div>';
+    /* 목록 */
+    var exStart = {}, exEnd = {};
+    blocks.forEach(function(b){ exStart[b.start] = b; exEnd[b.end] = b; });
+    var list = '', lastM = '', inEx = null;
+    var gaL = GA_LBL[g] || '가 수업', naL = NA_LBL[g] || '나 수업';
+    if (!mob){
+      var cols = na ? 'cols4' : 'cols3';
+      list = '<div class="box yl" id="ylist"><div class="ch ' + cols + '"><span>날짜</span><span>' + gaL + '</span>' + (na ? '<span>' + naL + '</span>' : '') + '<span>메모</span></div>';
+      ws.forEach(function(w, i){
+        var d = parse(w), mkey = d.getFullYear() + '-' + d.getMonth(), r = weekRow(g, w) || {}, x = exIdx[i];
+        if (exStart[w]) inEx = exStart[w];
+        if (mkey !== lastM){ lastM = mkey; list += '<div class="mh"><b>' + (d.getMonth() + 1) + '월</b><span>' + d.getFullYear() + '</span></div>'; }
+        if (exStart[w]) list += '<div class="exh">' + ic('c') + '<b>' + x + '고사 대비</b><span class="num">' + mdDot(exStart[w].start) + ' – ' + mdDot(exStart[w].end) + ' · ' + exStart[w].n + '주</span></div>';
+        var cls = 'yr ' + cols + (w === now ? ' now' : (w < now ? ' past' : '')) + (x ? ' ex' : '') + (exEnd[w] ? ' last' : '') + (S.admin ? ' ed' : '');
+        list += '<div class="' + cls + '" id="w' + w + '" data-w="' + w + '"><div class="dt"><b class="num">' + mdDot(w) + '</b><small>' + (i + 1) + '주차</small>' + (w === now ? '<span class="ntag">이번 주</span>' : '') + '</div>' +
+          '<div>' + (r.ga ? lessonHtml(r.ga) : '<span class="nil">—</span>') + '</div>' +
+          (na ? '<div>' + (r.na ? lessonHtml(r.na) : '<span class="nil">—</span>') + '</div>' : '') +
+          '<div class="mm">' + (r.note ? esc(r.note) : '') + '</div>' + (S.admin ? '<span class="pen">' + ic('p') + '</span>' : '') + '</div>';
+      });
+      list += '</div>';
+    } else {
+      list = '<div class="ycards" id="ylist">';
+      ws.forEach(function(w, i){
+        var d = parse(w), mkey = d.getFullYear() + '-' + d.getMonth(), r = weekRow(g, w) || {}, x = exIdx[i];
+        if (mkey !== lastM){ lastM = mkey; list += '<div class="mh"><b>' + (d.getMonth() + 1) + '월</b><span>' + d.getFullYear() + '</span></div>'; }
+        if (exStart[w]) list += '<div class="exm">' + ic('c') + '<b>' + x + '고사 대비</b><span class="num">' + mdDot(exStart[w].start) + ' – ' + mdDot(exStart[w].end) + ' · ' + exStart[w].n + '주</span></div>';
+        var cls = 'yc' + (w === now ? ' now' : (x ? ' ex' : (w < now ? ' past' : ''))) + (S.admin ? ' ed' : '');
+        var top = '<div class="top"><b class="num">' + mdDot(w) + '</b><small>' + (i + 1) + '주차</small>' +
+          (w === now ? '<span class="ntag">이번 주</span>' : '') +
+          (S.admin ? '<span class="pen" style="' + (w === now ? '' : 'margin-left:auto') + '">' + ic('p') + '</span>' : '') + '</div>';
+        list += '<div class="' + cls + '" id="w' + w + '" data-w="' + w + '"' + (S.admin ? ' style="cursor:pointer"' : '') + '>' + top +
+          '<div><div class="lbl">' + gaL + '</div>' + (r.ga ? lessonHtml(r.ga) : '<span class="nil">—</span>') + '</div>' +
+          (na ? '<div><div class="lbl">' + naL + '</div>' + (r.na ? lessonHtml(r.na) : '<span class="nil">—</span>') + '</div>' : '') +
+          (r.note ? '<div class="mmemo"><b>메모</b>' + esc(r.note) + '</div>' : '') + '</div>';
+      });
+      list += '</div>';
+    }
+    $('view').innerHTML = '<div style="display:flex;flex-direction:column;gap:' + (mob ? 12 : 18) + 'px">' + bar + pos + list + '</div>';
+    if (first !== false) scrollToWeek(ni >= 0 ? now : ws[0], true);
+  }
+  function scrollToWeek(w, top){
+    var el = document.getElementById('w' + w); if (!el) return;
+    var box = $('ylist');
+    if (box && box.classList.contains('yl')){
+      var head = 110, prev = el.previousElementSibling;   /* 열 제목 + 달 머리 */
+      if (prev && prev.classList.contains('exh')){ el = prev; }
+      var d = el.getBoundingClientRect().top - box.getBoundingClientRect().top;
+      box.scrollTop = Math.max(0, box.scrollTop + d - (top ? head : box.clientHeight / 3));
+      if (!top){ var r = box.getBoundingClientRect(); if (r.top < 0 || r.top > innerHeight - 200) box.scrollIntoView({ block: 'start' }); }
+    } else el.scrollIntoView({ block: top ? 'start' : 'center' });
+  }
+  /* 3. 편제표 */
+  function booksOf(level){ return S.books.filter(function(b){ return b.year === S.year && b.level === level; }); }
+  function nowSem(){ var m = parse(todayKst()).getMonth() + 1; return (m >= 3 && m <= 7) ? 1 : 2; }
+  function renderBooks(){
+    var level = S.level, high = level === '고등', terms = high ? H_TERMS : M_TERMS, rows = booksOf(level);
+    var schools = [], ord = {};
+    rows.forEach(function(b){ if (!(b.school in ord)){ ord[b.school] = b.ord; schools.push(b.school); } });
+    schools.sort(function(a, b){ return (ord[a] - ord[b]) || a.localeCompare(b, 'ko'); });
+    var cellOf = function(s, t){ for (var i = 0; i < rows.length; i++) if (rows[i].school === s && rows[i].term === t) return rows[i]; return null; };
+    var cnt = function(lv){ var o = {}; booksOf(lv).forEach(function(b){ o[b.school] = 1; }); return Object.keys(o).length; };
+    var mob = narrow(960), sem = nowSem();
+    var bar = '<div class="bar"><div class="pills" id="lpills">' + ['고등', '중등'].map(function(x){
+        return '<button type="button" class="pill' + (x === level ? ' on' : '') + '" data-l="' + x + '" style="font-family:var(--fB);font-size:15px">' + x + ' · ' + cnt(x) + '개교</button>'; }).join('') + '</div>' +
+      (S.admin ? '<span class="ahint">' + ic('p') + '원장님 계정 · 칸을 누르면 고칠 수 있어요<button type="button" id="btnAddSchool">학교 추가</button></span>' : '') + '</div>';
+    if (!schools.length){ $('view').innerHTML = '<div style="display:flex;flex-direction:column;gap:18px">' + bar + '<div class="box empty">' + level + ' 편제표가 없습니다.</div></div>'; return; }
+    var isNowT = function(t){ return high && +t.slice(-1) === sem; };
+    var cellIn = function(c){
+      if (!c) return '';
+      if (high) return (c.subject ? '<span class="sj">' + esc(c.subject) + '</span>' : '') + (c.publisher ? '<span class="pb">' + esc(c.publisher) + '</span>' : '') + (c.note ? '<span class="bn">' + esc(c.note) + '</span>' : '');
+      return (c.publisher ? '<span class="pb">' + esc(c.publisher) + '</span>' : '') + (c.note ? '<span class="bn">' + esc(c.note) + '</span>' : '');
+    };
+    var html;
+    if (!mob){
+      var ed = S.admin ? ' ed' : '';
+      html = '<div class="box bt" style="grid-template-columns:112px repeat(' + terms.length + ',minmax(0,1fr))">';
+      if (high){
+        html += '<div class="c0 r0 hg" style="grid-row:span 2;justify-content:flex-end;font-family:var(--fB);font-size:13.5px;color:var(--sub);padding-bottom:10px">학교</div>';
+        ['1학년', '2학년', '3학년'].forEach(function(y){ html += '<div class="r0 hg" style="grid-column:span 2">' + y + '</div>'; });
+        terms.forEach(function(t){ html += '<div class="hd hs">' + (t.slice(-1) + '학기') + (isNowT(t) ? '<span class="now-t">지금</span>' : '') + '</div>'; });
+      } else {
+        html += '<div class="c0 r0 hd" style="padding-top:16px">학교</div>';
+        terms.forEach(function(t){ html += '<div class="r0 hg" style="padding-bottom:12px">' + t + '</div>'; });
+      }
+      schools.forEach(function(s){
+        var memo = cellOf(s, '');
+        html += '<div class="c0 sn' + ed + '" data-s="' + esc(s) + '" data-t="">' + esc(s) + (memo && memo.note ? '<small>' + esc(memo.note) + '</small>' : '') + '</div>';
+        terms.forEach(function(t){ html += '<div class="' + (high ? '' : 'mid') + ed + '" data-s="' + esc(s) + '" data-t="' + t + '">' + cellIn(cellOf(s, t)) + '</div>'; });
+      });
+      html += '</div>';
+    } else {
+      if (schools.indexOf(S.school) < 0) S.school = schools[0];
+      var s = S.school, memo = cellOf(s, '');
+      html = '<div class="spills" id="spills">' + schools.map(function(x){ return '<button type="button" data-s="' + esc(x) + '"' + (x === s ? ' class="on"' : '') + '>' + esc(x) + '</button>'; }).join('') + '</div>' +
+        '<div class="scard"><div class="st' + (S.admin ? ' ed' : '') + '" data-s="' + esc(s) + '" data-t=""' + (S.admin ? ' style="cursor:pointer"' : '') + '><b>' + esc(s) + '</b><span>' + level + ' · ' + (high ? '학기별' : '학년별') + '</span></div>' +
+        (memo && memo.note ? '<div class="smemo">' + esc(memo.note) + '</div>' : '') +
+        terms.map(function(t){
+          var c = cellOf(s, t);
+          return '<div class="srow' + (S.admin ? ' ed' : '') + '" data-s="' + esc(s) + '" data-t="' + t + '"><div class="tm"><b>' + t + '</b>' + (isNowT(t) ? '<span class="now-t">지금</span>' : '') + '</div>' +
+            '<div class="ct">' + (cellIn(c) || '<span class="nil">—</span>') + '</div><span class="pe">' + (S.admin ? ic('p') : '') + '</span></div>';
+        }).join('') + '</div>';
+    }
+    $('view').innerHTML = '<div style="display:flex;flex-direction:column;gap:' + (mob ? 12 : 18) + 'px">' + bar + html + '</div>';
+  }
+
+  /* ── 고치기 창(원장님만) ── */
+  var D = null;
+  function openDlg(o){
+    D = o;
+    $('dlgSub').textContent = o.sub; $('dlgTitle').textContent = o.title;
+    $('dlg').className = 'dlg' + (o.narrow ? ' narrow' : '');
+    $('dlgBack').classList.toggle('sheet', narrow(760));
+    $('dlgBody').innerHTML = o.fields.map(function(f){
+      if (f.type === 'exam') return '<div class="fl"><span>내신 대비 주</span><div class="xp" id="xp">' + [''].concat(EXAMS).map(function(x){
+        return '<button type="button" data-x="' + x + '"' + (x === f.v ? ' class="on"' : '') + '>' + (x || '없음') + '</button>'; }).join('') + '</div></div>';
+      return '<label class="fl"><span>' + f.label + '</span>' + (f.rows
+        ? '<textarea id="f_' + f.k + '" rows="' + f.rows + '" maxlength="' + (f.max || 1000) + '" placeholder="' + esc(f.ph || '') + '">' + esc(f.v || '') + '</textarea>'
+        : '<input type="text" id="f_' + f.k + '" maxlength="' + (f.max || 100) + '" placeholder="' + esc(f.ph || '') + '" value="' + esc(f.v || '') + '">') + '</label>';
+    }).join('') + (o.hint ? '<div class="dn">' + o.hint + '</div>' : '') + '<div class="err" id="dlgErr"></div>';
+    D.exam = (o.fields.filter(function(f){ return f.type === 'exam'; })[0] || {}).v;
+    D.init = JSON.stringify(vals());
+    $('dlgSave').disabled = false; $('dlgSave').textContent = '저장';
+    $('dlgBack').hidden = false;
+    var first = $('dlgBody').querySelector('textarea,input'); if (first && !narrow(760)) first.focus();
+  }
+  function vals(){ var o = {}; D.fields.forEach(function(f){ if (f.type === 'exam') o.exam = D.exam; else o[f.k] = $('f_' + f.k).value; }); return o; }
+  function closeDlg(force){
+    if (!D) return;
+    if (!force && JSON.stringify(vals()) !== D.init && !confirm('저장하지 않은 내용이 있습니다. 닫을까요?')) return;
+    $('dlgBack').hidden = true; D = null;
+  }
+  $('dlgX').onclick = function(){ closeDlg(); };
+  $('dlgCancel').onclick = function(){ closeDlg(); };
+  $('dlgBack').addEventListener('click', function(e){
+    if (e.target === $('dlgBack')) return closeDlg();
+    var b = e.target.closest('#xp button[data-x]');
+    if (b && D){ D.exam = b.dataset.x; [].forEach.call($('xp').children, function(x){ x.classList.toggle('on', x === b); }); }
+  });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && D) closeDlg(); });
+  $('dlgSave').onclick = function(){
+    if (!D) return;
+    var v = vals(), btn = $('dlgSave');
+    btn.disabled = true; btn.textContent = '저장 중…'; $('dlgErr').textContent = '';
+    D.save(v).then(function(){ closeDlg(true); render(false); status('저장했습니다.'); })
+      .catch(function(e){
+        btn.disabled = false; btn.textContent = '저장';
+        $('dlgErr').textContent = /not_admin/.test(e.message) ? '원장님 계정만 고칠 수 있습니다.' : '저장하지 못했습니다. ' + e.message;
+      });
+  };
+  function upsertLocal(list, row, keys){
+    for (var i = 0; i < list.length; i++){ if (keys.every(function(k){ return list[i][k] === row[k]; })){ list[i] = row; return; } }
+    list.push(row);
+  }
+  function editWeek(w){
+    var g = S.grade, r = weekRow(g, w) || {}, ws = weeksOfYear(S.year);
+    var fields = [];
+    if (S.examCol) fields.push({ type: 'exam', v: r.exam || '' });
+    fields.push({ k: 'ga', label: GA_LBL[g] || '가 수업', v: r.ga, rows: 4 });
+    if (hasNa(g)) fields.push({ k: 'na', label: NA_LBL[g] || '나 수업', v: r.na, rows: 4 });
+    fields.push({ k: 'note', label: '메모', v: r.note, max: 300, ph: '선생님들께 알릴 내용' });
+    openDlg({ sub: g + ' · ' + (ws.indexOf(w) + 1) + '주차', title: mdLong(w) + ' 수업 고치기', fields: fields,
+      hint: '줄을 바꾸면 화면에서도 줄이 바뀝니다. 1. 2.처럼 숫자로 시작하는 줄은 항목, 그 아래 숫자 없는 줄은 설명으로 한 단계 들여 써져요.',
+      save: function(v){
+        var body = { p_year: S.year, p_grade: g, p_week: w, p_ga: v.ga, p_na: v.na != null ? v.na : (r.na || ''), p_note: v.note };
+        if (S.examCol) body.p_exam = v.exam || '';
+        return rpc('curriculum_set', body).then(function(row){ upsertLocal(S.weeks, row, ['year', 'grade', 'week']); });
+      } });
+  }
+  function editBook(school, term){
+    var level = S.level, c = null;
+    S.books.forEach(function(b){ if (b.year === S.year && b.level === level && b.school === school && b.term === term) c = b; });
+    c = c || {};
+    var fields = term === '' ? [{ k: 'note', label: '학교 메모', v: c.note, max: 300, rows: 3, ph: '없으면 비워 두세요' }]
+      : (level === '고등' ? [{ k: 'subject', label: '과목명', v: c.subject }] : []).concat([
+          { k: 'publisher', label: '출판사', v: c.publisher },
+          { k: 'note', label: '특이사항', v: c.note, max: 300, rows: 3, ph: '없으면 비워 두세요' }]);
+    openDlg({ sub: school + ' · ' + level, title: term ? term + ' 칸 고치기' : '학교 메모 고치기', narrow: true, fields: fields,
+      save: function(v){
+        return rpc('curriculum_book_set', { p_year: S.year, p_level: level, p_school: school, p_term: term,
+          p_subject: v.subject != null ? v.subject : (level === '중등' && term ? (c.subject || '국어') : (c.subject || '')),
+          p_publisher: v.publisher != null ? v.publisher : (c.publisher || ''), p_note: v.note || '' })
+          .then(function(row){ upsertLocal(S.books, row, ['year', 'level', 'school', 'term']); });
+      } });
+  }
+  function addSchool(){
+    var level = S.level;
+    openDlg({ sub: level, title: '학교 추가', narrow: true,
+      fields: [{ k: 'school', label: '학교 이름', v: '', max: 30 }, { k: 'note', label: '학교 메모 (선택)', v: '', max: 300, rows: 3, ph: '없으면 비워 두세요' }],
+      hint: '학교를 만든 뒤 칸을 눌러 과목·출판사를 채우면 됩니다.',
+      save: function(v){
+        var name = String(v.school || '').trim();
+        if (!name) return Promise.reject(new Error('학교 이름을 적어 주세요.'));
+        if (booksOf(level).some(function(b){ return b.school === name; })) return Promise.reject(new Error('이미 있는 학교입니다.'));
+        return rpc('curriculum_book_set', { p_year: S.year, p_level: level, p_school: name, p_term: '', p_subject: '', p_publisher: '', p_note: v.note || '' })
+          .then(function(row){ upsertLocal(S.books, row, ['year', 'level', 'school', 'term']); S.school = name; });
+      } });
+  }
+
+  /* ── 누르기 ── */
+  $('tabs').addEventListener('click', function(e){ var b = e.target.closest('button[data-t]'); if (!b) return; S.tab = b.dataset.t; window.scrollTo(0, 0); render(true); });
+  $('year').addEventListener('change', function(){ S.year = +this.value; S.week = clampWeek(nowWeek()); render(true); });
+  $('view').addEventListener('click', function(e){
+    var t = e.target, b;
+    if ((b = t.closest('[data-wk]'))){
+      if (b.disabled || b.getAttribute('aria-disabled')) return;
+      var n = +b.dataset.wk; S.week = clampWeek(n ? addDays(S.week, n) : nowWeek()); renderWeek(); return;
+    }
+    if ((b = t.closest('#mtog button[data-m]'))){ S.mmode = b.dataset.m; try { localStorage.setItem('cur_mmode', S.mmode); } catch (x) {} renderWeek(); return; }
+    if ((b = t.closest('#gpills button[data-g]'))){ S.grade = b.dataset.g; render(true); return; }
+    if ((b = t.closest('#lpills button[data-l]'))){ S.level = b.dataset.l; render(); return; }
+    if ((b = t.closest('#spills button[data-s]'))){ S.school = b.dataset.s; renderBooks(); return; }
+    if ((b = t.closest('[data-jump]'))){ scrollToWeek(b.dataset.jump, false); return; }
+    if (t.closest('#btnAddSchool')){ addSchool(); return; }
+    if (!S.admin) return;
+    if ((b = t.closest('.yr.ed[data-w], .yc.ed[data-w]'))){ editWeek(b.dataset.w); return; }
+    if ((b = t.closest('.ed[data-s]'))){ editBook(b.dataset.s, b.dataset.t); return; }
+  });
+  var rT = null;
+  window.addEventListener('resize', function(){
+    clearTimeout(rT);
+    rT = setTimeout(function(){ var k = narrow(760) + '|' + narrow(900) + '|' + narrow(960); if (k !== lastNarrow && S.weeks.length) render(false); }, 200);
+  });
+
+  TeacherAuth.ready.then(function(ctx){
+    var p = ctx && ctx.profile;
+    S.admin = !!(p && p.role === 'admin');
+    return load();
+  }).catch(function(){});
+})();
+</script>
+</body>
+</html>

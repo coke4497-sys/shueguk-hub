@@ -5,13 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>알림톡 · 슈국 티쳐스</title>
 <script src="assets/teacher-auth.js" data-mode="protected"></script>
+<script src="https://coke4497-sys.github.io/shueguk-report/activity.js"></script><!-- 티쳐스 활동 → 원장님 슈톡 알림(2026-10-27) -->
 <!-- 슈국 운영 · 알림톡 (2026-09-29 사용자 요청 "알림톡 기능을 슈국 운영 메뉴에서 발송할 수 있도록")
      · 공지를 등록하지 않고도 공지 알림톡(notice_* 종류)을 바로 보낸다. 종류·문구·준비 여부는 리포트 백엔드 alimConfig가 준다.
      · 대상 고르기는 복습 영상(review.html)과 같은 다섯 가지 — 전체·학년·학교·반·개인. 반 명단 이름 대조 규칙(findStu)도 같다.
      · 받는 분 = 학생·학부모1·학부모2 체크(기본 모두 — 2026-09-29 사용자 "학생, 학부모님 모두에게 발송"), 받는 분마다 한 건.
      · 발송은 백엔드 alimSend(50건씩 나눠서). 중복 키는 공지 화면(notice.html)과 같은 'N:날짜|제목' — 같은 날 같은 제목은 두 번 가지 않는다.
      · 자동 발송은 없다 — [알림톡 보내기]를 누르고 확인 창에서 한 번 더 확인해야 간다.
-     · 결석 안내(absent)·결석 예고(preabsent)는 수업일·반이름이 필요해 여기서 보내지 않는다 — 슈국 스케쥴 출석 창에서.
+     · 출석 알림(결석 안내·결석 예고·미등원·지각 등원)도 여기서 보낸다(2026-10-30 원장님 "여기에서 모든 알림톡을 보낼 수 있게 해줘. 결석, 미등원, 지각 등등"):
+       종류를 고르면 제목 대신 '수업' 상자(#attBox — 수업 날짜 → 그 요일의 정규/내신 반 → 반 명단에서 학생 고르기 + 종류별 칸)가 열린다.
+       변수(수업일 '10/30(금) 5:30' · 반이름)·중복 키(학생·수업일 yyyy-MM-dd·받는 분)·학원번호(센터 전화) 규칙은 슈국 스케쥴 출석 창(timetable.html alim 블록)과 같다 —
+       한쪽에서 보낸 결석은 다른 쪽에서 두 번 가지 않는다. 결석 안내·미등원·지각 등원은 예약 없이 바로만(백엔드가 거절) — 결석 예고만 예약할 수 있다.
+       슈국 스케쥴 출석 창은 그대로(출석 기록과 함께 보내는 주 경로) — 여기는 기록 없이 알림톡만 보낸다.
      · 화면은 탭 세 개(2026-10-03 원장님 디자인 시안 "디자인 개선"): [알림톡 보내기](2열 — 왼쪽 입력, 오른쪽 크림색 미리보기) / [발송 내역](표 — 날짜·종류·제목·받을 학생·인원·상태 알약) /
        [알림톡 설정](카드 두 장 — 솔라피 연결 · 카카오 채널·템플릿 = 옛 슈국 스케쥴 [알림톡] 창을 옮겨 온 것, 2026-10-01). 휴대폰(≤760px)은 한 열, 미리보기는 접었다 편다.
        슈국 스케쥴 [알림톡] 버튼은 #settings 로 와서 설정 탭이 열린다. 요소 id·함수 이름은 그대로라 E2E(tools/alimtalk-e2e-test.js)가 탭을 눌러 가며 검사한다.
@@ -98,6 +103,18 @@
   .pick-foot{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:10px;font-size:.82rem;color:var(--cap);}
   .pick-foot b{color:var(--ink);font-size:.9rem;font-family:var(--serif);}
   .sum{margin-top:12px;font-size:.86rem;color:var(--ink-soft);}
+  /* 출석 알림 — 수업 날짜·반·학생 고르기(2026-10-30) */
+  input[type=date]{font:inherit;font-size:.95rem;padding:10px 13px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);}
+  .pickbox.att{margin-top:0;}
+  .att-stus{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .att-stus:empty{display:none;}
+  .att-stus .btn{border-radius:999px;font-size:.86rem;padding:6px 12px;}
+  .att-stus .btn.on{background:var(--lilac);color:var(--lilac-ink);}
+  .att-stus .btn.no{opacity:.55;text-decoration:line-through;cursor:default;}
+  .att-stus .btn.all{background:#fff;box-shadow:0 1px 2px rgba(42,51,47,.06);}
+  .opt-pills{display:flex;flex-wrap:wrap;gap:6px;}
+  .opt-pills .btn{border-radius:999px;}
+  .opt-pills .btn.on{background:var(--lilac);color:var(--lilac-ink);}
   .sum b{color:var(--ink);font-family:var(--serif);}
   .warn{margin-top:8px;font-size:.84rem;background:var(--warn-bg);color:var(--warn-ink);border-radius:12px;padding:9px 13px;}
   .muted{color:var(--cap);font-size:.86rem;}
@@ -208,7 +225,7 @@
   <header class="top">
     <div>
       <h1>알림톡</h1>
-      <p class="sub">같은 날 같은 제목은 한 번만 갑니다. 결석 알림은 슈국 스케쥴 출석 창에서 바로 보내요 — <a href="alim_absent_guide.html">결석 알림톡 보내는 법 안내</a></p>
+      <p class="sub">공지·결석·미등원·지각 등원 알림톡을 모두 여기서 보냅니다. 같은 학생·같은 수업(같은 제목)에는 한 번만 가요 — <a href="alim_absent_guide.html">결석 알림톡 보내는 법 안내</a></p>
     </div>
     <a class="back" href="ops.html">← 슈국 운영</a>
   </header>
@@ -226,9 +243,25 @@
         <div class="form">
           <label class="f" for="kindSel">알림톡 종류</label>
           <select id="kindSel" onchange="kindChanged()"><option value="">불러오는 중…</option></select>
-          <label class="f" for="title">제목 (▶ 줄)</label>
-          <input type="text" id="title" maxlength="60" placeholder="예) 10월 수업 일정 변경 안내" oninput="refresh()" autocomplete="off">
-          <div id="xvars"></div>
+          <div id="noticeBox">
+            <label class="f" for="title">제목 (▶ 줄)</label>
+            <input type="text" id="title" maxlength="60" placeholder="예) 10월 수업 일정 변경 안내" oninput="refresh()" autocomplete="off">
+            <div id="xvars"></div>
+          </div>
+          <!-- 출석 알림(결석·결석 예고·미등원·지각 등원) — 수업을 고르고 그 반 명단에서 학생을 고른다 -->
+          <div id="attBox" style="display:none">
+            <label class="f" for="attDate">수업 날짜</label>
+            <div class="cls-bar"><input type="date" id="attDate" onchange="attDateChanged()"><span class="muted" id="attDateNote"></span></div>
+            <label class="f">수업 (그 날짜 요일의 반)</label>
+            <div class="pickbox att"><div class="cls-bar">
+              <span class="pills"><button class="btn on" type="button" id="atBk-정규" onclick="attSetBook('정규')">정규</button><button class="btn" type="button" id="atBk-내신" onclick="attSetBook('내신')">내신</button></span>
+              <select id="atTSel" onchange="attFillClassSel()"></select>
+              <select id="atClsSel" onchange="attPickClass(this.value)"><option value="">반 목록을 불러오는 중…</option></select>
+            </div>
+            <div class="att-stus" id="atStus"></div>
+            <div class="pick-foot"><span id="atHint">반을 고르면 그 반 학생이 보입니다 — 누르면 담겨요</span><b id="atCount"></b></div></div>
+            <div id="atExtra"></div>
+          </div>
 
           <label class="f">받는 분</label>
           <div class="whos" id="whos">
@@ -237,11 +270,11 @@
             <label class="on"><input type="checkbox" class="who" value="학부모2" checked onchange="refresh()">학부모님2 <i>✓</i></label>
           </div>
 
-          <label class="f">받을 학생</label>
+          <label class="f" id="pickLabel">받을 학생</label>
           <div class="pills" id="modeSeg">
             <button class="btn" type="button" data-m="all">전체</button><button class="btn" type="button" data-m="grade">학년</button><button class="btn" type="button" data-m="school">학교</button><button class="btn on" type="button" data-m="cls">반</button><button class="btn" type="button" data-m="stu">개인</button>
           </div>
-          <div class="pickbox">
+          <div class="pickbox" id="pickMain">
             <div class="mpane" id="pane-all"><p class="muted" id="allNote" style="margin:0;">재원생 전체에게 보냅니다.</p></div>
             <div class="mpane" id="pane-grade"><div class="gpills" id="gradePills"><span class="muted">재원 명단을 불러오는 중…</span></div></div>
             <div class="mpane" id="pane-school"><div class="cls-bar"><select id="schSel" onchange="addSchool(this.value)"></select></div></div>
@@ -380,6 +413,7 @@
   function expand(){
     const out = {}, miss = [], dup = [];
     const put = s => { out[s.key] = s; };
+    if (isAtt(curKind())){ ATT.stus.forEach(k => { const s = STUS.find(x => x.key === k); if (s) put(s); }); return { list: Object.keys(out).map(k => out[k]), miss, dup }; }
     if (MODE === 'all') STUS.forEach(put);
     if (MODE === 'grade') STUS.filter(s => SEL.grade.indexOf(gradeShort(s.grade)) >= 0).forEach(put);
     if (MODE === 'school') STUS.filter(s => SEL.school.indexOf(s.school) >= 0).forEach(put);
@@ -393,6 +427,7 @@
     return { list: Object.keys(out).map(k => out[k]), miss, dup };
   }
   function picked(){
+    if (isAtt(curKind())) return ATT.cls ? ATT.stus.length : 0;
     if (MODE === 'all') return 1;
     return MODE === 'cls' ? SEL.cls.length : SEL[MODE === 'stu' ? 'stu' : MODE].length;
   }
@@ -455,9 +490,9 @@
   function loadClasses(book){
     if (CLASSES[book]) return Promise.resolve(CLASSES[book]);
     // '이 주만' 반(w…)은 그 날짜에만 있는 임시 반이라 뺀다
-    return sbAll('/tt_classes?book=eq.' + encodeURIComponent(book) + '&class_id=not.like.w*&select=class_id,name,day,start_time,teacher,roster')
+    return sbAll('/tt_classes?book=eq.' + encodeURIComponent(book) + '&class_id=not.like.w*&select=class_id,name,day,start_time,teacher,roster,location')
       .then(rows => {
-        CLASSES[book] = rows.map(r => ({ book, id: r.class_id, name: r.name, day: r.day, start: r.start_time, teacher: String(r.teacher || ''),
+        CLASSES[book] = rows.map(r => ({ book, id: r.class_id, name: r.name, day: r.day, start: r.start_time, teacher: String(r.teacher || ''), loc: String(r.location || ''),
           students: String(r.roster || '').trim().split(/\s+/).filter(Boolean) }))
           .sort((a, b) => (DAYS[a.day] - DAYS[b.day]) || String(a.start).localeCompare(String(b.start), 'ko', { numeric: true }) || a.name.localeCompare(b.name, 'ko'));
         return CLASSES[book];
@@ -496,7 +531,13 @@
   }
 
   /* ── 알림톡 설정·종류 ── */
-  function kinds(){ const t = (CFG && CFG.templates) || {}; return Object.keys(t).filter(k => t[k].notice || /^notice/.test(k)); }
+  /* 종류 = 백엔드 alimConfig 의 템플릿 전부 — 공지(notice_*) 묶음 먼저, 출석 알림(결석·결석 예고·미등원·지각 등원) 묶음 뒤에(2026-10-30) */
+  const ATT_KINDS = ['absent', 'preabsent', 'noshow', 'arrived'];
+  const isAtt = k => ATT_KINDS.indexOf(k) >= 0;
+  function curKind(){ return $('kindSel').value; }
+  function noticeKinds(){ const t = (CFG && CFG.templates) || {}; return Object.keys(t).filter(k => t[k].notice || /^notice/.test(k)); }
+  function attKinds(){ const t = (CFG && CFG.templates) || {}; return ATT_KINDS.filter(k => t[k]); }
+  function kinds(){ return noticeKinds().concat(attKinds()); }
   function tplOf(k){ return CFG && CFG.templates && CFG.templates[k]; }
   /* 종류별 추가 변수(모의고사 #{신청일} 등) — 기본 셋 밖의 변수는 입력 칸을 만들고 다 채워야 보낸다.
    * 칸은 종류를 바꿀 때만 다시 그린다(입력 중에 다시 그리면 한글 조합이 끊긴다). */
@@ -505,7 +546,8 @@
   function extraVars(tpl){ return ((tpl && tpl.vars) || []).filter(v => BASE_VARS.indexOf(v) < 0); }
   function xVals(){ const o = {}; document.querySelectorAll('.xvar').forEach(el => { o[el.dataset.var] = el.value.trim(); }); return o; }
   function kindChanged(){
-    const xs = extraVars(tplOf($('kindSel').value)), keep = xVals();
+    attSync();
+    const xs = isAtt(curKind()) ? [] : extraVars(tplOf($('kindSel').value)), keep = xVals();
     $('xvars').innerHTML = xs.map(v => '<label class="f">' + esc(v) + ' (알림톡 안내 문구에 들어갑니다)</label>' +
       '<input type="text" class="xvar" data-var="' + esc(v) + '" maxlength="60" placeholder="' + esc(X_HINT[v] || '') + '" value="' + esc(keep[v] != null ? keep[v] : (X_DEFAULT[v] || '')) + '" oninput="refresh()" autocomplete="off">').join('');
     refresh();
@@ -513,11 +555,13 @@
   function loadCfg(){
     return api({ action: 'alimConfig' }).then(d => { CFG = (d && d.result === 'success') ? d : null; }).catch(() => { CFG = null; }).then(() => {
       const ks = kinds(), st = $('cfgState'), was = $('kindSel').value;   // 설정을 다시 읽어도 고른 종류는 유지
-      $('kindSel').innerHTML = ks.length ? ks.map(k => { const t = tplOf(k); return '<option value="' + esc(k) + '"' + (t.ready ? '' : ' disabled') + '>' + esc(t.label) + (t.ready ? '' : ' (준비 전)') + '</option>'; }).join('') : '<option value="">종류 없음</option>';
+      const opt = k => { const t = tplOf(k); return '<option value="' + esc(k) + '"' + (t.ready ? '' : ' disabled') + '>' + esc(t.label) + (t.ready ? '' : ' (준비 전)') + '</option>'; };
+      const grp = (label, list) => list.length ? '<optgroup label="' + label + '">' + list.map(opt).join('') + '</optgroup>' : '';
+      $('kindSel').innerHTML = ks.length ? grp('공지 알림', noticeKinds()) + grp('출석 알림 — 수업·학생을 골라 보냅니다', attKinds()) : '<option value="">종류 없음</option>';
       const first = ks.find(k => tplOf(k).ready); if (first) $('kindSel').value = (was && tplOf(was) && tplOf(was).ready) ? was : first;
       if (!CFG){ st.className = 'state bad'; st.textContent = '알림톡 설정을 불러오지 못했습니다. 새로고침해 주세요.'; }
       else if (!CFG.ready){ st.className = 'state bad'; st.textContent = '알림톡 설정 전입니다. [알림톡 설정] 탭에서 솔라피 정보를 넣어 주세요.'; }
-      else if (!first){ st.className = 'state bad'; st.textContent = '승인된 공지 알림 템플릿이 아직 없습니다. 솔라피 심사가 끝나면 [알림톡 설정] 탭 → [솔라피에서 가져오기]를 눌러 주세요.'; }
+      else if (!first){ st.className = 'state bad'; st.textContent = '승인된 알림톡 템플릿이 아직 없습니다. 솔라피 심사가 끝나면 [알림톡 설정] 탭 → [솔라피에서 가져오기]를 눌러 주세요.'; }
       else { const n = ks.filter(k => tplOf(k).ready).length; st.className = 'state'; st.textContent = '보낼 수 있는 종류 ' + n + '개 / ' + ks.length + '개' + (n < ks.length ? ' — (준비 전) 표시는 솔라피 심사가 끝나면 열려요.' : '') + (CFG.smsFallback ? '' : ' 카카오톡을 못 받는 번호는 문자로 대체되지 않아요(발신번호 없음).'); }
       kindChanged(); renderSettings();
     });
@@ -527,12 +571,12 @@
   function renderSettings(){
     const b = $('cfgBadges'), tp = $('tplPills');
     if (!CFG){ b.innerHTML = '<span class="muted">설정을 확인하지 못했습니다. 새로고침해 주세요.</span>'; tp.innerHTML = ''; $('pfBadge').textContent = ''; $('tplCount').textContent = ''; $('tplTexts').innerHTML = ''; $('tplInputs').innerHTML = ''; return; }
-    const t = CFG.templates || {}, has = CFG.has || {}, nk = kinds();
+    const t = CFG.templates || {}, has = CFG.has || {};
     const row = (label, on, yes, no, sub) => '<div class="srow"><span class="sl">' + esc(label) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span><span class="bdg' + (on ? '' : ' no') + '">' + (on ? yes : no) + '</span></div>';
     b.innerHTML = row('솔라피 API 키 · Secret', has.key && has.secret, '저장됨', '없음', '발송에 꼭 필요합니다') +
       row('문자 대체 발신번호', has.from, '저장됨', '없음', '카카오톡을 못 받는 번호는 문자로 갑니다');
     $('pfBadge').className = 'bdg' + (has.pfId ? '' : ' no'); $('pfBadge').textContent = has.pfId ? '연결됨' : '없음';
-    const all = ['absent', 'preabsent'].filter(k => t[k]).concat(nk), okN = all.filter(k => t[k].ready).length;
+    const all = attKinds().concat(noticeKinds()), okN = all.filter(k => t[k].ready).length;
     $('tplCount').textContent = '승인 ' + okN + ' / ' + all.length;
     tp.innerHTML = all.map(k => '<span class="bdg tp' + (t[k].ready ? '' : ' wait') + '">' + esc(t[k].label) + ' ' + (t[k].ready ? '승인됨' : '준비 전') + '</span>').join('');
     $('tplTexts').innerHTML = all.map(k => '<p class="tpl-h">' + esc(t[k].label) + '</p><div class="prev">' + esc(t[k].text) +
@@ -579,18 +623,149 @@
     });
   }
 
+  /* ── 출석 알림(결석 안내·결석 예고·미등원·지각 등원) — 수업 날짜 → 그 요일의 반 → 반 명단에서 학생(2026-10-30 원장님 "모든 알림톡을 여기서").
+   * 슈국 스케쥴 출석 창과 같은 값을 보낸다: 수업일 '10/30(금) 5:30'(alimVarsOf) · 반이름 · 중복 키 date = yyyy-MM-dd · cls = 반이름 · 학생명 = 명단 이름.
+   * 결석 예고의 알린 분·보충 안내 선택지는 백엔드 템플릿 options(없으면 아래 기본값) — 알린 분은 기본값 없음(틀린 쪽이 나가면 학부모님이 오해), 보충 안내는 첫째가 기본.
+   * 미등원의 #{학원번호} = 그 수업 센터 전화(timetable.html ALIM_CENTER_TEL 과 같은 표 — 바뀌면 둘 다). 지각 등원의 #{등원시각} = 지금 시각(고칠 수 있음). */
+  const ATT = { ymd: '', book: '정규', cls: null, stus: [], from: '', reason: '', mk: '', tel: '', hm: '' };
+  const ATT_FROM_OPTS = ['학부모님께', '학생에게'], ATT_MK_OPTS = ['보충 일정은 별도 안내드립니다.', '당일 결석이므로 보충을 진행하지 않습니다.'];
+  const ATT_CENTER_TEL = [['본원', '031-973-4497'], ['화정센터', '031-979-4497'], ['민트초코', '031-969-4497'], ['정리정독', '031-994-0624'], ['도래울', '031-969-4497']];
+  const ATT_FIXED = { absent: '오늘까지의 수업 — 지난 날짜 결석도 보낼 수 있어요', preabsent: '내일부터의 수업 — 미리 알린 결석', noshow: '오늘 수업만', arrived: '오늘 수업만' };
+  function attOpts(tpl, key, dflt){ const o = tpl && tpl.options && tpl.options[key]; return (o && o.length) ? o : dflt; }
+  function attDow(ymd){ return ymd ? DOW[new Date(ymd + 'T00:00:00Z').getUTCDay()] : ''; }
+  function attWhen(c, ymd){ return ymd ? (+ymd.slice(5, 7)) + '/' + (+ymd.slice(8, 10)) + '(' + attDow(ymd) + ') ' + (c ? c.start : '') : ''; }
+  function attGrade(c){ const m = String((c && c.name) || '').match(/고[1-3]|중[1-3]/); return m ? m[0] : ''; }
+  function attCenterOf(c){
+    const loc = String((c && c.loc) || '').trim();
+    let hit = ATT_CENTER_TEL.find(([k]) => loc && (loc === k || loc.indexOf(k) === 0 || (k === '민트초코' && /민초/.test(loc))));
+    if (!hit){ const g = attGrade(c), key = g === '고3' ? '본원' : g === '고2' ? '민트초코' : g === '고1' ? '화정센터' : /^중/.test(g) ? '정리정독' : '본원'; hit = ATT_CENTER_TEL.find(([k]) => k === key); }
+    return hit[0];
+  }
+  function attTelOf(name){ const h = ATT_CENTER_TEL.find(([k]) => k === name); return h ? h[1] : ''; }
+  function attNowHM(){ const d = new Date(Date.now() + 9 * 3600e3), h = d.getUTCHours(), m = d.getUTCMinutes(); return (h < 12 ? '오전 ' : '오후 ') + (h % 12 || 12) + ':' + (m < 10 ? '0' : '') + m; }
+  /* 종류를 바꿀 때 — 출석 종류면 수업 상자를 열고(제목·받을 학생 고르기는 숨김) 날짜 범위·종류별 칸을 맞춘다. 예약은 결석 예고만(백엔드가 그 밖은 거절) */
+  function attSync(){
+    const k = curKind(), att = isAtt(k);
+    $('noticeBox').style.display = att ? 'none' : '';
+    $('attBox').style.display = att ? '' : 'none';
+    $('pickLabel').style.display = att ? 'none' : ''; $('modeSeg').style.display = att ? 'none' : ''; $('pickMain').style.display = att ? 'none' : '';
+    $('when').style.display = (att && k !== 'preabsent') ? 'none' : '';
+    if (att && k !== 'preabsent' && SCHED) setWhen(false);
+    if (!att) return;
+    const d = $('attDate'), today = kstYmd(), tomorrow = kstYmd(1);
+    d.min = k === 'preabsent' ? tomorrow : (k === 'absent' ? '' : today);
+    d.max = k === 'preabsent' ? '' : today;
+    if (!d.value || (d.min && d.value < d.min) || (d.max && d.value > d.max)) d.value = k === 'preabsent' ? tomorrow : today;
+    $('attDateNote').textContent = ATT_FIXED[k] || '';
+    if (k === 'arrived' && !ATT.hm) ATT.hm = attNowHM();
+    if (k === 'preabsent' && !ATT.mk) ATT.mk = attOpts(tplOf(k), '보충안내', ATT_MK_OPTS)[0];
+    if (k === 'noshow' && ATT.cls) ATT.center = attCenterOf(ATT.cls);
+    attDateChanged(true);
+    if (!CLASSES[ATT.book]) loadClasses(ATT.book).then(() => { attFillTeachers(); attFillClassSel(); }).catch(() => {});   // 반 목록이 아직 안 왔으면 오는 대로
+  }
+  function attDateChanged(keep){
+    ATT.ymd = $('attDate').value || '';
+    if (!keep || (ATT.cls && ATT.cls.day !== attDow(ATT.ymd))){ ATT.cls = null; ATT.stus = []; }
+    attFillTeachers(); attFillClassSel(); attDrawStus(); attExtraDraw(); refresh();
+  }
+  function attSetBook(b){
+    ATT.book = b; ATT.cls = null; ATT.stus = [];
+    ['정규', '내신'].forEach(x => $('atBk-' + x).classList.toggle('on', x === b));
+    $('atClsSel').innerHTML = '<option value="">반 목록을 불러오는 중…</option>';
+    loadClasses(b).then(() => { attFillTeachers(); attFillClassSel(); attDrawStus(); refresh(); }).catch(() => { $('atClsSel').innerHTML = '<option value="">반 목록을 불러오지 못했어요 — 새로고침</option>'; });
+  }
+  function attDayClasses(){ const dw = attDow(ATT.ymd); return (CLASSES[ATT.book] || []).filter(c => c.day === dw); }
+  function attFillTeachers(){
+    const sel = $('atTSel'), cur = sel.value, seen = {};
+    attDayClasses().forEach(c => { if (c.teacher) seen[c.teacher] = 1; });
+    const names = Object.keys(seen).sort((a, b) => tLabel(a).localeCompare(tLabel(b), 'ko'));
+    sel.innerHTML = '<option value="">담당 강사 전체</option>' + names.map(n => '<option value="' + esc(n) + '">' + esc(tLabel(n)) + ' 반</option>').join('');
+    if (seen[cur]) sel.value = cur;
+  }
+  function attFillClassSel(){
+    const t = $('atTSel').value, list = attDayClasses().filter(c => !t || c.teacher === t), sel = $('atClsSel');
+    if (!CLASSES[ATT.book]) return;
+    if (!list.length){ sel.innerHTML = '<option value="">' + esc(ATT.ymd ? attDow(ATT.ymd) + '요일에는 ' + ATT.book + ' 반이 없어요' : '날짜를 먼저 고르세요') + '</option>'; return; }
+    sel.innerHTML = '<option value="">반을 고르세요 (' + list.length + '개)</option>' + list.map(c => '<option value="' + esc(pickKey(c)) + '">' + esc(c.day + ' ' + c.start + ' · ' + c.name) +
+      (c.teacher ? ' · ' + esc(tLabel(c.teacher)) : '') + ' (' + c.students.length + '명)</option>').join('');
+    if (ATT.cls) sel.value = pickKey(ATT.cls);
+  }
+  function attPickClass(k){
+    const [b, id] = String(k || '').split('|'), c = (CLASSES[b] || []).find(x => x.id === id) || null;
+    ATT.cls = c; ATT.stus = [];
+    if (c) ATT.center = attCenterOf(c);   // 미등원 학원 번호 — 그 수업 센터로(고를 수 있음)
+    attDrawStus(); attExtraDraw(); refresh();
+  }
+  /* 반 명단 → 학생 알약(재원 명단과 잇는 규칙은 findStu — 못 가린 이름은 눌리지 않고 이유를 보여 준다) */
+  function attDrawStus(){
+    const box = $('atStus'), c = ATT.cls;
+    if (!c){ box.innerHTML = ''; $('atHint').textContent = '반을 고르면 그 반 학생이 보입니다 — 누르면 담겨요'; $('atCount').textContent = ''; return; }
+    const rows = c.students.map(tok => { const f = findStu(tok); return { tok, f }; }).filter(x => x.f.plain);
+    const okRows = rows.filter(x => x.f.hit);
+    box.innerHTML = (okRows.length > 1 ? '<button class="btn all" type="button" data-all="1">모두 담기</button><button class="btn all" type="button" data-all="0">모두 빼기</button>' : '') +
+      rows.map(x => x.f.hit
+        ? '<button class="btn' + (ATT.stus.indexOf(x.f.hit.key) >= 0 ? ' on' : '') + '" type="button" data-s="' + esc(x.f.hit.key) + '">' + esc(x.f.plain) + '</button>'
+        : '<button class="btn no" type="button" disabled title="' + (x.f.dup ? '같은 이름이 둘 이상이라 가리지 못했어요' : '재원 명단에서 찾지 못했어요') + '">' + esc(x.f.plain) + '</button>').join('');
+    $('atHint').textContent = ATT.stus.length ? '담은 학생에게만 보냅니다' : '이름을 눌러 보낼 학생을 담으세요' + (rows.length > okRows.length ? ' (흐린 이름은 재원 명단에서 못 가린 학생)' : '');
+    $('atCount').textContent = ATT.stus.length ? '학생 ' + ATT.stus.length + '명' : '';
+  }
+  $('atStus').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b || b.disabled) return;
+    if (b.dataset.all != null){ ATT.stus = b.dataset.all === '1' ? Array.from($('atStus').querySelectorAll('[data-s]')).map(x => x.dataset.s) : []; }
+    else { const k = b.dataset.s, i = ATT.stus.indexOf(k); if (i >= 0) ATT.stus.splice(i, 1); else ATT.stus.push(k); }
+    attDrawStus(); refresh();
+  });
+  /* 종류별 칸 — 결석 예고: 알린 분·사유·보충 안내 / 미등원: 학원 번호 / 지각 등원: 등원 시각. 고른 값은 ATT 에 두어 다시 그려도 남는다 */
+  function attExtraDraw(){
+    const k = curKind(), tpl = tplOf(k), box = $('atExtra');
+    const pills = (name, opts, cur) => '<div class="opt-pills" data-opt="' + name + '">' + opts.map(o => '<button class="btn' + (o === cur ? ' on' : '') + '" type="button" data-v="' + esc(o) + '">' + esc(o) + '</button>').join('') + '</div>';
+    if (k === 'preabsent'){
+      box.innerHTML = '<label class="f">누가 알렸나요? (알림톡에 "… 연락을 ○○ 받았습니다"로 들어갑니다)</label>' + pills('from', attOpts(tpl, '알린분', ATT_FROM_OPTS), ATT.from) +
+        '<label class="f" for="atReason">결석 사유 (학생·학부모님이 알린 그대로)</label><input type="text" id="atReason" maxlength="60" placeholder="예) 병원 진료" value="' + esc(ATT.reason) + '" oninput="ATT.reason = this.value.trim(); refresh()" autocomplete="off">' +
+        '<label class="f">보충 안내</label>' + pills('mk', attOpts(tpl, '보충안내', ATT_MK_OPTS), ATT.mk);
+    } else if (k === 'noshow'){
+      box.innerHTML = '<label class="f">학원 번호 (연락 부탁드리는 센터 전화 — 반을 고르면 그 수업 센터로 맞춰져요)</label>' + pills('center', ATT_CENTER_TEL.map(([n, t]) => n + ' ' + t), ATT.center ? ATT.center + ' ' + attTelOf(ATT.center) : '');
+    } else if (k === 'arrived'){
+      box.innerHTML = '<label class="f" for="atHm">등원 시각 (알림톡의 "(○○ 도착)" — 지금 시각이 들어 있어요)</label><input type="text" id="atHm" maxlength="12" value="' + esc(ATT.hm) + '" oninput="ATT.hm = this.value.trim(); refresh()" autocomplete="off">';
+    } else box.innerHTML = '';
+  }
+  $('atExtra').addEventListener('click', e => {
+    const b = e.target.closest('.opt-pills button'); if (!b) return;
+    const name = b.parentNode.dataset.opt; ATT[name] = name === 'center' ? b.dataset.v.split(' ')[0] : b.dataset.v;
+    b.parentNode.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); refresh();
+  });
+  /* 출석 종류의 변수(학생명 빼고) + 빠진 칸 이름 */
+  function attVars(){
+    const k = curKind(), v = { '수업일': attWhen(ATT.cls, ATT.ymd), '반이름': ATT.cls ? ATT.cls.name : '' };
+    if (k === 'preabsent'){ v['알린분'] = ATT.from; v['사유'] = ATT.reason; v['보충안내'] = ATT.mk; }
+    if (k === 'noshow') v['학원번호'] = attTelOf(ATT.center);
+    if (k === 'arrived') v['등원시각'] = ATT.hm;
+    return v;
+  }
+  function attMissing(){
+    const k = curKind(), m = [];
+    if (!ATT.ymd) m.push('수업 날짜');
+    if (!ATT.cls) m.push('수업(반)');
+    if (k === 'preabsent'){ if (!ATT.from) m.push('누가 알렸는지'); if (!ATT.reason) m.push('결석 사유'); if (!ATT.mk) m.push('보충 안내'); }
+    if (k === 'noshow' && !attTelOf(ATT.center)) m.push('학원 번호');
+    if (k === 'arrived' && !ATT.hm) m.push('등원 시각');
+    return m;
+  }
+  function attTitle(){ return attWhen(ATT.cls, ATT.ymd) + (ATT.cls ? ' ' + ATT.cls.name : ''); }
+  $('attDate').value = kstYmd();
+
   /* ── 요약·미리보기 — 보낼 건을 PLAN 에 모아 둔다 ── */
   function whos(){ return Array.from(document.querySelectorAll('.who:checked')).map(x => x.value); }
   function refresh(){
     PLAN = null;
-    const kind = $('kindSel').value, tpl = tplOf(kind), title = $('title').value.trim(), ws = whos();
+    const kind = $('kindSel').value, tpl = tplOf(kind), att = isAtt(kind), av = att ? attVars() : null, title = att ? attTitle() : $('title').value.trim(), ws = whos();
     const e = picked() && STUS.length ? expand() : { list: [], miss: [], dup: [] };
     const items = [], nophone = [], nocode = [], same = [], seenTo = {};
     /* 같은 번호는 한 통만(2026-10-22 원장님 선택) — 형제가 학부모님 번호를 같이 쓰거나 학부모님1·2 칸에 같은 번호가 있으면
      * 솔라피가 한 묶음 안의 같은 번호를 '중복 수신번호'로 보고 두 통을 다 실패시킨다(그 학부모님은 한 통도 못 받았다).
      * 먼저 나온 학생 이름으로 한 통만 보내고, 나머지는 안내 줄에 적는다. */
     e.list.forEach(s => {
-      if (!s.code){ nocode.push(s.name); return; }
+      if (!s.code && !att){ nocode.push(s.name); return; }   // 출석 알림에는 학생 페이지 버튼이 없어 접근코드가 없어도 보낸다
       const tos = ws.map(w => ({ who: w, to: phone(s[PHONE[w]]) })).filter(t => t.to);
       if (!tos.length){ nophone.push(s.name); return; }
       tos.forEach(t => {
@@ -601,7 +776,7 @@
     });
     const people = e.list.length - nophone.length - nocode.length;
     let h = '';
-    if (!picked()) h = '<span class="muted">' + MODE_NAME[MODE] + '을(를) 골라 주세요.</span>';
+    if (!picked()) h = '<span class="muted">' + (att ? (ATT.cls ? '보낼 학생을 눌러 담아 주세요.' : '수업(반)을 골라 주세요.') : MODE_NAME[MODE] + '을(를) 골라 주세요.') + '</span>';
     else if (!STUS.length) h = '<span class="muted">재원 명단을 불러오는 중…</span>';
     else {
       h = '학생 <b>' + people + '명</b>' + (ws.length ? '의 ' + esc(whoLbl(ws.join('·'))) + '에게 <b>' + items.length + '건</b>' : '') + ' 보냅니다.' +
@@ -617,33 +792,36 @@
     $('sum').innerHTML = h;
     $('pickCount').textContent = (picked() && STUS.length) ? '학생 ' + people + '명' : '';
     document.querySelectorAll('#whos label').forEach(l => { const c = l.querySelector('input'); l.classList.toggle('on', !!(c && c.checked)); });
-    const xv = xVals(), xs = extraVars(tpl), xmiss = xs.filter(v => !xv[v]);
+    const xv = att ? {} : xVals(), xs = att ? [] : extraVars(tpl), xmiss = att ? attMissing() : xs.filter(v => !xv[v]);
     $('prevTitle').textContent = tpl ? String(tpl.text || '').split('\n')[0] : '종류를 고르면 보여요';
-    $('prev').innerHTML = tpl ? esc(fill(tpl.text, Object.assign({}, ...xs.map(v => ({ [v]: xv[v] || '(' + v + ')' })), { '학생명': items[0] ? items[0].student : '○○○', '제목': title || '(제목)' }))) +
+    const pv = att ? Object.assign({}, ...Object.keys(av).map(v => ({ [v]: av[v] || '(' + v + ')' }))) : Object.assign({}, ...xs.map(v => ({ [v]: xv[v] || '(' + v + ')' })), { '제목': title || '(제목)' });
+    $('prev').innerHTML = tpl ? esc(fill(tpl.text, Object.assign(pv, { '학생명': items[0] ? items[0].student : '○○○' }))) +
       (tpl.buttons || []).map(b => '<div class="pbtn">' + esc(b.name) + '</div>').join('') : '<span class="muted">종류를 고르면 문구가 보입니다.</span>';
     let note = '';
     if (!tpl || !tpl.ready) note = '보낼 수 있는 종류를 골라 주세요';
-    else if (!title) note = '제목을 넣어 주세요';
-    else if (xmiss.length) note = xmiss.join('·') + '을(를) 넣어 주세요';
+    else if (!att && !title) note = '제목을 넣어 주세요';
+    else if (xmiss.length) note = xmiss.join('·') + '을(를) ' + (att ? '골라' : '넣어') + ' 주세요';
     else if (!ws.length) note = '받는 분을 한 명 이상 골라 주세요';
     else if (!items.length) note = picked() ? '보낼 학생이 없습니다' : '';
     else if (SCHED && !schedVal()) note = '예약 날짜·시각을 골라 주세요';
     $('goNote').textContent = note || (items.length ? '받는 분 ' + ws.length + '명 × 학생 ' + people + '명 → ' + items.length + '건' + (same.length ? ' (같은 번호 ' + same.length + '건은 한 통으로)' : '') : '');
     $('goBtn').disabled = !!note || !items.length || SENDING;
     if (!SENDING) $('goBtn').textContent = SCHED ? (schedVal() ? '예약하기 · ' + schedLabel(schedVal()) : '예약하기') : '알림톡 보내기';
-    if (!note && items.length) PLAN = { kind, label: tpl.label, title, items, people, xv, sched: SCHED ? schedVal() : '' };
+    if (!note && items.length) PLAN = { kind, label: tpl.label, title, items, people, xv: att ? av : xv, att: att ? { ymd: ATT.ymd, cls: ATT.cls.name } : null, sched: SCHED ? schedVal() : '' };
   }
 
   /* ── 보내기 — 확인 창 뒤 50건씩 ── */
   function sendAll(){
     const p = PLAN; if (!p || SENDING) return;
     if (p.sched && !schedOk(p.sched)){ toast('예약 시각이 너무 가깝습니다. 다시 골라 주세요.'); fillSched(); refresh(); return; }
+    const tail = p.att ? '\n\n' + p.title + '\n' + p.items.map(it => it.student).filter((v, i, a) => a.indexOf(v) === i).join(', ') : '\n\n▶ ' + p.title;
     if (!confirm(p.sched
-        ? '“' + p.label + '” 알림톡을 ' + schedLabel(p.sched) + '에 학생 ' + p.people + '명에게 ' + p.items.length + '건 보내도록 예약할까요?\n\n▶ ' + p.title
-        : '“' + p.label + '” 알림톡을 학생 ' + p.people + '명에게 ' + p.items.length + '건 보낼까요?\n\n▶ ' + p.title)) return;
+        ? '“' + p.label + '” 알림톡을 ' + schedLabel(p.sched) + '에 학생 ' + p.people + '명에게 ' + p.items.length + '건 보내도록 예약할까요?' + tail
+        : '“' + p.label + '” 알림톡을 학생 ' + p.people + '명에게 ' + p.items.length + '건 보낼까요?' + tail)) return;
     SENDING = true; $('goBtn').disabled = true; $('goBtn').textContent = p.sched ? '예약하는 중…' : '보내는 중…';
     // 공지 화면과 같은 중복 키 — 예약은 보낼 날짜로(그날 같은 제목이 두 번 가지 않게)
-    const ref = 'N:' + (p.sched ? p.sched.slice(0, 10) : kstYmd()) + '|' + p.title;
+    // 출석 알림은 슈국 스케쥴 출석 창과 같은 키(수업일 yyyy-MM-dd · 반이름) — 어느 쪽에서 보냈든 같은 학생·수업·받는 분은 두 번 가지 않는다
+    const ref = p.att ? p.att.ymd : 'N:' + (p.sched ? p.sched.slice(0, 10) : kstYmd()) + '|' + p.title;
     const chunks = []; for (let i = 0; i < p.items.length; i += BATCH) chunks.push(p.items.slice(i, i + BATCH));
     let ok = 0, err = ''; const dup = [], bad = [];
     /* 한 묶음 보내기 — 답이 이상하거나(구글 서버가 엉뚱한 답을 주는 때가 있다, 2026-10-22 실제로 50건은 나갔는데
@@ -652,7 +830,8 @@
      * 나간 것이라 '보냄'으로 센다. 그래도 안 되면 그 묶음만 실패로 적고 다음 묶음으로 넘어간다(멈추지 않음). */
     const WAIT = window.__alimRetryWait != null ? window.__alimRetryWait : 4000;
     const sendChunk = (ch, attempt) => post({ action: 'alimSend', kind: p.kind, by: SENT_BY, schedule: p.sched || undefined,
-        items: ch.map(it => ({ student: it.student, to: it.to, who: it.who, cls: '공지', date: ref, vars: Object.assign({}, p.xv, { '학생명': it.student, '제목': p.title, '접근코드': it.code }) })) })
+        items: ch.map(it => ({ student: it.student, to: it.to, who: it.who, cls: p.att ? p.att.cls : '공지', date: ref,
+          vars: p.att ? Object.assign({}, p.xv, { '학생명': it.student }) : Object.assign({}, p.xv, { '학생명': it.student, '제목': p.title, '접근코드': it.code }) })) })
       .then(res => (res && res.result === 'success' && Array.isArray(res.sent)) ? res : Promise.reject(new Error((res && res.message) || '알 수 없는 답')))
       .then(res => {
         ok += res.okCount || 0;
@@ -667,11 +846,12 @@
     run.then(() => {
       SENDING = false;
       const r = $('result'), verb = p.sched ? '예약했' : '보냈';
+      try { if (ok && window.shuegukActivity) shuegukActivity('알림톡', (p.sched ? '예약 · ' : '') + (p.label || p.kind), p.title || '', ok + '건' + (p.sched ? ' · ' + p.sched : ''), true); } catch (e) {}
       if (err){ r.className = 'result err'; r.textContent = '알림톡 ' + ok + '건을 ' + verb + '습니다. 다만 일부를 ' + (p.sched ? '예약하지' : '보내지') + ' 못했습니다: ' + err + ' — [알림톡 보내기]를 한 번 더 누르면 이미 받은 분은 건너뛰고 나머지만 갑니다.' + (dup.length ? ' 같은 제목으로 이미 받은 ' + dup.length + '건은 건너뛰었어요.' : '') + (bad.length ? ' 실패: ' + bad.join(', ') : ''); }
       else {
         r.className = 'result ' + (bad.length ? 'err' : 'ok');
         r.textContent = (p.sched ? schedLabel(p.sched) + '에 보낼 알림톡 ' + ok + '건을 예약했습니다.' : '알림톡 ' + ok + '건을 보냈습니다.') +
-          (dup.length ? ' 같은 제목으로 이미 ' + (p.sched ? '받았거나 예약된 ' : '받은 ') + dup.length + '건은 건너뛰었어요.' : '') + (bad.length ? ' 실패: ' + bad.join(', ') : '');
+          (dup.length ? (p.att ? ' 이 수업으로 이미 ' : ' 같은 제목으로 이미 ') + (p.sched ? '받았거나 예약된 ' : '받은 ') + dup.length + '건은 건너뛰었어요.' : '') + (bad.length ? ' 실패: ' + bad.join(', ') : '');
       }
       refresh(); loadLog();
     });
@@ -751,8 +931,8 @@
       const rows = ((d && d.rows) || []).filter(r => String(r.ts).slice(0, 10) >= since || (r.res === '예약' && schedMs(r.sched) > nowMs));
       rows.forEach(r => {
         const isSch = r.res === '예약' || r.res === '예약 취소';
-        const k = r.kind + '§' + r.date + (isSch ? '§S' + r.sched : '');
-        if (!g[k]){ g[k] = { kind: r.kind, date: r.date, ts: r.ts, ok: 0, bad: 0, sms: 0, sch: 0, cxl: 0, sent: 0, sched: isSch ? r.sched : '', gids: [], names: [], by: [] }; order.push(k); }
+        const k = r.kind + '§' + r.date + (/^N:/.test(String(r.date)) ? '' : '§' + String(r.cls || '')) + (isSch ? '§S' + r.sched : '');   // 출석 알림은 날짜·반마다 한 줄
+        if (!g[k]){ g[k] = { kind: r.kind, date: r.date, cls: String(r.cls || ''), ts: r.ts, ok: 0, bad: 0, sms: 0, sch: 0, cxl: 0, sent: 0, sched: isSch ? r.sched : '', gids: [], names: [], by: [] }; order.push(k); }
         const x = g[k];
         if (r.res === '예약'){
           if (schedMs(r.sched) > nowMs){ x.sch++; if (r.groupId && x.gids.indexOf(r.groupId) < 0) x.gids.push(r.groupId); }
@@ -777,7 +957,7 @@
     document.querySelectorAll('#log .log-row details[open]').forEach(d => { open[d.getAttribute('data-k')] = true; });   // 펼쳐 둔 줄은 그대로
     $('log').innerHTML = '<table class="logtbl"><thead><tr><th>날짜</th><th>종류 · 제목</th><th>받을 학생</th><th>인원</th><th>상태</th></tr></thead><tbody>' + order.map(k => {
       const x = g[k], t = tplOf(x.kind), m = /^N:\d{4}-\d{2}-\d{2}\|(.*)$/.exec(x.date);
-      const title = m ? m[1] : (x.kind === 'absent' ? x.date + ' 결석' : x.kind === 'preabsent' ? x.date + ' 결석 예고' : x.date);
+      const title = m ? m[1] : (/^\d{4}-\d{2}-\d{2}$/.test(x.date) ? dayLabel(x.date) + (x.cls && x.cls !== '공지' ? ' · ' + x.cls : '') : x.date);
       const ts = String(x.ts), d = ts.slice(5, 10).replace('-', '/').replace(/^0/, ''), hm = ts.slice(11, 16);
       const st = (x.ok ? '<span class="spill ok">전송 완료</span>' : '') + (x.sms ? '<span class="spill sms">문자 대체 ' + x.sms + '</span>' : '') + (x.bad ? '<span class="spill bad">실패 ' + x.bad + '</span>' : '') +
         (x.sch ? '<span class="spill sch">예약 · ' + esc(schedLabel(x.sched)) + '</span>' : '') +

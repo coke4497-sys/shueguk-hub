@@ -129,6 +129,7 @@
   .m.mine .bb{background:var(--lav);border-radius:14px 4px 14px 14px;}
   .m.flash .bb{box-shadow:0 0 0 3px #B9A5CC;}
   .mact{border:0;background:transparent;color:var(--cap);font-size:12px;padding:2px 4px;opacity:0;}
+  .edl{font-size:11px;color:var(--cap);margin-left:3px;}
   /* 읽음 숫자(카카오톡처럼 안 읽은 사람 수) · 공감(하트) — 202610200012 */
   .tw{display:flex;flex-direction:column;align-items:flex-start;gap:1px;flex:none;}
   .m.mine .tw{align-items:flex-end;}
@@ -156,6 +157,18 @@
   .thumb{display:block;border:0;padding:0;background:#fff;border-radius:10px;overflow:hidden;max-width:260px;}
   .thumb img{display:block;max-width:260px;max-height:260px;object-fit:cover;}
   .thumb .ph{display:block;width:200px;height:140px;background:var(--soft);}
+  /* 그림 큰 보기(2026-10-29 원장님 "첨부한 사진을 다운로드 하지 않고 확대해 볼 수 있게") — 화면 안 겹창, 누르면 원본 크기·손가락으로 확대 */
+  .lbback{position:fixed;inset:0;background:rgba(20,25,22,.93);z-index:60;display:flex;flex-direction:column;}
+  .lbback[hidden]{display:none;}
+  .lbwrap{flex:1;min-height:0;overflow:auto;display:flex;align-items:center;justify-content:center;touch-action:pan-x pan-y pinch-zoom;-webkit-overflow-scrolling:touch;}
+  .lbwrap img{display:block;max-width:100%;max-height:calc(100vh - 56px);object-fit:contain;cursor:zoom-in;user-select:none;}
+  .lbback.zoom .lbwrap{display:block;}
+  .lbback.zoom .lbwrap img{max-width:none;max-height:none;cursor:zoom-out;margin:0 auto;}
+  .lbbar{flex:none;display:flex;align-items:center;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:rgba(20,25,22,.85);color:#fff;font-size:13px;}
+  .lbbar .lbname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .lbbar button{border:0;border-radius:999px;padding:7px 13px;font:inherit;font-size:13px;background:rgba(255,255,255,.16);color:#fff;cursor:pointer;}
+  .lbbar button:hover{background:rgba(255,255,255,.28);}
+  .lbbar .lbstat{color:#cdd6d1;font-size:12px;}
   .tks{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;}
   .tk{border:0;font-size:12px;padding:3px 10px;border-radius:999px;}
   .tk.wait{background:var(--wait);color:var(--waitInk);}
@@ -168,6 +181,7 @@
   /* 클로슈 (202610200007) */
   .m.botm .bb{background:#EEF4F1;}
   .m.kko .bb{background:#FBF4DF;}
+  .m.act .bb{background:#F3EEF8;}   /* 티쳐스 활동 알림(202610270001 — 10/29 전 슈톡 글, 지금은 activity.html 로 따로) */
   .bopts{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
   .bopt{border:0;border-radius:999px;background:var(--lav);color:var(--lavInk);font-size:13px;padding:6px 12px;}
   .bdone{font-size:12.5px;color:var(--okInk);background:var(--ok);border-radius:10px;padding:5px 10px;margin-top:6px;display:inline-block;}
@@ -486,6 +500,15 @@
   .pcnt{font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:16px;color:var(--ink);}
   .pcnt.full{color:var(--sageInk);}
   .ci{background:var(--soft);border-radius:16px;padding:14px 16px;gap:12px;align-items:flex-start;font-size:15px;}
+  .selfadd{display:flex;gap:8px;margin:0 0 2px;}
+  .selfadd input{flex:1;min-width:0;border:0;background:#fff;box-shadow:inset 0 0 0 1px var(--line);border-radius:14px;padding:12px 14px;font:inherit;font-size:14.5px;color:var(--ink);}
+  .selfadd input:focus{outline:2px solid var(--lavBar);outline-offset:0;}
+  .selfadd button{flex:none;border:0;border-radius:14px;padding:0 18px;background:var(--lav);color:#4a4266;font:inherit;font-size:14px;cursor:pointer;}
+  .selfadd button:disabled{opacity:.55;cursor:default;}
+  .selfm{display:inline-block;background:var(--lav);color:#4a4266;border-radius:999px;padding:0 7px;font-size:11.5px;}
+  .notem{display:inline-block;background:#DCEBF3;color:#2F5A6E;border-radius:999px;padding:0 7px;font-size:11.5px;margin-right:2px;}
+  .ntto{border:0;border-radius:999px;background:var(--lav);color:var(--lavInk);font-size:12px;padding:3px 10px;font-family:inherit;cursor:pointer;line-height:1.4;}
+  .ntto:hover{background:#e3d7ee;}
   .bx{width:20px;height:20px;border-radius:6px;background:#fff;box-shadow:inset 0 0 0 1.5px rgba(51,68,60,.28);margin-top:3px;}
   .bx.on{background:var(--sage);box-shadow:none;}
   .bx.x{background:#e4e7e5;box-shadow:none;}
@@ -519,6 +542,91 @@
   .cxb.txt{width:auto;padding:4px 10px;border-radius:999px;font-size:12.5px;}
   .none{font-size:13px;color:var(--cap);}
   .pc .none{background:var(--soft);border-radius:16px;padding:28px 16px;text-align:center;}
+  /* 원장님 업무 목록 맨 아래 [티쳐스 활동 기록] 입구 (2026-10-29) */
+  .ci.actlink{display:flex;align-items:center;text-decoration:none;color:inherit;background:var(--lav);cursor:pointer;}
+  .ci.actlink:hover{background:#e3d7ee;}
+  .ci.actlink .abx{flex:none;width:34px;height:34px;border-radius:50%;background:#fff;display:inline-flex;align-items:center;justify-content:center;color:#4a4266;}
+  .ci.actlink .abx svg{width:18px;height:18px;}
+  .ci.actlink .cbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .ci.actlink .ttl{font-weight:700;color:#4a4266;}
+  .ci.actlink .meta{font-size:12.5px;color:var(--cap);}
+  .ci.actlink .chev{flex:none;font-size:20px;color:#4a4266;}
+  button.ci.actlink{width:100%;font:inherit;text-align:left;border:0;}
+  /* 쪽지 창 (2026-10-29) */
+  .ntpanel{max-width:480px;}
+  .ntq{display:flex;gap:6px;flex-wrap:wrap;}
+  .ntq button{border:0;border-radius:999px;background:var(--soft);color:var(--ink2);font-size:12.5px;padding:5px 11px;font-family:inherit;}
+  .ntg{font-size:12px;color:var(--cap);margin:6px 0 3px;}
+  .ntchips{display:flex;flex-wrap:wrap;gap:6px;}
+  .ntchips button{border:0;border-radius:999px;background:var(--soft);color:var(--ink);font-size:13.5px;padding:7px 13px;font-family:inherit;}
+  .ntchips button.on{background:#4a4266;color:#fff;}
+  .ntcnt{font-size:13px;color:var(--ink2);min-height:1.2em;}
+  .ntpanel textarea{width:100%;min-height:92px;border:0;border-radius:12px;background:var(--soft);padding:10px 12px;font:inherit;font-size:14.5px;resize:vertical;box-sizing:border-box;}
+  .ntpanel textarea:focus{outline:2px solid var(--lavBar);}
+  /* 내 업무 기록 창 (2026-10-29) */
+  .ppanel.hspanel{max-width:516px;}   /* .wtpanel(496)보다 뒤에서 이기도록 두 클래스로 */
+  .hspanel .hstabs{margin:0;}
+  .hstiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+  .hstile{background:var(--soft);border-radius:12px;padding:10px 12px;text-align:center;}
+  .hstile b{display:block;font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:26px;color:var(--ink);line-height:1.1;}
+  .hstile span{font-size:12px;color:var(--cap);}
+  .hsline{margin:0;font-size:13.5px;color:var(--ink2);line-height:1.5;}
+  .hsday{font-weight:700;font-size:13px;color:var(--cap);margin:10px 0 4px;}
+  .hsday:first-child{margin-top:0;}
+  .hsrow{display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border-radius:10px;background:var(--soft);margin-bottom:6px;font-size:13.5px;line-height:1.45;}
+  .hsrow .hbx{flex:none;width:18px;height:18px;border-radius:5px;background:var(--okInk);display:inline-flex;align-items:center;justify-content:center;margin-top:2px;color:#fff;font-size:13px;}
+  .hsrow .hbx svg{width:12px;height:12px;}
+  .hsrow .hbx.x{background:#D9D4D4;color:#6E6262;}
+  .hsrow .hb{flex:1;min-width:0;}
+  .hsrow .hdet{margin:4px 0 2px;}
+  .hsrow .hmeta{font-size:12px;color:var(--cap);margin-top:2px;}
+  .hsrow .hgo{border:0;background:transparent;color:var(--lavInk);font-size:12px;padding:0;font-family:inherit;text-decoration:underline;cursor:pointer;}
+  .hsempty{font-size:13.5px;color:var(--cap);margin:6px 0;}
+  /* 출퇴근 기록 탭 — design_handoff_attendance 1a 수치 그대로 */
+  .hstiles.hw{grid-template-columns:1fr 1fr;}   /* 이번 주 · 지난주 / 이번 달 · 지난달 (2026-10-29 원장님 '이번주, 지난주, 이번달, 지난달') */
+  .hwt{background:#f6f7f4;border-radius:16px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;text-align:left;}
+  .hwt .lb{font-size:13px;color:#54655c;}
+  .hwt .v{font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:24px;line-height:1.25;color:#2b3a33;}
+  .hwt .v u{text-decoration:none;font-size:15px;}
+  .hwt.zero .v{color:#8a978f;}
+  .hwt.top{background:#eaf1ec;}   /* 이번 주 강조 — 'main'은 휴대폰에서 .side,.main{display:contents}에 걸려 쓰지 않는다(Codex 검토) */
+  .hwt.top .lb{color:#4b6157;}
+  .hwt.top .v{font-size:30px;line-height:1.1;}
+  .hwt.top .v u{font-size:17px;}
+  .hsline.hwst{display:flex;align-items:center;gap:8px;font-size:14px;border-radius:12px;padding:10px 14px;background:#fafbf9;color:#4b6157;}
+  .hsline.hwst svg{width:16px;height:16px;flex:none;}
+  .hsline.hwst.miss{background:#fbeeea;color:#8a3f35;}
+  .hwlist{display:flex;flex-direction:column;max-height:620px;overflow:auto;padding-right:4px;}
+  .hwday{display:flex;flex-direction:column;gap:8px;padding:14px 0 12px;border-top:1px solid #eef1ee;}
+  .hwday .hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+  .hwday .hd .dl{display:flex;align-items:baseline;gap:8px;}
+  .hwday .hd .dt,.hwday .hd .tot{font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:19px;color:#2b3a33;}
+  .hwday .hd .dw{font-size:14px;color:#54655c;}
+  .hwday .hd .td{font-size:12px;color:#2f6b45;background:#dcefe2;border-radius:999px;padding:2px 9px;}
+  .hwday .hd .tot.none{font-family:inherit;font-size:13px;color:#b0473a;}
+  .hwday .rows{display:flex;flex-direction:column;gap:4px;}
+  .hwr{display:flex;flex-direction:column;gap:8px;padding:10px 14px 12px;border-radius:12px;background:#f6f7f4;}
+  .hwr.tiny{opacity:.6;}
+  .hwr.live{background:#eaf5ee;}
+  .hwr.miss{background:#fdf4f1;}
+  .hwr .top{display:flex;align-items:center;gap:6px;}
+  .hwr .ck{width:16px;height:16px;border-radius:5px;background:#4a4266;display:inline-flex;align-items:center;justify-content:center;flex:none;}
+  .hwr .ck svg{width:11px;height:11px;}
+  .hwr.live .ck{background:#3f7a55;}
+  .hwr.miss .ck{background:#d9a89f;}
+  .hwr .ctr{font-size:12px;color:#4b6157;background:#fff;border:1px solid #e3e8e4;border-radius:999px;padding:1px 9px;white-space:nowrap;}
+  .hwr .st{font-size:12px;color:#54655c;background:#f3f5f1;border-radius:999px;padding:1px 8px;}
+  .hwr.live .st{color:#2f6b45;background:#dcefe2;}
+  .hwr.miss .st{color:#8a3f35;background:#f6dcd6;}
+  .hwr .g3{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:10px;}
+  .hwr .g3 > div{display:flex;flex-direction:column;gap:1px;}
+  .hwr .g3 > div + div{border-left:1px solid #e3e8e4;padding-left:12px;}
+  .hwr .g3 .lb{font-size:12px;color:#8a978f;}
+  .hwr .g3 .v{font-size:16px;color:#2b3a33;font-variant-numeric:tabular-nums;white-space:nowrap;}
+  .hwr .g3 .v.dur{font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:18px;}
+  .hwr.live .g3 .v.to{color:#2f6b45;}
+  .hwr.miss .g3 .v.to,.hwr.miss .g3 .v.dur{color:#b0473a;}
+  .hwempty{font-size:13.5px;color:var(--cap);margin:6px 0;}
   .none.empty{text-align:center;padding:28px 0;}
   .ci.ls .cbody{gap:4px;}
   .ci.ls .ttl{display:block;}
@@ -683,6 +791,7 @@
   .m.mine .bb{background:var(--pSage);border-color:transparent;border-radius:18px 18px 6px 18px;}
   .m.botm .bb{background:#EEF4F1;}
   .m.kko .bb{background:#FBF4DF;}
+  .m.act .bb{background:#F3EEF8;}   /* 티쳐스 활동 알림(202610270001 — 10/29 전 슈톡 글, 지금은 activity.html 로 따로) */
   .bb.del{border:0;}
   .t{font-size:11px;color:var(--mut);}
   .t.mt{display:block;align-self:flex-end;margin-top:4px;}
@@ -842,6 +951,89 @@
   /* 티쳐스 메뉴 바로가기 알약 */
   .bt a.plink{display:inline-flex;align-items:center;gap:4px;margin:4px 2px;padding:5px 12px;border-radius:999px;background:#EDE4F4;color:#5A4A6A;font-size:13.5px;text-decoration:none;white-space:nowrap;vertical-align:middle}
   .bt a.plink:hover{background:#E3D7EE}
+  /* 대기생 등록 — 보내기 버튼 위 (2026-10-29 원장님 "슈톡에서도 입력이 가능하도록 · 입력 위치는 보내기 버튼 위") */
+  .wrow{display:flex;justify-content:flex-end;gap:6px;}
+  #waitBtn,#noteBtn{border:0;border-radius:999px;background:var(--lav);color:var(--lavInk);font-size:12.5px;padding:6px 12px;display:inline-flex;align-items:center;gap:5px;font-family:inherit;}
+  #waitBtn svg,#noteBtn svg{width:14px;height:14px;}
+  /* 대기생 창 — 2026-10-29 원장님 디자인 묶음 design_handoff_waitlist(1a 명단 팝업 · 1c 등록 폼) 수치 그대로 */
+  .wtpanel{max-width:496px;border-radius:24px;padding:24px 24px 18px;gap:16px;box-shadow:0 8px 30px rgba(58,77,69,.16);color:#33443c;}
+  .wthead{display:flex;align-items:center;justify-content:space-between;}
+  .wthead .btitle{font-family:"Gowun Batang",serif;font-weight:700;font-size:24px;color:#2b3a33;}
+  .wtx{width:36px;height:36px;border-radius:50%;border:0;background:#f3f5f1;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;}
+  .wtx svg{width:16px;height:16px;}
+  .wtseg{background:#f3f5f1;padding:4px;gap:4px;}
+  .wtseg button{padding:10px;font-size:15px;color:#54655c;}
+  .wtseg button.on{background:#fff;color:#2b3a33;font-weight:700;box-shadow:0 1px 4px rgba(58,77,69,.12);}
+  .wtbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+  .wtview{display:flex;gap:6px;}
+  .wtview button{border:1px solid #dfe5e1;border-radius:999px;background:#fff;color:#54655c;font-size:14px;padding:6px 14px;font-family:inherit;cursor:pointer;}
+  .wtview button.on{background:#e6e2f2;border-color:#e6e2f2;color:#4a4266;}
+  .wtcnt{display:flex;align-items:center;gap:10px;font-size:14px;color:#54655c;}
+  .wtcnt[hidden]{display:none;}
+  .wtcnt b{font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:17px;color:#2b3a33;}
+  .wtrefresh{width:34px;height:34px;border-radius:50%;border:1px solid #dfe5e1;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;}
+  .wtrefresh svg{width:15px;height:15px;}
+  #wtListBox{display:flex;flex-direction:column;gap:16px;}
+  #wtListBox[hidden]{display:none;}
+  .wtfbox{display:flex;flex-direction:column;gap:8px;padding:12px 14px;background:#fafbf9;border-radius:14px;}
+  .wtfbox:empty{display:none;}
+  .wtfilt{display:grid;grid-template-columns:34px 1fr;gap:8px;align-items:start;font-size:13px;}
+  .wtfilt .lab{color:#54655c;padding-top:5px;}
+  .wtfilt.sch{align-items:center;} .wtfilt.sch .lab{padding-top:0;}
+  .wtfilt .chips{display:flex;flex-wrap:wrap;gap:5px;}
+  .wtfilt button{border:0;border-radius:999px;background:#fff;padding:4px 10px;font-family:inherit;font-size:13px;color:#54655c;display:inline-flex;gap:4px;align-items:baseline;}
+  .wtfilt button.on{background:#e6e2f2;color:#4a4266;}
+  .wtfilt button small{font-size:11px;opacity:.7;}
+  .wtfilt .selrow{display:flex;align-items:center;gap:8px;}
+  .wtf .wtfilt select{flex:1;min-width:0;height:38px;border:1px solid #dfe5e1;border-radius:10px;padding:0 10px;font-size:14px;color:#2b3a33;background:#fff;}
+  .wtfilt .clr{flex:none;font-size:13px;color:#4b6157;padding:6px 10px;border-radius:999px;border:1px solid #dfe5e1;background:#fff;}
+  .wtlist{max-height:430px;overflow:auto;display:flex;flex-direction:column;gap:6px;padding-right:4px;}
+  .wtli{display:grid;grid-template-columns:26px 1fr auto;gap:4px 10px;padding:12px 14px;border-radius:14px;background:#f6f7f4;font-size:13px;line-height:1.5;}
+  .wtli.can{background:#dcefe2;}
+  .wtli .no{font-family:"Do Hyeon",sans-serif;font-size:16px;color:#8a978f;padding-top:1px;}
+  .wtli .body{display:flex;flex-direction:column;gap:3px;min-width:0;}
+  .wtli .l1{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+  .wtli .l1 b{font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:19px;color:#2b3a33;}
+  .wtli .sub{font-size:13px;color:#54655c;}
+  .wtli .l2{font-size:13px;color:#54655c;font-variant-numeric:tabular-nums;}
+  .wtli .l2 a{color:#2b3a33;text-decoration:none;}
+  .wtli .room{color:#2f6b55;font-weight:700;}
+  .wtli .memo{align-self:flex-start;font-size:13px;color:#6b5a2a;background:#f7f1dc;border-radius:8px;padding:3px 9px;margin-top:3px;white-space:pre-wrap;}
+  .wtli .days{align-self:start;font-size:12px;padding:3px 9px;border-radius:999px;white-space:nowrap;background:#eef2ef;color:#4b6157;}
+  .wtli .days.long{background:#f6dcd6;color:#8a3f35;}   /* 1년(365일) 넘은 대기 */
+  .wtlempty{font-size:13px;color:#8a978f;padding:10px 2px;}
+  .wtlfoot{display:flex;align-items:center;gap:8px;font-size:13px;color:#54655c;border-top:1px solid #eef1ee;padding-top:12px;margin:0;}
+  .wtlfoot svg{width:14px;height:14px;flex:none;} .wtlfoot a{color:#4b6157;}
+  /* 등록 폼(1c) */
+  #wtForm{display:flex;flex-direction:column;gap:18px;}
+  #wtForm[hidden]{display:none;}
+  .wtgrp{display:flex;flex-direction:column;gap:12px;}
+  .wtgrp+.wtgrp{border-top:1px solid #eef1ee;padding-top:18px;}
+  .wtgt{display:flex;align-items:baseline;justify-content:space-between;gap:10px;}
+  .wtgt .gt{font-family:"Do Hyeon",sans-serif;font-size:14px;letter-spacing:1px;color:#4b6157;}
+  .wtgt .hint{font-size:12px;color:#8a978f;text-align:right;}
+  .wtg2{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px;}
+  .wtg2 .full{grid-column:1 / -1;}
+  .wtf .wtf-f{display:flex;flex-direction:column;gap:5px;font-size:13px;color:#54655c;margin:0;}
+  .wtf .help{font-size:12px;color:#8a978f;}
+  .wtf #wtForm input,.wtf #wtForm select,.wtf #wtForm textarea{width:100%;height:44px;border:1px solid #dfe5e1;border-radius:12px;padding:0 14px;font:inherit;font-size:15px;color:#2b3a33;background:#fafbf9;box-sizing:border-box;min-width:0;}
+  .wtf #wtForm select{padding:0 12px;}
+  .wtf #wtForm textarea{height:auto;min-height:60px;padding:11px 14px;resize:vertical;line-height:1.5;}
+  .wtf #wtForm input:focus,.wtf #wtForm select:focus,.wtf #wtForm textarea:focus{outline:none;border-color:#b9b0d6;background:#fff;}
+  .wtcls{display:grid;grid-template-columns:auto 1fr;gap:8px;}
+  .wtbook{display:flex;gap:2px;background:#f3f5f1;border-radius:12px;padding:3px;}
+  .wtbook button{border:0;background:transparent;color:#54655c;font-family:inherit;font-size:14px;padding:9px 14px;border-radius:9px;}
+  .wtbook button.on{background:#fff;color:#2b3a33;box-shadow:0 1px 4px rgba(58,77,69,.12);}
+  .wtinfo{font-size:12.5px;color:#54655c;min-height:1em;}
+  .wtinfo b{color:#4b6157;}
+  .wtwho{display:flex;align-items:center;gap:12px;font-size:13px;color:#54655c;}
+  .wtwho b{font-size:15px;color:#2b3a33;}
+  #wtStatus{font-size:12.5px;color:var(--lavInk);min-height:1em;}
+  #wtStatus.err{color:#a2453b;}
+  #wtSaveRow[hidden]{display:none;}
+  .wtsave{width:100%;height:52px;border:0;border-radius:14px;background:#4a4266;color:#fff;font-size:16px;font-weight:700;font-family:inherit;}
+  .wtsave:disabled{opacity:.5;}
+  @media (max-width:520px){ .wtg2{grid-template-columns:1fr;} .wtcls{grid-template-columns:1fr;} .wtgt{flex-direction:column;align-items:flex-start;gap:2px;} .wtgt .hint{text-align:left;} .wtpanel{padding:20px 16px 16px;} }
 </style>
 </head>
 <body data-tab="chat">
@@ -883,9 +1075,11 @@
       <div id="composer">
         <div id="mention" role="listbox" aria-label="부를 사람"></div>
         <div class="rbar" id="rbar" hidden><span id="rtext"></span><button class="hbtn plain" type="button" id="rcancel" aria-label="답장 취소">취소</button></div>
+        <div class="rbar" id="ebar" hidden><span id="etext"></span><button class="hbtn plain" type="button" id="ecancel" aria-label="수정 취소">취소</button></div>
         <div id="pend"></div>
         <div class="tags" id="tags" role="group" aria-label="꼬리표"></div>
         <div class="ahint" id="ahint" hidden></div>
+        <div class="wrow"><button type="button" id="noteBtn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>쪽지 보내기</button><button type="button" id="waitBtn" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>대기생 등록</button></div>
         <div class="crow">
           <span class="ctag" id="ctag" hidden></span>
           <textarea id="inp" rows="1" aria-label="메시지 쓰기" placeholder="메시지 쓰기 · @이름을 넣으면 그 사람 할 일로 올라가요"></textarea>
@@ -933,7 +1127,7 @@
     <div class="prow" id="pbtns">
       <button class="hbtn big" type="button" id="pon">알림 허용하고 시작하기</button>
     </div>
-    <p class="pnote">모든 메시지와 나에게 온 할 일이 바로 알림으로 옵니다. 기기마다 한 번씩 허용해 주세요.</p>
+    <p class="pnote">근무 일정이 있는 날(근무표·수업·출근)에는 모든 메시지가, 쉬는 날에는 나에게 온 할 일만 알림으로 옵니다. 기기마다 한 번씩 허용해 주세요.</p>
     <a class="pnote" href="index.html">티쳐스 첫 화면으로</a>
   </div>
 </div>
@@ -949,6 +1143,78 @@
     <div class="rdsnip" id="rdsnip"></div>
     <div class="rdtabs" id="rdtabs"></div>
     <div id="rdbody"></div>
+  </div>
+</div>
+<div class="lbback" id="lbback" hidden role="dialog" aria-modal="true" aria-label="그림 크게 보기">
+  <div class="lbwrap" id="lbwrap"><img id="lbimg" alt=""></div>
+  <div class="lbbar"><span class="lbname" id="lbname"></span><span class="lbstat" id="lbstat"></span><button type="button" id="lbzoom">원본 크기</button><button type="button" id="lbdl">내려받기</button><button type="button" id="lbclose">닫기</button></div>
+</div>
+<!-- 대기생 등록 창 (2026-10-29 원장님 — 예비 슈스 대기 · 재원 슈스 반 이동 대기, 표 student_waitlist = 허브 마이그레이션 202610290001, 슈퍼스타 관리 → 대기 슈스와 같은 표) -->
+<div class="pback" id="wtback" hidden>
+  <div class="ppanel wtpanel wtf" role="dialog" aria-modal="true" aria-labelledby="wttitle">
+    <div class="wthead"><span class="btitle" id="wttitle">대기생 등록</span><button type="button" class="wtx" id="wtClose" aria-label="닫기"><svg viewBox="0 0 16 16" fill="none" stroke="#54655c" stroke-width="1.4" stroke-linecap="round"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg></button></div>
+    <div class="cxm wtseg" id="wtKind"><button type="button" data-kind="예비" class="on">예비 슈스 대기</button><button type="button" data-kind="재원">재원 슈스 반 이동 대기</button></div>
+    <div class="wtbar">
+      <div class="wtview" id="wtView"><button type="button" data-view="form" class="on">등록</button><button type="button" data-view="list">명단 보기</button></div>
+      <div class="wtcnt" id="wtCnt" hidden><span id="wtListHead"></span><button type="button" class="wtrefresh" id="wtReload" aria-label="새로고침" title="새로고침"><svg viewBox="0 0 16 16" fill="none" stroke="#54655c" stroke-width="1.4" stroke-linecap="round"><path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5V5h-2.5"/></svg></button></div>
+    </div>
+    <div id="wtListBox" hidden>
+      <div class="wtfbox" id="wtFilt"></div>
+      <div class="wtlist" id="wtList"></div>
+      <p class="wtlfoot"><svg viewBox="0 0 16 16" fill="none" stroke="#8a978f" stroke-width="1.3"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.2v4M8 4.8v.1" stroke-linecap="round"/></svg><span>등록으로 전환·고치기·대기 취소는 <a href="https://coke4497-sys.github.io/shueguk-report/superstar.html#wait" target="_blank" rel="noopener">슈퍼스타 관리 → 대기 슈스</a>에서 합니다.</span></p>
+    </div>
+    <div id="wtForm">
+      <p class="pnote" id="wtNote">아직 등록 전인 학생을 대기 명단에 올립니다. 슈퍼스타 관리 → 대기 슈스에서 같은 명단을 봐요.</p>
+      <div class="wtgrp">
+        <div class="wtgt"><span class="gt">학생</span><span class="hint" id="wtYearHint"></span></div>
+        <div class="wtg2">
+          <label class="wtf-f" for="wtYear">연도<input type="number" id="wtYear" min="2020" max="2099"></label>
+          <label class="wtf-f" for="wtGrade">학년<select id="wtGrade"><option value="">미정</option></select></label>
+          <label class="wtf-f" for="wtSchool">학교<input type="text" id="wtSchool" list="wtSchools" placeholder="예) 화정고" autocomplete="off"><datalist id="wtSchools"></datalist></label>
+          <label class="wtf-f" for="wtName">이름<input type="text" id="wtName" list="wtNames" placeholder="예) 김하늘" autocomplete="off"><datalist id="wtNames"></datalist></label>
+          <div class="wtinfo full" id="wtStuInfo"></div>
+          <label class="wtf-f full" for="wtPhone">학부모님 연락처<input type="text" id="wtPhone" inputmode="tel" placeholder="01012345678" autocomplete="off"></label>
+        </div>
+      </div>
+      <div class="wtgrp">
+        <div class="wtgt"><span class="gt" id="wtClsLabel">희망 반</span><span class="hint">반을 고르면 지금 인원이 함께 보여요. 미정으로 두어도 됩니다</span></div>
+        <div class="wtcls"><div class="wtbook" id="wtBook"><button type="button" data-book="정규" class="on">정규</button><button type="button" data-book="내신">내신</button></div><select id="wtClass" aria-label="희망 반"><option value="">미정</option></select></div>
+        <label class="wtf-f" for="wtCap">정원<input type="number" id="wtCap" min="1" max="99" placeholder="반을 고르면 자동으로 채워져요"><span class="help">이 인원 아래로 내려가면 '이동 가능'으로 표시</span></label>
+      </div>
+      <div class="wtgrp">
+        <label class="wtf-f" for="wtMemo"><span>메모 <span class="help">(선택)</span></span><textarea id="wtMemo" rows="2" maxlength="500" placeholder="예) 2월 입학 상담 · 금요일 수업 희망"></textarea></label>
+        <div class="wtwho">작성자 <b id="wtWho"></b></div>
+      </div>
+    </div>
+    <div id="wtStatus" aria-live="polite"></div>
+    <div class="prow" id="wtSaveRow"><button class="wtsave" type="button" id="wtSave">대기 명단에 올리기</button></div>
+  </div>
+</div>
+<!-- 쪽지 보내기(2026-10-29 원장님) — 받는 사람의 업무 진행 상황에 쌓이고 [확인]으로 끝난다. 대화에는 남지 않는다 -->
+<div class="pback" id="ntback" hidden>
+  <div class="ppanel ntpanel" role="dialog" aria-modal="true" aria-labelledby="nttitle">
+    <span class="btitle" id="nttitle">쪽지 보내기</span>
+    <p class="pnote">받는 사람의 업무 진행 상황에 쪽지가 올라갑니다. 대화에는 남지 않고, 받은 사람이 [확인]을 누르면 끝나요. 여러 명을 골라도 됩니다.</p>
+    <div class="ntq" id="ntq" role="group" aria-label="빠른 고르기"><button type="button" data-q="all">모두</button><button type="button" data-q="tch">선생님 모두</button><button type="button" data-q="ast">조교 모두</button><button type="button" data-q="none">비우기</button></div>
+    <div id="ntchips"></div>
+    <div class="ntcnt" id="ntcnt" aria-live="polite"></div>
+    <textarea id="ntText" maxlength="300" placeholder="쪽지 내용 — 예: 내일 3시 회의실 예약 부탁드립니다" aria-label="쪽지 내용"></textarea>
+    <div class="prow"><button class="hbtn big" type="button" id="ntSend">쪽지 보내기</button><button class="hbtn big plain" type="button" id="ntClose">닫기</button></div>
+    <p class="pnote" id="ntStatus" aria-live="polite"></p>
+  </div>
+</div>
+<!-- 내 업무 기록(2026-10-29 원장님 "본인의 이전 업무 진행 상황을 확인") — 내가 끝낸 일을 날짜별로 -->
+<div class="pback" id="hsback" hidden>
+  <!-- 2026-10-29 원장님 디자인 묶음 design_handoff_attendance 1a(채택) — 폭 516·radius 24·세그먼트 탭·요약 카드 셋·상태 문구·날짜 묶음(출근/퇴근/근무 세 칸) -->
+  <div class="ppanel wtpanel hspanel" role="dialog" aria-modal="true" aria-labelledby="hstitle">
+    <div class="wthead"><span class="btitle" id="hstitle">내 업무 기록</span><button type="button" class="wtx" id="hsClose" aria-label="닫기"><svg viewBox="0 0 16 16" fill="none" stroke="#54655c" stroke-width="1.4" stroke-linecap="round"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"/></svg></button></div>
+    <!-- 탭: 업무 기록 | 출퇴근 기록 (2026-10-29 원장님 "본인에게만 보이는 출퇴근 이력") -->
+    <div class="cxm wtseg hstabs" id="hstabs" role="tablist"><button type="button" class="on" data-hs="task" role="tab" aria-selected="true">업무 기록</button><button type="button" data-hs="work" role="tab" aria-selected="false">출퇴근 기록</button></div>
+    <div class="hstiles" id="hstiles"></div>
+    <p class="hsline" id="hsline"></p>
+    <div id="hslist"></div>
+    <p class="pnote" id="hsnote">슈톡에서 맡은 일·쪽지·직접 추가한 업무가 쌓입니다. 수업 기록 줄은 학습 관리 → 수업 기록 보기에서 봐요.</p>
+    <div class="prow"><button class="hbtn plain" type="button" id="hsMore" hidden>지난 기록 더 보기</button></div>
   </div>
 </div>
 <div class="pback" id="cxback" hidden>
@@ -1070,6 +1336,10 @@
   function ymd(ts){ return kst(ts).toISOString().slice(0, 10); }
   function todayYmd(){ return new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10); }
   function dayStartMs(){ return Date.parse(todayYmd() + 'T00:00:00+09:00'); }
+  // 근무일 — 하루의 끝은 새벽 5시(2026-10-25 원장님 "자정 넘어 퇴근"): 그 전까지는 어제 출근을 그대로 근무 중으로 본다. 서버 private.work_today()와 같은 기준
+  var WORK_DAY_H = 5;
+  function workYmd(ts){ return ymd(new Date(Date.parse(ts || new Date().toISOString()) - WORK_DAY_H * 3600e3).toISOString()); }
+  function workDayStartMs(){ return Date.parse(workYmd() + 'T00:00:00+09:00') + WORK_DAY_H * 3600e3; }
   function hm(ts){ var d = kst(ts), h = d.getUTCHours(), m = d.getUTCMinutes(); return (h < 12 ? '오전 ' : '오후 ') + ((h % 12) || 12) + ':' + (m < 10 ? '0' : '') + m; }
   function md(ts){ var d = kst(ts); return (d.getUTCMonth() + 1) + '/' + d.getUTCDate(); }
   function dayLabel(ts){ var d = kst(ts); return (d.getUTCMonth() + 1) + '월 ' + d.getUTCDate() + '일 (' + '일월화수목금토'[d.getUTCDay()] + ')'; }
@@ -1098,10 +1368,21 @@
   // ── 시작 ─────────────────────────────────────────
   TeacherAuth.ready.then(function(ctx){
     ME = { id: ctx.profile.user_id, name: ctx.profile.display_name || ctx.profile.login_id, role: ctx.profile.role };
-    $('me').innerHTML = '<span class="mav">' + roleGlyph(ME.role) + '</span><span class="mtx">' + esc(ME.name + ' · ' + roleLabel(ME.role)) + '</span>';
+    $('me').innerHTML = '<span class="mav">' + roleGlyph(ME.role, ME.name) + '</span><span class="mtx">' + esc(ME.name + ' · ' + roleLabel(ME.role)) + '</span>';
     readMark = Number(localStorage.getItem('msg_read_' + ME.id) || 0);
     boot();
+    activityFlush();
   });
+  // 티쳐스 활동 알림(202610270001·202610290001) — 원장님이 슈톡을 열 때 2시간 넘게 기다린 잦은 일(출석·수업 기록 등)을 묶어 휴대폰 알림으로 받는다.
+  // 활동이 이어지는 동안은 화면들이 활동을 보낼 때마다 함수가 스스로 묶고, 마지막 일 뒤 아무 일이 없을 때를 위해 여기서 한 번 더 부른다.
+  // 2026-10-29 원장님 '따로 두기' — 알림 글은 이제 슈톡 대화에 오지 않는다(허브 activity.html + 푸시만). 묶음을 재촉하는 호출만 남겼다.
+  function activityFlush(){
+    if (!ME || ME.role !== 'admin') return;
+    fetch(SB + '/functions/v1/activity', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'flush' }), keepalive: true })
+      .then(function(r){ return r.json().catch(function(){ return {}; }); })
+      .then(function(){})
+      .catch(function(){});
+  }
 
   function boot(){
     rpc('msg_members').then(function(rows){
@@ -1111,18 +1392,22 @@
       return Promise.all([
         api('/msg_messages?select=*&order=id.desc&limit=' + PAGE),
         api('/msg_tasks?select=*&status=eq.' + encodeURIComponent('대기') + '&order=id.asc&limit=1000'),
-        api('/msg_tasks?select=*&done_at=gte.' + encodeURIComponent(new Date(dayStartMs()).toISOString()) + '&order=id.asc&limit=1000')
+        api('/msg_tasks?select=*&done_at=gte.' + encodeURIComponent(new Date(dayStartMs()).toISOString()) + '&order=id.asc&limit=1000'),
+        // 서버의 읽은 자리를 처음 그리기 전에 받는다 — 다른 기기에서 읽은 데가 '여기부터 새 메시지' 기준(2026-10-29). 표가 없으면(0012 전) 없는 대로
+        api('/msg_reads?select=user_id,last_id').catch(function(e){ if (e && (e.status === 404 || /msg_reads/.test(String(e.message)))) noReads(); return null; })
       ]);
     }).then(function(res){
       var rows = res[0] || [];
       hasOlder = rows.length === PAGE;
       addMsgs(rows); addTasks(res[1]); addTasks(res[2]);
+      if (res[3]){ applyReads(res[3]); syncMark(); readMark = Math.max(readMark, myMark()); }
       return loadTasksFor(rows);
     }).then(function(){
       ready = true;
       renderMsgs('first'); renderBoard();
       loadReads();
       var hm0 = location.hash.match(/^#m(\d+)$/); if (hm0) goTo(Number(hm0[1]));
+      if (location.hash === '#board'){ setTab('board'); history.replaceState(null, '', location.pathname + location.search); }   // 활동 기록 화면의 '슈톡 업무 진행' 링크로 돌아올 때
       pushInit(); loadPres(); loadLessons(true); loadShifts(); renderPres();
       setLive(true); schedule();
     }).catch(function(e){
@@ -1279,8 +1564,8 @@
   }
 
   // ── 대화 그리기 ───────────────────────────────────
-  // 대화 옆 동그라미 글자 — 이름 가운데 글자, 이수경 원장님은 '슈'(2026-10-20 원장님)
-  function avChar(n){ n = String(n || ''); return /^이수경/.test(n) ? '슈' : (n.slice(-2, -1) || n.charAt(0)); }
+  // 대화 옆 동그라미 글자 — 이름 가운데 글자, 이수경 원장님은 '슈'(2026-10-20 원장님), 끝이 '대표님'이면 '대'(2026-10-27 원장님 "옆동그라미 대")
+  function avChar(n){ n = String(n || ''); if (/^이수경/.test(n)) return '슈'; if (/대표님$/.test(n)) return '대'; return n.slice(-2, -1) || n.charAt(0); }
   function sortedMsgs(){ return Array.from(MSGS.values()).sort(function(a, b){ return a.id - b.id; }); }
   function lastMsgId(){ var x = 0; MSGS.forEach(function(m){ if (m.id > x) x = m.id; }); return x; }
   function tasksOf(id){ var out = []; TASKS.forEach(function(t){ if (t.message_id === id) out.push(t); }); return out.sort(function(a, b){ return a.id - b.id; }); }
@@ -1399,7 +1684,7 @@
     return '<div class="files">' + files.map(function(f){
       if (/^image\//.test(f.mime || '')){
         var src = blobs[f.path];
-        return '<button class="thumb" type="button" data-file="' + esc(f.path) + '" data-name="' + esc(f.name) + '" aria-label="' + esc(f.name) + ' 내려받기">'
+        return '<button class="thumb" type="button" data-file="' + esc(f.path) + '" data-name="' + esc(f.name) + '" aria-label="' + esc(f.name) + ' 크게 보기">'
           + (src ? '<img src="' + src + '" alt="' + esc(f.name) + '">' : '<span class="ph" data-img="' + esc(f.path) + '"></span>') + '</button>';
       }
       return '<button class="file" type="button" data-file="' + esc(f.path) + '" data-name="' + esc(f.name) + '">' + FILE_SVG + '<span>' + esc(f.name) + ' <small>· ' + size(f.size) + '</small></span></button>';
@@ -1454,6 +1739,7 @@
     }).catch(function(){});
   }
   function setReply(id){
+    if (id && editing) cancelEdit();   // 답장을 시작하면 수정은 그만둔다(둘을 같이 쓰지 않는다)
     replyTo = id ? MSGS.get(id) : null;
     $('rbar').hidden = !replyTo;
     if (replyTo) $('rtext').innerHTML = '↩ <b>' + esc(replyTo.author_name) + '</b>에게 답장 · ' + snip(replyTo);
@@ -1467,23 +1753,28 @@
     var cont = prev && prev.author === m.author && prev.author_name === m.author_name && ((prev.bot && prev.bot.kind) || '') === ((m.bot && m.bot.kind) || '') && !prev.deleted_at && ymd(prev.created_at) === ymd(m.created_at)
       && Date.parse(m.created_at) - Date.parse(prev.created_at) < 5 * 60e3;
     var kko = m.bot && m.bot.kind === 'kakao';   // 카카오채널 학부모님 문의(202610200009)
-    var mem = MBY[m.author], tn = kko ? ['#F9EFD0', '#7A5F1E'] : m.bot ? ['#4C6E66', '#fff'] : tone(m.author_name);
+    var act = m.bot && m.bot.kind === 'activity';   // 티쳐스 활동 알림(202610270001 — 10/29 전에 올라간 슈톡 글. 지금은 슈톡에 올리지 않는다, 202610290001)
+    var mem = MBY[m.author], tn = kko ? ['#F9EFD0', '#7A5F1E'] : act ? ['#EDE4F4', '#5A4A6A'] : m.bot ? ['#4C6E66', '#fff'] : tone(m.author_name);
     var canDel = !m.deleted_at && (mine || ME.role === 'admin');
+    var canEdit = mine && !m.deleted_at && !m.bot && ('edited_at' in m);   // 글쓴이 본인만(202610290002 — edited_at 열이 없으면 수정 버튼을 숨김)
     // 답장 인용(위)·할 일 상태 줄(아래)은 말풍선 안에 — 2026-10-21 화면 개선안. 지운 메시지는 말풍선 없이 회색 한 줄
     var inner = m.deleted_at ? '' : quoteHtml(m) + (m.body ? '<div class="bt">' + bodyHtml(m.body) + '</div>' : '') + chipsHtml(m.id);
     var bb = m.deleted_at ? '<div class="bb del">삭제된 메시지 · ' + hm(m.created_at) + '</div>'
       : (inner ? '<div class="bb">' + inner + '</div>' : '');
     // 2026-10-21 리디자인 — 남의 글은 말풍선 위에 '티/조 동그라미 · 이름 칩 · 시각', 내 글은 시각을 말풍선 아래에
     var rc0 = mem ? roleCls(mem.role) : 'x';
-    return '<div class="m' + (mine ? ' mine' : '') + (m.bot ? ' botm' : '') + (kko ? ' kko' : '') + (cont ? ' cont' : '') + '" id="m' + m.id + '">'
-      + '<div class="mb"><div class="nm"><i class="av"' + (kko || m.bot ? ' style="background:' + tn[0] + ';color:' + tn[1] + '"' : '') + '>' + esc(kko ? '카' : m.bot ? '클' : mem ? roleGlyph(mem.role) : avChar(m.author_name)) + '</i>'
-      + '<span class="nmc r-' + rc0 + '">' + esc(m.author_name) + '</span><span class="rl">' + esc(kko ? '학부모님 문의 · 답은 채널 관리자센터에서' : m.bot ? '도우미' : '') + '</span><span class="nt">' + hm(m.created_at) + '</span></div>'
-      + '<div class="line">' + bb + (m.deleted_at ? '' : '<span class="tw">' + rcHtml(m) + (mine ? '' : '<span class="t">' + hm(m.created_at) + '</span>') + '</span>')
+    return '<div class="m' + (mine ? ' mine' : '') + (m.bot ? ' botm' : '') + (kko ? ' kko' : '') + (act ? ' act' : '') + (cont ? ' cont' : '') + '" id="m' + m.id + '">'
+      + '<div class="mb"><div class="nm"><i class="av"' + (kko || m.bot ? ' style="background:' + tn[0] + ';color:' + tn[1] + '"' : '') + '>' + esc(kko ? '카' : act ? '알' : m.bot ? '클' : mem ? roleGlyph(mem.role, mem.name) : avChar(m.author_name)) + '</i>'
+      + '<span class="nmc r-' + rc0 + '">' + esc(m.author_name) + '</span><span class="rl">' + esc(kko ? '학부모님 문의 · 답은 채널 관리자센터에서' : act ? '티쳐스 활동 · 원장님께 알림' : m.bot ? '도우미' : '') + '</span><span class="nt">' + hm(m.created_at) + edHtml(m) + '</span></div>'
+      + '<div class="line">' + bb + (m.deleted_at ? '' : '<span class="tw">' + rcHtml(m) + (mine ? '' : '<span class="t">' + hm(m.created_at) + edHtml(m) + '</span>') + '</span>')
       + heartHtml(m)
       + (m.deleted_at || !('reply_to' in m) ? '' : '<button class="mact" type="button" data-reply="' + m.id + '">답장</button>')   // reply_to 열이 없으면(0006 전) 답장 버튼을 숨김
+      + (canEdit ? '<button class="mact" type="button" data-edit="' + m.id + '">수정</button>' : '')
       + (canDel ? '<button class="mact" type="button" data-del="' + m.id + '">지우기</button>' : '') + '</div>'
-      + (m.deleted_at ? '' : filesHtml(m.files)) + (m.bot ? botAskHtml(m) : '') + (mine && !m.deleted_at ? '<span class="t mt">' + hm(m.created_at) + '</span>' : '') + '</div></div>';
+      + (m.deleted_at ? '' : filesHtml(m.files)) + (m.bot ? botAskHtml(m) : '') + (mine && !m.deleted_at ? '<span class="t mt">' + hm(m.created_at) + edHtml(m) + '</span>' : '') + '</div></div>';
   }
+  // 고친 글은 시각 옆에 '수정됨'(마우스를 올리면 고친 때) — 202610290002
+  function edHtml(m){ return m.edited_at ? ' <span class="edl" title="' + esc(hm(m.edited_at)) + '에 고침">수정됨</span>' : ''; }
   function atBottom(){ var el = $('msgs'); return el.scrollHeight - el.scrollTop - el.clientHeight < 80; }
   function renderMsgs(mode){
     var el = $('msgs');
@@ -1517,7 +1808,7 @@
   // 안 읽은 수 = 불러온 메시지 중 읽은 자리 뒤 + (읽은 자리가 불러온 첫 메시지보다 앞이면) 그 사이를 서버에서 센 수 — Codex 검토
   var gap = { key: '', n: 0 }, offSeen = {};
   function unreadCount(){
-    var mark = Number(localStorage.getItem('msg_read_' + (ME && ME.id)) || 0), n = 0;
+    var mark = myMark(), n = 0;
     MSGS.forEach(function(m){ if (m.id > mark && m.author !== ME.id && !m.deleted_at) n++; });
     if (firstId != null && mark < firstId - 1){
       var key = mark + '|' + firstId;
@@ -1557,7 +1848,7 @@
     if (!ME || document.hidden || boardOnly() || !$('results').hidden || !atBottom()) { tellReading(false); updateBadges(); return; }
     tellReading(true);
     var last = lastMsgId();
-    if (last > Number(localStorage.getItem('msg_read_' + ME.id) || 0)) localStorage.setItem('msg_read_' + ME.id, String(last));
+    if (last > localMark()) localStorage.setItem('msg_read_' + ME.id, String(last));
     sendRead(last);
     $('jump').hidden = true;
     clearAppBadge();
@@ -1606,11 +1897,37 @@
     }).catch(function(){ status('파일을 받지 못했습니다. 잠시 뒤 다시 눌러 주세요.'); });
   }
 
+  // 그림 큰 보기(2026-10-29 원장님 "첨부한 사진을 다운로드 하지 않고 확대해 볼 수 있게") — 미리보기와 같은 원본 파일(blobs)을 겹창에 띄운다.
+  // 그림을 누르면 화면 맞춤 ↔ 원본 크기(스크롤) 전환, 손가락 벌리기(핀치)는 브라우저 확대 그대로. 내려받기는 창 아래 버튼.
+  var LB = null;   // { path, name }
+  function openLightbox(path, name){
+    LB = { path: path, name: name };
+    var back = $('lbback'), img = $('lbimg');
+    back.classList.remove('zoom'); img.removeAttribute('src'); img.alt = name || '';
+    $('lbname').textContent = name || ''; $('lbstat').textContent = '불러오는 중…'; $('lbzoom').textContent = '원본 크기';
+    back.hidden = false;
+    var show = function(src){ if (!LB || LB.path !== path) return; img.src = src; $('lbstat').textContent = ''; };
+    if (blobs[path] && blobs[path] !== 'loading') show(blobs[path]);
+    else fetchBlob(path).then(function(b){ blobs[path] = URL.createObjectURL(b); show(blobs[path]); }).catch(function(){ if (LB && LB.path === path) $('lbstat').textContent = '그림을 불러오지 못했습니다'; });
+  }
+  function closeLightbox(){ LB = null; $('lbback').hidden = true; $('lbimg').removeAttribute('src'); }
+  function lbZoom(on){
+    var back = $('lbback'); if (on == null) on = !back.classList.contains('zoom');
+    back.classList.toggle('zoom', on); $('lbzoom').textContent = on ? '화면에 맞추기' : '원본 크기';
+    if (on){ var w = $('lbwrap'); w.scrollLeft = Math.max(0, (w.scrollWidth - w.clientWidth) / 2); }
+  }
+  $('lbclose').onclick = closeLightbox;
+  $('lbzoom').onclick = function(){ lbZoom(); };
+  $('lbdl').onclick = function(){ if (LB) download(LB.path, LB.name); };
+  $('lbimg').addEventListener('click', function(e){ e.stopPropagation(); lbZoom(); });
+  $('lbwrap').addEventListener('click', function(e){ if (e.target === this) closeLightbox(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && LB) closeLightbox(); });
+
   // ── 대화 쪽 클릭 ─────────────────────────────────
   $('msgs').addEventListener('click', function(e){
     var b = e.target.closest('button'); if (!b) return;
     if (b.id === 'older'){ b.disabled = true; b.textContent = '불러오는 중…'; loadOlder().then(function(){ renderMsgs('older'); }).catch(function(){ status('이전 대화를 불러오지 못했습니다.'); renderMsgs('keep'); }); return; }
-    if (b.dataset.file){ download(b.dataset.file, b.dataset.name); return; }
+    if (b.dataset.file){ if (b.classList.contains('thumb')) openLightbox(b.dataset.file, b.dataset.name); else download(b.dataset.file, b.dataset.name); return; }
     if (b.dataset.reply){ setReply(Number(b.dataset.reply)); return; }
     if (b.dataset.goMsg){ goTo(Number(b.dataset.goMsg)); return; }
     if (b.dataset.expand){ var k = Number(b.dataset.expand); openChips[k] = !openChips[k]; renderMsgs('keep'); return; }
@@ -1618,6 +1935,7 @@
     if (b.dataset.pick){ botPick(b.dataset.pick, b); return; }
     if (b.dataset.card){ showCard(b.dataset.card); return; }
     if (b.dataset.del){ delMsg(Number(b.dataset.del)); return; }
+    if (b.dataset.edit){ startEdit(Number(b.dataset.edit)); return; }
     if (b.dataset.rc){ readList(Number(b.dataset.rc), 'unread'); return; }
     if (b.dataset.heart){ toggleHeart(Number(b.dataset.heart), b); return; }
   });
@@ -1643,9 +1961,25 @@
   var READS = null, readsOk = true, readSent = 0, readSending = false, rdOpen = null;
   var HEART_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg>';
   var HEART_ON = HEART_SVG.replace('fill="none"', 'fill="currentColor"');
+  // 내 읽은 자리 = 이 기기(localStorage)와 서버(msg_reads — 다른 기기에서 읽은 것) 중 더 앞선 것(2026-10-29 원장님 "한 계정에서 읽은 메시지는
+  // 다른 기기에도 읽은 것으로"). 서버가 앞서면 이 기기에도 적어 둔다(syncMark) — 티쳐스 첫 화면 숫자도 같은 값을 본다.
+  function localMark(){ return ME ? Number(localStorage.getItem('msg_read_' + ME.id) || 0) : 0; }
+  function myMark(){ return Math.max(localMark(), (ME && READS && READS[ME.id]) || 0); }
+  function syncMark(){
+    var sv = (ME && READS && READS[ME.id]) || 0;
+    if (sv > localMark()){ localStorage.setItem('msg_read_' + ME.id, String(sv)); return true; }
+    return false;
+  }
+  function applyReads(rows){
+    var nx = {}, changed = !READS;
+    (rows || []).forEach(function(r){ nx[r.user_id] = Number(r.last_id) || 0; if (!READS || READS[r.user_id] !== nx[r.user_id]) changed = true; });
+    if (READS) Object.keys(READS).forEach(function(k){ if (!(k in nx)) changed = true; });
+    READS = nx;
+    return changed;
+  }
   function lastReadOf(uid){
     var v = READS && READS[uid] ? READS[uid] : 0;
-    if (ME && uid === ME.id) v = Math.max(v, Number(localStorage.getItem('msg_read_' + ME.id) || 0));
+    if (ME && uid === ME.id) v = Math.max(v, localMark());
     return v;
   }
   // 이 메시지를 받을 사람 — 쓴 사람 빼고 지금 활성 교사(클로슈·카카오채널 글은 모두)
@@ -1678,10 +2012,8 @@
   function loadReads(){
     if (!readsOk || !ME) return;
     api('/msg_reads?select=user_id,last_id').then(function(rows){
-      var nx = {}, changed = !READS;
-      (rows || []).forEach(function(r){ nx[r.user_id] = Number(r.last_id) || 0; if (!READS || READS[r.user_id] !== nx[r.user_id]) changed = true; });
-      if (READS) Object.keys(READS).forEach(function(k){ if (!(k in nx)) changed = true; });
-      READS = nx;
+      var changed = applyReads(rows);
+      if (syncMark()) updateBadges();   // 다른 기기에서 더 읽었으면 이 기기 숫자도 줄인다
       if (changed) paintReads();
     }).catch(function(e){ if (e && (e.status === 404 || /msg_reads/.test(String(e.message)))) noReads(); });
   }
@@ -1754,6 +2086,49 @@
     }).catch(function(e){ status(errText(e)); });
   }
 
+  // ── 메시지 수정 (2026-10-29 원장님 "올린 사람이 본인의 대화는 수정할 수 있도록", 202610290002) ─────────
+  // 내 글의 [수정] → 입력칸에 그 글을 넣고(꼬리표는 알약으로) 위에 '수정 중' 줄. [수정]/Enter 로 저장, [취소]/Esc 로 그만둔다.
+  // 글만 바뀐다 — 첨부 파일·답장 원글·@로 부른 사람은 그대로(서버 msg_edit 가 대기 중인 할 일 글만 새 글에 맞춘다). 쓰던 글은 잠시 치워 뒀다 되돌린다.
+  var editing = null, editDraft = null;
+  function startEdit(id){
+    var m = MSGS.get(id); if (!m || m.author !== ME.id || m.deleted_at) return;
+    if (sending) return;
+    if (!editing) editDraft = { text: inp.value, tag: curTag };   // 수정을 이어서 누르면 처음 치워 둔 글을 지킨다
+    editing = m; setReply(null);
+    var sp = tagSplit(m.body || '');
+    curTag = sp.tag; drawTags(); inp.value = sp.rest; grow(); attHint();
+    $('ebar').hidden = false;
+    $('etext').innerHTML = '✎ <b>메시지 수정 중</b> · 글만 바뀌어요 (파일·@로 부른 사람은 그대로)';
+    $('send').textContent = '수정'; $('attach').disabled = true;
+    inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length);
+  }
+  function endEdit(restore){
+    if (!editing) return;
+    editing = null;
+    $('ebar').hidden = true; $('send').textContent = '보내기'; $('attach').disabled = false;
+    if (restore && editDraft){ inp.value = editDraft.text; curTag = editDraft.tag; } else { inp.value = ''; curTag = ''; }
+    editDraft = null; drawTags(); grow(); attHint();
+  }
+  function cancelEdit(){ endEdit(true); }
+  function saveEdit(){
+    if (!editing || sending || !ready) return;
+    var m = MSGS.get(editing.id) || editing, body = inp.value.trim();   // 폴링으로 바뀐 최신 줄 기준
+    if (curTag && tagSplit(body).tag !== curTag) body = '[' + curTag + '] ' + body;
+    if (!body && !(m.files || []).length){ status('빈 글로는 고칠 수 없어요. 지우려면 [지우기]를 눌러 주세요.'); return; }
+    if (body === (m.body || '')){ endEdit(true); return; }   // 바뀐 게 없으면 저장하지 않고 닫는다
+    sending = true; $('send').disabled = true;
+    rpc('msg_edit', { p_id: m.id, p_body: body }).then(function(res){
+      endEdit(true);
+      addMsgs([res.message]); addTasks(res.tasks);
+      renderMsgs('keep'); renderBoard();
+      status('메시지를 고쳤습니다.', 2500);
+    }).catch(function(e){
+      var t = String((e && e.message) || '') + JSON.stringify((e && e.data) || '');
+      status(/not_allowed/.test(t) ? '내가 올린 글만 고칠 수 있어요.' : /msg_deleted/.test(t) ? '지운 메시지는 고칠 수 없어요.' : /msg_edit|PGRST202/.test(t) ? '수정 기능 준비가 아직 끝나지 않았습니다(마이그레이션 202610290002).' : errText(e), 6000);
+    }).then(function(){ sending = false; $('send').disabled = false; inp.focus(); });
+  }
+  $('ecancel').onclick = cancelEdit;
+
   // ── 쓰기 · @부르기 · 파일 ──────────────────────────
   var inp = $('inp');
   if (window.matchMedia && matchMedia('(max-width:520px)').matches) inp.placeholder = '메시지 쓰기';   // 휴대폰은 짧게(말줄임)
@@ -1799,6 +2174,7 @@
       if (e.key === 'Enter' || e.key === 'Tab'){ e.preventDefault(); pickMention(mIdx); return; }
       if (e.key === 'Escape'){ $('mention').classList.remove('on'); return; }
     }
+    if (e.key === 'Escape' && editing){ e.preventDefault(); cancelEdit(); return; }
     if (e.key === 'Enter' && !e.shiftKey && !coarse){ e.preventDefault(); send(); }
   });
   // 본문의 @이름 → 받을 사람 id. 이름마다 한 번만 보고 긴 이름 먼저('김지원A'가 '김지원'보다 먼저).
@@ -1821,7 +2197,7 @@
     return ids;
   }
 
-  $('attach').onclick = function(){ $('file').click(); };
+  $('attach').onclick = function(){ if (editing){ status('수정 중에는 파일을 바꿀 수 없어요.'); return; } $('file').click(); };
   // 캡처한 그림 붙여넣기·끌어 놓기(2026-10-21 원장님 "캡쳐한 이미지가 바로 들어가지 않아요. 카톡 창에서처럼 바로") — 파일 첨부와 같은 줄(pending)로 들어간다
   function pad2(n){ return (n < 10 ? '0' : '') + n; }
   function pasteName(f, i){
@@ -1829,6 +2205,7 @@
     return '캡처_' + pad2(d.getMonth() + 1) + pad2(d.getDate()) + '_' + pad2(d.getHours()) + pad2(d.getMinutes()) + pad2(d.getSeconds()) + (i ? '_' + (i + 1) : '') + '.' + ext;
   }
   function addFiles(list, pasted){
+    if (editing){ status('수정 중에는 파일을 바꿀 수 없어요.'); return; }
     var skipped = [], n = 0;
     Array.prototype.forEach.call(list, function(f, i){
       // 클립보드 그림은 이름이 'image.png' 같은 것이라 언제 찍은 캡처인지 알 수 있게 이름을 붙인다
@@ -1887,6 +2264,7 @@
   }
   var sending = false;
   function send(){
+    if (editing) return saveEdit();
     if (sending || !ready) return;
     var body = inp.value.trim();
     if (!body && !pending.length) return;
@@ -1916,6 +2294,181 @@
       .then(function(){ sending = false; $('send').disabled = false; inp.focus(); });
   }
   $('send').onclick = send;
+  /* ── 대기생 등록 (2026-10-29 원장님 "슈톡에 대기생 등록 버튼 — 연도·학년·학교·학부모님 연락처·메모·저장한 사람", 입력 위치는 보내기 버튼 위)
+   * 표 student_waitlist(허브 마이그레이션 202610290001) — 슈퍼스타 관리 → 대기 슈스와 같은 표에 넣는다(목록·전환·취소는 거기서).
+   * 재원 슈스는 재원 명단에서 이름을 고르면 학교·학년·연락처·지금 반이 채워지고 student_id 를 잇는다. 희망 반은 tt_classes 에서
+   * 고르고(인원 표시) 정원은 그 반 지금 인원으로 자동(고칠 수 있음) — 인원이 정원 아래로 내려가면 슈퍼스타 관리에서 줄 색이 바뀐다.
+   * 대화에는 글을 남기지 않는다. */
+  var WTM = { kind: '예비', book: '정규', stu: null, ttc: null, pick: null, capTouched: false, inited: false, busy: false, view: 'form', wl: null, wlBusy: false, fg: '', fs: '' };   // fg·fs = 명단 보기의 학년·학교 거르기('' = 전체)
+  var WT_LEFT = /^(퇴원|n|no|off|x|중단|비재원)$/i;
+  function wtmShortGrade(g){ g = String(g || '').trim(); var m = /(고등|중등)\s*(\d)/.exec(g); if (m) return (m[1] === '고등' ? '고' : '중') + m[2]; m = /^([중고])\s*(\d)/.exec(g); return m ? m[1] + m[2] : ''; }
+  function wtmKey(s){ return String(s.name).trim() + ' · ' + (String(s.school || '').trim() || '학교 미상') + ' · ' + (wtmShortGrade(s.grade) || '학년 미상'); }
+  function wtmCount(c){ return String(c && c.roster || '').split(/\s+/).filter(String).length; }
+  function wtmLabel(c){ return c.name + ' · ' + c.day + ' ' + c.start_time + (c.teacher ? ' · ' + c.teacher + 'T' : ''); }
+  function wtmCls(id){ return (WTM.ttc || []).find(function(c){ return c.book === WTM.book && c.class_id === id; }) || null; }
+  function wtmCur(s){ var p = []; if (s.class_a) p.push('가 ' + s.class_a); if (s.class_b) p.push('나 ' + s.class_b); if (s.naeshin_a && s.naeshin_a !== s.class_a) p.push('진도 ' + s.naeshin_a); if (s.naeshin_b && s.naeshin_b !== s.class_b) p.push('확인 ' + s.naeshin_b); return p.join(' · '); }
+  function wtmLoad(){
+    var a = WTM.stu ? Promise.resolve() : api('/students?select=id,name,school,grade,phone_parent1,class_a,class_b,naeshin_a,naeshin_b,enrolled&order=name&limit=5000').then(function(rows){
+      WTM.stu = (rows || []).filter(function(x){ return x.name && !WT_LEFT.test(String(x.enrolled || '').trim()); });
+      var sc = {}; WTM.stu.forEach(function(s){ if (s.school) sc[String(s.school).trim()] = 1; });
+      $('wtSchools').innerHTML = Object.keys(sc).sort().map(function(x){ return '<option value="' + esc(x) + '">'; }).join('');
+      $('wtNames').innerHTML = WTM.stu.map(function(s){ return '<option value="' + esc(wtmKey(s)) + '">'; }).join('');
+    }).catch(function(){ WTM.stu = []; });
+    var b = WTM.ttc ? Promise.resolve() : api('/tt_classes?select=book,class_id,name,day,start_time,teacher,roster&class_id=not.like.w*&limit=1000').then(function(rows){
+      WTM.ttc = (rows || []).sort(function(x, y){ return String(x.name).localeCompare(String(y.name), 'ko') || String(x.start_time).localeCompare(String(y.start_time)); });
+    }).catch(function(){ WTM.ttc = []; });
+    return Promise.all([a, b]).then(wtmFillClass);
+  }
+  function wtmFillClass(){
+    var sel = $('wtClass'), cur = sel.value;
+    sel.innerHTML = '<option value="">미정</option>' + (WTM.ttc || []).filter(function(c){ return c.book === WTM.book; }).map(function(c){ return '<option value="' + esc(c.class_id) + '">' + esc(wtmLabel(c)) + ' · ' + wtmCount(c) + '명</option>'; }).join('');
+    sel.value = cur; if (sel.value !== cur) sel.value = '';
+    Array.prototype.forEach.call($('wtBook').querySelectorAll('button'), function(b){ b.classList.toggle('on', b.getAttribute('data-book') === WTM.book); });
+    wtmCapAuto();
+  }
+  function wtmCapAuto(){ if (WTM.capTouched) return; var c = wtmCls($('wtClass').value); $('wtCap').value = c ? wtmCount(c) : ''; }
+  function wtmSetKind(k){
+    WTM.kind = k; WTM.pick = null; $('wtStuInfo').textContent = '';
+    Array.prototype.forEach.call($('wtKind').querySelectorAll('button'), function(b){ b.classList.toggle('on', b.getAttribute('data-kind') === k); });
+    $('wtNote').textContent = k === '예비' ? '아직 등록 전인 학생을 대기 명단에 올립니다. 슈퍼스타 관리 → 대기 슈스에서 같은 명단을 봐요.'
+      : '재원 명단에서 이름을 고르고 옮기고 싶은 반을 고르십시오. 그 반 인원이 정원 아래로 내려오면 슈퍼스타 관리 대기 슈스에서 줄이 초록으로 바뀌어요.';
+    $('wtClsLabel').textContent = k === '예비' ? '희망 반' : '이동 희망 반';
+    $('wtName').setAttribute('list', k === '재원' ? 'wtNames' : '');
+    $('wtName').placeholder = k === '재원' ? '이름을 적으면 재원 명단에서 골라요' : '예) 김하늘';
+    if (WTM.inited){ $('wtYear').value = k === '예비' ? wtmDefaultYear() : wtmNowYear(); wtmGradeOpts(); }
+    if (WTM.view === 'list') wtmListRender();
+  }
+  // ── 명단 보기 (2026-10-29 원장님 "여기서 명단 보기를 띄울 수 있었으면") — 대기 중인 줄만, 대기 시작일 순. 슈퍼스타 관리 대기 슈스와 같은 표·같은 이동 가능 판정(지금 인원 < 정원).
+  function wtmSetView(v){
+    WTM.view = v;
+    Array.prototype.forEach.call($('wtView').querySelectorAll('button'), function(b){ b.classList.toggle('on', b.getAttribute('data-view') === v); });
+    $('wtForm').hidden = v !== 'form'; $('wtListBox').hidden = v !== 'list'; $('wtSave').hidden = v !== 'form'; $('wtSaveRow').hidden = v !== 'form'; $('wtCnt').hidden = v !== 'list';
+    $('wttitle').textContent = v === 'list' ? '대기 명단' : '대기생 등록';
+    wtmStatus('');
+    if (v === 'list'){ if (WTM.wl) wtmListRender(); else wtmListLoad(); }
+  }
+  function wtmListLoad(){
+    if (WTM.wlBusy) return; WTM.wlBusy = true;
+    $('wtListHead').textContent = '명단을 불러오는 중…';
+    api('/student_waitlist?status=eq.대기&order=started_on.asc,id.asc&select=id,kind,name,year,grade,school,phone_parent,student_id,want_book,want_class_id,want_class_name,cap,memo,started_on,author_name&limit=1000').then(function(rows){
+      WTM.wl = rows || []; wtmListRender();
+    }).catch(function(e){
+      WTM.wl = null; $('wtList').innerHTML = ''; $('wtListHead').textContent = e && e.status === 404 ? '대기 명단 표가 아직 없습니다 (허브 마이그레이션 202610290001).' : '명단을 불러오지 못했어요: ' + errText(e);
+    }).then(function(){ WTM.wlBusy = false; });
+  }
+  function wtmPhoneFmt(p){ p = String(p || '').replace(/\D/g, ''); return p.length === 11 ? p.slice(0, 3) + '-' + p.slice(3, 7) + '-' + p.slice(7) : p.length === 10 ? p.slice(0, 3) + '-' + p.slice(3, 6) + '-' + p.slice(6) : p; }
+  function wtmDayN(ymd){ var d = Math.round((Date.parse(todayYmd() + 'T00:00:00Z') - Date.parse(String(ymd) + 'T00:00:00Z')) / 864e5); return isNaN(d) ? 0 : d; }
+  function wtmDays(ymd){ var d = wtmDayN(ymd); return d <= 0 ? '오늘부터' : d + '일째'; }
+  // 학년별·학교별 거르기(2026-10-29 원장님 "학년별 학교별로 볼 수 있어야") — 슈퍼스타 관리 wtFiltHtml 과 같은 규칙.
+  var WTM_GRADES = ['초5', '초6', '중1', '중2', '중3', '고1', '고2', '고3'];   // 초5·초6 = 2027 초6처럼 이른 대기(2026-10-29 원장님)
+  function wtmFiltHtml(all){
+    if (!all.length) return '';
+    var g = {}, sc = {}; all.forEach(function(r){ var a = String(r.grade || '').trim() || '미정', b = String(r.school || '').trim() || '학교 미상'; g[a] = (g[a] || 0) + 1; sc[b] = (sc[b] || 0) + 1; });
+    var gk = Object.keys(g).sort(function(a, b){ var x = WTM_GRADES.indexOf(a), y = WTM_GRADES.indexOf(b); return (x < 0 ? 99 : x) - (y < 0 ? 99 : y) || a.localeCompare(b, 'ko'); });
+    var sk = Object.keys(sc).sort(function(a, b){ return a.localeCompare(b, 'ko'); });
+    var pill = function(key, v, n, on){ return '<button type="button" data-f="' + key + '" data-v="' + esc(v) + '" class="' + (on ? 'on' : '') + '">' + esc(v || '전체') + (n != null ? '<small>' + n + '</small>' : '') + '</button>'; };
+    // 학년 = 칩, 학교 = 드롭다운(가나다, 학교 옆에 인원) — 디자인 묶음 1a
+    return '<div class="wtfilt"><span class="lab">학년</span><div class="chips">' + pill('fg', '', null, !WTM.fg) + gk.map(function(k){ return pill('fg', k, g[k], WTM.fg === k); }).join('') + '</div></div>'
+      + '<div class="wtfilt sch"><span class="lab">학교</span><div class="selrow"><select data-f="fs" aria-label="학교"><option value="">전체 학교 (' + sk.length + '곳)</option>'
+      + sk.map(function(k){ return '<option value="' + esc(k) + '"' + (WTM.fs === k ? ' selected' : '') + '>' + esc(k) + ' · ' + sc[k] + '명</option>'; }).join('') + '</select>'
+      + (WTM.fs ? '<button type="button" class="clr" data-f="fs" data-v="">전체로</button>' : '') + '</div></div>';
+  }
+  function wtmListRender(){
+    var all = (WTM.wl || []).filter(function(r){ return r.kind === WTM.kind; }), canN = 0;
+    $('wtFilt').innerHTML = wtmFiltHtml(all);
+    var filt = !!(WTM.fg || WTM.fs);
+    var rows = all.filter(function(r){ return (!WTM.fg || (String(r.grade || '').trim() || '미정') === WTM.fg) && (!WTM.fs || (String(r.school || '').trim() || '학교 미상') === WTM.fs); });
+    var html = rows.map(function(r, i){
+      var c = r.want_class_id ? (WTM.ttc || []).find(function(x){ return x.book === r.want_book && x.class_id === r.want_class_id; }) : null;
+      var cnt = c ? wtmCount(c) : null, can = !!(c && r.cap != null && cnt < r.cap); if (can) canN++;
+      var s = r.student_id && WTM.stu ? WTM.stu.find(function(x){ return x.id === r.student_id; }) : null;
+      var l2 = [];
+      if (r.phone_parent) l2.push('<a href="tel:' + esc(r.phone_parent) + '">' + esc(wtmPhoneFmt(r.phone_parent)) + '</a>');
+      if (r.kind === '재원' && s) l2.push('지금 ' + esc(wtmCur(s) || '미배정'));
+      if (c) l2.push('희망 ' + esc(r.want_class_name || wtmLabel(c)) + ' · ' + cnt + '명' + (r.cap != null ? ' / 정원 ' + r.cap : '') + (can ? ' · <span class="room">자리 있음</span>' : ''));
+      else l2.push(r.want_class_name ? '희망 ' + esc(r.want_class_name) + ' (지금 시간표에 없음)' : '희망 반 미정');
+      if (r.author_name) l2.push('작성자 ' + esc(r.author_name));
+      var dn = wtmDayN(r.started_on);   // 1년 넘은 대기는 분홍 배지(디자인 묶음 1a)
+      return '<div class="wtli' + (can ? ' can' : '') + '" data-id="' + r.id + '"><span class="no">' + (i + 1) + '</span><div class="body"><div class="l1"><b>' + esc(r.name) + '</b><span class="sub">' + esc([r.grade, r.school].filter(String).join(' · ')) + '</span></div>'
+        + '<span class="l2">' + l2.join(' · ') + '</span>' + (r.memo ? '<span class="memo">' + esc(r.memo) + '</span>' : '') + '</div><span class="days' + (dn >= 365 ? ' long' : '') + '">' + esc(wtmDays(r.started_on)) + '</span></div>';
+    }).join('');
+    $('wtList').innerHTML = html || '<div class="wtlempty">' + (filt ? '고른 학년·학교에 대기 중인 학생이 없습니다.' : WTM.kind === '예비' ? '대기 중인 예비 슈스가 없습니다.' : '반 이동을 기다리는 재원 슈스가 없습니다.') + '</div>';
+    var ys = {}; all.forEach(function(r){ if (r.year) ys[r.year] = 1; }); var yl = Object.keys(ys).sort().join('·');   // '2027 예비 슈스'처럼 연도를 앞에(2026-10-29 원장님)
+    $('wtListHead').innerHTML = (WTM.kind === '예비' ? (yl ? yl + ' ' : '') + '예비' : '반 이동') + ' · <b>' + all.length + '명</b>' + (filt ? ' · 보는 중 <b>' + rows.length + '명</b>' : '') + (WTM.kind === '재원' || canN ? ' · 이동 가능 <b>' + canN + '명</b>' : '');
+  }
+  function wtmPick(){
+    if (WTM.kind !== '재원') return;
+    var v = $('wtName').value.trim(), s = (WTM.stu || []).find(function(x){ return wtmKey(x) === v; }) || null;
+    WTM.pick = s;
+    if (!s){ $('wtStuInfo').textContent = v ? '재원 명단에서 골라 주세요.' : ''; return; }
+    $('wtSchool').value = String(s.school || '').trim(); $('wtGrade').value = wtmShortGrade(s.grade);
+    if (s.phone_parent1) $('wtPhone').value = String(s.phone_parent1).trim();
+    $('wtStuInfo').innerHTML = '지금 반: <b>' + esc(wtmCur(s) || '시간표 미배정') + '</b>';
+  }
+  // 대기 연도 기본값 = 다음 학년도(2026-10-29 원장님 "2027로" — 대기는 다음 해 등록을 기다리는 것). 3월부터는 내년, 1·2월은 올해(한국 날짜).
+  function wtmDefaultYear(){ var y = todayYmd(); var yr = +y.slice(0, 4), m = +y.slice(5, 7); return m >= 3 ? yr + 1 : yr; }
+  // 지금 학년도(3월 시작) — 학년 칸은 적은 연도의 학년이라 '2027 고2 = 지금 고1'을 함께 보여 준다(2026-10-30 원장님 "2027 고3·고2 대기생도 입력 가능하게"). 슈퍼스타 관리 wtGradeOpts 와 두 벌.
+  function wtmNowYear(){ var y = todayYmd(); var yr = +y.slice(0, 4), m = +y.slice(5, 7); return m >= 3 ? yr : yr - 1; }
+  var WTM_LADDER = ['초1', '초2', '초3', '초4', '초5', '초6', '중1', '중2', '중3', '고1', '고2', '고3'];
+  function wtmNowGrade(g, year){
+    var i = WTM_LADDER.indexOf(g), d = (parseInt(year, 10) || wtmNowYear()) - wtmNowYear();
+    if (i < 0) return ''; var j = i - d; return j >= 0 && j < WTM_LADDER.length ? WTM_LADDER[j] : (j < 0 ? '아직 취학 전' : '졸업');
+  }
+  function wtmGradeOpts(){
+    var sel = $('wtGrade'), cur = sel.value, year = parseInt($('wtYear').value, 10) || wtmNowYear(), same = year === wtmNowYear();
+    sel.innerHTML = '<option value="">미정</option>' + WTM_GRADES.map(function(g){ var now = same ? '' : wtmNowGrade(g, year); return '<option value="' + g + '">' + g + (now ? ' · 지금 ' + now : '') + '</option>'; }).join('');
+    sel.value = WTM_GRADES.indexOf(cur) >= 0 ? cur : '';
+    $('wtYearHint').textContent = same ? year + ' 학년도 기준 — 지금 학년 그대로' : year + ' 학년도 기준 — 예) ' + year + ' 고2 = 지금 ' + wtmNowGrade('고2', year);
+  }
+  function wtmStatus(m, err){ var el = $('wtStatus'); el.textContent = m || ''; el.classList.toggle('err', !!err); }
+  function wtmOpen(){
+    if (!ME) return;
+    if (!WTM.inited){
+      WTM.inited = true;
+      $('wtYear').value = wtmDefaultYear(); wtmGradeOpts();
+      $('wtYear').addEventListener('input', wtmGradeOpts); $('wtYear').addEventListener('change', wtmGradeOpts);
+      $('wtKind').addEventListener('click', function(e){ var b = e.target.closest('button[data-kind]'); if (b) wtmSetKind(b.getAttribute('data-kind')); });
+      $('wtView').addEventListener('click', function(e){ var b = e.target.closest('button[data-view]'); if (b) wtmSetView(b.getAttribute('data-view')); });
+      $('wtFilt').addEventListener('click', function(e){ var b = e.target.closest('button[data-f]'); if (!b) return; WTM[b.getAttribute('data-f')] = b.getAttribute('data-v'); wtmListRender(); });
+      $('wtFilt').addEventListener('change', function(e){ var sel = e.target.closest('select[data-f]'); if (!sel) return; WTM[sel.getAttribute('data-f')] = sel.value; wtmListRender(); });
+      $('wtReload').onclick = function(){ WTM.wl = null; WTM.ttc = null; wtmLoad().then(wtmListLoad); };
+      $('wtBook').addEventListener('click', function(e){ var b = e.target.closest('button[data-book]'); if (!b) return; WTM.book = b.getAttribute('data-book'); $('wtClass').value = ''; wtmFillClass(); });
+      $('wtClass').addEventListener('change', wtmCapAuto);
+      $('wtCap').addEventListener('input', function(){ WTM.capTouched = true; });
+      $('wtName').addEventListener('input', wtmPick); $('wtName').addEventListener('change', wtmPick);
+      $('wtSave').onclick = wtmSave; $('wtClose').onclick = wtmClose;
+      $('wtback').addEventListener('click', function(e){ if (e.target === $('wtback')) wtmClose(); });
+      wtmSetKind('예비');
+    }
+    $('wtWho').textContent = ME.name; wtmStatus('');
+    $('wtback').hidden = false; wtmLoad().then(function(){ if (WTM.view === 'list') wtmListLoad(); }); if (WTM.view === 'form') $('wtName').focus();
+  }
+  function wtmClose(){ $('wtback').hidden = true; }
+  function wtmSave(){
+    if (WTM.busy) return;
+    var name = $('wtName').value.trim(), school = $('wtSchool').value.trim(), grade = $('wtGrade').value, year = parseInt($('wtYear').value, 10);
+    var phone = $('wtPhone').value.replace(/\D/g, ''), cid = $('wtClass').value, c = cid ? wtmCls(cid) : null, cap = $('wtCap').value.trim();
+    if (WTM.kind === '재원' && !WTM.pick){ wtmStatus('재원 명단에서 학생을 골라 주세요.', true); return; }
+    if (!name){ wtmStatus('이름을 적어 주세요.', true); return; }
+    if (phone && (phone.length < 8 || phone.length > 11)){ wtmStatus('학부모님 연락처를 확인해 주세요. (숫자 8~11자리)', true); return; }
+    var body = { kind: WTM.kind, name: WTM.kind === '재원' ? String(WTM.pick.name).trim() : name, year: isNaN(year) ? null : year, grade: grade, school: school, phone_parent: phone,
+      student_id: WTM.kind === '재원' && WTM.pick && WTM.pick.id ? WTM.pick.id : null,
+      want_book: c ? WTM.book : '', want_class_id: c ? c.class_id : '', want_class_name: c ? wtmLabel(c) : '',
+      cap: c ? (cap ? parseInt(cap, 10) : wtmCount(c)) : null, memo: $('wtMemo').value.trim(), author_name: ME.name };
+    WTM.busy = true; $('wtSave').disabled = true; wtmStatus('올리는 중…');
+    api('/student_waitlist', { method: 'POST', headers: { 'Prefer': 'return=representation' }, body: JSON.stringify(body) }).then(function(){
+      ['wtName', 'wtPhone', 'wtMemo'].forEach(function(id){ $(id).value = ''; });
+      if (WTM.kind === '재원') $('wtSchool').value = '';
+      $('wtClass').value = ''; $('wtCap').value = ''; WTM.capTouched = false; WTM.pick = null; $('wtStuInfo').textContent = ''; WTM.wl = null;
+      wtmClose();
+      status('✓ ' + body.name + ' 학생을 ' + (body.kind === '예비' ? '예비 슈스' : '반 이동') + ' 대기 명단에 올렸습니다. 슈퍼스타 관리 → 대기 슈스에서 확인해요.', 7000);
+    }).catch(function(e){
+      wtmStatus(e && e.status === 404 ? '대기 명단 표가 아직 없습니다 (허브 마이그레이션 202610290001).' : '저장하지 못했어요: ' + errText(e), true);
+    }).then(function(){ WTM.busy = false; $('wtSave').disabled = false; });
+  }
+  $('waitBtn').onclick = wtmOpen;
+  $('noteBtn').onclick = function(){ ntOpen([]); };
+
 
   // ── 오늘 수업 기록 (2026-10-20 원장님 "수업이 있는 경우 각 반의 수업 기록을 리스트에 추가. 완료하면 자동으로 체크") ──
   // 오늘 시간표(그 주 정규/내신 + 학년 예외, '이 주만' 반, 휴강·옮긴 수업 제외 — 리포트 classlog.html '기록 없는 수업'과 같은 규칙)를
@@ -1937,7 +2490,7 @@
   }
   // 시간표 담당T('은지'·'슈'·'김지원T') ↔ 슈톡 사람(표시 이름) — 끝 두 글자, '슈'는 이수경 (question.html teacherKey 와 같은 규칙)
   function teacherKey(t){
-    t = String(t || '').replace(/\s+/g, '').replace(/T$/, '').replace(/(선생님|쌤)$/, '').replace(/[A-Z]$/, '');
+    t = String(t || '').replace(/\s+/g, '').replace(/T$/, '').replace(/(선생님|쌤|대표님)$/, '').replace(/[A-Z]$/, '');   // '박언호대표님'(2026-10-27 원장님) → 언호
     if (t === '이수경' || t === '수경' || t === '슈') return '슈';
     return t.length >= 3 ? t.slice(-2) : t;
   }
@@ -1958,7 +2511,13 @@
       api('/tt_period?select=week_wednesday,book,overrides&week_wednesday=eq.' + wed)
         .catch(function(e){ if (e && e.status === 400) return api('/tt_period?select=week_wednesday,book&week_wednesday=eq.' + wed); throw e; }),   // overrides 열 없는 DB(047 전)
       api('/tt_log?select=kind,from_class_id,apply_date&kind=in.(' + encodeURIComponent('주간반휴강,주간반이동') + ')&apply_date=eq.' + day + '&limit=500'),
-      api('/class_notes?select=book,class_id,report_status,requested_at,updated_at&ymd=eq.' + day + '&limit=1000')
+      api('/class_notes?select=book,class_id,report_status,requested_at,updated_at&ymd=eq.' + day + '&limit=1000'),
+      // 학생 한 명씩 옮긴 기록(1회·주간빼기·주간추가) + 오늘 출석 — 학생이 모두 다른 시간으로 옮겨 간 수업은 오늘 할 일에서 뺀다
+      // (2026-10-30 박언호 대표님 — 금 8:30 논술B 수학의 김선우를 1회 이동으로 토 11:00에 옮겼는데 금요일 줄이 계속 남았다).
+      // 시간표 timetable.html emptyAt 과 같은 규칙: 1회 이동은 그 주(월~일), 주간빼기는 그 날짜, 들어온 학생·찍힌 출석이 있으면 남긴다
+      api('/tt_log?select=kind,student,from_class_id,to_class_id,apply_date&kind=in.(' + encodeURIComponent('1회,주간빼기,주간추가') + ')&apply_date=gte.' + addDay(wed, -2) + '&apply_date=lte.' + addDay(wed, 4) + '&limit=2000')
+        .catch(function(){ return []; }),
+      api('/attendance?select=class_id&date=eq.' + day + '&limit=2000').catch(function(){ return []; })
     ]).then(function(r){
       var p = (r[2] || [])[0] || {}, book0 = p.book || '정규', ov = (p.overrides && typeof p.overrides === 'object') ? p.overrides : {};
       var off = {}; (r[3] || []).forEach(function(l){ off[l.from_class_id] = 1; });
@@ -1971,6 +2530,7 @@
           if (c.book !== book || !String(c.roster || '').trim()) return;
         }
         if (off[c.class_id]) return;
+        if (!isW && lessonEmpty(c, r[5] || [], r[6] || [], day)) return;
         var uid = lessonUid(c.teacher); if (!uid) return;
         var n = notes[c.book + '|' + c.class_id];
         var done = !!(n && (n.requested_at || /^(요청|공개|보류)$/.test(n.report_status || '')));
@@ -1982,6 +2542,24 @@
       if (changed && ready){ renderBoard(); renderPres(); }
     }).catch(function(){ LES.at = Date.now(); })   // 시간표를 못 읽으면 수업 줄 없이 그대로(1분 뒤 다시)
       .then(function(){ LES.busy = false; }));
+  }
+  // 명단 학생이 모두 그 날 빠졌는지(1회 이동은 그 주 전체, 주간빼기는 그 날짜) — 들어온 학생이나 찍힌 출석이 있으면 false
+  function lessonPlain(n){ return String(n || '').replace(/^\s*\([^)]*\)\s*/, '').replace(/\(.*\)$/, '').trim(); }
+  function lessonEmpty(c, logs, att, day){
+    var names = String(c.roster || '').trim().split(/\s+/).filter(Boolean).map(lessonPlain);
+    if (!names.length) return false;
+    if (att.some(function(a){ return a.class_id === c.class_id; })) return false;
+    var away = {};
+    for (var i = 0; i < logs.length; i++){
+      var l = logs[i];
+      if (!l.student) continue;
+      if (l.to_class_id === c.class_id && l.kind !== '주간빼기' && l.apply_date === day) return false;   // 오늘 이 반으로 온 학생
+      if (l.from_class_id !== c.class_id) continue;
+      if (l.kind === '주간빼기' && l.apply_date !== day) continue;
+      if (l.kind === '주간추가') continue;
+      away[lessonPlain(l.student)] = 1;
+    }
+    return names.every(function(n){ return away[n]; });
   }
   function lessonsOf(uid){ return (LES.ok && LES.day === todayYmd() && LES.by[uid]) || []; }
   function lessonHtml(l){
@@ -2062,7 +2640,7 @@
   function detailHtml(sp, t){
     var h = stepsHtml(sp);
     if (sp.urls.length) h += '<div class="links">' + sp.urls.map(function(u){ return '<a class="lk" href="' + esc(u) + '" target="_blank" rel="noopener" title="' + esc(u) + '"><span aria-hidden="true">↗</span> ' + esc(shortUrl(u)) + '</a>'; }).join('') + '</div>';
-    return '<div class="det">' + h + '<button class="gomsg" type="button" data-go="' + t.message_id + '">대화에서 보기</button></div>';
+    return '<div class="det">' + h + (t.message_id ? '<button class="gomsg" type="button" data-go="' + t.message_id + '">대화에서 보기</button>' : '') + '</div>';
   }
   function ageHtml(t){
     var now = Date.now(), c = Date.parse(t.created_at), start = dayStartMs();
@@ -2070,26 +2648,30 @@
     if (c < start){ var n = Math.round((start - Date.parse(ymd(t.created_at) + 'T00:00:00+09:00')) / 86400e3) + 1; return '<span class="age" title="' + md(t.created_at) + '부터 남음">' + n + '일째</span>'; }
     return now - c > LATE_MS ? '<span class="age">' + Math.floor((now - c) / 3600e3) + '시간 지남</span>' : '';
   }
+  // 대화로 가는 단추 — 내가 직접 추가한 업무(202610250002)는 메시지가 없어 가지 않는다
+  function goAttr(t){ return t.message_id ? ' data-go="' + t.message_id + '" title="누르면 대화에서 이 메시지로"' : t.note ? ' title="쪽지"' : ' title="내가 직접 추가한 업무"'; }
+  // 쪽지(202610290003)는 '쪽지 · 보낸 사람'으로 — 카드·기록 창 공용
+  function byHtml(t){ return t.self_added ? '<span class="selfm">직접 추가</span>' : (t.note ? '<span class="notem">쪽지</span> ' : '') + esc(t.requester_name); }
   function taskHtml(t, p){
     var sp = splitTask(tagSplit(t.text).rest), has = sp.steps.length || sp.urls.length, open = has && openTask[t.id];
     var tag = tagPill(tagSplit(t.text).tag), seen = !!t.seen_at;
     var due = t.due_at ? Date.parse(t.due_at) : 0, over = due && due < Date.now();
     var dueHtml = due ? '<span class="due' + (over ? ' over' : '') + '">' + (over ? '약속 지남 · ' : '미룸 · ') + esc(whenLabel(t.due_at)) + '까지' + (t.due_note ? ' — ' + esc(t.due_note) : '') + '</span>' : '';
     var title = has ? '<button class="ctx" type="button" data-open="' + t.id + '" aria-expanded="' + !!open + '">' + tag + esc(sp.title) + '</button><button class="more" type="button" data-open="' + t.id + '">' + (open ? '접기' : '자세히') + CHEV + '</button>'
-      : '<button class="ctx" type="button" data-go="' + t.message_id + '" title="누르면 대화에서 이 메시지로">' + tag + esc(sp.title || '메시지 확인') + '</button>';
+      : '<button class="ctx" type="button"' + goAttr(t) + '>' + tag + esc(sp.title || '메시지 확인') + '</button>';
     var ack = t.assignee === ME.id && !seen && 'seen_at' in t ? '<button class="ack sm" type="button" data-ack="' + t.id + '">확인</button>' : '';
     return '<div class="ci' + (open ? ' open' : '') + '"><button class="bx" type="button" data-tk="' + t.id + '" aria-label="완료로 표시"' + (canCheck(t) ? '' : ' disabled title="맡은 사람·맡긴 사람만 체크할 수 있어요"') + '></button>'
       + '<div class="cbody"><div class="ttl">' + title + '</div>' + (open ? detailHtml(sp, t) : '')
-      + '<div class="meta">' + esc(t.requester_name) + ' · ' + hm(t.created_at) + ageHtml(t) + (seen ? '<span class="seen">✓ 확인함</span>' : '') + (isProg(t) ? '<span class="pg">진행 중</span>' : '') + dueHtml + histHtml(t) + '</div></div>'
+      + '<div class="meta">' + byHtml(t) + ' · ' + hm(t.created_at) + ageHtml(t) + (seen ? '<span class="seen">✓ 확인함</span>' : '') + (isProg(t) ? '<span class="pg">진행 중</span>' : '') + dueHtml + histHtml(t) + '</div></div>'
       + '<div class="cact">' + ack + (canManage(t) ? '<button class="cxb" type="button" data-cx="' + t.id + '" aria-label="관리" title="완료 · 진행 중 · 미루기 · 넘기기 · 취소">' + DOTS + '</button>' : '') + '</div></div>';
   }
   function doneHtml(t, p){
     var sp = splitTask(tagSplit(t.text).rest), tag = tagPill(tagSplit(t.text).tag);
     if (t.status === '취소') return '<div class="ci d x"><span class="bx x" title="취소한 할 일">×</span>'
-      + '<div class="cbody"><div class="ttl"><button class="ctx" type="button" data-go="' + t.message_id + '">' + tag + esc(sp.title) + '</button></div><div class="meta">' + esc(t.requester_name) + ' · 취소 ' + hm(t.done_at) + (t.done_by_name ? ' (' + esc(t.done_by_name) + ')' : '') + '<span class="why">사유: ' + esc(t.cancel_reason || '') + '</span>' + histHtml(t) + '</div></div>'
-      + '<div class="cact">' + (canCancel(t) && msgAlive(t.message_id) ? '<button class="cxb txt" type="button" data-uncx="' + t.id + '" title="취소를 풀고 다시 할 일로">되돌리기</button>' : '') + '</div></div>';
+      + '<div class="cbody"><div class="ttl"><button class="ctx" type="button"' + goAttr(t) + '>' + tag + esc(sp.title) + '</button></div><div class="meta">' + byHtml(t) + ' · 취소 ' + hm(t.done_at) + (t.done_by_name ? ' (' + esc(t.done_by_name) + ')' : '') + '<span class="why">사유: ' + esc(t.cancel_reason || '') + '</span>' + histHtml(t) + '</div></div>'
+      + '<div class="cact">' + (canCancel(t) && (!t.message_id || msgAlive(t.message_id)) ? '<button class="cxb txt" type="button" data-uncx="' + t.id + '" title="취소를 풀고 다시 할 일로">되돌리기</button>' : '') + '</div></div>';
     return '<div class="ci d"><button class="bx on" type="button" data-tk="' + t.id + '" data-done="1" aria-label="완료 취소"' + (canCheck(t) ? '' : ' disabled') + '>' + CHECK + '</button>'
-      + '<div class="cbody"><div class="ttl"><button class="ctx" type="button" data-go="' + t.message_id + '">' + tag + esc(sp.title) + '</button></div><div class="meta">' + esc(t.requester_name) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</div></div></div>';
+      + '<div class="cbody"><div class="ttl"><button class="ctx" type="button"' + goAttr(t) + '>' + tag + esc(sp.title) + '</button></div><div class="meta">' + byHtml(t) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</div></div></div>';
   }
   function renderBoard(){
     var map = people(), list = Object.keys(map).map(function(k){ return map[k]; });
@@ -2109,7 +2691,7 @@
     $('pchips').innerHTML = shown.map(function(p){
       var on = p.key === selPerson;
       return '<button type="button" role="tab" class="pchip r-' + roleCls(p.role) + (on ? ' on' : '') + (p.on ? '' : ' offd') + '" data-pick="' + esc(p.key) + '" aria-selected="' + on + '" title="' + esc(roleLabel(p.role) + (p.on ? '' : ' · 출근 전')) + '">'
-        + '<i class="pcv">' + roleGlyph(p.role) + '</i><b>' + esc(p.name) + '</b><small>' + p.fin + '/' + p.tot + '</small></button>';
+        + '<i class="pcv">' + roleGlyph(p.role, p.name) + '</i><b>' + esc(p.name) + '</b><small>' + p.fin + '/' + p.tot + '</small></button>';
     }).join('');
     var html = shown.map(function(p){
       var tot = p.tot, full = tot && !p.left;
@@ -2123,16 +2705,276 @@
       var items = p.les.map(lessonHtml).join('') + todo.map(function(t){ return taskHtml(t, p); }).join('')
         + p.done.sort(function(a, b){ return Date.parse(b.done_at) - Date.parse(a.done_at); }).map(function(t){ return doneHtml(t, p); }).join('');
       if (!tot) items += '<div class="none">오늘 배정된 업무가 없어요.</div>';
-      return '<section class="pc' + (sel ? ' sel' : '') + (p.on ? '' : ' offd') + '" data-person="' + esc(p.key) + '"' + (p.on ? '' : ' title="출근 전 · 내용은 볼 수 있어요"') + '><div class="ph1"><span class="pn">' + esc(p.name) + '</span><span class="prl">' + (p.key === ME.id ? '나 · ' : '') + esc(p.role ? roleLabel(p.role) : '') + '</span>'
+      if (p.key === ME.id) items += histLinkHtml();   // 내 업무 목록 맨 아래 [내 업무 기록] (2026-10-29 원장님 — 본인 것만)
+      if (p.key === ME.id && ME.role === 'admin') items += actLinkHtml();   // 원장님 업무 목록 맨 아래 [티쳐스 활동 기록] (2026-10-29 원장님 — 원장님에게만)
+      var noteBtn = p.key !== ME.id && MBY[p.key] ? '<button class="ntto" type="button" data-note="' + esc(p.key) + '" title="이 사람에게 쪽지 보내기">쪽지</button>' : '';
+      return '<section class="pc' + (sel ? ' sel' : '') + (p.on ? '' : ' offd') + '" data-person="' + esc(p.key) + '"' + (p.on ? '' : ' title="출근 전 · 내용은 볼 수 있어요"') + '><div class="ph1"><span class="pn">' + esc(p.name) + '</span><span class="prl">' + (p.key === ME.id ? '나 · ' : '') + esc(p.role ? roleLabel(p.role) : '') + '</span>' + noteBtn
         + '<span class="pcnt' + (full ? ' full' : '') + '">' + p.fin + ' / ' + tot + (full ? ' 완료' : '') + '</span>' + psubHtml(p) + '</div>'
         + items + '</section>';
     });
     if (!html.length) html.push('<div class="none empty">해당하는 사람이 없습니다.</div>');
     $('cards').classList.toggle('nosel', !shown.length);
+    var saIn = SA_IN, saFocus = document.activeElement === saIn, saPos = saIn.selectionStart;
     $('cards').innerHTML = html.join('');
+    var saHost = selfAddOk && document.querySelector('#cards .pc[data-person="' + ME.id + '"] .ph1');
+    if (saHost){ saHost.parentNode.insertBefore(SA, saHost.nextSibling); if (saFocus){ saIn.focus(); try { saIn.setSelectionRange(saPos, saPos); } catch (e){} } }
+    else if (SA.parentNode) SA.parentNode.removeChild(SA);
     if (Object.keys(qWant).length) fillQuotes();   // 취소 줄의 원문(지웠는지)을 받아 온다
   }
-  // 고른 사람 머리 아래 한 줄 — '{센터} · {출근 시각 · 근무 중 / 출근 예정 / 퇴근}' (2026-10-21 리디자인)
+  // 내 업무 직접 추가(2026-10-25 원장님 "본인의 업무를 스스로 추가") — 대화에 글을 남기지 않고 내 카드에만. 202610250002
+  // 폼은 한 번 만들어 두고 다시 그릴 때마다 내 구역으로 옮긴다(3초 폴링으로 다시 그려도 쓰던 글이 사라지지 않게)
+  var selfAddOk = true, saBusy = false;
+  var SA = document.createElement('form');
+  SA.className = 'selfadd'; SA.setAttribute('autocomplete', 'off');
+  SA.innerHTML = '<input id="saIn" type="text" maxlength="300" placeholder="내 업무 추가 — 예: 3시까지 시험지 복사" aria-label="내 업무 추가"><button type="submit" id="saBtn">추가</button>';
+  var SA_IN = SA.querySelector('input'), SA_BTN = SA.querySelector('button');
+  SA.addEventListener('submit', function(e){
+    e.preventDefault();
+    var inp = SA_IN, txt = inp.value.trim();
+    if (!txt){ inp.focus(); return; }
+    if (saBusy) return;
+    saBusy = true; SA_BTN.disabled = true;
+    rpc('msg_task_add', { p_text: txt }).then(function(row){
+      inp.value = '';
+      if (row && row.id){ addTasks([row]); renderBoard(); }
+      status('내 업무에 추가했습니다.', 2500);
+    }).catch(function(err){
+      var raw = String(err && err.message) + JSON.stringify((err && err.data) || '');
+      status(/PGRST202|msg_task_add/.test(raw) ? '내 업무 추가는 데이터베이스 적용(202610250002) 뒤에 쓸 수 있습니다.' : /too_long/.test(raw) ? '300자까지 적을 수 있어요.' : errText(err), 6000);
+    }).then(function(){ saBusy = false; SA_BTN.disabled = false; });
+  });
+  // 티쳐스 활동 기록 입구(2026-10-29 원장님 "슈톡의 업무 진행의 제 업무 리스트 하단에 배치, 저에게만 보이도록") — 원장님(admin) 구역에만,
+  // 슈국 운영 메뉴의 카드는 여기로 옮겼다. 읽기 권한(private.activity_viewer)도 원장님만이라 다른 사람에게는 그리지 않는다.
+  function actLinkHtml(){
+    return '<a class="ci actlink" href="activity.html" id="actLink"><span class="abx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg></span>'
+      + '<span class="cbody"><span class="ttl">티쳐스 활동 기록</span><span class="meta">시험 범위 · 시간표 · 리포트 · 출석 … 누가 무엇을 했는지와 내게 보낸 알림 (원장님만)</span></span><span class="chev">›</span></a>';
+  }
+  // ── 쪽지 보내기 (2026-10-29 원장님 "개인에게, 또는 복수 선택한 인원에게 쪽지를 보내고 받은 쪽지는 업무 진행 상황 리스트에 쌓이고 거기에서 확인 처리", 202610290003) ──
+  // 쪽지 = 대화에 남지 않는 메시지 없는 할 일 — 받는 사람마다 한 줄, 확인만 하면 끝(ack_only). 받는 사람 휴대폰 알림은 넘김 알림과 같은 길(hand).
+  // 입구 둘: 입력 상자 위 [쪽지 보내기](받는 사람을 창에서 고름) · 업무 진행 상황의 사람 머리 [쪽지](그 사람이 미리 골라짐).
+  var NT = { sel: {}, busy: false, inited: false };
+  function ntPeople(){
+    return MEMBERS.filter(function(m){ return m.id !== ME.id; }).sort(function(a, b){ return isTeacherRole(b.role) - isTeacherRole(a.role) || a.name.localeCompare(b.name, 'ko'); });
+  }
+  function ntOpen(ids){
+    if (!ME) return;
+    if (!NT.inited){
+      NT.inited = true;
+      $('ntq').addEventListener('click', function(e){
+        var b = e.target.closest('button[data-q]'); if (!b) return;
+        var q = b.getAttribute('data-q');
+        ntPeople().forEach(function(m){ if (q === 'none') delete NT.sel[m.id]; else if (q === 'all' || ((q === 'tch') === isTeacherRole(m.role))) NT.sel[m.id] = 1; });
+        ntRender();
+      });
+      $('ntchips').addEventListener('click', function(e){ var b = e.target.closest('button[data-nt]'); if (!b) return; var id = b.getAttribute('data-nt'); if (NT.sel[id]) delete NT.sel[id]; else NT.sel[id] = 1; ntRender(); });
+      $('ntSend').onclick = ntSend; $('ntClose').onclick = ntClose;
+      $('ntback').addEventListener('click', function(e){ if (e.target === $('ntback')) ntClose(); });
+      document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('ntback').hidden) ntClose(); });
+    }
+    NT.sel = {}; (ids || []).forEach(function(id){ if (MBY[id] && id !== ME.id) NT.sel[id] = 1; });
+    $('ntStatus').textContent = ''; ntRender();
+    $('ntback').hidden = false;
+    if (ids && ids.length) $('ntText').focus();
+  }
+  function ntClose(){ $('ntback').hidden = true; }
+  function ntRender(){
+    var ppl = ntPeople(), groups = [['선생님', ppl.filter(function(m){ return isTeacherRole(m.role); })], ['조교', ppl.filter(function(m){ return !isTeacherRole(m.role); })]];
+    $('ntchips').innerHTML = groups.filter(function(g){ return g[1].length; }).map(function(g){
+      return '<div class="ntg">' + g[0] + '</div><div class="ntchips">' + g[1].map(function(m){
+        return '<button type="button" data-nt="' + esc(m.id) + '" class="' + (NT.sel[m.id] ? 'on' : '') + '" aria-pressed="' + !!NT.sel[m.id] + '">' + esc(m.name) + '</button>';
+      }).join('') + '</div>';
+    }).join('');
+    var names = ppl.filter(function(m){ return NT.sel[m.id]; }).map(function(m){ return m.name; });
+    $('ntcnt').textContent = names.length ? '받는 사람 ' + names.length + '명 · ' + names.join(', ') : '받는 사람을 골라 주십시오.';
+    $('ntSend').disabled = !names.length || NT.busy;
+  }
+  function handPush(id){ fn({ action: 'hand', task_id: id }, true).catch(function(){ setTimeout(function(){ fn({ action: 'hand', task_id: id }, true).catch(function(){}); }, 5000); }); }
+  function ntSend(){
+    if (NT.busy) return;
+    var ids = ntPeople().filter(function(m){ return NT.sel[m.id]; }).map(function(m){ return m.id; }), txt = $('ntText').value.trim();
+    if (!ids.length){ $('ntStatus').textContent = '받는 사람을 골라 주십시오.'; return; }
+    if (!txt){ $('ntStatus').textContent = '쪽지 내용을 적어 주십시오.'; $('ntText').focus(); return; }
+    NT.busy = true; $('ntSend').disabled = true; $('ntStatus').textContent = '보내는 중…';
+    rpc('msg_note_send', { p_to: ids, p_text: txt }).then(function(rows){
+      rows = rows || [];
+      addTasks(rows); renderBoard();
+      $('ntText').value = ''; NT.sel = {}; ntClose();
+      status(rows.length + '명에게 쪽지를 보냈습니다. 받는 사람의 업무 진행 상황에 올라갔어요.', 5000);
+      rows.forEach(function(t){ if (t.hand_push) handPush(t.id); });   // 받는 사람 휴대폰 알림 — 서버가 한 번만 보낸다(실패하면 5초 뒤 한 번 더)
+    }).catch(function(err){
+      var raw = String(err && err.message) + JSON.stringify((err && err.data) || '');
+      $('ntStatus').textContent = /PGRST202|msg_note_send/.test(raw) ? '쪽지 기능은 데이터베이스 적용(202610290003) 뒤에 쓸 수 있습니다.' : /no_recipient/.test(raw) ? '받을 수 있는 사람이 없습니다(본인·비활성 계정은 뺍니다).' : /too_long/.test(raw) ? '300자까지 적을 수 있어요.' : errText(err);
+    }).then(function(){ NT.busy = false; ntRender(); });
+  }
+
+  // ── 내 업무 기록 (2026-10-29 원장님 "본인의 이전 업무 진행 상황을 확인할 수 있으면 — 내가 이런 일처리를 했구나 하면서 뿌듯") ──
+  // 내 구역 맨 아래 [내 업무 기록] → 창: 이번 주(수요일부터)·이번 달·전체 완료 수 + 내가 끝낸 일(완료·취소)을 날짜별로. 내 것만(assignee = 나). 표 변경 없음.
+  var HS_PAGE = 100, HS = { rows: [], inited: false, busy: false, mode: 'task', gen: 0 };   // gen = 탭을 바꿀 때마다 +1, 늦게 온 응답은 버린다
+  function histLinkHtml(){
+    return '<button class="ci actlink hist" type="button" data-hist="1" id="histLink"><span class="abx"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M8 3.5 5 6M16 3.5 19 6"/></svg></span>'
+      + '<span class="cbody"><span class="ttl">내 업무 기록</span><span class="meta">지금까지 내가 끝낸 일 · 내 출퇴근 기록</span></span><span class="chev">›</span></button>';
+  }
+  function hsOpen(mode){
+    if (!ME) return;
+    if (!HS.inited){
+      HS.inited = true;
+      $('hsClose').onclick = hsClose; $('hsMore').onclick = function(){ if (HS.mode === 'work') hwLoad(true); else hsLoad(true); };
+      $('hstabs').addEventListener('click', function(e){ var b = e.target.closest('button[data-hs]'); if (b && b.dataset.hs !== HS.mode) hsMode(b.dataset.hs); });
+      $('hsback').addEventListener('click', function(e){ if (e.target === $('hsback')) hsClose(); });
+      document.addEventListener('keydown', function(e){ if (e.key === 'Escape' && !$('hsback').hidden) hsClose(); });
+      $('hslist').addEventListener('click', function(e){ var b = e.target.closest('button[data-go]'); if (!b) return; hsClose(); goTo(Number(b.dataset.go)); });
+    }
+    $('hsback').hidden = false;
+    hsMode(mode === 'work' ? 'work' : 'task');
+  }
+  // 탭 바꾸기 — 타일·줄·안내·[더 보기]를 그 탭 것으로 비우고 다시 받는다
+  var HS_NOTE_TASK = '슈톡에서 맡은 일·쪽지·직접 추가한 업무가 쌓입니다. 수업 기록 줄은 학습 관리 → 수업 기록 보기에서 봐요.';
+  function hsMode(mode){
+    HS.mode = mode; HS.gen++; HS.rows = []; HS.busy = false; HW.logs = []; HW.months = 1; HW.busy = false;   // 앞 탭의 조회가 아직 안 끝났어도 새 탭 조회를 막지 않는다
+    document.querySelectorAll('#hstabs button').forEach(function(b){ var on = b.dataset.hs === mode; b.classList.toggle('on', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); });
+    $('hstitle').textContent = mode === 'work' ? '내 출퇴근 기록' : '내 업무 기록';
+    $('hstiles').className = 'hstiles'; $('hstiles').innerHTML = ''; $('hsline').className = 'hsline'; $('hsline').textContent = ''; $('hsMore').hidden = true; $('hsMore').textContent = '지난 기록 더 보기';
+    $('hslist').innerHTML = '<p class="hsempty">불러오는 중…</p>';
+    if (mode === 'work'){
+      // 조교는 급여용 시간이 근무표 기준(일찍 출근해도 시작 시각부터)이라 여기 숫자와 다를 수 있다 — 근무 일지로 안내 (2026-10-29 원장님 "조교 안내 문구 넣고")
+      $('hsnote').innerHTML = ME.role === 'assistant'
+        ? '슈톡 [출근]·[퇴근]을 누른 그대로의 기록입니다. 급여용 근무 시간은 근무표 기준으로 맞춘 <a href="worklog.html" target="_blank" rel="noopener">조교 근무 일지</a>에서 확인해 주십시오. 두 숫자는 다를 수 있어요.'
+        : '슈톡 [출근]·[퇴근]을 누른 그대로의 기록입니다. 잘못된 기록이 있으면 원장님께 슈톡으로 알려 주세요.';
+      hwLoad(false);
+    } else { $('hsnote').textContent = HS_NOTE_TASK; hsLoad(false); }
+  }
+  function hsClose(){ $('hsback').hidden = true; }
+  // ── 내 출퇴근 기록 (2026-10-29 원장님 "본인에게만 보이는 출퇴근 이력은 어떨까요?" → 랭킹 대신 본인 것만) ──
+  // 데이터 = msg_presence_log 내 줄(활성 교사는 자기 줄을 읽을 수 있다 — 출근 현황과 같은 표). 계산은 강사 관리(staff.html build 1.)와 같은 규칙:
+  // 출근(센터) → 다음 출근(센터 옮김)·퇴근까지, 근무일 경계 새벽 5시(workYmd), 퇴근 없이 날을 넘기면 '퇴근 기록 없음'(시간에 넣지 않음), 오늘 열린 것은 지금까지 '근무 중'.
+  // 처음엔 지난달 1일부터, [지난 기록 더 보기]마다 한 달씩 더(최대 HW_MAX_MONTHS). 표 변경 없음.
+  var HW_MAX_MONTHS = 12, HW = { logs: [], months: 1, busy: false };
+  function hwMonthStart(back){ var y = workYmd(), d = new Date(y.slice(0, 7) + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - back); return d.toISOString().slice(0, 10); }
+  function hwDur(min){ min = Math.round(min || 0); if (!min) return '0분'; var h = Math.floor(min / 60), m = min % 60; return (h ? h + '시간' : '') + (h && m ? ' ' : '') + (m ? m + '분' : ''); }
+  function hwLoad(more){
+    if (HW.busy) return;
+    HW.busy = true; $('hsMore').disabled = true;
+    var gen = HS.gen, back = more ? HW.months + 1 : 1, from = hwMonthStart(back), to = more ? hwMonthStart(HW.months) : null;
+    var fromIso = new Date(Date.parse(from + 'T00:00:00+09:00') + WORK_DAY_H * 3600e3).toISOString();
+    var q = '/msg_presence_log?select=is_on,loc,at&user_id=eq.' + ME.id + '&at=gte.' + encodeURIComponent(fromIso) + '&order=at.asc&limit=3000';
+    if (to) q += '&at=lt.' + encodeURIComponent(new Date(Date.parse(to + 'T00:00:00+09:00') + WORK_DAY_H * 3600e3).toISOString());
+    api(q).then(function(rows){
+      if (gen !== HS.gen) return;   // 받는 사이 탭을 바꿨다 돌아왔으면 옛 구간을 새 목록에 섞지 않는다
+      HW.logs = (rows || []).concat(more ? HW.logs : []);
+      HW.months = back;
+      hwRender();
+    }).catch(function(e){ if (gen === HS.gen) $('hslist').innerHTML = '<p class="hsempty">출퇴근 기록을 불러오지 못했습니다. ' + esc(errText(e)) + '</p>'; })
+      .then(function(){ if (gen === HS.gen){ HW.busy = false; $('hsMore').disabled = false; } });
+  }
+  // 기록 → 근무 구간 [{ymd, loc, start, end, min, how:'out'|'move'|'none'|'now'}] (staff.html 과 같은 규칙)
+  function hwSegments(logs){
+    var out = [], cur = null, nowMs = Date.now(), nowYmd = workYmd();
+    function close(atMs, how){ var s = cur; cur = null; if (!s) return; var min = how === 'none' ? 0 : Math.max(0, (atMs - s.at) / 60000); out.push({ ymd: workYmd(new Date(s.at).toISOString()), loc: s.loc, start: s.at, end: how === 'none' ? null : atMs, min: min, how: how }); }
+    logs.slice().sort(function(a, b){ return Date.parse(a.at) - Date.parse(b.at); }).forEach(function(l){
+      var at = Date.parse(l.at);
+      if (cur && workYmd(l.at) !== workYmd(new Date(cur.at).toISOString())) close(at, 'none');
+      if (l.is_on){ if (cur) close(at, 'move'); cur = { at: at, loc: l.loc }; }
+      else close(at, 'out');
+    });
+    if (cur){ if (workYmd(new Date(cur.at).toISOString()) === nowYmd) close(nowMs, 'now'); else close(0, 'none'); }
+    return out;
+  }
+  var HW_CHECK = '<svg viewBox="0 0 12 12" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.6 6.2l2.3 2.2 4.5-4.8"/></svg>';
+  var HW_OK_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.3"/><path d="M5.3 8.2l1.9 1.9 3.6-3.8"/></svg>';
+  var HW_MISS_ICON = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.3"/><path d="M8 4.8v4M8 11.2v.1"/></svg>';
+  function hwMd(y){ return parseInt(y.slice(5, 7), 10) + '/' + parseInt(y.slice(8, 10), 10); }
+  // 시간을 숫자(도현체)와 단위(작게)로 — '10시간 2분' → 10<u>시간</u> 2<u>분</u>
+  function hwDurHtml(min){ min = Math.round(min || 0); var h = Math.floor(min / 60), m = min % 60; if (!min) return '0<u>분</u>'; return (h ? h + '<u>시간</u>' : '') + (h && m ? ' ' : '') + (m ? m + '<u>분</u>' : ''); }
+  function hwRender(){
+    var segs = hwSegments(HW.logs), today = workYmd(), wk = hsWeekStart(today), lwk = addDay(wk, -7), mon = today.slice(0, 7), prev = hwMonthStart(1).slice(0, 7);
+    var sum = { w: [0, {}], lw: [0, {}], m: [0, {}], p: [0, {}] };
+    var add = function(k, s){ sum[k][0] += s.min; if (s.min) sum[k][1][s.ymd] = 1; };
+    segs.forEach(function(s){ if (s.ymd >= wk) add('w', s); else if (s.ymd >= lwk) add('lw', s); if (s.ymd.slice(0, 7) === mon) add('m', s); if (s.ymd.slice(0, 7) === prev) add('p', s); });
+    var tile = function(label, x, main){ return '<div class="hwt' + (main ? ' top' : '') + (x[0] ? '' : ' zero') + '"><span class="lb">' + label + ' · ' + Object.keys(x[1]).length + '일</span><span class="v">' + hwDurHtml(x[0]) + '</span></div>'; };
+    $('hstiles').className = 'hstiles hw';
+    $('hstiles').innerHTML = tile('이번 주', sum.w, true) + tile('지난주', sum.lw) + tile('이번 달', sum.m) + tile('지난달', sum.p);
+    var missDays = []; segs.forEach(function(s){ if (s.how === 'none' && missDays.indexOf(s.ymd) < 0) missDays.push(s.ymd); });
+    missDays.sort().reverse();
+    var line = $('hsline');
+    if (!segs.length){ line.className = 'hsline'; line.textContent = '아직 출퇴근 기록이 없습니다. 오늘의 슈국에서 출근 스위치를 누르면 여기에 쌓여요.'; }
+    else if (missDays.length){ line.className = 'hsline hwst miss'; line.innerHTML = HW_MISS_ICON + '<span>퇴근을 누르지 않은 날이 ' + missDays.length + '일 있어요 (' + missDays.map(hwMd).join(', ') + '). 이 날은 근무 시간이 합계에 들어가지 않습니다.</span>'; }
+    else { line.className = 'hsline hwst'; line.innerHTML = HW_OK_ICON + '<span>출퇴근을 빠짐없이 눌렀습니다. 기록이 깨끗해요.</span>'; }
+    if (!segs.length){ $('hslist').innerHTML = '<p class="hwempty">' + hwMonthStart(HW.months).slice(0, 7).replace('-', '년 ') + '월부터 지금까지 기록이 없습니다.</p>'; }
+    else {
+      var days = [], by = {};
+      segs.forEach(function(s){ if (!by[s.ymd]){ by[s.ymd] = []; days.push(s.ymd); } by[s.ymd].push(s); });
+      days.sort().reverse();
+      $('hslist').innerHTML = '<div class="hwlist">' + days.map(function(d){
+        var list = by[d].slice().sort(function(a, b){ return b.start - a.start; }), tot = list.reduce(function(a, s){ return a + s.min; }, 0), k = new Date(d + 'T00:00:00Z').getUTCDay();
+        var allMiss = list.every(function(s){ return s.how === 'none'; });
+        return '<div class="hwday"><div class="hd"><div class="dl"><span class="dt">' + hwMd(d) + '</span><span class="dw">(' + '일월화수목금토'[k] + ')</span>' + (d === today ? '<span class="td">오늘</span>' : '') + '</div>'
+          + (allMiss ? '<span class="tot none">퇴근 기록 없음</span>' : '<span class="tot">' + esc(hwDur(tot)) + '</span>') + '</div><div class="rows">' + list.map(hwRowHtml).join('') + '</div></div>';
+      }).join('') + '</div>';
+    }
+    $('hsMore').textContent = '지난 달 더 보기';
+    $('hsMore').hidden = HW.months >= HW_MAX_MONTHS;
+  }
+  // 기록 줄 — 윗줄(체크 상자 · 센터 칩 · 상태 칩) + 아랫줄 세 칸(출근 / 퇴근 / 근무). 상태: 일반 · 센터 옮김 · 1분 이하(흐림) · 근무 중(초록) · 퇴근 기록 누락(분홍)
+  function hwRowHtml(s){
+    var iso = function(ms){ return new Date(ms).toISOString(); };
+    var live = s.how === 'now', miss = s.how === 'none', tiny = !miss && !live && s.min <= 1;
+    var cls = 'hwr' + (live ? ' live' : '') + (miss ? ' miss' : '') + (tiny ? ' tiny' : '');
+    var st = live ? '근무 중 · 지금까지' : miss ? '퇴근 기록 누락' : s.how === 'move' ? '센터 옮김' : '';
+    var to = miss ? '기록 없음' : live ? '아직 전' : esc(hm(iso(s.end)));
+    return '<div class="' + cls + '"><div class="top"><span class="ck" aria-hidden="true">' + HW_CHECK + '</span>' + (s.loc ? '<span class="ctr">' + esc(locLbl(s.loc)) + '</span>' : '') + (st ? '<span class="st">' + st + '</span>' : '') + '</div>'
+      + '<div class="g3"><div><span class="lb">출근</span><span class="v">' + esc(hm(iso(s.start))) + '</span></div><div><span class="lb">퇴근</span><span class="v to">' + to + '</span></div><div><span class="lb">' + (live ? '지금까지' : '근무') + '</span><span class="v dur">' + (miss ? '?' : esc(hwDur(s.min))) + '</span></div></div></div>';
+  }
+  function hsBase(){ return '/msg_tasks?select=*&assignee=eq.' + ME.id + '&status=neq.' + encodeURIComponent('대기'); }
+  function hsLoad(more){
+    if (HS.busy) return;
+    HS.busy = true; $('hsMore').disabled = true;
+    var gen = HS.gen, last = more && HS.rows.length ? HS.rows[HS.rows.length - 1].done_at : null;
+    var list = api(hsBase() + '&order=done_at.desc&limit=' + HS_PAGE + (last ? '&done_at=lt.' + encodeURIComponent(last) : ''));
+    var cnt = more ? Promise.resolve(null) : api('/msg_tasks?select=done_at&assignee=eq.' + ME.id + '&status=eq.' + encodeURIComponent('완료') + '&order=done_at.desc&limit=1000');
+    Promise.all([list, cnt]).then(function(res){
+      if (gen !== HS.gen) return;   // 받는 사이 탭을 바꿨으면 그 화면을 덮지 않는다
+      var rows = (res[0] || []).filter(function(t){ return t.done_at; });
+      HS.rows = more ? HS.rows.concat(rows) : rows;
+      HS.more = rows.length >= HS_PAGE;
+      if (res[1]) hsTiles(res[1]);
+      hsRender();
+    }).catch(function(e){ if (gen === HS.gen) $('hslist').innerHTML = '<p class="hsempty">기록을 불러오지 못했습니다. ' + esc(errText(e)) + '</p>'; })
+      .then(function(){ if (gen === HS.gen){ HS.busy = false; $('hsMore').disabled = false; } });
+  }
+  // 기록용 '이번 주' 시작 = 오늘을 지나지 않은 가장 가까운 수요일 — weekWed는 수업 주차라 월·화에 다가오는 수요일을 주므로 그때는 7일을 뺀다(staff.html setPeriod('week')와 같음, Codex 검토)
+  function hsWeekStart(y){ var w = weekWed(y); return w > y ? addDay(w, -7) : w; }
+  window.__hsWeekStart = hsWeekStart;   // 검사용(messenger-e2e ㉛)
+  function hsTiles(done){
+    var today = todayYmd(), weekStart = Date.parse(hsWeekStart(today) + 'T00:00:00+09:00'), monthStart = Date.parse(today.slice(0, 7) + '-01T00:00:00+09:00');
+    var w = 0, m = 0, all = done.length;
+    done.forEach(function(r){ var at = Date.parse(r.done_at); if (at >= weekStart) w++; if (at >= monthStart) m++; });
+    var allTxt = all >= 1000 ? '1000+' : String(all);
+    $('hstiles').innerHTML = [['이번 주 완료', w], ['이번 달 완료', m], ['전체 완료', allTxt]].map(function(x){ return '<div class="hstile"><b>' + x[1] + '</b><span>' + x[0] + '</span></div>'; }).join('');
+    $('hsline').textContent = all ? '지금까지 ' + allTxt + '개의 일을 끝냈습니다. 수고 많으셨어요.' : '아직 끝낸 일이 없습니다. 첫 번째 완료를 기다려요.';
+  }
+  function hsRowHtml(t){
+    var sp = splitTask(tagSplit(t.text).rest), tag = tagPill(tagSplit(t.text).tag), cx = t.status === '취소';
+    var who = t.done_by_name && t.done_by_name !== ME.name ? ' (' + esc(t.done_by_name) + ')' : '';
+    var meta = byHtml(t) + ' · ' + (cx ? '취소 ' + hm(t.done_at) + who + (t.cancel_reason ? ' · 사유: ' + esc(t.cancel_reason) : '') : '완료 ' + hm(t.done_at) + who)
+      + (t.message_id ? ' · <button class="hgo" type="button" data-go="' + t.message_id + '">대화에서 보기</button>' : '');
+    // 여러 줄 글·링크는 펼친 채로 — 쪽지는 메시지가 없어 다음 날엔 여기서만 다시 읽을 수 있다 (Codex 검토)
+    var body = sp.steps.length ? stepsHtml(sp) : '';
+    if (sp.urls.length) body += '<div class="links">' + sp.urls.map(function(u){ return '<a class="lk" href="' + esc(u) + '" target="_blank" rel="noopener" title="' + esc(u) + '"><span aria-hidden="true">↗</span> ' + esc(shortUrl(u)) + '</a>'; }).join('') + '</div>';
+    return '<div class="hsrow' + (cx ? ' x' : '') + '"><span class="hbx' + (cx ? ' x' : '') + '" aria-hidden="true">' + (cx ? '×' : CHECK) + '</span><div class="hb"><div>' + tag + esc(sp.title || '메시지 확인') + '</div>' + (body ? '<div class="det hdet">' + body + '</div>' : '') + '<div class="hmeta">' + meta + '</div></div></div>';
+  }
+  function hsRender(){
+    var rows = HS.rows.slice().sort(function(a, b){ return Date.parse(b.done_at) - Date.parse(a.done_at); });
+    if (!rows.length){ $('hslist').innerHTML = '<p class="hsempty">끝낸 일이 아직 없습니다.</p>'; $('hsMore').hidden = true; return; }
+    var days = [], by = {}, today = todayYmd();
+    rows.forEach(function(t){ var d = ymd(t.done_at); if (!by[d]){ by[d] = []; days.push(d); } by[d].push(t); });
+    $('hslist').innerHTML = days.map(function(d){
+      var list = by[d], fin = list.filter(function(t){ return t.status === '완료'; }).length, cx = list.length - fin;
+      var k = new Date(d + 'T00:00:00Z').getUTCDay();
+      return '<div class="hsday">' + (parseInt(d.slice(5, 7), 10)) + '/' + parseInt(d.slice(8, 10), 10) + ' (' + '일월화수목금토'[k] + ')' + (d === today ? ' · 오늘' : '') + ' · 완료 ' + fin + (cx ? ' · 취소 ' + cx : '') + '</div>' + list.map(hsRowHtml).join('');
+    }).join('');
+    $('hsMore').hidden = !HS.more;
+  }
+  // 고른 사람 머리 아래 한 줄 — '{센터} · {출근 시각 · 근무 중 / 출근 전 / 퇴근}' (2026-10-21 리디자인)
   function psubHtml(p){
     var x = MBY[p.key] && staffOf(MBY[p.key]);
     var txt = x ? (x.loc ? locLbl(x.loc) + ' · ' : '') + x.sub : (presOk ? '오늘 일정 없음' : '');
@@ -2159,6 +3001,8 @@
     if (b.dataset.open){ var oid = Number(b.dataset.open); openTask[oid] = !openTask[oid]; renderBoard(); return; }
     if (b.dataset.cx){ cxOpen(Number(b.dataset.cx)); return; }
     if (b.dataset.uncx){ cxUndo(Number(b.dataset.uncx), b); return; }
+    if (b.dataset.note){ ntOpen([b.dataset.note]); return; }
+    if (b.dataset.hist){ hsOpen(); return; }
     if (b.dataset.go) goTo(Number(b.dataset.go));
   });
   // ── 할 일 취소 + 사유 (2026-10-20 원장님 "상황이 변경되어 그 업무를 진행하지 않아도 된다면 삭제 사유기록") ──
@@ -2335,11 +3179,11 @@
   }
   function presLoc(uid){
     var r = PRES[uid];
-    return r && r.is_on && ymd(r.changed_at) === ymd(new Date().toISOString()) ? r.loc : '';
+    return r && r.is_on && workYmd(r.changed_at) === workYmd() ? r.loc : '';
   }
   function presLeft(uid){   // 오늘 퇴근했으면 그 기록
     var r = PRES[uid];
-    return r && !r.is_on && ymd(r.changed_at) === ymd(new Date().toISOString()) ? r : null;
+    return r && !r.is_on && workYmd(r.changed_at) === workYmd() ? r : null;
   }
   // 기본 센터(202610220001) — 일정이 없는 날도 그 센터 카드에. 표가 없으면 빈 채로
   var HOME = {}, homeOk = false;
@@ -2356,7 +3200,7 @@
     return api('/msg_presence?select=user_id,name,loc,is_on,changed_at').then(function(rows){
       var next = {}; (rows || []).forEach(function(r){ next[r.user_id] = r; });
       // 날짜가 바뀌어도 다시 그린다 — 자정 넘어 열어 둔 화면에서 어제 출근이 ON으로 남지 않게 (Codex 검토)
-      var day = ymd(new Date().toISOString());
+      var day = workYmd();
       var changed = !presOk || presDay !== day || JSON.stringify(next) !== JSON.stringify(PRES);
       PRES = next; presOk = true; presDay = day;
       if (changed){ loadPresLog(); renderPres(); if (ready) renderBoard(); }
@@ -2368,7 +3212,7 @@
   // 오늘 근무표(조교 근무 일지 work_shifts) — 1분마다. 표가 없거나 못 읽으면 근무표 없이 그린다
   var SHIFT = { day: '', at: 0, by: {}, busy: false };
   function loadShifts(){
-    var day = todayYmd();
+    var day = workYmd();
     if (SHIFT.busy || (SHIFT.day === day && Date.now() - SHIFT.at < LES_MS)) return;
     SHIFT.busy = true; SHIFT.at = Date.now();
     rpc('work_ensure', { p_from: day, p_to: day }).catch(function(){}).then(function(){
@@ -2383,11 +3227,12 @@
   }
   function mm12(min){ var h = Math.floor(min / 60) % 24, m = min % 60; return (h < 12 ? '오전 ' : '오후 ') + ((h % 12) || 12) + ':' + (m < 10 ? '0' : '') + m; }
   function roleCls(r){ return r === 'assistant' ? 'a' : r === 'admin' ? 'm' : 't'; }
-  function roleGlyph(r){ return r === 'assistant' ? '조' : '티'; }
+  // 동그라미 글자 — 조교 '조', 선생님·원장님 '티', 이름 끝이 '대표님'이면 '대'(2026-10-27 원장님 "옆동그라미 대")
+  function roleGlyph(r, name){ return /대표님$/.test(String(name || '')) ? '대' : r === 'assistant' ? '조' : '티'; }
   // 오늘의 슈국 — 조교는 근무표, 선생님은 오늘 시간표의 첫 수업 위치, 그 밖에 오늘 출근·퇴근한 사람(2026-10-21 원장님 선택)
   function staffOf(m){
     // 조교는 근무표, 선생님·원장님은 수업 위치 (선생님이 근무표에 들어 있어도 수업 기준 — Codex 검토)
-    var les = lessonsOf(m.id), sh = m.role === 'assistant' && SHIFT.day === todayYmd() && SHIFT.by[m.id], ls = m.role === 'assistant' ? null : (les.filter(function(l){ return ttLoc(l.loc); })[0] || les[0]);
+    var les = lessonsOf(m.id), sh = m.role === 'assistant' && SHIFT.day === workYmd() && SHIFT.by[m.id], ls = m.role === 'assistant' ? null : (les.filter(function(l){ return ttLoc(l.loc); })[0] || les[0]);
     var sched = sh ? { loc: sh.loc, min: minsOf24(sh.start_hm) } : (ls ? { loc: ttLoc(ls.loc), min: minsOf(ls.start) } : null);
     var on = presLoc(m.id), left = presLeft(m.id), home = HOME[m.id] || '';
     var st = on ? 'on' : left ? 'off' : 'before';
@@ -2396,7 +3241,7 @@
     if (!on && !sched && !left && !home && m.id !== ME.id) return null;
     var sub = st === 'on' ? (onSince(m.id) ? hm(onSince(m.id)) + ' 출근 · ' : '') + '근무 중'
       : st === 'off' ? hm(left.changed_at) + ' 퇴근'
-      : sched ? mm12(sched.min) + ' 출근 예정' : home ? '출근 전' : '오늘 일정 없음';
+      : sched || home ? '출근 전' : '오늘 일정 없음';   // 출근 예정 시각은 보여 주지 않는다(2026-10-25 원장님 "출근 예정 표시 빼 주세요") — 근무표·첫 수업은 센터·순서에만 쓴다
     return { m: m, st: st, loc: loc, sub: sub, min: sched ? sched.min : 9999, shift: !!sh };
   }
   function minsOf24(t){ var p = String(t || '').split(':'); return (parseInt(p[0], 10) || 0) * 60 + (parseInt(p[1], 10) || 0); }
@@ -2441,7 +3286,7 @@
   // 오늘 기록(msg_presence_log)으로 지금 출근이 시작된 시각을 찾는다 — 센터만 바꾼 것은 출근 시각이 아니다(Codex 검토)
   var PLOG = {};
   function loadPresLog(){
-    return api('/msg_presence_log?select=user_id,is_on,at&at=gte.' + encodeURIComponent(new Date(dayStartMs()).toISOString()) + '&order=at.asc&limit=2000').then(function(rows){
+    return api('/msg_presence_log?select=user_id,is_on,at&at=gte.' + encodeURIComponent(new Date(workDayStartMs()).toISOString()) + '&order=at.asc&limit=2000').then(function(rows){
       var start = {};
       (rows || []).forEach(function(r){
         if (!r.is_on){ start[r.user_id] = null; return; }   // 퇴근하면 끊긴다
@@ -2455,11 +3300,11 @@
   }
   function onSince(uid){ return PLOG[uid] || (PRES[uid] && PRES[uid].changed_at); }
   function renderPresList(){
-    var today = ymd(new Date().toISOString()), by = {}, left = [], none = [];
+    var today = workYmd(), by = {}, left = [], none = [];
     MEMBERS.forEach(function(m){
       var r = PRES[m.id], l = presLoc(m.id);
       if (l) (by[l] = by[l] || []).push({ m: m, at: onSince(m.id) });
-      else if (r && !r.is_on && ymd(r.changed_at) === today) left.push({ m: m, at: r.changed_at, loc: r.loc });
+      else if (r && !r.is_on && workYmd(r.changed_at) === today) left.push({ m: m, at: r.changed_at, loc: r.loc });
       else none.push(m);
     });
     var row = function(x, tm){ return '<div class="plrow' + (x.m.id === ME.id ? ' plme' : '') + '"><span class="nm">' + esc(x.m.name) + '</span><span class="rl">' + esc(roleLabel(x.m.role)) + '</span><span class="tm">' + tm + '</span></div>'; };

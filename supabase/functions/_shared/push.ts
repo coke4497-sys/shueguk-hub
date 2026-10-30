@@ -3,6 +3,7 @@ import webpush from 'npm:web-push@3.6.7'
 
 export const SUBJECT = 'https://coke4497-sys.github.io/shueguk-hub/messenger.html'
 export const PAGE = 'https://coke4497-sys.github.io/shueguk-hub/messenger.html'
+export const ACT_PAGE = 'https://coke4497-sys.github.io/shueguk-hub/activity.html'   // 티쳐스 활동 알림(원장님 전용 화면, 202610290001)
 
 export function cut(s: string, n: number) {
   const t = String(s || '').replace(/\s+/g, ' ').trim()
@@ -15,7 +16,9 @@ export type Sub = { id: number; user_id: string; endpoint: string; p256dh: strin
 
 // 받는 기기마다 보낼 내용 — 순수 함수(시험용으로 따로 내보냄)
 // active = 지금 활성 교사 user_id — 퇴사 등으로 비활성이 된 사람의 기기는 받지 않는다(Codex 검토 P1)
-export function plan(msg: Msg, tasks: Task[], subs: Sub[], active: Set<string>) {
+// work = 오늘 근무하는 사람(workSet) — null 이면 거르지 않는다(조회 실패 때 알림을 잃지 않게).
+// 쉬는 날에도 받는 경우: 이 메시지로 나에게 할 일이 생김 · 클로슈가 나를 받을 사람으로 정함(bot.to) · workSet 이 늘 넣는 원장님·대표님 (2026-10-25 원장님)
+export function plan(msg: Msg, tasks: Task[], subs: Sub[], active: Set<string>, work: Set<string> | null = null) {
   const mine = new Map<string, Task>()
   tasks.forEach((t) => { if (t.assignee) mine.set(t.assignee, t) })
   const files = (msg.files || []).length
@@ -25,6 +28,7 @@ export function plan(msg: Msg, tasks: Task[], subs: Sub[], active: Set<string>) 
   return subs
     .filter((s) => s.user_id !== msg.author && active.has(s.user_id))
     .filter((s) => !only || only.has(s.user_id))
+    .filter((s) => !work || work.has(s.user_id) || mine.has(s.user_id) || !!(only && only.has(s.user_id)))
     // 클로슈·카카오채널 글(bot)은 옛 'mention' 범위로 저장된 기기여도 받는다 — 그 글에는 받는 사람 할 일이 없다.
     // bot.to 가 없는 글(오늘 정리 등)은 모두에게 (Codex 검토)
     .filter((s) => !!msg.bot || s.mode !== 'mention' || mine.has(s.user_id))
@@ -43,14 +47,169 @@ export function plan(msg: Msg, tasks: Task[], subs: Sub[], active: Set<string>) 
     })
 }
 
-// 넘겨받은 사람에게 보낼 내용 — 순수 함수(시험용)
-export type Hand = { id: number; message_id: number; text: string; to: string; status: string }
+// ── 출근 날에만 알림 (2026-10-25 원장님 "슈톡 알림을 출근 날에만" → '근무 일정이 있는 날' 선택) ──
+// 오늘 근무 일정 = 조교 근무표(work_shifts, 아직 안 채운 날은 기본 근무표 work_roster) · 오늘 시간표 수업(messenger.html loadLessons 와 같은 규칙)
+//   · 오늘 슈톡 출근·퇴근 기록(msg_presence_log). 원장님(admin)·박언호 대표님(parkeh)은 늘 받는다.
+// 근무일은 새벽 5시에 바뀐다(private.work_today 와 같음). 쉬는 날에도 나에게 생긴 할 일·넘긴 일은 받는다(plan·handPlan).
+export const ALWAYS_LOGIN = ['parkeh']
+export const WORK_DAY_H = 5
+const WDAY = '일월화수목금토'
+function addDay(y: string, n: number) { const d = new Date(y + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
+export function workYmd(now = Date.now()) { return new Date(now + (9 - WORK_DAY_H) * 3600e3).toISOString().slice(0, 10) }
+export function weekWed(y: string) { const k = new Date(y + 'T00:00:00Z').getUTCDay(); return addDay(y, (k === 1 || k === 2) ? 3 - k : -((k - 3 + 7) % 7)) }
+function gradeOfName(n: string) { const m = /([중고])\s*([1-3])/.exec(String(n || '')); return m ? m[1] + m[2] : '' }
+// 시간표 담당T('은지'·'슈'·'김지원T') ↔ 표시 이름 — 끝 두 글자, '슈'는 이수경 (messenger.html teacherKey 와 같은 규칙)
+export function teacherKey(t: string) {
+  t = String(t || '').replace(/\s+/g, '').replace(/T$/, '').replace(/(선생님|쌤|대표님)$/, '').replace(/[A-Z]$/, '')   // '박언호대표님' → 언호
+  if (t === '이수경' || t === '수경' || t === '슈') return '슈'
+  return t.length >= 3 ? t.slice(-2) : t
+}
+export type Member = { user_id: string; display_name: string; role: string; login_id: string }
+export type WorkIn = {
+  day: string
+  members: Member[]
+  shifts: { loc: string; slot: number; user_id: string | null }[]
+  roster: { loc: string; slot: number; user_id: string }[]
+  presence: { user_id: string }[]
+  classes: { book: string; class_id: string; name: string; teacher: string; roster: string }[]
+  period: { book?: string; overrides?: Record<string, string> | null } | null
+  off: string[]
+}
+// 순수 함수(시험용) — 오늘 알림을 받을 사람 user_id
+export function workSet(w: WorkIn) {
+  const set = new Set<string>()
+  w.members.forEach((m) => { if (m.role === 'admin' || ALWAYS_LOGIN.includes(m.login_id)) set.add(m.user_id) })
+  const taken = new Set<string>()
+  w.shifts.forEach((r) => { taken.add(r.loc + '|' + r.slot); if (r.user_id) set.add(r.user_id) })
+  w.roster.forEach((r) => { if (!taken.has(r.loc + '|' + r.slot)) set.add(r.user_id) })   // 그 칸을 아직 안 채운 날(work_fill 전)
+  w.presence.forEach((r) => set.add(r.user_id))
+  const book0 = (w.period && w.period.book) || '정규'
+  const ov = (w.period && w.period.overrides && typeof w.period.overrides === 'object') ? w.period.overrides : {}
+  const off = new Set(w.off)
+  w.classes.forEach((c) => {
+    if (!/^w/.test(c.class_id)) {
+      const g = gradeOfName(c.name), book = (g && ov[g]) ? ov[g] : book0
+      if (c.book !== book || !String(c.roster || '').trim()) return
+    }
+    if (off.has(c.class_id)) return
+    const k = teacherKey(c.teacher); if (!k) return
+    const hit = w.members.filter((m) => teacherKey(m.display_name) === k)
+    if (hit.length === 1) set.add(hit[0].user_id)   // 둘 이상과 맞으면 붙이지 않는다(messenger.html lessonUid 와 같음)
+  })
+  return set
+}
+// 오늘 근무하는 사람을 읽어 온다 — 하나라도 못 읽으면 null(거르지 않음)
+// deno-lint-ignore no-explicit-any
+export async function workingToday(admin: any, now = Date.now()): Promise<Set<string> | null> {
+  try {
+    const day = workYmd(now), dn = WDAY[new Date(day + 'T00:00:00Z').getUTCDay()]
+    const dow = ((new Date(day + 'T00:00:00Z').getUTCDay() + 6) % 7) + 1
+    const start = new Date(Date.parse(day + 'T00:00:00+09:00') + WORK_DAY_H * 3600e3).toISOString()
+    const wid = 'w' + day.slice(2).replace(/-/g, '')
+    const sel = 'book,class_id,name,teacher,roster'
+    const r = await Promise.all([
+      admin.from('teacher_accounts').select('user_id,display_name,role,login_id').eq('active', true),
+      admin.from('work_shifts').select('loc,slot,user_id').eq('ymd', day),
+      admin.from('work_roster').select('loc,slot,user_id').eq('dow', dow),
+      admin.from('msg_presence_log').select('user_id').gte('at', start),
+      admin.from('tt_classes').select(sel).eq('day', dn).not('class_id', 'like', 'w*').limit(1000),
+      admin.from('tt_classes').select(sel).like('class_id', wid + '*').limit(200),
+      admin.from('tt_period').select('book,overrides').eq('week_wednesday', weekWed(day)).limit(1),
+      admin.from('tt_log').select('from_class_id').in('kind', ['주간반휴강', '주간반이동']).eq('apply_date', day).limit(500),
+    ])
+    // deno-lint-ignore no-explicit-any
+    if (r.some((x: any) => x.error)) { console.error('workingToday lookup failed'); return null }
+    return workSet({
+      day, members: r[0].data || [], shifts: r[1].data || [], roster: r[2].data || [], presence: r[3].data || [],
+      classes: (r[4].data || []).concat(r[5].data || []), period: (r[6].data || [])[0] || null,
+      // deno-lint-ignore no-explicit-any
+      off: (r[7].data || []).map((x: any) => x.from_class_id),
+    })
+  } catch (_) { return null }
+}
+
+// 넘겨받은 사람에게 보낼 내용 — 순수 함수(시험용). 쪽지(note — 202610290003)도 같은 길로 가고 제목만 '○○ → 나에게 쪽지'.
+export type Hand = { id: number; message_id: number | null; text: string; to: string; status: string; note?: boolean }
 export function handPlan(t: Hand, byName: string, subs: Sub[], active: Set<string>) {
   if (t.status !== '대기' || !active.has(t.to)) return []
   return subs.filter((s) => s.user_id === t.to).map((s) => ({
     sub: s,
-    payload: { title: byName + ' → 나에게 넘긴 일', body: cut(t.text, 140), url: PAGE + '#m' + t.message_id, tag: 'tk' + t.id, task: true },
+    payload: { title: byName + (t.note ? ' → 나에게 쪽지' : ' → 나에게 넘긴 일'), body: cut(t.text, 140), url: t.message_id ? PAGE + '#m' + t.message_id : PAGE, tag: 'tk' + t.id, task: true },   // 내가 직접 추가한 업무(202610250002)·쪽지는 메시지가 없다
   }))
+}
+
+// ── 티쳐스 활동 알림 (202610290001 — 슈톡 글 대신 activity_notices 표 + 원장님 기기에만 푸시) ──
+// 받는 기기 = 활성 원장님(admin)의 기기 전부(출근 여부·mode 와 상관없이 — 원장님은 늘 받는다). 알림을 누르면 허브 activity.html 로.
+// badge:false — 슈톡 앱 아이콘의 빨간 숫자는 올리지 않는다(슈톡 대화에 없는 글이라 숫자를 지울 길이 없어서).
+export type Notice = { id: number; kind: string; text: string }
+export function activityPlan(n: Notice, subs: Sub[], admins: Set<string>) {
+  const lines = String(n.text || '').split('\n').map((x) => x.trim()).filter(Boolean)
+  const title = cut(lines[0] || '티쳐스 활동', 60)
+  const body = cut(lines.slice(1).map((x) => x.replace(/^·\s*/, '')).join(' · ') || lines[0] || '', 140)   // 요약 글의 '· ' 항목은 점을 떼고 이어 붙인다
+  return subs.filter((s) => admins.has(s.user_id)).map((s) => ({
+    sub: s,
+    payload: { title, body, url: ACT_PAGE + '#n' + n.id, tag: 'act' + n.id, task: false, badge: false },
+  }))
+}
+// deno-lint-ignore no-explicit-any
+async function adminSubs(admin: any) {
+  const [a, s] = await Promise.all([
+    admin.from('teacher_accounts').select('user_id').eq('active', true).eq('role', 'admin'),
+    admin.from('msg_push_subs').select('*'),
+  ])
+  if (a.error || s.error) return null
+  return { admins: new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id)), subs: (s.data || []) as Sub[] }
+}
+// 알림 글 한 건 — 보낼 자리(pushed_at)를 잡고 보낸다. 한 기기에도 못 보냈고 실패가 있으면 자리를 되돌린다(다음 호출이 다시 보냄),
+// 일부 기기만 실패하면 그 기기를 push_retry 에 적어 둔다(retryActivity). pushMessage 와 같은 짜임.
+// deno-lint-ignore no-explicit-any
+export async function pushActivity(admin: any, id: number) {
+  const got = await adminSubs(admin)
+  if (!got) return { status: 503, body: { error: 'lookup_failed' } }
+  const at = new Date().toISOString()
+  const { data: claimed, error: ce } = await admin.from('activity_notices').update({ pushed_at: at }).eq('id', id).is('pushed_at', null).select('id,kind,text')
+  if (ce) return { status: 503, body: { error: 'claim_failed' } }
+  if (!claimed || !claimed.length) return { status: 200, body: { skipped: true } }
+  const items = activityPlan(claimed[0], got.subs, got.admins)
+  const r = await deliver(admin, items)
+  const { failedIds, ...cnt } = r
+  if (!r.sent && r.failed) {
+    await checked(() => admin.from('activity_notices').update({ pushed_at: null }).eq('id', id).eq('pushed_at', at), 'unclaim notice ' + id)
+    return { status: 503, body: { error: 'deliver_failed', targets: items.length, ...cnt } }
+  }
+  if (failedIds.length && !(await saveRetry(admin, 'activity_notices', id, { push_retry: failedIds }))) {
+    await checked(() => admin.from('activity_notices').update({ pushed_at: null }).eq('id', id).eq('pushed_at', at), 'unclaim notice ' + id)
+    return { status: 503, body: { error: 'retry_save_failed', targets: items.length, ...cnt } }
+  }
+  return { status: 200, body: { targets: items.length, ...cnt } }
+}
+// 일부 기기만 못 받은 알림 글을 그 기기에만 다시 — 목록을 비우며 잡고(두 호출이 겹쳐도 한쪽만), 또 실패한 기기만 다시 적는다
+// deno-lint-ignore no-explicit-any
+export async function retryActivity(admin: any, id: number) {
+  const { data: c, error: ce } = await admin.from('activity_notices').update({ push_retry: null }).eq('id', id).not('push_retry', 'is', null).select('id,kind,text,push_retry')
+  if (ce) return { status: 503 }
+  if (!c || !c.length) return { status: 200, skipped: true }
+  const ids = c[0].push_retry
+  const restore = (v: unknown) => keepRetry(admin, 'activity_notices', id, 'push_retry', v)
+  const got = await adminSubs(admin)
+  if (!got) { await restore(ids); return { status: 503 } }
+  const r = await deliver(admin, onlySubs(activityPlan(c[0], got.subs, got.admins), ids))
+  if (r.failedIds.length && !(await restore(r.failedIds))) return { status: 503, lost: r.failedIds }
+  return { status: r.failed ? 503 : 200 }
+}
+// 못 보낸 알림 글을 다시 — 엣지 함수 activity 가 불릴 때마다(1분 넘게 안 보낸 것·일부 기기만 못 받은 것, 이레 안)
+// deno-lint-ignore no-explicit-any
+export async function repushActivity(admin: any) {
+  if (!setup()) return { tried: 0 }
+  const since = new Date(Date.now() - 7 * 86400e3).toISOString(), before = new Date(Date.now() - 60e3).toISOString()
+  const [w, p] = await Promise.all([
+    admin.from('activity_notices').select('id').is('pushed_at', null).gte('at', since).lte('at', before).order('id').limit(20),
+    admin.from('activity_notices').select('id').not('push_retry', 'is', null).gte('at', since).order('id').limit(20),
+  ])
+  let tried = 0, failed = 0
+  for (const n of w.data || []) { tried++; if ((await pushActivity(admin, n.id)).status !== 200) failed++ }
+  for (const n of p.data || []) { tried++; if ((await retryActivity(admin, n.id)).status !== 200) failed++ }
+  return { tried, failed }
 }
 
 let ready = false
@@ -101,10 +260,11 @@ export function onlySubs<T extends { sub: Sub }>(items: T[], ids: unknown): T[] 
 // 한 기기에도 못 보냈고 일시적 실패가 있으면 자리를 되돌린다(다시 부르면 다시 보냄). extra 는 잡을 때 더할 조건.
 // deno-lint-ignore no-explicit-any
 export async function pushMessage(admin: any, id: number, extra?: (q: any) => any) {
-  const [t, s, a] = await Promise.all([
+  const [t, s, a, work] = await Promise.all([
     admin.from('msg_tasks').select('assignee,text').eq('message_id', id),
     admin.from('msg_push_subs').select('*'),
     admin.from('teacher_accounts').select('user_id').eq('active', true),
+    workingToday(admin),
   ])
   if (t.error || s.error || a.error) return { status: 503, body: { error: 'lookup_failed' } }
   const at = new Date().toISOString()
@@ -114,7 +274,7 @@ export async function pushMessage(admin: any, id: number, extra?: (q: any) => an
   if (ce) return { status: 503, body: { error: 'claim_failed' } }
   if (!claimed || !claimed.length) return { status: 200, body: { skipped: true } }
   const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
-  const items = plan(claimed[0], t.data || [], s.data || [], active)
+  const items = plan(claimed[0], t.data || [], s.data || [], active, work)
   const r = await deliver(admin, items)
   const { failedIds, ...cnt } = r
   if (!r.sent && r.failed) {
@@ -163,16 +323,17 @@ export async function retryPush(admin: any, id: number) {
   const ids = c.data
   if (!Array.isArray(ids) || !ids.length) return { status: 200, skipped: true }
   const restore = (v: unknown) => keepRetry(admin, 'msg_messages', id, 'push_retry', v)
-  const [m, t, s, a] = await Promise.all([
+  const [m, t, s, a, work] = await Promise.all([
     admin.from('msg_messages').select('id,author,author_name,body,files,deleted_at,bot').eq('id', id).maybeSingle(),
     admin.from('msg_tasks').select('assignee,text').eq('message_id', id),
     admin.from('msg_push_subs').select('*').in('id', ids),
     admin.from('teacher_accounts').select('user_id').eq('active', true),
+    workingToday(admin),
   ])
   if (m.error || t.error || s.error || a.error) { await restore(ids); return { status: 503 } }
   if (!m.data || m.data.deleted_at) return { status: 200, skipped: true }
   const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
-  const r = await deliver(admin, onlySubs(plan(m.data, t.data || [], s.data || [], active), ids))
+  const r = await deliver(admin, onlySubs(plan(m.data, t.data || [], s.data || [], active, work), ids))
   if (r.failedIds.length && !(await restore(r.failedIds))) return { status: 503, lost: r.failedIds }
   return { status: r.failed ? 503 : 200 }
 }
@@ -204,7 +365,7 @@ export async function retryHand(admin: any, id: number) {
   const turn: [string, unknown] | undefined = typeof h.gen === 'number' ? ['hand_gen', h.gen] : h.by_id ? ['hand_by', h.by_id] : undefined
   const restore = (v: unknown) => keepRetry(admin, 'msg_tasks', id, 'hand_retry', v, turn)
   const [t, s, a] = await Promise.all([
-    admin.from('msg_tasks').select('id,message_id,text,status,assignee,hand_by,hand_gen,updated_at').eq('id', id).maybeSingle(),
+    admin.from('msg_tasks').select('*').eq('id', id).maybeSingle(),   // * — note(쪽지, 202610290003) 열이 아직 없는 DB 에서도 돈다
     admin.from('msg_push_subs').select('*').in('id', h.subs),
     admin.from('teacher_accounts').select('user_id').eq('active', true),
   ])
@@ -222,7 +383,7 @@ export async function retryHand(admin: any, id: number) {
 // 다 읽고 → hand_push 를 비우며 잡고 → 보냄. 전체 실패면 자리를 되돌리고, 일부 실패면 그 기기만 hand_retry 에. by 가 있으면 그 사람이 넘긴 일만.
 // deno-lint-ignore no-explicit-any
 export async function pushHand(admin: any, id: number, by?: string) {
-  let tq = admin.from('msg_tasks').select('id,message_id,text,status,hand_push,hand_by,hand_gen').eq('id', id).not('hand_push', 'is', null)
+  let tq = admin.from('msg_tasks').select('*').eq('id', id).not('hand_push', 'is', null)   // * — note(쪽지, 202610290003) 열이 아직 없는 DB 에서도 돈다
   if (by) tq = tq.eq('hand_by', by)
   const [t, a] = await Promise.all([tq.maybeSingle(), admin.from('teacher_accounts').select('user_id,display_name').eq('active', true)])
   if (t.error || a.error) return { status: 503, body: { error: 'lookup_failed' } }
@@ -236,7 +397,7 @@ export async function pushHand(admin: any, id: number, by?: string) {
   // 처음 읽은 위임 차례(맡은 사람·넘긴 사람)가 그대로일 때만 잡는다 — 그 사이 B→C→B 로 다시 넘겼으면 옛 이름으로 보내지 않게 (Codex 검토)
   const cq = admin.from('msg_tasks').update({ hand_push: null, hand_retry: null }).eq('id', id).eq('hand_push', to)
     .eq('hand_by', t.data.hand_by).eq('hand_gen', t.data.hand_gen)
-  const { data: claimed, error: ce } = await cq.select('id,message_id,text,status,updated_at')
+  const { data: claimed, error: ce } = await cq.select('*')
   if (ce) return { status: 503, body: { error: 'claim_failed' } }
   if (!claimed || !claimed.length) return { status: 200, body: { skipped: true } }
   // 위임 차례 = 맡은 사람 + 넘긴 사람. updated_at 은 확인·미루기·진행 표시에도 바뀌어 차례로 쓰지 않는다 (Codex 검토)
