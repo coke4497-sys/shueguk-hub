@@ -2473,7 +2473,13 @@
       api('/tt_period?select=week_wednesday,book,overrides&week_wednesday=eq.' + wed)
         .catch(function(e){ if (e && e.status === 400) return api('/tt_period?select=week_wednesday,book&week_wednesday=eq.' + wed); throw e; }),   // overrides 열 없는 DB(047 전)
       api('/tt_log?select=kind,from_class_id,apply_date&kind=in.(' + encodeURIComponent('주간반휴강,주간반이동') + ')&apply_date=eq.' + day + '&limit=500'),
-      api('/class_notes?select=book,class_id,report_status,requested_at,updated_at&ymd=eq.' + day + '&limit=1000')
+      api('/class_notes?select=book,class_id,report_status,requested_at,updated_at&ymd=eq.' + day + '&limit=1000'),
+      // 학생 한 명씩 옮긴 기록(1회·주간빼기·주간추가) + 오늘 출석 — 학생이 모두 다른 시간으로 옮겨 간 수업은 오늘 할 일에서 뺀다
+      // (2026-10-30 박언호 대표님 — 금 8:30 논술B 수학의 김선우를 1회 이동으로 토 11:00에 옮겼는데 금요일 줄이 계속 남았다).
+      // 시간표 timetable.html emptyAt 과 같은 규칙: 1회 이동은 그 주(월~일), 주간빼기는 그 날짜, 들어온 학생·찍힌 출석이 있으면 남긴다
+      api('/tt_log?select=kind,student,from_class_id,to_class_id,apply_date&kind=in.(' + encodeURIComponent('1회,주간빼기,주간추가') + ')&apply_date=gte.' + addDay(wed, -2) + '&apply_date=lte.' + addDay(wed, 4) + '&limit=2000')
+        .catch(function(){ return []; }),
+      api('/attendance?select=class_id&date=eq.' + day + '&limit=2000').catch(function(){ return []; })
     ]).then(function(r){
       var p = (r[2] || [])[0] || {}, book0 = p.book || '정규', ov = (p.overrides && typeof p.overrides === 'object') ? p.overrides : {};
       var off = {}; (r[3] || []).forEach(function(l){ off[l.from_class_id] = 1; });
@@ -2486,6 +2492,7 @@
           if (c.book !== book || !String(c.roster || '').trim()) return;
         }
         if (off[c.class_id]) return;
+        if (!isW && lessonEmpty(c, r[5] || [], r[6] || [], day)) return;
         var uid = lessonUid(c.teacher); if (!uid) return;
         var n = notes[c.book + '|' + c.class_id];
         var done = !!(n && (n.requested_at || /^(요청|공개|보류)$/.test(n.report_status || '')));
@@ -2497,6 +2504,24 @@
       if (changed && ready){ renderBoard(); renderPres(); }
     }).catch(function(){ LES.at = Date.now(); })   // 시간표를 못 읽으면 수업 줄 없이 그대로(1분 뒤 다시)
       .then(function(){ LES.busy = false; }));
+  }
+  // 명단 학생이 모두 그 날 빠졌는지(1회 이동은 그 주 전체, 주간빼기는 그 날짜) — 들어온 학생이나 찍힌 출석이 있으면 false
+  function lessonPlain(n){ return String(n || '').replace(/^\s*\([^)]*\)\s*/, '').replace(/\(.*\)$/, '').trim(); }
+  function lessonEmpty(c, logs, att, day){
+    var names = String(c.roster || '').trim().split(/\s+/).filter(Boolean).map(lessonPlain);
+    if (!names.length) return false;
+    if (att.some(function(a){ return a.class_id === c.class_id; })) return false;
+    var away = {};
+    for (var i = 0; i < logs.length; i++){
+      var l = logs[i];
+      if (!l.student) continue;
+      if (l.to_class_id === c.class_id && l.kind !== '주간빼기' && l.apply_date === day) return false;   // 오늘 이 반으로 온 학생
+      if (l.from_class_id !== c.class_id) continue;
+      if (l.kind === '주간빼기' && l.apply_date !== day) continue;
+      if (l.kind === '주간추가') continue;
+      away[lessonPlain(l.student)] = 1;
+    }
+    return names.every(function(n){ return away[n]; });
   }
   function lessonsOf(uid){ return (LES.ok && LES.day === todayYmd() && LES.by[uid]) || []; }
   function lessonHtml(l){

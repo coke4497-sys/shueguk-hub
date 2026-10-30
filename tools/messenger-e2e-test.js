@@ -342,8 +342,9 @@ async function showTask(pg, sel){
       }
       if (p === '/rest/v1/tt_period') return json(TTP.filter(x => 'eq.' + x.week_wednesday === u.searchParams.get('week_wednesday')));
       if (p === '/rest/v1/tt_log'){
-        const ad = u.searchParams.getAll('apply_date');
-        return json(TTLOG.filter(x => ad.every(c => c.startsWith('eq.') ? x.apply_date === c.slice(3) : c.startsWith('gte.') ? x.apply_date >= c.slice(4) : c.startsWith('lte.') ? x.apply_date <= c.slice(4) : true)));
+        const ad = u.searchParams.getAll('apply_date'), kq = u.searchParams.get('kind') || '';
+        const kinds = kq.startsWith('in.(') ? decodeURIComponent(kq.slice(4, -1)).split(',') : null;   // kind=in.(…) 거르기 — 없으면 1회 이동이 휴강으로도 잡힌다
+        return json(TTLOG.filter(x => (!kinds || kinds.includes(x.kind)) && ad.every(c => c.startsWith('eq.') ? x.apply_date === c.slice(3) : c.startsWith('gte.') ? x.apply_date >= c.slice(4) : c.startsWith('lte.') ? x.apply_date <= c.slice(4) : true)));
       }
       if (p === '/rest/v1/class_notes') return json(NOTES.filter(x => 'eq.' + x.ymd === u.searchParams.get('ymd')));
       if (p.startsWith('/storage/v1/object/authenticated/msg-files/')){
@@ -1272,8 +1273,12 @@ async function showTask(pg, sel){
     { book: '내신', class_id: 'n005', name: '고1 빈반', day: dn, start_time: '3:00', end_time: '4:00', teacher: '은지', roster: '' },
     { book: '내신', class_id: wid + 'a', name: '고1 직보', day: dn, start_time: '1:00', end_time: '3:00', teacher: '지원', roster: '' },
     { book: '내신', class_id: 'n006', name: '고3파이널A', day: dn, start_time: '7:00', end_time: '9:00', teacher: '슈', roster: '아' },
-    { book: '내신', class_id: 'n007', name: '고1 모르는T', day: dn, start_time: '7:00', end_time: '9:00', teacher: '현지', roster: '자' });
-  TTLOG.push({ kind: '주간반휴강', from_class_id: 'n004', apply_date: today });
+    { book: '내신', class_id: 'n007', name: '고1 모르는T', day: dn, start_time: '7:00', end_time: '9:00', teacher: '현지', roster: '자' },
+    { book: '내신', class_id: 'n008', name: '논술B 수학', day: dn, start_time: '8:30', end_time: '10:00', teacher: '은지', roster: '(화정)차' },   // 유일한 학생을 1회 이동으로 옮김
+    { book: '내신', class_id: 'n009', name: '고1 반만이동', day: dn, start_time: '6:00', end_time: '7:00', teacher: '지원', roster: '카 타' });   // 한 명만 옮김
+  TTLOG.push({ kind: '주간반휴강', from_class_id: 'n004', apply_date: today },
+             { kind: '1회', student: '차', from_class_id: 'n008', to_class_id: wid + 'b', apply_date: today },
+             { kind: '1회', student: '카', from_class_id: 'n009', to_class_id: wid + 'b', apply_date: today });
   NOTES.push({ book: '내신', class_id: 'n002', ymd: today, report_status: '요청', requested_at: ago(0.5), updated_at: ago(0.5) },
              { book: '내신', class_id: 'n001', ymd: today, report_status: '', requested_at: null, updated_at: ago(0.2) });
   PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, changed_at: NOWISO() };
@@ -1293,6 +1298,8 @@ async function showTask(pg, sel){
   ok((await page.locator('.pc[data-person="44444444-4444-4444-4444-444444444444"]').textContent()).includes('고1 직보'), '오늘 \'이 주만\' 반은 그 담당T 카드에');
   ok((await page.locator('.pc[data-person="' + BOSS + '"]').textContent()).includes('고3파이널A'), '담당T \'슈\'는 이수경');
   ok(!(await page.locator('#cards').textContent()).includes('모르는T'), '못 가린 담당T 수업은 붙이지 않음');
+  ok(!(await ec.textContent()).includes('논술B 수학'), '학생이 모두 1회 이동으로 옮겨 간 수업은 오늘 수업 줄에서 뺀다 (2026-10-30 박언호 대표님)');
+  ok((await page.locator('.pc[data-person="44444444-4444-4444-4444-444444444444"]').textContent()).includes('고1 반만이동'), '한 명이라도 남은 수업은 그대로');
   ok(!(await ec.evaluate(e => e.classList.contains('offd'))), '출근한 사람 카드는 그대로');
   const jw = page.locator('.pc[data-person="44444444-4444-4444-4444-444444444444"]');
   ok(await jw.evaluate(e => e.classList.contains('offd')) && (await jw.textContent()).includes('피드백 확인'), '출근 전 카드는 흐리게, 내용은 보임');
