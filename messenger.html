@@ -589,10 +589,10 @@
   .hwt .v{font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:24px;line-height:1.25;color:#2b3a33;}
   .hwt .v u{text-decoration:none;font-size:15px;}
   .hwt.zero .v{color:#8a978f;}
-  .hwt.main{background:#eaf1ec;}
-  .hwt.main .lb{color:#4b6157;}
-  .hwt.main .v{font-size:30px;line-height:1.1;}
-  .hwt.main .v u{font-size:17px;}
+  .hwt.top{background:#eaf1ec;}   /* 이번 주 강조 — 'main'은 휴대폰에서 .side,.main{display:contents}에 걸려 쓰지 않는다(Codex 검토) */
+  .hwt.top .lb{color:#4b6157;}
+  .hwt.top .v{font-size:30px;line-height:1.1;}
+  .hwt.top .v u{font-size:17px;}
   .hsline.hwst{display:flex;align-items:center;gap:8px;font-size:14px;border-radius:12px;padding:10px 14px;background:#fafbf9;color:#4b6157;}
   .hsline.hwst svg{width:16px;height:16px;flex:none;}
   .hsline.hwst.miss{background:#fbeeea;color:#8a3f35;}
@@ -2850,7 +2850,7 @@
     var sum = { w: [0, {}], lw: [0, {}], m: [0, {}], p: [0, {}] };
     var add = function(k, s){ sum[k][0] += s.min; if (s.min) sum[k][1][s.ymd] = 1; };
     segs.forEach(function(s){ if (s.ymd >= wk) add('w', s); else if (s.ymd >= lwk) add('lw', s); if (s.ymd.slice(0, 7) === mon) add('m', s); if (s.ymd.slice(0, 7) === prev) add('p', s); });
-    var tile = function(label, x, main){ return '<div class="hwt' + (main ? ' main' : '') + (x[0] ? '' : ' zero') + '"><span class="lb">' + label + ' · ' + Object.keys(x[1]).length + '일</span><span class="v">' + hwDurHtml(x[0]) + '</span></div>'; };
+    var tile = function(label, x, main){ return '<div class="hwt' + (main ? ' top' : '') + (x[0] ? '' : ' zero') + '"><span class="lb">' + label + ' · ' + Object.keys(x[1]).length + '일</span><span class="v">' + hwDurHtml(x[0]) + '</span></div>'; };
     $('hstiles').className = 'hstiles hw';
     $('hstiles').innerHTML = tile('이번 주', sum.w, true) + tile('지난주', sum.lw) + tile('이번 달', sum.m) + tile('지난달', sum.p);
     var missDays = []; segs.forEach(function(s){ if (s.how === 'none' && missDays.indexOf(s.ymd) < 0) missDays.push(s.ymd); });
