@@ -342,8 +342,9 @@ async function showTask(pg, sel){
       }
       if (p === '/rest/v1/tt_period') return json(TTP.filter(x => 'eq.' + x.week_wednesday === u.searchParams.get('week_wednesday')));
       if (p === '/rest/v1/tt_log'){
-        const ad = u.searchParams.getAll('apply_date');
-        return json(TTLOG.filter(x => ad.every(c => c.startsWith('eq.') ? x.apply_date === c.slice(3) : c.startsWith('gte.') ? x.apply_date >= c.slice(4) : c.startsWith('lte.') ? x.apply_date <= c.slice(4) : true)));
+        const ad = u.searchParams.getAll('apply_date'), kq = u.searchParams.get('kind') || '';
+        const kinds = kq.startsWith('in.(') ? decodeURIComponent(kq.slice(4, -1)).split(',') : null;   // kind=in.(…) 거르기 — 없으면 1회 이동이 휴강으로도 잡힌다
+        return json(TTLOG.filter(x => (!kinds || kinds.includes(x.kind)) && ad.every(c => c.startsWith('eq.') ? x.apply_date === c.slice(3) : c.startsWith('gte.') ? x.apply_date >= c.slice(4) : c.startsWith('lte.') ? x.apply_date <= c.slice(4) : true)));
       }
       if (p === '/rest/v1/class_notes') return json(NOTES.filter(x => 'eq.' + x.ymd === u.searchParams.get('ymd')));
       if (p.startsWith('/storage/v1/object/authenticated/msg-files/')){
