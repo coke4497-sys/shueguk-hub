@@ -134,7 +134,7 @@ export function handPlan(t: Hand, byName: string, subs: Sub[], active: Set<strin
   if (t.status !== '대기' || !active.has(t.to)) return []
   return subs.filter((s) => s.user_id === t.to).map((s) => ({
     sub: s,
-    payload: { title: byName + (t.note ? ' → 나에게 쪽지' : ' → 나에게 넘긴 일'), body: cut(t.text, 140), url: t.message_id ? PAGE + '#m' + t.message_id : PAGE, tag: 'tk' + t.id, task: true },   // 내가 직접 추가한 업무(202610250002)·쪽지는 메시지가 없다
+    payload: { title: byName + (t.note ? ' → 나에게 DM' : ' → 나에게 넘긴 일'), body: cut(t.text, 140), url: t.message_id ? PAGE + '#m' + t.message_id : PAGE, tag: 'tk' + t.id, task: true },   // 내가 직접 추가한 업무(202610250002)·쪽지는 메시지가 없다
   }))
 }
 

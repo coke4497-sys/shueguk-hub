@@ -538,6 +538,20 @@ ok "$(as $B "select public.msg_task_cancel($NT2, '잘못 보냄')" | grep -c not
 ok "$(as $A "select public.msg_task_cancel($NT2, '잘못 보냄')->>'status'")" "취소" "보낸 사람은 취소"
 ok "$(as $C "insert into public.msg_tasks (assignee, assignee_name, requester, requester_name, text, note) values ('$B','이은지','$C','고희주','직접','t')" | grep -c 'permission denied')" 1 "표에 직접 쪽지 못 넣음(함수만)"
 
+echo "── DM 파일 첨부 (202610290004)"
+P -f supabase/migrations/202610290004_messenger_note_files.sql >/dev/null || { echo "DM 파일 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202610290004_messenger_note_files.sql >/dev/null && ok y y "DM 파일 마이그레이션 다시 실행해도 오류 없음"
+ok "$(as $A "select count(*) from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and p.proname='msg_note_send'")" 1 "msg_note_send 는 세 인자 하나만(두 인자 함수는 지움)"
+ok "$(as $A "select count(*) from public.msg_note_send(array['$B']::uuid[], '글만')")" 1 "p_files 를 빼고 불러도 됨(옛 화면 호환)"
+NF=$(as $A "select id from public.msg_note_send(array['$C']::uuid[], '', '$F')")
+ok "$(as $C "select text||'|'||(files->0->>'name')||'|'||jsonb_array_length(files) from public.msg_tasks where id=$NF")" "파일 확인|시험지.pdf|1" "글 없이 파일만 보내면 '파일 확인' + 파일 목록"
+ok "$(as $A "select (public.msg_note_send(array['$C']::uuid[], '사진 봐 주세요', '$F')).files->0->>'path'")" "m/202610/abcdefghijklmnop.pdf" "글 + 파일"
+ok "$(as $A "select public.msg_note_send(array['$C']::uuid[], 'x', '[{\"path\":\"../etc\",\"name\":\"a\"}]')" | grep -c bad_files)" 1 "이상한 파일 경로 거절"
+ok "$(as $A "select public.msg_note_send(array['$C']::uuid[], 'x', '\"str\"')" | grep -c bad_files)" 1 "목록이 아니면 거절"
+ok "$(as $A "select public.msg_note_send(array['$C']::uuid[], '', '[]')" | grep -c empty)" 1 "글도 파일도 없으면 거절"
+ok "$(as $C "select public.msg_task_seen($NF)->>'status'")" "완료" "파일 DM 도 확인하면 완료"
+ok "$(anon "select public.msg_note_send(array['$B']::uuid[], 'x', '[]')" | grep -c 'permission denied')" 1 "공개 키는 함수 실행 불가"
+
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null
 [ $fail -eq 0 ]

@@ -46,11 +46,11 @@ Deno.test('넘겨받은 사람 기기에만, 대기 중·활성일 때만', () =
   assertEquals(handPlan(t, 'x', [sub(2, B)], new Set([A])).length, 0)
 })
 
-Deno.test('쪽지(note, 202610290003)는 제목이 "→ 나에게 쪽지" · 메시지가 없어 슈톡 첫 화면으로', () => {
+Deno.test('쪽지(note, 202610290003)는 제목이 "→ 나에게 DM" · 메시지가 없어 슈톡 첫 화면으로', () => {
   const t = { id: 10, message_id: null, text: '내일 3시 회의실 예약 부탁해요', to: B, status: '대기', note: true }
   const items = handPlan(t, '이수경', [sub(2, B)], new Set([A, B]))
   assertEquals(items.length, 1)
-  assertEquals(items[0].payload.title, '이수경 → 나에게 쪽지')
+  assertEquals(items[0].payload.title, '이수경 → 나에게 DM')
   assertEquals(items[0].payload.url.includes('#m'), false)
   assertEquals(items[0].payload.tag, 'tk10')
 })
