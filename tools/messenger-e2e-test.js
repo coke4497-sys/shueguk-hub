@@ -1624,6 +1624,16 @@ async function showTask(pg, sel){
     ok(r.kind === '예비 슈스 대기' && r.who === '고희주' && +r.year === nextYr, '창 — 예비 슈스가 기본 · 저장한 사람 = 나 · 연도 = 다음 학년도(3월부터 내년) ' + r.year);
     ok(r.opts[0] === '미정' && r.opts.some(t => /고2 가 · .* · 은지T · 1명/.test(t)) && !r.opts.some(t => /고2 화정A/.test(t)), '정규 반 드롭다운 = 미정 + 정규 반(인원 표시)');
     ok(r.schools.includes('서정중') && r.schools.includes('화정고'), '학교 자동완성은 재원 명단의 학교');
+    r = await page.evaluate(() => ({ g: [...document.querySelectorAll('#wtGrade option')].map(o => o.value + '=' + o.textContent).join('|'), hint: document.getElementById('wtYearHint').textContent }));
+    const nowYr = nextYr - 1;
+    ok(r.g === '=미정|초5=초5 · 지금 초4|초6=초6 · 지금 초5|중1=중1 · 지금 초6|중2=중2 · 지금 중1|중3=중3 · 지금 중2|고1=고1 · 지금 중3|고2=고2 · 지금 고1|고3=고3 · 지금 고2' && r.hint === nextYr + ' 학년도 기준 — 예) ' + nextYr + ' 고2 = 지금 고1', '학년 선택지 = 연도 기준 + 지금 학년(2027 고2 = 지금 고1 · 고3 = 지금 고2) + 안내 줄 ' + r.g);
+    await page.fill('#wtYear', String(nowYr));
+    r = await page.evaluate(() => ({ g: [...document.querySelectorAll('#wtGrade option')].map(o => o.textContent).slice(6).join('|'), hint: document.getElementById('wtYearHint').textContent }));
+    ok(r.g === '고1|고2|고3' && r.hint === nowYr + ' 학년도 기준 — 지금 학년 그대로', '연도를 지금 학년도로 바꾸면 표기 없이 고1|고2|고3 ' + r.hint);
+    await page.click('#wtKind button[data-kind="재원"]');
+    ok(await page.$eval('#wtYear', e => e.value) === String(nowYr), '재원 종류 = 지금 학년도');
+    await page.click('#wtKind button[data-kind="예비"]');
+    ok(await page.$eval('#wtYear', e => e.value) === String(nextYr), '예비로 돌아오면 다음 학년도');
     await page.click('#wtSave');
     ok(/이름을 적어/.test(await page.locator('#wtStatus').textContent()), '이름 없이 올리면 거절');
     await page.selectOption('#wtClass', 'r001');
