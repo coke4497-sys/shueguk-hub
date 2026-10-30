@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 대기생 명단 마이그레이션(202610290001_waitlist.sql) 로컬 PostgreSQL 검사
+# 대기생 명단 마이그레이션(202610290001_waitlist.sql + 202610300001_waitlist_status.sql) 로컬 PostgreSQL 검사
 #   PGHOST=/home/pgtest PGPORT=5499 PGUSER=postgres bash tools/waitlist-sql-test.sh
 # 새 데이터베이스(waittest)에 auth 흉내 + students 흉내 표를 만들고 마이그레이션을 적용해
 # 권한(공개 키 차단·교사 읽기쓰기)·제약·상태 바뀜 트리거·학생 삭제 시 비움을 검사한다. 원격 수파베이스에는 절대 돌리지 말 것.
@@ -67,6 +67,20 @@ ok "$r" "null|김민준" "아웃 처리돼도 대기 줄은 남는다"
 
 echo "⑥ 교사 지우기"
 r=$(Q -c "$AUTH delete from public.student_waitlist where name='미정 학생' returning name;"); ok "$r" "미정 학생" "교사는 지울 수 있다"
+
+echo "⑦ 대기 상태 넓히기 — 202610300001 (2026-10-30 원장님: 대기·입학·입테탈락·블랙·회신없음·의사없음 + 삭제)"
+Q -c "$AUTH insert into public.student_waitlist (kind, name, status, done_note) values ('예비','전환완료','완료','신입 등록 전환'), ('재원','이동완료','완료','반 이동 완료'), ('예비','옛취소','취소','연락 두절'); update public.student_waitlist set done_at = now() where name in ('전환완료','이동완료','옛취소');" >/dev/null
+P -f supabase/migrations/202610300001_waitlist_status.sql >/dev/null || { echo "202610300001 실패"; fail=$((fail+1)); }
+P -f supabase/migrations/202610300001_waitlist_status.sql >/dev/null && ok y y "202610300001 다시 실행해도 오류 없음"
+r=$(Q -c "$AUTH select name||'|'||status||'|'||(done_at is not null) from public.student_waitlist where name in ('전환완료','이동완료','옛취소') order by name;")
+ok "$r" "$(printf '옛취소|취소|true\n이동완료|완료|true\n전환완료|입학|true')" "예비 '완료'는 '입학'으로(done_at 그대로), 재원 '완료'·옛 '취소'는 그대로"
+for st in 입학 입테탈락 블랙 회신없음 의사없음; do
+  r=$(Q -c "$AUTH update public.student_waitlist set status='$st', done_by_name='고희주', done_note='메모' where id=2 returning status||'|'||(done_at is not null)||'|'||done_note;"); ok "$r" "$st|true|메모" "상태 $st 저장"
+done
+r=$(Q -c "$AUTH update public.student_waitlist set status='대기' where id=2 returning status||'|'||coalesce(done_at::text,'null')||'|'||done_note;"); ok "$r" "대기|null|" "다시 대기로 돌리면 완료 칸 비움(트리거 그대로)"
+r=$(Q -c "$AUTH update public.student_waitlist set status='등록' where id=2;"); case "$r" in *check*) ok y y "목록 밖 상태('등록')는 여전히 거절";; *) ok "$r" check "목록 밖 상태('등록')는 여전히 거절";; esac
+r=$(Q -c "$AUTH delete from public.student_waitlist where name='옛취소' returning name;"); ok "$r" "옛취소" "교사는 지난 줄도 지울 수 있다"
+r=$(Q -c "set role anon; delete from public.student_waitlist where id=2;"); case "$r" in *"permission denied"*) ok y y "anon 삭제 거절";; *) ok "$r" "permission denied" "anon 삭제 거절";; esac
 
 echo; echo "$pass 통과 / $fail 실패"
 [ "$fail" = 0 ]

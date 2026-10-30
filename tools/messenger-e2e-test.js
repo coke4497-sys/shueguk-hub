@@ -43,6 +43,7 @@ const TT = [], TTP = [], TTLOG = [], NOTES = [], SHIFTS = [], HOMES = {};
 let failTT = false;
 const WAIT = []; let waitMissing = false;   // 대기생 등록(student_waitlist, 202610290001)
 let noteMissing = false;   // 쪽지(202610290003)
+let slowPlog = false;      // 출퇴근 기록 추가 조회를 느리게(탭 전환 경주 검사)
 const BOT = { tick: { msgs: [], summary: false } };
 const STUDENTS = [
   { name: '김민준', school: '서정중', grade: '2026 중등 3학년', teacher: '이은지', enrolled: 'Y' }, { name: '박하늘', teacher: '김지원', enrolled: 'Y' },
@@ -203,7 +204,7 @@ async function showTask(pg, sel){
       if (p === '/rest/v1/rpc/msg_home_set'){ const b = JSON.parse(req.postData()); calls.push(['home', b]); if (b.p_loc) HOMES[b.p_user] = b.p_loc; else delete HOMES[b.p_user]; return json({ user_id: b.p_user, loc: b.p_loc }); }
       if (p === '/rest/v1/rpc/work_ensure'){ calls.push(['ensure', JSON.parse(req.postData())]); return json(null, 204); }
       if (p === '/rest/v1/work_shifts') return json(filterRows(SHIFTS, u));
-      if (p === '/rest/v1/msg_presence_log') return json(filterRows(PLOGS, u).sort((a, b) => a.at < b.at ? -1 : 1));
+      if (p === '/rest/v1/msg_presence_log'){ if (u.searchParams.has('user_id')) calls.push(['plog', u.search]); if (slowPlog && /at=lt\./.test(u.search)) await new Promise(r => setTimeout(r, 800)); return json(filterRows(PLOGS, u).sort((a, b) => a.at < b.at ? -1 : 1)); }
       if (p === '/rest/v1/rpc/msg_presence_set'){
         const b = JSON.parse(req.postData()); calls.push(['pres', b]);
         const old = PRESENCE[ME] || {};
@@ -342,8 +343,9 @@ async function showTask(pg, sel){
       }
       if (p === '/rest/v1/tt_period') return json(TTP.filter(x => 'eq.' + x.week_wednesday === u.searchParams.get('week_wednesday')));
       if (p === '/rest/v1/tt_log'){
-        const ad = u.searchParams.getAll('apply_date');
-        return json(TTLOG.filter(x => ad.every(c => c.startsWith('eq.') ? x.apply_date === c.slice(3) : c.startsWith('gte.') ? x.apply_date >= c.slice(4) : c.startsWith('lte.') ? x.apply_date <= c.slice(4) : true)));
+        const ad = u.searchParams.getAll('apply_date'), kq = u.searchParams.get('kind') || '';
+        const kinds = kq.startsWith('in.(') ? decodeURIComponent(kq.slice(4, -1)).split(',') : null;   // kind=in.(…) 거르기 — 없으면 1회 이동이 휴강으로도 잡힌다
+        return json(TTLOG.filter(x => (!kinds || kinds.includes(x.kind)) && ad.every(c => c.startsWith('eq.') ? x.apply_date === c.slice(3) : c.startsWith('gte.') ? x.apply_date >= c.slice(4) : c.startsWith('lte.') ? x.apply_date <= c.slice(4) : true)));
       }
       if (p === '/rest/v1/class_notes') return json(NOTES.filter(x => 'eq.' + x.ymd === u.searchParams.get('ymd')));
       if (p.startsWith('/storage/v1/object/authenticated/msg-files/')){
@@ -1272,8 +1274,12 @@ async function showTask(pg, sel){
     { book: '내신', class_id: 'n005', name: '고1 빈반', day: dn, start_time: '3:00', end_time: '4:00', teacher: '은지', roster: '' },
     { book: '내신', class_id: wid + 'a', name: '고1 직보', day: dn, start_time: '1:00', end_time: '3:00', teacher: '지원', roster: '' },
     { book: '내신', class_id: 'n006', name: '고3파이널A', day: dn, start_time: '7:00', end_time: '9:00', teacher: '슈', roster: '아' },
-    { book: '내신', class_id: 'n007', name: '고1 모르는T', day: dn, start_time: '7:00', end_time: '9:00', teacher: '현지', roster: '자' });
-  TTLOG.push({ kind: '주간반휴강', from_class_id: 'n004', apply_date: today });
+    { book: '내신', class_id: 'n007', name: '고1 모르는T', day: dn, start_time: '7:00', end_time: '9:00', teacher: '현지', roster: '자' },
+    { book: '내신', class_id: 'n008', name: '논술B 수학', day: dn, start_time: '8:30', end_time: '10:00', teacher: '은지', roster: '(화정)차' },   // 유일한 학생을 1회 이동으로 옮김
+    { book: '내신', class_id: 'n009', name: '고1 반만이동', day: dn, start_time: '6:00', end_time: '7:00', teacher: '지원', roster: '카 타' });   // 한 명만 옮김
+  TTLOG.push({ kind: '주간반휴강', from_class_id: 'n004', apply_date: today },
+             { kind: '1회', student: '차', from_class_id: 'n008', to_class_id: wid + 'b', apply_date: today },
+             { kind: '1회', student: '카', from_class_id: 'n009', to_class_id: wid + 'b', apply_date: today });
   NOTES.push({ book: '내신', class_id: 'n002', ymd: today, report_status: '요청', requested_at: ago(0.5), updated_at: ago(0.5) },
              { book: '내신', class_id: 'n001', ymd: today, report_status: '', requested_at: null, updated_at: ago(0.2) });
   PRESENCE[EUNJI] = { user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, changed_at: NOWISO() };
@@ -1293,6 +1299,8 @@ async function showTask(pg, sel){
   ok((await page.locator('.pc[data-person="44444444-4444-4444-4444-444444444444"]').textContent()).includes('고1 직보'), '오늘 \'이 주만\' 반은 그 담당T 카드에');
   ok((await page.locator('.pc[data-person="' + BOSS + '"]').textContent()).includes('고3파이널A'), '담당T \'슈\'는 이수경');
   ok(!(await page.locator('#cards').textContent()).includes('모르는T'), '못 가린 담당T 수업은 붙이지 않음');
+  ok(!(await ec.textContent()).includes('논술B 수학'), '학생이 모두 1회 이동으로 옮겨 간 수업은 오늘 수업 줄에서 뺀다 (2026-10-30 박언호 대표님)');
+  ok((await page.locator('.pc[data-person="44444444-4444-4444-4444-444444444444"]').textContent()).includes('고1 반만이동'), '한 명이라도 남은 수업은 그대로');
   ok(!(await ec.evaluate(e => e.classList.contains('offd'))), '출근한 사람 카드는 그대로');
   const jw = page.locator('.pc[data-person="44444444-4444-4444-4444-444444444444"]');
   ok(await jw.evaluate(e => e.classList.contains('offd')) && (await jw.textContent()).includes('피드백 확인'), '출근 전 카드는 흐리게, 내용은 보임');
@@ -1624,6 +1632,16 @@ async function showTask(pg, sel){
     ok(r.kind === '예비 슈스 대기' && r.who === '고희주' && +r.year === nextYr, '창 — 예비 슈스가 기본 · 저장한 사람 = 나 · 연도 = 다음 학년도(3월부터 내년) ' + r.year);
     ok(r.opts[0] === '미정' && r.opts.some(t => /고2 가 · .* · 은지T · 1명/.test(t)) && !r.opts.some(t => /고2 화정A/.test(t)), '정규 반 드롭다운 = 미정 + 정규 반(인원 표시)');
     ok(r.schools.includes('서정중') && r.schools.includes('화정고'), '학교 자동완성은 재원 명단의 학교');
+    r = await page.evaluate(() => ({ g: [...document.querySelectorAll('#wtGrade option')].map(o => o.value + '=' + o.textContent).join('|'), hint: document.getElementById('wtYearHint').textContent }));
+    const nowYr = nextYr - 1;
+    ok(r.g === '=미정|초5=초5 · 지금 초4|초6=초6 · 지금 초5|중1=중1 · 지금 초6|중2=중2 · 지금 중1|중3=중3 · 지금 중2|고1=고1 · 지금 중3|고2=고2 · 지금 고1|고3=고3 · 지금 고2' && r.hint === nextYr + ' 학년도 기준 — 예) ' + nextYr + ' 고2 = 지금 고1', '학년 선택지 = 연도 기준 + 지금 학년(2027 고2 = 지금 고1 · 고3 = 지금 고2) + 안내 줄 ' + r.g);
+    await page.fill('#wtYear', String(nowYr));
+    r = await page.evaluate(() => ({ g: [...document.querySelectorAll('#wtGrade option')].map(o => o.textContent).slice(6).join('|'), hint: document.getElementById('wtYearHint').textContent }));
+    ok(r.g === '고1|고2|고3' && r.hint === nowYr + ' 학년도 기준 — 지금 학년 그대로', '연도를 지금 학년도로 바꾸면 표기 없이 고1|고2|고3 ' + r.hint);
+    await page.click('#wtKind button[data-kind="재원"]');
+    ok(await page.$eval('#wtYear', e => e.value) === String(nowYr), '재원 종류 = 지금 학년도');
+    await page.click('#wtKind button[data-kind="예비"]');
+    ok(await page.$eval('#wtYear', e => e.value) === String(nextYr), '예비로 돌아오면 다음 학년도');
     await page.click('#wtSave');
     ok(/이름을 적어/.test(await page.locator('#wtStatus').textContent()), '이름 없이 올리면 거절');
     await page.selectOption('#wtClass', 'r001');
@@ -1805,7 +1823,8 @@ async function showTask(pg, sel){
       days: [...document.querySelectorAll('#hslist .hsday')].map(d => d.textContent), rows: [...document.querySelectorAll('#hslist .hsrow')].map(x => [x.classList.contains('x'), x.querySelector('.hb > div').textContent, x.querySelector('.hmeta').textContent]), more: document.getElementById('hsMore').hidden }));
     const q = calls.filter(c => c[0] === 'tasksq').length;
     ok(r.tiles.join('|') === '2 이번 주 완료|2 이번 달 완료|3 전체 완료' && /지금까지 3개의 일을 끝냈습니다/.test(r.line), '타일 — 이번 주 2 · 이번 달 2 · 전체 3(취소·남은 일·남의 일 제외) ' + JSON.stringify(r.tiles));
-    ok(r.days.length === 2 && /· 오늘 · 완료 2 · 취소 1$/.test(r.days[0]) && /완료 1$/.test(r.days[1]) && !/오늘/.test(r.days[1]), '날짜별 묶음 — 오늘(완료 2 · 취소 1) → 40일 전(완료 1) ' + JSON.stringify(r.days));
+    const kymd = iso => new Date(Date.parse(iso) + 9 * 3600e3).toISOString().slice(0, 10), todayLbl = kymd(ago(3)) === kymd(ts()) ? ' · 오늘' : '';   // 자정 직후(한국 시각)에 돌리면 3시간 전은 어제
+    ok(r.days.length === 2 && new RegExp(todayLbl + ' · 완료 2 · 취소 1$').test(r.days[0]) && /완료 1$/.test(r.days[1]) && !/오늘/.test(r.days[1]), '날짜별 묶음 — 오늘(완료 2 · 취소 1) → 40일 전(완료 1) ' + JSON.stringify(r.days));
     ok(r.rows.length === 4 && r.rows[0][1] === '교재 주문' && /^이은지 · 완료 오/.test(r.rows[0][2]) && /대화에서 보기/.test(r.rows[0][2]) && r.rows[1][1] === '복사기 토너 주문 부탁해요' && /^DM 이은지 · 완료/.test(r.rows[1][2]) && r.rows[2][0] && /취소 오.*사유: 다른 사람이 처리함/.test(r.rows[2][2]) && !/대화에서 보기/.test(r.rows[2][2]) && r.rows[3][1] === '지난달 정산', '줄 — 최근 것부터 · 쪽지 표시 · 취소는 ×와 사유 · 메시지가 있는 것만 [대화에서 보기] ' + JSON.stringify(r.rows));
     ok(r.more, '100개 안이면 [더 보기] 없음');
     r = await page.evaluate(() => { const rows = [...document.querySelectorAll('#hslist .hsrow')]; return { steps: rows[1].querySelectorAll('.hdet .steps li').length, link: !!rows[1].querySelector('.hdet .ilk'), none: rows.filter(x => x.querySelector('.hdet')).length }; });
@@ -1818,6 +1837,69 @@ async function showTask(pg, sel){
     await page.waitForFunction(() => !document.getElementById('hsback').hidden && document.querySelectorAll('#hslist .hsrow').length === 4);
     await page.keyboard.press('Escape');
     ok(await page.evaluate(() => document.getElementById('hsback').hidden), 'Esc 로 닫힘');
+    await ctx.close();
+  }
+
+  console.log('㉛ 내 출퇴근 기록 — 같은 창의 둘째 탭, 본인 것만 (2026-10-29 원장님 "본인에게만 보이는 출퇴근 이력")');
+  {
+    PLOGS.length = 0;
+    // 근무일(새벽 5시 경계) 기준 오늘·어제·지난달 15일에 기록을 둔다 — 시각은 한국 시각 고정(strings)
+    const wy = new Date(Date.now() - 5 * 3600e3 + 9 * 3600e3).toISOString().slice(0, 10);
+    const dayOf = (y, n) => { const d = new Date(y + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+    const yday = dayOf(wy, -1), pm = (() => { const d = new Date(wy.slice(0, 7) + '-01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - 1); return d.toISOString().slice(0, 8) + '15'; })();
+    const at = (y, hm) => new Date(y + 'T' + hm + ':00+09:00').toISOString();
+    let pid = 500;
+    const plog = (y, hm, on, loc) => PLOGS.push({ id: ++pid, user_id: ME, name: '고희주', is_on: on, loc, at: at(y, hm) });
+    plog(wy, '15:40', true, '본원'); plog(wy, '18:00', true, '화정센터'); plog(wy, '22:05', false, '화정센터');   // 오늘 — 센터 옮김 포함 6시간 25분
+    plog(yday, '16:00', true, '본원');                                                                              // 어제 — 퇴근 기록 없음
+    plog(pm, '16:00', true, '본원'); plog(pm, '20:00', false, '본원');                                             // 지난달 — 4시간
+    PLOGS.push({ id: ++pid, user_id: EUNJI, name: '이은지', is_on: true, loc: '본원', at: at(wy, '14:00') });        // 남의 기록 — 안 보여야 한다
+    ({ ctx, page } = await open({ width: 1280, height: 900 }));
+    await page.waitForSelector('#msgs .m');
+    await page.click('#tabBoard');
+    ok(await page.evaluate(() => /출퇴근 기록/.test(document.querySelector('#histLink .meta').textContent)), '입구 설명에 출퇴근 기록');
+    await page.click('#histLink');
+    await page.waitForFunction(() => !document.getElementById('hsback').hidden && document.querySelectorAll('#hstiles .hstile').length === 3);
+    ok(await page.evaluate(() => document.querySelectorAll('#hstabs button').length === 2 && document.querySelector('#hstabs button.on').dataset.hs === 'task' && document.getElementById('hstitle').textContent === '내 업무 기록'), '처음은 업무 기록 탭');
+    calls.length = 0;
+    await page.click('#hstabs button[data-hs="work"]');
+    await page.waitForFunction(() => document.getElementById('hstitle').textContent === '내 출퇴근 기록' && document.querySelectorAll('#hslist .hsrow').length === 4);
+    const r = await page.evaluate(() => ({ tiles: [...document.querySelectorAll('#hstiles .hstile')].map(t => t.querySelector('b').textContent + ' ' + t.querySelector('span').textContent), line: document.getElementById('hsline').textContent,
+      days: [...document.querySelectorAll('#hslist .hsday')].map(d => d.textContent), rows: [...document.querySelectorAll('#hslist .hsrow')].map(x => [x.className, x.textContent.trim()]),
+      note: document.getElementById('hsnote').textContent, link: !!document.querySelector('#hsnote a[href="worklog.html"]'), more: document.getElementById('hsMore').hidden, moreTxt: document.getElementById('hsMore').textContent }));
+    const sameWeek = (() => { const k = new Date(wy + 'T00:00:00Z').getUTCDay(); const wed = dayOf(wy, (k === 1 || k === 2) ? 3 - k : -((k - 3 + 7) % 7)); return yday >= wed; })();
+    ok(/^6시간 25분 이번 주 · 1일$/.test(r.tiles[0]) && /^6시간 25분 이번 달 · 1일$/.test(r.tiles[1]) && /^4시간 지난달 · 1일$/.test(r.tiles[2]), '타일 — 이번 주·이번 달 6시간 25분(퇴근 없는 어제는 0) · 지난달 4시간 ' + JSON.stringify(r.tiles) + (sameWeek ? '' : ' (어제는 지난 주)'));
+    ok(/퇴근을 누르지 않은 날이 1일/.test(r.line), '한 줄 — 퇴근 안 누른 날 1일 안내');
+    ok(r.days.length === 3 && /· 오늘 · 6시간 25분$/.test(r.days[0]) && /0분$/.test(r.days[1]) && /4시간$/.test(r.days[2]), '날짜별 묶음 — 오늘(6시간 25분) → 어제(0분) → 지난달 ' + JSON.stringify(r.days));
+    ok(/화정센터오후 6:00 → 오후 10:05 · 4시간 5분/.test(r.rows[0][1].replace(/\s+/g, '')) || /화정센터.*오후 6:00 → 오후 10:05.*4시간 5분/.test(r.rows[0][1]), '오늘 첫 줄 — 화정센터 오후 6:00 → 오후 10:05 · 4시간 5분 ' + r.rows[0][1]);
+    ok(/본원.*오후 3:40 → 오후 6:00 \(센터 옮김\).*2시간 20분/.test(r.rows[1][1]), '오늘 둘째 줄 — 본원 → 센터 옮김 2시간 20분 ' + r.rows[1][1]);
+    ok(/hsrow x/.test(r.rows[2][0]) && /본원.*오후 4:00 → 퇴근 기록 없음/.test(r.rows[2][1]) && !/시간/.test(r.rows[2][1].replace(/오후 4:00/, '')), '어제 — 퇴근 기록 없음(시간 없음) ' + r.rows[2][1]);
+    ok(!JSON.stringify(r.rows).includes('오후 2:00'), '남의 기록(이은지 오후 2:00)은 보이지 않는다');
+    ok(/조교 근무 일지/.test(r.note) && r.link && /누른 그대로/.test(r.note), '조교 안내 — 급여용 시간은 근무 일지로(링크) ' + r.note);
+    ok(!r.more && r.moreTxt === '지난 달 더 보기', '[지난 달 더 보기] 버튼');
+    const sent = (calls.filter(c => c[0] === 'plog').pop() || [])[1] || '';
+    ok(sent && new RegExp('user_id=eq\\.' + ME).test(sent) && /select=is_on,loc,at/.test(sent) && /at=gte\./.test(sent), '조회는 내 줄만(user_id=eq.나) ' + sent);
+    if (process.env.SHOT) await page.screenshot({ path: path.join(process.env.SHOT, 'work-history.png') });
+    await page.click('#hsMore');
+    await page.waitForFunction(() => !document.getElementById('hsMore').disabled && document.getElementById('hsMore').textContent === '지난 달 더 보기');
+    await page.waitForTimeout(150);
+    ok(calls.filter(c => c[0] === 'plog' && /at=lt\./.test(c[1])).length === 1 && await page.evaluate(() => document.querySelectorAll('#hslist .hsrow').length === 4 && !document.getElementById('hsMore').hidden), '더 보기 — 한 달 앞 구간만 다시 받고(at=lt), 기록 없어 줄 그대로, 버튼은 남음(12달까지)');
+    await page.click('#hstabs button[data-hs="task"]');
+    await page.waitForFunction(() => document.getElementById('hstitle').textContent === '내 업무 기록' && document.querySelectorAll('#hslist .hsrow').length === 4 && document.getElementById('hsMore').hidden);
+    ok(await page.evaluate(() => /수업 기록 줄은/.test(document.getElementById('hsnote').textContent) && document.querySelector('#hstabs button.on').dataset.hs === 'task'), '업무 기록 탭으로 돌아오면 안내·목록도 돌아온다');
+    // Codex 검토 — 월·화의 '이번 주'는 다가오는 수요일이 아니라 지난 수요일부터 (weekWed는 수업 주차용)
+    ok(await page.evaluate(() => { const f = window.__hsWeekStart; return f('2026-11-02') === '2026-10-28' && f('2026-11-03') === '2026-10-28' && f('2026-11-04') === '2026-11-04' && f('2026-11-08') === '2026-11-04'; }), '월·화의 이번 주 시작은 지난 수요일(11/2·11/3 → 10/28), 수~일은 그 주 수요일');
+    // Codex 검토 — [지난 달 더 보기] 응답이 오기 전에 탭을 옮겼다 돌아와도 옛 구간이 새 목록에 섞이지 않는다
+    slowPlog = true;
+    await page.click('#hstabs button[data-hs="work"]');
+    await page.waitForFunction(() => document.getElementById('hstitle').textContent === '내 출퇴근 기록' && document.querySelectorAll('#hslist .hsrow').length === 4);
+    await page.click('#hsMore');                       // 느린 응답(0.8초) 시작
+    await page.click('#hstabs button[data-hs="task"]');
+    await page.click('#hstabs button[data-hs="work"]'); // 돌아오면 첫 조회가 앞 요청에 막히지 않고 다시 돈다
+    await page.waitForTimeout(1300);
+    ok(await page.evaluate(() => document.querySelectorAll('#hslist .hsrow').length === 4 && /6시간 25분\s*이번 달/.test(document.querySelectorAll('#hstiles .hstile')[1].textContent) && !document.getElementById('hsMore').disabled), '탭을 옮겼다 돌아와도 최근 기록·합계 그대로, [더 보기] 다시 눌림');
+    slowPlog = false;
+    await page.keyboard.press('Escape');
     await ctx.close();
   }
 
