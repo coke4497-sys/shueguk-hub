@@ -1129,10 +1129,10 @@
     <div id="wtForm">
       <p class="pnote" id="wtNote">아직 등록 전인 학생을 대기 명단에 올립니다. 슈퍼스타 관리 → 대기 슈스에서 같은 명단을 봐요.</p>
       <div class="wtgrp">
-        <div class="wtgt"><span class="gt">학생</span></div>
+        <div class="wtgt"><span class="gt">학생</span><span class="hint" id="wtYearHint"></span></div>
         <div class="wtg2">
           <label class="wtf-f" for="wtYear">연도<input type="number" id="wtYear" min="2020" max="2099"></label>
-          <label class="wtf-f" for="wtGrade">학년<select id="wtGrade"><option value="">미정</option><option>초5</option><option>초6</option><option>중1</option><option>중2</option><option>중3</option><option>고1</option><option>고2</option><option>고3</option></select></label>
+          <label class="wtf-f" for="wtGrade">학년<select id="wtGrade"><option value="">미정</option></select></label>
           <label class="wtf-f" for="wtSchool">학교<input type="text" id="wtSchool" list="wtSchools" placeholder="예) 화정고" autocomplete="off"><datalist id="wtSchools"></datalist></label>
           <label class="wtf-f" for="wtName">이름<input type="text" id="wtName" list="wtNames" placeholder="예) 김하늘" autocomplete="off"><datalist id="wtNames"></datalist></label>
           <div class="wtinfo full" id="wtStuInfo"></div>
@@ -2297,6 +2297,7 @@
     $('wtClsLabel').textContent = k === '예비' ? '희망 반' : '이동 희망 반';
     $('wtName').setAttribute('list', k === '재원' ? 'wtNames' : '');
     $('wtName').placeholder = k === '재원' ? '이름을 적으면 재원 명단에서 골라요' : '예) 김하늘';
+    if (WTM.inited){ $('wtYear').value = k === '예비' ? wtmDefaultYear() : wtmNowYear(); wtmGradeOpts(); }
     if (WTM.view === 'list') wtmListRender();
   }
   // ── 명단 보기 (2026-10-29 원장님 "여기서 명단 보기를 띄울 수 있었으면") — 대기 중인 줄만, 대기 시작일 순. 슈퍼스타 관리 대기 슈스와 같은 표·같은 이동 가능 판정(지금 인원 < 정원).
@@ -2368,12 +2369,26 @@
   }
   // 대기 연도 기본값 = 다음 학년도(2026-10-29 원장님 "2027로" — 대기는 다음 해 등록을 기다리는 것). 3월부터는 내년, 1·2월은 올해(한국 날짜).
   function wtmDefaultYear(){ var y = todayYmd(); var yr = +y.slice(0, 4), m = +y.slice(5, 7); return m >= 3 ? yr + 1 : yr; }
+  // 지금 학년도(3월 시작) — 학년 칸은 적은 연도의 학년이라 '2027 고2 = 지금 고1'을 함께 보여 준다(2026-10-30 원장님 "2027 고3·고2 대기생도 입력 가능하게"). 슈퍼스타 관리 wtGradeOpts 와 두 벌.
+  function wtmNowYear(){ var y = todayYmd(); var yr = +y.slice(0, 4), m = +y.slice(5, 7); return m >= 3 ? yr : yr - 1; }
+  var WTM_LADDER = ['초1', '초2', '초3', '초4', '초5', '초6', '중1', '중2', '중3', '고1', '고2', '고3'];
+  function wtmNowGrade(g, year){
+    var i = WTM_LADDER.indexOf(g), d = (parseInt(year, 10) || wtmNowYear()) - wtmNowYear();
+    if (i < 0) return ''; var j = i - d; return j >= 0 && j < WTM_LADDER.length ? WTM_LADDER[j] : (j < 0 ? '아직 취학 전' : '졸업');
+  }
+  function wtmGradeOpts(){
+    var sel = $('wtGrade'), cur = sel.value, year = parseInt($('wtYear').value, 10) || wtmNowYear(), same = year === wtmNowYear();
+    sel.innerHTML = '<option value="">미정</option>' + WTM_GRADES.map(function(g){ var now = same ? '' : wtmNowGrade(g, year); return '<option value="' + g + '">' + g + (now ? ' · 지금 ' + now : '') + '</option>'; }).join('');
+    sel.value = WTM_GRADES.indexOf(cur) >= 0 ? cur : '';
+    $('wtYearHint').textContent = same ? year + ' 학년도 기준 — 지금 학년 그대로' : year + ' 학년도 기준 — 예) ' + year + ' 고2 = 지금 ' + wtmNowGrade('고2', year);
+  }
   function wtmStatus(m, err){ var el = $('wtStatus'); el.textContent = m || ''; el.classList.toggle('err', !!err); }
   function wtmOpen(){
     if (!ME) return;
     if (!WTM.inited){
       WTM.inited = true;
-      $('wtYear').value = wtmDefaultYear();
+      $('wtYear').value = wtmDefaultYear(); wtmGradeOpts();
+      $('wtYear').addEventListener('input', wtmGradeOpts); $('wtYear').addEventListener('change', wtmGradeOpts);
       $('wtKind').addEventListener('click', function(e){ var b = e.target.closest('button[data-kind]'); if (b) wtmSetKind(b.getAttribute('data-kind')); });
       $('wtView').addEventListener('click', function(e){ var b = e.target.closest('button[data-view]'); if (b) wtmSetView(b.getAttribute('data-view')); });
       $('wtFilt').addEventListener('click', function(e){ var b = e.target.closest('button[data-f]'); if (!b) return; WTM[b.getAttribute('data-f')] = b.getAttribute('data-v'); wtmListRender(); });
