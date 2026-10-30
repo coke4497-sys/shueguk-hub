@@ -2190,6 +2190,7 @@
     if (!ready) return;
     var t = e.target, other = t && t !== inp && /^(INPUT|TEXTAREA)$/.test(t.tagName || '') ;
     if (other || (t && t.closest && t.closest('[role="dialog"], .mback'))) return;   // 다른 칸(찾기·사유 등)에서는 건드리지 않는다
+    var nt = $('ntback'); if (nt && !nt.hidden) return;   // DM 창이 열려 있으면 DM 첨부가 받는다 — 대화 입력 상자에 같이 붙지 않게(Codex 검토)
     var fs = clipFiles(e);
     if (!fs.length) return;   // 글만 붙여 넣으면 그대로
     e.preventDefault();
@@ -2706,7 +2707,7 @@
     NT.files = []; ntDrawPending();
     $('ntStatus').textContent = ''; ntRender();
     $('ntback').hidden = false;
-    if (ids && ids.length) $('ntText').focus();
+    $('ntText').focus();   // 창 밖 버튼에 커서가 남지 않게(붙여넣기가 DM으로 가도록)
   }
   function ntClose(){ $('ntback').hidden = true; }
   function ntRender(){

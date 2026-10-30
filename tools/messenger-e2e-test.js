@@ -1747,7 +1747,7 @@ async function showTask(pg, sel){
     ok(r.chips.length === 2 && /회의록\.pdf/.test(r.chips[0]) && /^캡처_\d{4}_\d{6}\.png/.test(r.chips[1]) && r.img && /그림을 붙였습니다/.test(r.st) && r.mainPend === 0, '파일 첨부 + 캡처(이름 캡처_MMDD_hhmmss) 칩 2개 · 메시지 입력 상자에는 안 들어감 ' + JSON.stringify(r));
     await page.click('#ntPend [data-ntrm="1"]');
     ok(await page.evaluate(() => document.querySelectorAll('#ntPend .pf').length === 1), '× 로 칩 빼기');
-    ok(await page.evaluate(b64 => { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); const dt = new DataTransfer(); dt.items.add(new File([u], 'image.png', { type: 'image/png' })); const ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }); document.body.dispatchEvent(ev); return document.querySelectorAll('#ntPend .pf').length === 2; }, png2), '창이 열려 있으면 어디서 붙여 넣어도 DM 첨부로');
+    ok(await page.evaluate(b64 => { const bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); const dt = new DataTransfer(); dt.items.add(new File([u], 'image.png', { type: 'image/png' })); const ev = new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }); document.body.dispatchEvent(ev); return document.querySelectorAll('#ntPend .pf').length === 2 && document.querySelectorAll('#pend .pf').length === 0; }, png2), '창이 열려 있으면 어디서 붙여 넣어도 DM 첨부로 — 대화 입력 상자에는 안 붙음(Codex 검토)');
     const upBefore = calls.filter(c => c[0] === 'up').length;
     await page.click('#ntSend');   // 글 없이 파일만
     await page.waitForFunction(() => document.getElementById('ntback').hidden);
