@@ -81,6 +81,7 @@
       <div class="ctl" id="periods">
         <button class="pill" type="button" data-p="today">오늘</button>
         <button class="pill" type="button" data-p="week">이번 주</button>
+        <button class="pill" type="button" data-p="lastweek">지난주</button>
         <button class="pill" type="button" data-p="month">이번 달</button>
         <button class="pill" type="button" data-p="last">지난달</button>
         <input type="date" id="from" aria-label="시작 날짜" /> ~ <input type="date" id="to" aria-label="끝 날짜" />
@@ -180,6 +181,7 @@
     period = p;
     var t = today(), f = t, e = t;
     if (p === 'week'){ f = weekWed(t); if (f > t) f = addDay(f, -7); e = addDay(f, 6); }
+    if (p === 'lastweek'){ f = weekWed(t); if (f > t) f = addDay(f, -7); f = addDay(f, -7); e = addDay(f, 6); }   // 지난주 = 이번 주 시작(수요일) 7일 전부터 화요일까지 (2026-10-31 원장님 "지난주가 없네요?")
     if (p === 'month'){ f = t.slice(0, 8) + '01'; e = addDay(addDay(f, 32).slice(0, 8) + '01', -1); }
     if (p === 'last'){ var m0 = t.slice(0, 8) + '01'; e = addDay(m0, -1); f = e.slice(0, 8) + '01'; }
     $('from').value = f; $('to').value = e;
