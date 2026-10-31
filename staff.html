@@ -43,6 +43,8 @@
   tbody tr.sel td{background:#F3EEF8;}
   .nm{font-family:"Do Hyeon",sans-serif;font-size:18px;}
   .rl{font-size:12px;color:var(--cap);margin-left:5px;}
+  .rk{display:inline-block;min-width:22px;height:22px;line-height:22px;text-align:center;border-radius:999px;background:#F2F5F3;color:#5C6A64;font-family:"Do Hyeon",sans-serif;font-size:13px;margin-right:7px;vertical-align:2px;}
+  .rk.top{background:#EDE4F4;color:#5A4A6A;}
   .big{font-weight:700;}
   .sub{display:block;font-size:12px;color:var(--cap);}
   .st{display:inline-block;font-size:11.5px;border-radius:999px;padding:1px 8px;margin:2px 3px 0 0;white-space:nowrap;}
@@ -322,9 +324,11 @@
       + (D.unknown.length ? '<div class="warn">시간표 담당 이름을 사람과 잇지 못해 수업 시간에서 뺐습니다: ' + esc(D.unknown.join(', ')) + ' (같은 이름이 둘이거나 슈톡 계정이 없음)</div>' : '');
     var list = Object.keys(D.map).map(function(k){ return D.map[k]; });
     list.sort(function(a, b){
+      // 근무 시간 많은 순(2026-10-31 원장님) — 같으면 선생님 먼저, 이름 가나다
       var ra = (MBY[a.id] || {}).role === 'assistant', rb = (MBY[b.id] || {}).role === 'assistant';
-      return (ra - rb) || String(a.name).localeCompare(String(b.name), 'ko');
+      return (b.workMin - a.workMin) || (ra - rb) || String(a.name).localeCompare(String(b.name), 'ko');
     });
+    var rankOf = {}; list.forEach(function(p, i){ if (p.workMin > 0) rankOf[p.id] = i + 1; });
     var shown = fil ? list.filter(function(p){ return p.id === fil; }) : list;
     $('tb').innerHTML = shown.map(function(p){
       var days = {}; p.work.forEach(function(w){ days[w.ymd] = 1; });
@@ -332,7 +336,7 @@
       var c = counts(p), tot = p.tasks.length, les = {};
       p.lessons.forEach(function(l){ les[l.ymd] = 1; });
       return '<tr data-id="' + esc(p.id) + '"' + (p.id === sel ? ' class="sel"' : '') + '>'
-        + '<td><span class="nm">' + esc(p.name) + '</span><span class="rl">' + esc(roleLabel((MBY[p.id] || {}).role)) + '</span></td>'
+        + '<td>' + (rankOf[p.id] ? '<span class="rk' + (rankOf[p.id] <= 3 ? ' top' : '') + '">' + rankOf[p.id] + '</span>' : '') + '<span class="nm">' + esc(p.name) + '</span><span class="rl">' + esc(roleLabel((MBY[p.id] || {}).role)) + '</span></td>'
         + '<td><span class="big">' + dur(p.workMin) + '</span><span class="sub">' + (Object.keys(days).length ? Object.keys(days).length + '일 · ' + esc(mainLoc(p.work).join('·')) : '출근 기록 없음') + (miss ? ' · <span class="open">퇴근 기록 없음 ' + miss + '</span>' : '') + '</span></td>'
         + '<td><span class="big">' + dur(p.lesMin) + '</span><span class="sub">' + (p.lessons.length ? p.lessons.length + '회 · ' + Object.keys(les).length + '일' : '수업 없음') + '</span></td>'
         + '<td>' + (tot || p.gave.length ? '<span class="big">' + (c['완료'] || 0) + ' / ' + tot + ' 완료</span><span class="sub">' + ST_ORDER.filter(function(s){ return s !== '완료' && c[s]; }).map(function(s){ return stPill(s, c[s]); }).join('') + '</span>' : '<span class="dim">맡은 일 없음</span>') + '</td>'
