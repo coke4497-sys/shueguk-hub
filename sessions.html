@@ -448,6 +448,28 @@ var CORE = (function(){
       return { book: c.book, id: c.class_id, day: c.day, start: c.start_time, name: c.name, kind: String(c.kind || '').trim(),
                roster: String(c.roster || ''), wk: wkIdYmd(c.class_id) };
     });
+    /* 적용일 변경(2026-11-01 — 리포트 timetable.html classesOn과 같은 규칙, tt_log '적용일변경'):
+     * 종강(end)한 반은 변경일부터 세지 않고, 반 행을 이미 지운 반은 변경일 전 날짜만 snap으로 센다. */
+    var spans = {};
+    (data.spans || []).forEach(function(g){
+      var i = String(g.reason || '').indexOf('\n#spec '), sp = null;
+      if (i >= 0){ try { sp = JSON.parse(String(g.reason).slice(i + 7)); } catch (e){ sp = null; } }
+      if (!sp || !/^\d{4}-\d{2}-\d{2}$/.test(String(g.apply_date || ''))) return;
+      var k = g.book + '|' + g.from_class_id;
+      (spans[k] = spans[k] || []).push({ d: String(g.apply_date), end: !!sp.end, snap: sp.snap || null });
+    });
+    var have = {}; classes.forEach(function(c){ have[c.book + '|' + c.id] = 1; });
+    Object.keys(spans).forEach(function(k){
+      var sn = spans[k][0].snap; if (have[k] || !sn) return;
+      var bk = k.split('|')[0], id = k.slice(bk.length + 1);
+      classes.push({ book: bk, id: id, day: sn.day, start: sn.start, name: sn.name, kind: '', roster: String(sn.roster || ''), wk: wkIdYmd(id), ghost: true });
+    });
+    function spanGone(c, ds){   // 그 날짜에 이 반이 없다(종강 뒤·지운 반의 변경일 뒤)
+      var ls = spans[c.book + '|' + c.id];
+      if (!ls) return !!c.ghost;
+      var cur = null; ls.forEach(function(sp){ if (sp.d <= ds) cur = sp; });
+      return cur ? cur.end : false;
+    }
     var byId = {};
     classes.forEach(function(c){ (byId[c.id] = byId[c.id] || []).push(c); });
     var logs = data.logs || [];
@@ -555,6 +577,7 @@ var CORE = (function(){
         if (c.book !== book) return;
         if (c.wk ? c.wk !== ds : c.day !== wd) return;
         if (c.wk && copyOf[c.id]) return;   // 옮겨 온 복사본은 원래 수업 날짜에 센다(아래)
+        if (spanGone(c, ds)) return;          // 적용일 변경 — 종강 뒤는 수업 없음, 지운 반은 그 전 날짜만
         var names = [];
         c.roster.split(/\s+/).forEach(function(t){
           if (!t) return;
@@ -754,6 +777,7 @@ var CORE = (function(){
       var cnt = {};
       classes.forEach(function(c){
         if (c.book !== bk || c.wk || isNonsul(c.name)) return;   // 논술은 주당 횟수에 안 넣는다
+        if (spanGone(c, toYmd)) return;   // 이 달 끝에는 없는 반(적용일 종강)은 주당 횟수에 안 넣는다
         var seen = {};
         c.roster.split(/\s+/).forEach(function(t){ var p = plainName(t); if (!p) return; var n = canon(p); if (!seen[n]){ seen[n] = 1; cnt[n] = (cnt[n] || 0) + 1; } });
       });
@@ -761,7 +785,7 @@ var CORE = (function(){
     });
     /* 명단에 이름이 있는 학생은 그 달 수업이 0회여도 목록에 남긴다(내신 주만 있는 달에 수업이 없는 학생 등) */
     classes.forEach(function(c){
-      if (c.wk) return;
+      if (c.wk || spanGone(c, toYmd)) return;
       c.roster.split(/\s+/).forEach(function(t){ var p = plainName(t); if (p) rosterNames[canon(p)] = 1; });
     });
     /* 그 달 주차 구성으로 주당 횟수를 정한다 — 주차마다 그 기간의 반 수를 더해 평균(반올림).
@@ -920,9 +944,10 @@ var CORE = (function(){
       sbAll('/tt_period?select=week_wednesday,book,overrides')
         .catch(e => { if (!/sb 400/.test(String(e && e.message))) throw e; return sbAll('/tt_period?select=week_wednesday,book'); }),   // overrides 열 없는 DB(047 전)
       sbAll('/tt_log?select=id,at,kind,student,from_class_id,to_class_id,reason,apply_date&kind=in.(' + kinds + ')&at=gte.' + encodeURIComponent(since) + '&order=id'),
-      sbAll('/students?select=name,school,grade,enrolled&order=seq,id')
-    ]).then(([classes, periods, logs, students]) => {
-      DATA = { classes, periods, logs, students, at: new Date() };
+      sbAll('/students?select=name,school,grade,enrolled&order=seq,id'),
+      sbAll('/tt_log?select=book,from_class_id,apply_date,reason&kind=eq.' + encodeURIComponent('적용일변경') + '&order=apply_date,id').catch(() => [])   // 적용일 변경(2026-11-01)
+    ]).then(([classes, periods, logs, students, spans]) => {
+      DATA = { classes, periods, logs, students, spans, at: new Date() };
       RESULT = CORE.build(DATA, YEAR, MONTH);
       fillSelects();
       render();
