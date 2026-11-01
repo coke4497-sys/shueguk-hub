@@ -552,6 +552,50 @@ ok "$(as $A "select public.msg_note_send(array['$C']::uuid[], '', '[]')" | grep 
 ok "$(as $C "select public.msg_task_seen($NF)->>'status'")" "완료" "파일 DM 도 확인하면 완료"
 ok "$(anon "select public.msg_note_send(array['$B']::uuid[], 'x', '[]')" | grep -c 'permission denied')" 1 "공개 키는 함수 실행 불가"
 
+echo "── 출퇴근 시각 고치기 — 원장님만 (202611010001)"
+P -f supabase/migrations/202611010001_presence_fix.sql >/dev/null || { echo "시각 고치기 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202611010001_presence_fix.sql >/dev/null && ok y y "시각 고치기 마이그레이션 다시 실행해도 오류 없음"
+# 어제(한국 날짜) 그 시각 — kt 1 '10:16' = 어제 오전 10:16
+kt(){ echo "((date_trunc('day', now() at time zone 'Asia/Seoul') - interval '$1 day' + interval '$2')::timestamp at time zone 'Asia/Seoul')"; }
+P >/dev/null <<SQL
+delete from public.msg_presence_log where user_id in ('$B','$C');
+insert into public.msg_presence_log (user_id, name, loc, is_on, at) values ('$B','이은지','화정센터',true,$(kt 1 '10:16'));
+insert into public.msg_presence (user_id, name, loc, is_on, changed_at) values ('$B','이은지','화정센터',true,$(kt 1 '10:16'))
+  on conflict (user_id) do update set loc=excluded.loc, is_on=excluded.is_on, changed_at=excluded.changed_at;
+insert into public.msg_presence_log (user_id, name, loc, is_on, at) values ('$C','고희주','본원',true,$(kt 1 '10:24')), ('$C','고희주','본원',false,$(kt 1 '21:07'));
+SQL
+BI=$(as $A "select id from public.msg_presence_log where user_id='$B' order by at limit 1")
+CI=$(as $A "select id from public.msg_presence_log where user_id='$C' and is_on order by at limit 1")
+CO=$(as $A "select id from public.msg_presence_log where user_id='$C' and not is_on order by at limit 1")
+fx(){ echo "select public.msg_presence_fix('$1', $2, $3, '$4', $(kt ${5%% *} "${5#* }"), $(kt ${6%% *} "${6#* }"), '$7')"; }
+ok "$(as $B "$(fx $B $BI null 화정센터 '1 10:16' '1 20:30' 퇴근누락)" | grep -c not_allowed)" 1 "선생님은 못 고침"
+ok "$(as $C "$(fx $B $BI null 화정센터 '1 10:16' '1 20:30' 퇴근누락)" | grep -c not_allowed)" 1 "조교도 못 고침"
+ok "$(anon "$(fx $B $BI null 화정센터 '1 10:16' '1 20:30' 퇴근누락)" | grep -c 'permission denied')" 1 "공개 키는 실행 불가"
+ok "$(as $A "$(fx $B $BI null 화정센터 '1 10:16' '1 20:30' '')" | grep -c need_reason)" 1 "사유가 비면 거절"
+ok "$(as $A "$(fx $B $BI null 집 '1 10:16' '1 20:30' x)" | grep -c bad_loc)" 1 "없는 센터 거절"
+ok "$(as $A "$(fx $B $BI null 화정센터 '1 20:30' '1 10:16' x)" | grep -c bad_order)" 1 "퇴근이 출근보다 이르면 거절"
+ok "$(as $A "$(fx $B $BI null 화정센터 '1 10:16' '-1 10:00' x)" | grep -c future)" 1 "앞날 퇴근 거절"
+ok "$(as $A "$(fx $B $BI null 화정센터 '1 20:00' '0 05:30' x)" | grep -c cross_day)" 1 "새벽 5시를 넘기면 다른 근무일 — 거절"
+ok "$(as $A "$(fx $B $CI null 화정센터 '1 10:16' '1 20:30' x)" | grep -c bad_in)" 1 "다른 사람의 출근 줄은 거절"
+ok "$(as $A "$(fx $B $BI null 화정센터 '1 10:16' '1 20:30' 퇴근누락)" | grep -c in_id)" 1 "원장님 — 퇴근 기록 없는 구간에 퇴근 20:30 넣기"
+ok "$(as $A "select count(*)||'|'||sum(case when is_on then 0 else 1 end) from public.msg_presence_log where user_id='$B'")" "2|1" "퇴근 줄 한 줄이 더해짐"
+ok "$(as $A "select is_on::text||'|'||(changed_at=$(kt 1 '20:30'))::text from public.msg_presence where user_id='$B'")" "false|true" "출근 표시가 꺼지고 마지막 기록 시각으로"
+ok "$(as $A "select name||'|'||reason||'|'||by_name||'|'||(before ? 'out')::text from public.msg_presence_fixes where user_id='$B'")" "이은지|퇴근누락|이수경|false" "고친 기록 — 사유·고친 사람·전 기록"
+ok "$(as $B "select count(*) from public.msg_presence_fixes")" 0 "고친 기록은 원장님만 읽음"
+BO=$(as $A "select id from public.msg_presence_log where user_id='$B' and not is_on")
+ok "$(as $A "$(fx $B $BI null 화정센터 '1 10:16' '1 19:00' x)" | grep -c -E 'has_out|overlap')" 1 "퇴근이 이미 있으면 새로 넣지 않음(그 퇴근을 고침)"
+ok "$(as $A "$(fx $B $BI $BO 본원 '1 10:00' '1 20:00' '시각 정정')" | grep -c in_id)" 1 "출근·퇴근 시각과 센터 바꾸기"
+ok "$(as $A "select count(*)||'|'||min(loc)||'|'||(min(at)=$(kt 1 '10:00'))::text||'|'||(max(at)=$(kt 1 '20:00'))::text from public.msg_presence_log where user_id='$B'")" "2|본원|true|true" "줄 수 그대로 · 시각·센터 바뀜"
+ok "$(as $A "$(fx $B null null 본원 '1 12:00' '1 13:00' x)" | grep -c overlap)" 1 "다른 기록과 겹치는 새 구간 거절"
+ok "$(as $A "$(fx $B null null 본원 '2 15:00' '2 19:00' '출근 누락')" | grep -c in_id)" 1 "기록 없는 날에 근무 구간 새로 넣기"
+ok "$(as $A "select count(*) from public.msg_presence_log where user_id='$B'")" 4 "출근·퇴근 두 줄이 더해짐"
+ok "$(as $A "select is_on::text from public.msg_presence where user_id='$B'")" "false" "지난 날을 넣어도 출근 표시는 마지막 기록 그대로"
+ok "$(as $A "$(fx $C $CI null 본원 '1 10:24' '1 19:00' x)" | grep -c has_out)" 1 "퇴근 줄이 있는데 퇴근을 또 넣으면 거절"
+ok "$(as $A "$(fx $C $CI $CO 본원 '1 10:24' '1 19:00' '7시 퇴근')" | grep -c in_id)" 1 "늦게 누른 퇴근 21:07 → 19:00"
+ok "$(as $A "select (at=$(kt 1 '19:00'))::text from public.msg_presence_log where id=$CO")" "true" "퇴근 시각이 19:00으로"
+ok "$(as $A "$(fx $C $CI $BO 본원 '1 10:24' '1 19:00' x)" | grep -c bad_out)" 1 "다른 사람의 퇴근 줄은 거절"
+ok "$(as $B "update public.msg_presence_log set at=now() where user_id='$B'" | grep -c 'permission denied')" 1 "기록 표에 직접 쓰기 불가"
+
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null
 [ $fail -eq 0 ]
