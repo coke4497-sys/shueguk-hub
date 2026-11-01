@@ -30,13 +30,13 @@ const MEMBERS = Object.values(ACC).map(a => ({ user_id: a.user_id, name: a.displ
 const NOW = Date.parse('2026-10-21T20:00:00+09:00');   // 수요일 저녁
 const K = (d, t) => new Date(Date.parse(d + 'T' + t + ':00+09:00')).toISOString();
 const PLOGS = [
-  { user_id: HEEJU, name: '고희주', loc: '화정센터', is_on: true, at: K('2026-10-21', '15:00') },
-  { user_id: HEEJU, name: '고희주', loc: '본원', is_on: true, at: K('2026-10-21', '17:00') },
-  { user_id: HEEJU, name: '고희주', loc: '본원', is_on: false, at: K('2026-10-21', '19:30') },
-  { user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, at: K('2026-10-20', '14:00') },   // 어제 퇴근 안 누름
-  { user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, at: K('2026-10-21', '16:00') },   // 오늘 근무 중
-  { user_id: PARK, name: '박언호', loc: '화정센터', is_on: true, at: K('2026-10-20', '21:00') },   // 자정 넘어 퇴근(근무일 경계 새벽 5시)
-  { user_id: PARK, name: '박언호', loc: '화정센터', is_on: false, at: K('2026-10-21', '00:40') },
+  { id: 1, user_id: HEEJU, name: '고희주', loc: '화정센터', is_on: true, at: K('2026-10-21', '15:00') },
+  { id: 2, user_id: HEEJU, name: '고희주', loc: '본원', is_on: true, at: K('2026-10-21', '17:00') },
+  { id: 3, user_id: HEEJU, name: '고희주', loc: '본원', is_on: false, at: K('2026-10-21', '19:30') },
+  { id: 4, user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, at: K('2026-10-20', '14:00') },   // 어제 퇴근 안 누름
+  { id: 5, user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, at: K('2026-10-21', '16:00') },   // 오늘 근무 중
+  { id: 6, user_id: PARK, name: '박언호', loc: '화정센터', is_on: true, at: K('2026-10-20', '21:00') },   // 자정 넘어 퇴근(근무일 경계 새벽 5시)
+  { id: 7, user_id: PARK, name: '박언호', loc: '화정센터', is_on: false, at: K('2026-10-21', '00:40') },
 ];
 const TT = [
   { book: '정규', class_id: 'r001', name: '고2 가', day: '수', start_time: '5:30', end_time: '7:00', teacher: '은지', roster: '가 나' },
@@ -69,6 +69,8 @@ const USAGE = [
   { user_id: HEEJU, name: '고희주', ymd: '2026-10-21', page: 'shueguk-hub/messenger.html', minutes: 42, first_at: K('2026-10-21', '15:00'), last_at: K('2026-10-21', '19:30') },
 ];
 let noFn = false;
+const FIXES = [{ id: 1, at: K('2026-10-21', '19:50'), user_id: PARK, name: '박언호대표님', ymd: '2026-10-20', before: { in: K('2026-10-20', '21:00'), loc: '화정센터' }, after: { in: K('2026-10-20', '21:00'), out: K('2026-10-21', '00:40'), loc: '화정센터' }, reason: '퇴근 버튼 누락', by_name: '이수경' }];
+let fixErr = null;
 const calls = [];
 
 (async () => {
@@ -105,6 +107,8 @@ const calls = [];
       if (p === '/rest/v1/tt_period') return json(TTP);
       if (p === '/rest/v1/tt_log') return json(TTLOG);
       if (p === '/rest/v1/msg_tasks') return json(TASKS);
+      if (p === '/rest/v1/msg_presence_fixes') return json(FIXES);
+      if (p === '/rest/v1/rpc/msg_presence_fix'){ if (fixErr) return json({ message: fixErr }, 400); return json({ in_id: 1, out_id: 9, ymd: '2026-10-20' }); }
       if (p === '/rest/v1/rpc/staff_usage'){
         if (noFn) return json({ code: 'PGRST202', message: 'Could not find the function' }, 404);
         const b = JSON.parse(req.postData()); return json(USAGE.filter(x => x.ymd >= b.p_from && x.ymd <= b.p_to));
@@ -183,6 +187,49 @@ const calls = [];
   const dtp = await page.locator('#detail').textContent();
   ok(dtp.includes('10/20 (화)화정센터 · 21:00 ~ 0:40') && !dtp.includes('퇴근 기록 없음'), '자정 넘은 퇴근은 그 근무일에 붙음(새벽 5시 경계)');
   ok((await rowOf(page, PARK).textContent()).includes('3시간 40분'), '자정 넘은 근무 시간 3시간 40분');
+  console.log('③-2 출퇴근 시각 고치기 (원장님만)');
+  ok(dtp.includes('원장님이 고친 기록') && dtp.includes('21:00 ~ 퇴근 없음 → 화정센터 21:00 ~ 0:40') && dtp.includes('사유: 퇴근 버튼 누락 · 이수경'), '고친 기록 줄(전 → 후 · 사유 · 고친 사람)');
+  await rowOf(page, HEEJU).click();
+  ok(await page.locator('#detail [data-fix]').count() === 1 && await page.locator('#detail [data-fixnew]').count() === 1, '센터 옮김 구간에는 [고치기] 없음 · [근무 넣기] 있음');
+  await rowOf(page, EUNJI).click();
+  const fixBtns = page.locator('#detail [data-fix]');
+  ok(await fixBtns.count() === 2, '퇴근 기록 없음·근무 중 구간에 [고치기]');
+  await fixBtns.first().click();
+  await page.waitForSelector('#fixbox');
+  ok((await page.inputValue('#fxIn')) === '14:00' && (await page.inputValue('#fxOut')) === '' && (await page.inputValue('#fxLoc')) === '본원', '고치기 창 — 출근·센터 채움, 퇴근은 빈칸');
+  await page.fill('#fxOut', '20:30');
+  calls.length = 0;
+  await page.click('#fxGo');
+  ok((await page.textContent('#fxMsg')).includes('사유를'), '사유가 없으면 저장 안 함');
+  ok(!calls.some(c => c[0] === '/rest/v1/rpc/msg_presence_fix'), '사유 없이는 서버를 부르지 않음');
+  await page.click('#fixbox [data-why="퇴근 버튼 누락"]');
+  ok((await page.inputValue('#fxWhy')) === '퇴근 버튼 누락', '빠른 사유 알약');
+  await page.click('#fxGo');
+  await page.waitForSelector('#fixbox', { state: 'detached' });
+  const fc = calls.find(c => c[0] === '/rest/v1/rpc/msg_presence_fix'), fb = JSON.parse(fc[2]);
+  ok(fb.p_user === EUNJI && fb.p_in_id === 4 && fb.p_out_id === null && fb.p_loc === '본원' && fb.p_in === K('2026-10-20', '14:00') && fb.p_out === K('2026-10-20', '20:30') && fb.p_reason === '퇴근 버튼 누락', '저장 본문 — 출근 줄 id·퇴근 줄 없음·시각·사유');
+  ok(calls.some(c => c[0] === '/rest/v1/msg_presence_log' && c !== fc), '저장 뒤 다시 불러옴');
+  await page.waitForSelector('#detail [data-fixnew]');   // 다시 불러와도 고른 사람(이은지)의 자세히가 남아 있음
+  await page.click('#detail [data-fixnew]');
+  await page.fill('#fxDate', '2026-10-20'); await page.selectOption('#fxLoc', '정리정독');
+  await page.fill('#fxIn', '23:00'); await page.fill('#fxOut', '01:30'); await page.fill('#fxWhy', '출근 버튼 누락');
+  calls.length = 0;
+  await page.click('#fxGo');
+  await page.waitForSelector('#fixbox', { state: 'detached' });
+  const fb2 = JSON.parse(calls.find(c => c[0] === '/rest/v1/rpc/msg_presence_fix')[2]);
+  ok(fb2.p_in_id === null && fb2.p_out_id === null && fb2.p_loc === '정리정독' && fb2.p_out === K('2026-10-21', '01:30'), '근무 넣기 — 새벽 5시 전 퇴근은 다음 날 새벽으로');
+  await rowOf(page, HEEJU).click();
+  await page.click('#detail [data-fix]');
+  ok((await page.inputValue('#fxOut')) === '19:30', '퇴근이 있는 구간은 퇴근 시각도 채움');
+  if (process.env.SHOT){ await page.locator('#detail').screenshot({ path: path.join(process.env.SHOT, 'staff-fix.png') }); }
+  fixErr = 'overlap';
+  await page.fill('#fxWhy', 'x'); await page.click('#fxGo');
+  await page.waitForFunction(() => document.querySelector('#fxMsg').textContent.includes('겹칩니다'));
+  ok(true, '서버 거절은 쉬운 말로(겹침)');
+  fixErr = null;
+  await page.click('#fxCx');
+  ok(await page.locator('#fixbox').count() === 0, '[취소]로 닫힘');
+
   console.log('④ 이번 주 · 사람 고르기');
   await page.click('[data-p="week"]');
   await page.waitForFunction(() => document.querySelector('#range').textContent === '10/21 (수) ~ 10/27 (화)');
@@ -196,6 +243,14 @@ const calls = [];
   ok(ejw.includes('4회'), '다음날 이 주만 반도 이번 주에 (4회)');
   await page.selectOption('#who', HEEJU);
   ok(await page.locator('#tb tr').count() === 1, '사람 고르면 그 사람만');
+  await ctx.close();
+  calls.length = 0;
+  ({ ctx, page } = await open('staff.html', PARK));
+  await page.waitForSelector('#tb tr[data-id="' + EUNJI + '"]');
+  await rowOf(page, EUNJI).click();
+  await page.waitForSelector('#detail:not([hidden])');
+  ok(await page.locator('#detail .fixbtn').count() === 0, '대표님 화면에는 [고치기]·[근무 넣기] 없음(원장님만)');
+  ok(!calls.some(c => c[0] === '/rest/v1/msg_presence_fixes'), '대표님은 고친 기록을 부르지 않음');
   await ctx.close();
 
   console.log('⑤ 마이그레이션 전');

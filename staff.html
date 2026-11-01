@@ -69,6 +69,20 @@
   .hist{display:block;font-size:12px;color:var(--cap);margin-top:2px;}
   .empty{font-size:13.5px;color:var(--cap);}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  /* 출퇴근 시각 고치기 — 원장님만 (2026-11-01) */
+  .fixbtn{border:0;border-radius:999px;background:var(--lav);color:var(--lavInk);font-size:12.5px;padding:3px 10px;cursor:pointer;flex:none;align-self:center;}
+  .fixbtn:hover{background:#E3D7EE;}
+  .sec h3 .fixbtn{margin-left:auto;}
+  .fixbox{background:#FAF7FC;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:9px;margin:4px 0 6px;}
+  .fixbox .fr{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13.5px;}
+  .fixbox label{display:flex;align-items:center;gap:6px;color:var(--ink2);}
+  .fixbox input,.fixbox select{border:1px solid #D7E0DB;border-radius:10px;padding:6px 9px;font-size:14px;color:var(--ink);background:#fff;min-height:36px;}
+  .fixbox input.why{flex:1;min-width:200px;}
+  .fixbox .q{border:0;border-radius:999px;background:#fff;color:var(--lavInk);font-size:12.5px;padding:4px 10px;cursor:pointer;}
+  .fixbox .go{border:0;border-radius:10px;background:var(--lav);color:var(--lavInk);font-weight:700;font-size:14px;padding:8px 16px;cursor:pointer;}
+  .fixbox .cx{border:0;background:none;color:var(--cap);font-size:13.5px;cursor:pointer;}
+  .fixbox .msg{font-size:13px;color:var(--lateInk);}
+  .fixbox .msg.ok{color:var(--okInk);}
   @media (max-width:760px){ .grid2{grid-template-columns:1fr;} .range{margin-left:0;width:100%;} .row .d{width:72px;} }
 </style>
 </head>
@@ -211,14 +225,14 @@
     var sel0 = '?select=book,class_id,name,day,start_time,end_time,teacher,roster';
     Promise.all([
       MEMBERS.length ? Promise.resolve(null) : rpc('msg_members'),
-      api('/msg_presence_log?select=user_id,name,loc,is_on,at&at=gte.' + encodeURIComponent(logFrom) + '&at=lt.' + encodeURIComponent(logTo) + '&order=at.asc&limit=5000').catch(soft('근무 기록')),
+      api('/msg_presence_log?select=id,user_id,name,loc,is_on,at&at=gte.' + encodeURIComponent(logFrom) + '&at=lt.' + encodeURIComponent(logTo) + '&order=at.asc&limit=5000').catch(soft('근무 기록')),
       api('/tt_classes' + sel0 + '&class_id=not.like.w*&limit=2000').catch(soft('시간표')),
       api('/tt_classes' + sel0 + '&class_id=like.w*&limit=2000').catch(function(){ return []; }),
       api('/tt_period?select=week_wednesday,book,overrides&week_wednesday=in.(' + wedList.join(',') + ')')
         .catch(function(err){ if (err && err.status === 400) return api('/tt_period?select=week_wednesday,book&week_wednesday=in.(' + wedList.join(',') + ')'); throw err; }).catch(function(){ return []; }),
       api('/tt_log?select=kind,from_class_id,apply_date&kind=in.(' + encodeURIComponent('주간반휴강,주간반이동') + ')&apply_date=gte.' + f + '&apply_date=lte.' + e + '&limit=3000').catch(function(){ return []; }),
       api('/msg_tasks?select=*&or=(' + encodeURIComponent('created_at.gte.' + fromIso + ',done_at.gte.' + fromIso + ',updated_at.gte.' + fromIso + ',status.eq.대기') + ')&order=id.asc&limit=5000').catch(soft('업무')),
-      Promise.resolve([]),
+      ME.role === 'admin' ? api('/msg_presence_fixes?select=*&ymd=gte.' + f + '&ymd=lte.' + e + '&order=at.desc&limit=500').catch(function(){ return []; }) : Promise.resolve([]),
       rpc('staff_usage', { p_from: f, p_to: e }).catch(soft('사용 시간'))
     ]).then(function(r){
       if (seq !== loadSeq) return;
@@ -228,7 +242,7 @@
         $('who').innerHTML = '<option value="">모든 사람</option>' + MEMBERS.map(function(m){ return '<option value="' + esc(m.id) + '">' + esc(m.name) + '</option>'; }).join('');
         $('who').value = fil;
       }
-      D = build(f, e, toIso, { logEnd: Date.parse(logTo), logs: r[1] || [], tt: (r[2] || []).concat(r[3] || []), periods: r[4] || [], ttlog: r[5] || [], tasks: r[6] || [], usage: r[8] || [] });
+      D = build(f, e, toIso, { logEnd: Date.parse(logTo), logs: r[1] || [], tt: (r[2] || []).concat(r[3] || []), periods: r[4] || [], ttlog: r[5] || [], tasks: r[6] || [], usage: r[8] || [], fixes: r[7] || [] });
       D.warn = warn;
       $('range').textContent = dlabel(f) + ' ~ ' + dlabel(e);
       render();
@@ -239,7 +253,7 @@
   }
 
   // ── 계산 ─────────────────────────────────────────
-  function person(map, id, name){ if (!map[id]) map[id] = { id: id, name: name, work: [], lessons: [], tasks: [], gave: [], usage: [], workMin: 0, lesMin: 0, tMin: 0, sMin: 0 }; return map[id]; }
+  function person(map, id, name){ if (!map[id]) map[id] = { id: id, name: name, fixes: [], work: [], lessons: [], tasks: [], gave: [], usage: [], workMin: 0, lesMin: 0, tMin: 0, sMin: 0 }; return map[id]; }
   function build(f, e, toIso, src){
     var map = {}, nowMs = Date.now(), endMs = Date.parse(toIso);
     MEMBERS.forEach(function(m){ person(map, m.id, m.name); });
@@ -248,17 +262,17 @@
     src.logs.forEach(function(l){ (byU[l.user_id] = byU[l.user_id] || []).push(l); });
     Object.keys(byU).forEach(function(uid){
       var p = person(map, uid, byU[uid][0].name), cur = null;
-      function close(atMs, how){
+      function close(atMs, how, outId){
         var s = cur; cur = null; if (!s) return;
         var min = how === 'none' ? 0 : Math.max(0, (atMs - s.at) / 60000);
-        p.work.push({ ymd: workYmdOf(s.at), loc: s.loc, start: s.at, end: how === 'none' ? null : atMs, min: min, how: how });
+        p.work.push({ ymd: workYmdOf(s.at), loc: s.loc, start: s.at, end: how === 'none' ? null : atMs, min: min, how: how, inId: s.id, outId: outId || null });
         p.workMin += min;
       }
       byU[uid].forEach(function(l){
         var at = Date.parse(l.at);
         if (cur && workYmdOf(at) !== workYmdOf(cur.at)) close(at, 'none');
-        if (l.is_on){ if (cur) close(at, 'move'); cur = { at: at, loc: l.loc }; }
-        else close(at, 'out');
+        if (l.is_on){ if (cur) close(at, 'move'); cur = { at: at, loc: l.loc, id: l.id }; }
+        else close(at, 'out', l.id);
       });
       if (cur){ if (workYmdOf(cur.at) === workYmdOf(nowMs) && nowMs < src.logEnd) close(nowMs, 'now'); else close(0, 'none'); }
     });
@@ -302,6 +316,7 @@
       if (!OPEN[t.status] && !(t.done_at && Date.parse(t.done_at) >= fromMs) && c < fromMs) return;
       person(map, t.assignee || ('n:' + t.assignee_name), t.assignee_name).tasks.push(t);
     });
+    (src.fixes || []).forEach(function(x){ person(map, x.user_id, x.name).fixes.push(x); });
     // 4·5. 사용 시간
     src.usage.forEach(function(u){
       var pz = person(map, u.user_id, u.name);
@@ -359,11 +374,22 @@
     el.hidden = false;
     var h = '<h2>' + esc(p.name) + ' <span class="rl">' + esc(roleLabel((MBY[p.id] || {}).role)) + ' · ' + dlabel(D.f) + ' ~ ' + dlabel(D.e) + '</span></h2>';
     // 1. 근무
-    h += '<div class="sec"><h3>1. 근무 시간 · 장소 <small>' + dur(p.workMin) + '</small></h3><div class="rows">';
-    h += p.work.length ? p.work.map(function(w){
+    var canFix = ME && ME.role === 'admin';
+    h += '<div class="sec"><h3>1. 근무 시간 · 장소 <small>' + dur(p.workMin) + '</small>' + (canFix ? '<button class="fixbtn" type="button" data-fixnew="1">근무 넣기</button>' : '') + '</h3><div class="rows">';
+    h += '<div id="fixslot-new"></div>';
+    h += p.work.length ? p.work.map(function(w, i){
       var t = hm(w.start) + ' ~ ' + (w.how === 'none' ? '<span class="open">퇴근 기록 없음</span>' : hm(w.end) + (w.how === 'now' ? ' (근무 중)' : '') + (w.how === 'move' ? ' (센터 옮김)' : ''));
-      return '<div class="row"><span class="d">' + dlabel(w.ymd) + '</span><span class="x">' + esc(w.loc || '센터 없음') + ' · ' + t + '</span><span class="r">' + (w.how === 'none' ? '—' : dur(w.min)) + '</span></div>';
+      return '<div class="row"><span class="d">' + dlabel(w.ymd) + '</span><span class="x">' + esc(w.loc || '센터 없음') + ' · ' + t + '</span><span class="r">' + (w.how === 'none' ? '—' : dur(w.min)) + '</span>'
+        + (canFix && w.how !== 'move' && w.inId ? '<button class="fixbtn" type="button" data-fix="' + i + '">고치기</button>' : '') + '</div><div id="fixslot-' + i + '"></div>';
     }).join('') : '<span class="empty">이 기간에 슈톡 출근 기록이 없습니다.</span>';
+    if (p.fixes.length){
+      h += '<span class="hist">원장님이 고친 기록</span>' + p.fixes.map(function(x){
+        var b = x.before || {}, a = x.after || {}, ms = Date.parse(x.at);
+        var was = b.in ? hm(Date.parse(b.in)) + ' ~ ' + (b.out ? hm(Date.parse(b.out)) : '퇴근 없음') : '기록 없음';
+        return '<div class="row"><span class="d">' + dlabel(x.ymd) + '</span><span class="x">' + esc(was) + ' → ' + esc(a.loc || '') + ' ' + hm(Date.parse(a.in)) + ' ~ ' + hm(Date.parse(a.out))
+          + '<span class="hist">사유: ' + esc(x.reason) + ' · ' + esc(x.by_name) + ' ' + dlabel(ymdOf(ms)) + ' ' + hm(ms) + '</span></span></div>';
+      }).join('');
+    }
     h += '</div></div>';
     // 2. 수업
     h += '<div class="sec"><h3>2. 수업 시간 <small>' + dur(p.lesMin) + ' · ' + p.lessons.length + '회</small></h3><div class="rows">';
@@ -406,6 +432,72 @@
     h += '</div></div></div>';
     el.innerHTML = h;
   }
+
+  // ── 출퇴근 시각 고치기 — 원장님만 (2026-11-01, 마이그레이션 202611010001) ──
+  // 고치기 = 그 구간의 출근 줄(inId)·퇴근 줄(outId — 없으면 새로 넣음)을 원장님이 직접 바꾼다. 근무 넣기 = 기록 없는 날에 출근·퇴근 두 줄.
+  var FIX_LOCS = ['본원', '화정센터', '민초센터', '정리정독', '도래울센터'];
+  var FIX_WHY = ['퇴근 버튼 누락', '퇴근을 늦게 누름', '출근 버튼 누락', '출근을 늦게 누름'];
+  var FIX = null;
+  function hhmm(ms){ var d = kst(ms), h = d.getUTCHours(), m = d.getUTCMinutes(); return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m; }
+  // 근무일 + 'HH:MM'(한국 시각) → ISO. 새벽 5시 전 시각은 다음 날 새벽(근무일 경계)
+  function fixIso(ymd, t){
+    if (!ymd || !/^\d{1,2}:\d{2}$/.test(t || '')) return null;
+    var h = parseInt(t, 10), y = h < WORK_DAY_H ? addDay(ymd, 1) : ymd;
+    return new Date(Date.parse(y + 'T' + (t.length === 4 ? '0' + t : t) + ':00+09:00')).toISOString();
+  }
+  var FIX_ERR = {
+    not_allowed: '원장님 계정만 고칠 수 있습니다.', need_reason: '사유를 적어 주십시오.', bad_loc: '센터를 골라 주십시오.', need_time: '출근·퇴근 시각을 모두 넣어 주십시오.',
+    bad_order: '퇴근 시각이 출근 시각보다 늦어야 합니다.', future: '아직 오지 않은 시각은 넣을 수 없습니다.', too_long_shift: '한 구간은 18시간을 넘을 수 없습니다.',
+    cross_day: '출근과 퇴근이 같은 근무일(새벽 5시 기준)이어야 합니다.', too_old: '92일보다 오래된 기록은 고칠 수 없습니다.', overlap: '그 시간에 다른 출퇴근 기록이 있어 겹칩니다.',
+    has_out: '이 구간에는 이미 퇴근 기록이 있습니다. 화면을 새로 고친 뒤 다시 해 주십시오.', bad_in: '출근 기록을 찾지 못했습니다. 새로 고친 뒤 다시 해 주십시오.', bad_out: '퇴근 기록을 찾지 못했습니다. 새로 고친 뒤 다시 해 주십시오.'
+  };
+  function fixErrText(err){
+    var m = String((err && err.message) || '');
+    if (missingFn(err)) return '데이터베이스 준비 전입니다(마이그레이션 202611010001). 클로슈에게 적용을 요청해 주세요.';
+    for (var k in FIX_ERR) if (m.indexOf(k) >= 0) return FIX_ERR[k];
+    return '저장하지 못했습니다. ' + m;
+  }
+  function fixOpen(slot, w){
+    var p = D.map[sel]; if (!p) return;
+    FIX = { uid: p.id, inId: w ? w.inId : null, outId: w ? w.outId : null, slot: slot };
+    document.querySelectorAll('.fixbox').forEach(function(b){ b.remove(); });
+    var y = w ? w.ymd : today();
+    var box = document.createElement('div');
+    box.className = 'fixbox'; box.id = 'fixbox';
+    box.innerHTML = '<div class="fr"><b>' + esc(p.name) + '</b><span class="dim">' + (w ? dlabel(w.ymd) + ' 기록 고치기' + (w.how === 'none' ? ' · 퇴근 기록 없음' : w.how === 'now' ? ' · 근무 중' : '') : '근무 구간 넣기') + '</span></div>'
+      + '<div class="fr">' + (w ? '' : '<label>날짜 <input type="date" id="fxDate" value="' + y + '" max="' + today() + '"></label>')
+      + '<label>센터 <select id="fxLoc">' + FIX_LOCS.map(function(l){ return '<option' + (w && w.loc === l ? ' selected' : '') + '>' + l + '</option>'; }).join('') + '</select></label>'
+      + '<label>출근 <input type="time" id="fxIn" value="' + (w ? hhmm(w.start) : '') + '"></label>'
+      + '<label>퇴근 <input type="time" id="fxOut" value="' + (w && w.how === 'out' ? hhmm(w.end) : '') + '"></label></div>'
+      + '<div class="fr">' + FIX_WHY.map(function(t){ return '<button class="q" type="button" data-why="' + esc(t) + '">' + esc(t) + '</button>'; }).join('') + '</div>'
+      + '<div class="fr"><input class="why" id="fxWhy" maxlength="200" placeholder="사유 (꼭 적어 주십시오)"></div>'
+      + '<div class="fr"><button class="go" type="button" id="fxGo">저장</button><button class="cx" type="button" id="fxCx">취소</button><span class="msg" id="fxMsg"></span></div>'
+      + '<p class="note" style="margin:0">새벽 5시 전 시각은 그 근무일 밤(다음 날 새벽)으로 들어갑니다. 조교 급여용 근무 일지는 따로 고쳐 주세요.</p>';
+    $(slot).appendChild(box);
+    (w && w.how !== 'out' ? $('fxOut') : $('fxIn')).focus();
+  }
+  function fixSave(){
+    if (!FIX || FIX.busy) return;
+    var ymd = $('fxDate') ? $('fxDate').value : null, p = D.map[sel];
+    if (!ymd){ var w0 = p && p.work.filter(function(w){ return w.inId === FIX.inId; })[0]; ymd = w0 && w0.ymd; }
+    var inIso = fixIso(ymd, $('fxIn').value), outIso = fixIso(ymd, $('fxOut').value), why = $('fxWhy').value.trim(), msg = $('fxMsg');
+    msg.className = 'msg';
+    if (!inIso || !outIso){ msg.textContent = FIX_ERR.need_time; return; }
+    if (!why){ msg.textContent = FIX_ERR.need_reason; $('fxWhy').focus(); return; }
+    FIX.busy = true; $('fxGo').disabled = true; msg.textContent = '저장하는 중…';
+    rpc('msg_presence_fix', { p_user: FIX.uid, p_in_id: FIX.inId, p_out_id: FIX.outId, p_loc: $('fxLoc').value, p_in: inIso, p_out: outIso, p_reason: why })
+      .then(function(){ FIX = null; load(); })
+      .catch(function(err){ FIX.busy = false; $('fxGo').disabled = false; msg.textContent = fixErrText(err); });
+  }
+  $('detail').addEventListener('click', function(e){
+    var b = e.target.closest('button'); if (!b) return;
+    var p = sel && D && D.map[sel];
+    if (b.dataset.fixnew){ fixOpen('fixslot-new', null); return; }
+    if (b.dataset.fix != null && p){ fixOpen('fixslot-' + b.dataset.fix, p.work[Number(b.dataset.fix)]); return; }
+    if (b.dataset.why){ $('fxWhy').value = b.dataset.why; return; }
+    if (b.id === 'fxCx'){ FIX = null; b.closest('.fixbox').remove(); return; }
+    if (b.id === 'fxGo') fixSave();
+  });
 })();
 </script>
 </body>
