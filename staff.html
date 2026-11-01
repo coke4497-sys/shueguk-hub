@@ -232,6 +232,8 @@
         .catch(function(err){ if (err && err.status === 400) return api('/tt_period?select=week_wednesday,book&week_wednesday=in.(' + wedList.join(',') + ')'); throw err; }).catch(function(){ return []; }),
       api('/tt_log?select=kind,from_class_id,apply_date&kind=in.(' + encodeURIComponent('주간반휴강,주간반이동') + ')&apply_date=gte.' + f + '&apply_date=lte.' + e + '&limit=3000').catch(function(){ return []; }),
       api('/msg_tasks?select=*&or=(' + encodeURIComponent('created_at.gte.' + fromIso + ',done_at.gte.' + fromIso + ',updated_at.gte.' + fromIso + ',status.eq.대기') + ')&order=id.asc&limit=5000').catch(soft('업무')),
+      // 적용일 변경(리포트 timetable.html 2026-11-01 — tt_log '적용일변경'): 그 날짜의 담당·종강을 따른다
+      api('/tt_log?select=book,from_class_id,apply_date,reason&kind=eq.' + encodeURIComponent('적용일변경') + '&order=apply_date.asc,id.asc&limit=2000').catch(function(){ return []; }),
       ME.role === 'admin' ? api('/msg_presence_fixes?select=*&ymd=gte.' + f + '&ymd=lte.' + e + '&order=at.desc&limit=500').catch(function(){ return []; }) : Promise.resolve([]),
       rpc('staff_usage', { p_from: f, p_to: e }).catch(soft('사용 시간'))
     ]).then(function(r){
@@ -242,7 +244,7 @@
         $('who').innerHTML = '<option value="">모든 사람</option>' + MEMBERS.map(function(m){ return '<option value="' + esc(m.id) + '">' + esc(m.name) + '</option>'; }).join('');
         $('who').value = fil;
       }
-      D = build(f, e, toIso, { logEnd: Date.parse(logTo), logs: r[1] || [], tt: (r[2] || []).concat(r[3] || []), periods: r[4] || [], ttlog: r[5] || [], tasks: r[6] || [], usage: r[8] || [], fixes: r[7] || [] });
+      D = build(f, e, toIso, { logEnd: Date.parse(logTo), logs: r[1] || [], tt: (r[2] || []).concat(r[3] || []), periods: r[4] || [], ttlog: r[5] || [], tasks: r[6] || [], spans: r[7] || [], usage: r[9] || [], fixes: r[8] || [] });
       D.warn = warn;
       $('range').textContent = dlabel(f) + ' ~ ' + dlabel(e);
       render();
@@ -282,10 +284,32 @@
     var keyUid = {};
     MEMBERS.forEach(function(m){ var k = teacherKey(m.name); keyUid[k] = keyUid[k] === undefined ? m.id : ''; });   // 둘 이상과 맞으면 붙이지 않음
     var unknown = {};
+    // 적용일 변경 — 반마다 [{d, before, after, end, snap}] (리포트 timetable.html classesOn과 같은 규칙)
+    var spans = {}, seenId = {};
+    (src.spans || []).forEach(function(g){
+      var i = String(g.reason || '').indexOf('\n#spec '), sp = null;
+      if (i >= 0){ try { sp = JSON.parse(String(g.reason).slice(i + 7)); } catch (e){ sp = null; } }
+      if (!sp || !/^\d{4}-\d{2}-\d{2}$/.test(String(g.apply_date || ''))) return;
+      var k = g.book + '|' + g.from_class_id;
+      (spans[k] = spans[k] || []).push({ d: g.apply_date, before: sp.before || null, after: sp.after || null, end: !!sp.end, snap: sp.snap || null });
+    });
+    function spanAt(ls, y){
+      var cur = null; ls.forEach(function(sp){ if (sp.d <= y) cur = sp; });
+      if (cur) return cur.end ? { hide: true } : { f: cur.after || {} };
+      return { f: ls[0].before || {}, before: true };
+    }
+    src.tt.forEach(function(c){ seenId[c.book + '|' + c.class_id] = 1; });
+    var ghosts = [];   // 반 행을 지운 반 — 변경일 전 날짜에만 snap으로
+    Object.keys(spans).forEach(function(k){
+      var sn = spans[k][0].snap; if (seenId[k] || !sn) return;
+      var bk = k.split('|')[0], id = k.slice(bk.length + 1);
+      ghosts.push({ book: bk, class_id: id, name: sn.name, day: sn.day, start_time: sn.start, end_time: sn.end, teacher: sn.teacher, roster: sn.roster || '', ghost: true });
+    });
+    var ttAll = src.tt.concat(ghosts);
     for (var y = f; y <= e; y = addDay(y, 1)){
       var pp = per[weekWed(y)] || {}, book0 = pp.book || '정규', ov = (pp.overrides && typeof pp.overrides === 'object') ? pp.overrides : {};
       var dn = WDAY[wdOf(y)], wid = 'w' + y.slice(2).replace(/-/g, '');
-      src.tt.forEach(function(c){
+      ttAll.forEach(function(c){
         var isW = /^w/.test(c.class_id);
         if (isW){ if (c.class_id.indexOf(wid) !== 0) return; }
         else {
@@ -294,8 +318,14 @@
           if (c.book !== book || !String(c.roster || '').trim()) return;
         }
         if (off[y + '|' + c.class_id]) return;
-        var uid = keyUid[teacherKey(c.teacher)];
-        if (!uid){ if (c.teacher) unknown[c.teacher] = 1; return; }
+        var tch = c.teacher, ls = spans[c.book + '|' + c.class_id];
+        if (ls){
+          var st = spanAt(ls, y);
+          if (st.hide || (c.ghost && !st.before)) return;
+          if (st.f.teacher != null) tch = st.f.teacher;
+        } else if (c.ghost) return;
+        var uid = keyUid[teacherKey(tch)];
+        if (!uid){ if (tch) unknown[tch] = 1; return; }
         var min = Math.max(0, minsOf(c.end_time) - minsOf(c.start_time));
         var pz = person(map, uid, (MBY[uid] || {}).name);
         pz.lessons.push({ ymd: y, name: c.name, start: c.start_time, end: c.end_time, min: min, w: isW });

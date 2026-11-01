@@ -51,6 +51,14 @@ const TT = [
 ];
 const TTP = [{ week_wednesday: '2026-10-21', book: '정규', overrides: {} }];
 const TTLOG = [{ kind: '주간반휴강', from_class_id: 'r004', apply_date: '2026-10-21' }];
+// 적용일 변경(2026-11-01 — 리포트 timetable.html와 같은 tt_log '적용일변경')
+const SPEC = o => '사유\n#spec ' + JSON.stringify(o);
+const SPANS = [
+  { book: '정규', from_class_id: 'r002', apply_date: '2026-10-21', reason: SPEC({ before: { teacher: '은지' }, after: { teacher: '슈' } }) },   // 이 날부터 슈T
+  { book: '정규', from_class_id: 'r003', apply_date: '2026-10-22', reason: SPEC({ end: true }) },                                          // 다음 날부터 없음 — 10/21은 그대로
+  { book: '정규', from_class_id: 'r099', apply_date: '2026-10-22', reason: SPEC({ end: true, snap: { day: '수', start: '6:00', end: '7:00', location: '본원', teacher: '은지', name: '지운 반', roster: '바' } }) },   // 지운 반 — 10/21은 snap으로
+  { book: '정규', from_class_id: 'r098', apply_date: '2026-10-21', reason: SPEC({ end: true, snap: { day: '수', start: '6:00', end: '7:00', location: '본원', teacher: '은지', name: '이미 끝난 반', roster: '사' } }) },
+];
 // 슈톡 할 일 — 대기·완료·취소(cancel_reason), 미룸 = 대기 + due_at, 넘김 = history(맡은 사람이 바뀜)
 const TASKS = [
   { id: 1, message_id: 1, assignee: HEEJU, assignee_name: '고희주', requester: BOSS, requester_name: '이수경', text: '중3 김민준 결석 처리', status: '완료', done_at: K('2026-10-21', '16:10'), created_at: K('2026-10-21', '15:30'), history: [] },
@@ -105,7 +113,7 @@ const calls = [];
       }
       if (p === '/rest/v1/tt_classes'){ const c = u.searchParams.get('class_id'); return json(TT.filter(x => c === 'like.w*' ? /^w/.test(x.class_id) : !/^w/.test(x.class_id))); }
       if (p === '/rest/v1/tt_period') return json(TTP);
-      if (p === '/rest/v1/tt_log') return json(TTLOG);
+      if (p === '/rest/v1/tt_log') return json(/적용일변경/.test(u.searchParams.get('kind') || '') ? SPANS : TTLOG);
       if (p === '/rest/v1/msg_tasks') return json(TASKS);
       if (p === '/rest/v1/msg_presence_fixes') return json(FIXES);
       if (p === '/rest/v1/rpc/msg_presence_fix'){ if (fixErr) return json({ message: fixErr }, 400); return json({ in_id: 1, out_id: 9, ymd: '2026-10-20' }); }
@@ -152,10 +160,10 @@ const calls = [];
   ok(hj.includes('35분') && hj.includes('42분'), '티쳐스 35분 · 슈톡 42분');
   const ej = await rowOf(page, EUNJI).textContent();
   ok(ej.includes('4시간 0분') || ej.includes('4시간'), '이은지 근무 = 오늘 16:00~지금(20:00) 4시간 (' + ej + ')');
-  ok(ej.includes('4시간 30분') && ej.includes('3회'), '이은지 수업 4시간 30분 · 3회 (정규 2 + 이 주만 1, 내신·휴강·빈 반·다음날 제외)');
+  ok(ej.includes('4시간3회'), '이은지 수업 4시간 · 3회 (r001 + 이 주만 1 + 지운 반 snap 1, r002는 적용일부터 슈T·끝난 반·내신·휴강·빈 반·다음날 제외) (' + ej + ')');
   ok(ej.includes('0 / 2 완료') && ej.includes('대기 1') && ej.includes('진행 중 1'), '이은지 넘겨받은 일 대기 · 진행 중 1');
   const bs = await rowOf(page, BOSS).textContent();
-  ok(bs.includes('2시간') && bs.includes('1회'), "'슈' 수업 = 이수경 2시간");
+  ok(bs.includes('3시간 30분') && bs.includes('2회'), "'슈' 수업 = 이수경 3시간 30분 · 2회 (고3파이널 + 적용일부터 슈T인 r002) (" + bs + ')');
   ok(bs.includes('출근 기록 없음') && bs.includes('맡은 일 없음'), '기록 없는 사람도 줄');
   const pk = await rowOf(page, PARK).textContent();
   ok(pk.includes('1시간 30분') && pk.includes('1회'), "'언호' 수업 = 박언호대표님 1시간 30분 (끝의 '대표님'은 떼고 대조)");
