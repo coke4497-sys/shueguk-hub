@@ -432,6 +432,21 @@ ok('weekHint: "10월 1주 차" → 10/1~10/7, "3주차" → 기준 달, 없으�
    && CORE.weekHint('시험 대비 직보', '2026-10-01') === null, CORE.weekHint('10월 1주 차 확인수업 미리진행', '2026-09-19'));
 ok('didElsewhere: 미리·먼저·선행·앞서도 한 것으로', CORE.didElsewhere('학교 시험으로 미리 수업') && CORE.didElsewhere('진도 먼저 나감') && !CORE.didElsewhere('추석연휴 휴강'));
 
+/* 적용일 변경(2026-11-01 — tt_log '적용일변경'): 종강한 반은 변경일부터 세지 않고, 지운 반은 그 전 날짜만 snap으로 센다 */
+{
+  const SPEC = o => '사유\n#spec ' + JSON.stringify(o);
+  const st = [{ name: '다라', school: '서정중', grade: '2026 중등 2학년', enrolled: '' }, { name: '마바', school: '서정중', grade: '2026 중등 2학년', enrolled: '' }];
+  const R = CORE.build({ classes: [cls('정규', 'r001', '목', '5:00', '정리정독 중2', '다라')], periods: [], logs: [], students: st,
+    spans: [{ book: '정규', from_class_id: 'r001', apply_date: '2026-11-12', reason: SPEC({ end: true }) },
+            { book: '정규', from_class_id: 'r009', apply_date: '2026-11-12', reason: SPEC({ end: true, snap: { day: '수', start: '5:00', end: '6:30', location: '본원', teacher: '연주', name: '중2 지운반', roster: '마바' } }) }] }, 2026, 11);
+  const row = n => R.rows.find(r => r.name === n);
+  ok('적용일: 11/12 종강 목요일 반은 11/5 한 번만', row('다라') && row('다라').count === 1, row('다라') && row('다라').detail);
+  ok('적용일: 지운 반(snap)은 변경일 전 수요일 11/4·11/11 두 번', row('마바') && row('마바').count === 2, row('마바') && row('마바').detail);
+  const R2 = CORE.build({ classes: [cls('정규', 'r001', '목', '5:00', '정리정독 중2', '다라')], periods: [], logs: [], students: st,
+    spans: [{ book: '정규', from_class_id: 'r001', apply_date: '2026-11-01', reason: SPEC({ end: true }) }] }, 2026, 12);
+  ok('적용일: 종강 뒤 달에는 목록에서 빠진다', !R2.rows.find(r => r.name === '다라'));
+}
+
 console.log(`\n${pass + fail}건 중 ${pass}건 통과` + (fail ? `, ${fail}건 실패` : ''));
 if (fail) process.exit(1);
 
