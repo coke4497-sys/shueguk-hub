@@ -142,14 +142,16 @@ function seed(){
   ok(/후보 시간 칸을 넣어/.test(await pg.textContent('#goNote')), '칸 없으면 잠김');
   await pg.click('#dPills [data-d="금"]'); await pg.selectOption('#tStart', String(17 * 60)); await pg.selectOption('#tEnd', String(18 * 60 + 30)); await pg.click('#durPills [data-dur="90"]');
   await pg.click('text=칸 만들기');
-  ok(/오후 5:00 · 90분/.test(await pg.textContent('#slots')), '직접 더한 칸(금 오후 5:00 · 90분)');
+  ok(/금 오후 5:00~오후 6:30/.test(await pg.getAttribute('[data-rmslot="금-5:00"]', 'title')) && !/30분|90분/.test(await pg.textContent('#slots')), '직접 더한 칸(금 오후 5:00~6:30) · 칸에 분 글자 없음');
   ok(/칸 1개/.test(await pg.textContent('#tEndNote')), '만들 칸 수 안내');
   // 30분 단위 · 오후 5시~밤 10시 = 요일마다 10칸
   await pg.selectOption('#tEnd', String(22 * 60)); await pg.click('#durPills [data-dur="30"]');
   ok(/칸 10개/.test(await pg.textContent('#tEndNote')), '30분 단위 10칸 안내');
   await pg.click('#dPills [data-d="목"]'); await pg.click('text=칸 만들기');
   const s30 = await pg.textContent('#slots');
-  ok(/후보 칸 20개/.test(s30) && /오후 9:30 · 30분/.test(s30) && !!(await pg.$('[data-rmslot="목-9:30"]')), '금·목 30분 칸 20개 (금 5:00은 이미 있음)', s30.slice(-80));
+  const sgHeads = await pg.$$eval('#slots .sgrid thead th', a => a.map(e => e.textContent));
+  ok(/후보 칸 20개/.test(s30) && !!(await pg.$('[data-rmslot="목-9:30"]')) && sgHeads.length === 11 && sgHeads[1] === '오후5:00' && sgHeads[10] === '\u00a09:30', '금·목 30분 칸 20개 · 가로축 시간 10칸', sgHeads.join('|'));
+  ok(await pg.$$eval('#slots .sgrid tbody tr', r => r.map(e => e.querySelector('th').textContent).join()) === '목,금', '세로축 요일');
   await pg.click('#dPills [data-d="목"]');
   for (const id of await pg.$$eval('[data-rmslot]', a => a.map(e => e.dataset.rmslot))) if (id !== '금-5:00') await pg.click('[data-rmslot="' + id + '"]');
   ok(!(await pg.$('text=슈국 기본 칸 넣기')), '기본 칸 버튼 없음');

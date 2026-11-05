@@ -171,6 +171,16 @@
   .dpills{display:inline-flex;gap:4px;flex-wrap:wrap;}
   .dpills .btn.on{background:var(--lilac);color:var(--lilac-ink);font-weight:700;}
   .slots{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
+  .sgrid-wrap{overflow-x:auto;max-width:100%;}
+  .sgrid{border-collapse:separate;border-spacing:3px;}
+  .sgrid th{font-weight:400;font-size:.72rem;color:var(--cap);text-align:center;line-height:1.15;white-space:nowrap;padding:0 1px;}
+  .sgrid th small{display:block;font-size:.62rem;}
+  .sgrid th.dy{font-family:"Do Hyeon",var(--sans);font-size:1.05rem;color:var(--ink);padding-right:6px;}
+  .sgrid td{padding:0;}
+  .sgrid .sx{display:block;width:34px;height:26px;border-radius:6px;border:none;padding:0;}
+  .sgrid .sx.on{background:var(--lilac);cursor:pointer;}
+  .sgrid .sx.on:hover{background:#D9CAE7;}
+  .sgrid .sx.none{background:#F2F5F3;}
   .slots .sd{display:flex;gap:8px;align-items:flex-start;}
   .slots .sd b{font-family:"Do Hyeon",var(--sans);font-weight:400;font-size:1.05rem;width:28px;flex:none;padding-top:3px;}
   .slots .sd .chips{margin-top:0;}
@@ -383,13 +393,23 @@
     drawSlots(); summary();
   }
   function clearSlots(){ if (SLOTS.length && !confirm('후보 칸을 모두 지울까요?')) return; SLOTS = []; drawSlots(); summary(); }
+  // 후보 칸 = 표 한 장 — 가로축 시간, 세로축 요일 (2026-11-05 원장님 "시간을 가로축에 표시하고 한칸한칸 30분이라고 나오지 않았으면")
+  function apOf(m){ return m < 720 ? '오전' : (m >= 1320 ? '밤' : '오후'); }
   function drawSlots(){
     SLOTS.sort(slotSort);
-    const byDay = {}; SLOTS.forEach(s => { (byDay[s.day] = byDay[s.day] || []).push(s); });
-    $('slots').innerHTML = SLOTS.length ? DAY_LIST.filter(d => byDay[d]).map(d => '<div class="sd"><b>' + d + '</b><div class="chips">' +
-      byDay[d].map(s => '<span class="fchip" title="' + esc(hmLabel(mins(s.start)) + '~' + hmLabel(mins(s.end))) + '">' + esc(slotLabel(s)) + '<button type="button" data-rmslot="' + esc(s.id) + '" aria-label="빼기" title="빼기">×</button></span>').join('') +
-      '</div></div>').join('') + '<p class="muted" style="margin:2px 0 0">후보 칸 ' + SLOTS.length + '개</p>'
-      : '<p class="muted" style="margin:0">아직 칸이 없어요. 요일 → 시간(부터·까지) → 칸 단위를 고르고 [칸 만들기]를 누르세요.</p>';
+    if (!SLOTS.length){ $('slots').innerHTML = '<p class="muted" style="margin:0">아직 칸이 없어요. 요일 → 시간(부터·까지) → 칸 단위를 고르고 [칸 만들기]를 누르세요.</p>'; return; }
+    const days = DAY_LIST.filter(d => SLOTS.some(s => s.day === d));
+    const starts = [...new Set(SLOTS.map(s => mins(s.start)))].sort((x, y) => x - y);
+    let prev = '';
+    const head = '<tr><th></th>' + starts.map(m => { const ap = apOf(m), show = ap !== prev; prev = ap; return '<th>' + (show ? '<small>' + ap + '</small>' : '<small>&nbsp;</small>') + fmt12(m) + '</th>'; }).join('') + '</tr>';
+    const body = days.map(d => '<tr><th class="dy">' + d + '</th>' + starts.map(m => {
+      const sl = SLOTS.find(x => x.day === d && mins(x.start) === m);
+      if (!sl) return '<td><span class="sx none"></span></td>';
+      const lab = d + ' ' + hmLabel(mins(sl.start)) + '~' + hmLabel(mins(sl.end));
+      return '<td><button type="button" class="sx on" data-rmslot="' + esc(sl.id) + '" title="' + esc(lab) + ' · 누르면 빼요" aria-label="' + esc(lab + ' 빼기') + '"></button></td>';
+    }).join('') + '</tr>').join('');
+    $('slots').innerHTML = '<div class="sgrid-wrap"><table class="sgrid"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
+      '<p class="muted" style="margin:2px 0 0">후보 칸 ' + SLOTS.length + '개 · 칸을 누르면 뺍니다</p>';
   }
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-rmslot]'); if (!b) return;
