@@ -179,6 +179,7 @@
   .chip.on{background:#E2F4EC;color:#2A6555;}
   .chip.end{background:#F7E2DE;color:#8A4B42;}
   .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+  .acts a.btn{text-decoration:none;display:inline-flex;align-items:center;}
   .acts .btn.danger{background:none;color:#B0736A;}
   .acts .btn.danger:hover{background:#F7E2DE;}
   .resbox{margin-top:12px;background:#F7F9F8;border-radius:14px;padding:14px;}
@@ -629,6 +630,7 @@
         '<p class="meta">대상 ' + esc(tgtLabel(s.target)) + ' · 후보 칸 ' + (s.slots || []).length + '개 · ' + esc(dueLabel(s.due)) + (s.created_by_name ? ' · ' + esc(s.created_by_name) : '') + ' · ' + esc(kst(s.created_at)) + '</p>' +
         '<p class="stat" style="margin:6px 0 0;font-size:.88rem">제출 <b>' + rs.length + '</b> / ' + tg.length + '명 (' + pct + '%)</p><div class="bar"><i style="width:' + pct + '%"></i></div>' +
         '<div class="acts"><button class="btn sm lav" type="button" onclick="toggleRes(' + s.id + ')">' + (OPEN[s.id] ? '결과 접기' : '결과 보기') + '</button>' +
+        (s.open && !past && tg.length > rs.length ? '<a class="btn sm" href="alimtalk.html?avail=' + s.id + '&kind=notice_avail" target="_blank" rel="noopener">알림톡 보내기 (미제출 ' + (tg.length - rs.length) + '명)</a>' : '') +
         '<button class="btn sm" type="button" onclick="setOpen(' + s.id + ',' + (!s.open) + ')">' + (s.open ? '학생 화면에서 닫기' : '다시 열기') + '</button>' +
         '<button class="btn sm" type="button" onclick="setDue(' + s.id + ')">마감일 바꾸기</button>' +
         (Array.isArray(s.target) && s.target.some(c => isShown(c) && c.type !== 'student' && c.type !== 'onlygrade') ? '<button class="btn sm" type="button" onclick="resync(' + s.id + ')">명단 다시 반영</button>' : '') +

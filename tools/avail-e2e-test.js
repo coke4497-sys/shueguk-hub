@@ -165,10 +165,12 @@ function seed(){
   ok(/접근코드\)가 없는 학생 1명: 정코드/.test(T(await pg.textContent('#sum'))), '접근코드 없는 학생 안내');
 
   // ⑤ 닫기·마감일·삭제
-  await pg.click('#s1 .acts button:nth-child(2)'); await pg.waitForTimeout(300);
+  ok(await pg.getAttribute('#s1 .acts a.btn', 'href') === 'alimtalk.html?avail=1&kind=notice_avail' && /미제출 1명/.test(await pg.textContent('#s1 .acts a.btn')), '알림톡 보내기 링크(미제출 1명)');
+  await pg.click('#s1 .acts >> text=학생 화면에서 닫기'); await pg.waitForTimeout(300);
   ok(PATCHES.some(x => /id=eq\.1/.test(x.p) && x.b.open === false), '학생 화면에서 닫기 PATCH');
   ok(/닫힘/.test(await pg.textContent('#s1')), '닫힘 표시');
-  await pg.click('#s1 .acts button:nth-child(3)'); await pg.waitForTimeout(300);
+  ok(!(await pg.$('#s1 .acts a.btn')), '닫힌 조사는 알림톡 링크 없음');
+  await pg.click('#s1 .acts >> text=마감일 바꾸기'); await pg.waitForTimeout(300);
   ok(PATCHES.some(x => x.b.due === '2026-11-20'), '마감일 바꾸기 PATCH');
   await pg.click('#s1 .acts .danger'); await pg.waitForTimeout(300);
   ok(DELS.some(d => /avail_surveys\?id=eq\.1/.test(d)) && !(await pg.$('#s1')), '조사 삭제');
