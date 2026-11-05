@@ -89,23 +89,23 @@ function seed(){
   const heads = await pg.$$eval('#s1 .heat thead th', a => a.map(e => e.textContent));
   ok(JSON.stringify(heads) === JSON.stringify(['', '수', '토']), '요일 열');
   const rows = await pg.$$eval('#s1 .heat tbody th', a => a.map(e => e.textContent));
-  ok(JSON.stringify(rows) === JSON.stringify(['11:00', '5:30']), '시간 줄(오전 11시 → 오후 5:30): ' + rows);
+  ok(JSON.stringify(rows) === JSON.stringify(['오전 11:00', '오후 5:30']), '시간 줄(오전 11시 → 오후 5:30): ' + rows);
   await pg.click('#s1 .cell[title^="토"]'); await pg.waitForTimeout(100);
   ok(/안 되는 학생 1명: 김나연/.test(T(await pg.textContent('#s1 .who-no'))), '칸 누르면 안 되는 학생');
   t = T(await pg.textContent('#s1 .resbox'));
   ok(/아직 제출하지 않은 학생 1명/.test(t) && /박지현/.test(t), '미제출 학생');
-  ok(/토 11:00/.test(t) && /모두 가능/.test(t) && /학부모님/.test(t), '응답 표(안 되는 칸·모두 가능·누가)');
+  ok(/토 오전 11:00/.test(t) && /모두 가능/.test(t) && /학부모님/.test(t), '응답 표(안 되는 칸·모두 가능·누가)');
   // 자동 배치 추천 — 1칸·주 1회
   ok(/\[추천 받기\]/.test(T(await pg.textContent('#s1 .resbox'))), '추천 안내');
   await pg.selectOption('#s1 .pl-bar select:nth-of-type(1)', '1'); await pg.waitForTimeout(100);
   await pg.click('#s1 .pl-bar .btn.lav'); await pg.waitForTimeout(400);
   let cards = await pg.$$eval('#s1 .pl-card', a => a.map(e => e.textContent.replace(/\s+/g, ' ')));
-  ok(cards.length === 2 && /1안\s*수 5:30/.test(cards[0]) && /2 \/ 2명 배정 · 모두/.test(cards[0]), '1안 = 수 5:30 두 명 모두', cards[0]);
-  ok(/2안\s*토 11:00/.test(cards[1]) && /1 \/ 2명/.test(cards[1]) && /김나연 \(가능한 칸 없음\)/.test(cards[1]), '2안 = 토 11:00 · 김나연 못 들어감(이유)', cards[1]);
+  ok(cards.length === 2 && /1안\s*수 오후 5:30/.test(cards[0]) && /2 \/ 2명 배정 · 모두/.test(cards[0]), '1안 = 수 5:30 두 명 모두', cards[0]);
+  ok(/2안\s*토 오전 11:00/.test(cards[1]) && /1 \/ 2명/.test(cards[1]) && /김나연 \(가능한 칸 없음\)/.test(cards[1]), '2안 = 토 11:00 · 김나연 못 들어감(이유)', cards[1]);
   ok(/조합 2개/.test(T(await pg.textContent('#s1 .resbox'))), '따져 본 조합 수');
   await pg.click('#s1 .pl-card .btn'); await pg.waitForTimeout(150);
   const pc = (await pg.evaluate(() => navigator.clipboard.readText())).split('\n');
-  ok(pc[0] === '반\t이름\t학교\t학년' && pc.some(l => /^수 5:30~7:30\t김나연\t화정고\t고1$/.test(l)), '1안 표 복사', pc);
+  ok(pc[0] === '반\t이름\t학교\t학년' && pc.some(l => /^수 오후 5:30 · 120분\t김나연\t화정고\t고1$/.test(l)), '1안 표 복사', pc);
   // 정원 1 로 바꾸면 결과가 지워지고 다시 계산
   await pg.fill('#s1 .pl-bar input', '1'); await pg.press('#s1 .pl-bar input', 'Tab'); await pg.waitForTimeout(150);
   ok(!(await pg.$('#s1 .pl-card')), '설정 바꾸면 결과 지움');
@@ -133,9 +133,10 @@ function seed(){
   // ③ 만들기 — 칸 직접·기본 칸·빼기
   await pg.fill('#sTitle', '화정고1 겨울 시간표');
   ok(/후보 시간 칸을 넣어/.test(await pg.textContent('#goNote')), '칸 없으면 잠김');
-  await pg.click('#dPills [data-d="금"]'); await pg.selectOption('#tStart', String(17 * 60)); await pg.selectOption('#tEnd', String(18 * 60 + 30));
+  await pg.click('#dPills [data-d="금"]'); await pg.selectOption('#tStart', String(17 * 60)); await pg.selectOption('#tDur', '90');
   await pg.click('text=칸 더하기');
-  ok(/5:00~6:30/.test(await pg.textContent('#slots')), '직접 더한 칸(금 5:00~6:30)');
+  ok(/오후 5:00 · 90분/.test(await pg.textContent('#slots')), '직접 더한 칸(금 오후 5:00 · 90분)');
+  ok(/오후 6:30까지/.test(await pg.textContent('#tEndNote')), '끝 시각 안내');
   await pg.click('text=슈국 기본 칸 넣기');
   ok(/후보 칸 15개/.test(await pg.textContent('#slots')), '기본 칸 14 + 직접 1 = 15');
   await pg.click('[data-rmslot="금-5:00"]');
