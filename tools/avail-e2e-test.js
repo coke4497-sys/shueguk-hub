@@ -134,15 +134,24 @@ function seed(){
   async function addSlots(days, starts){
     for (const d of ['월','화','수','목','금','토','일']) { const on = await pg.$eval('#dPills [data-d="' + d + '"]', e => e.classList.contains('on')); if (on !== days.includes(d)) await pg.click('#dPills [data-d="' + d + '"]'); }
     await pg.click('#durPills [data-dur="120"]');
-    for (const m of starts) { await pg.selectOption('#tStart', String(m)); await pg.click('text=칸 더하기'); }
+    await pg.selectOption('#tStart', String(starts[0])); await pg.selectOption('#tEnd', String(starts[1]));
+    await pg.click('text=칸 만들기');
   }
-  async function baseSlots(){ await addSlots(['수','목','금'], [1050, 1200]); await addSlots(['토','일'], [660, 810, 990, 1140]); }
+  async function baseSlots(){ await addSlots(['수','목','금'], [1050, 1290]); await addSlots(['토','일'], [660, 1140]); }
   await pg.fill('#sTitle', '화정고1 겨울 시간표');
   ok(/후보 시간 칸을 넣어/.test(await pg.textContent('#goNote')), '칸 없으면 잠김');
-  await pg.click('#dPills [data-d="금"]'); await pg.selectOption('#tStart', String(17 * 60)); await pg.click('#durPills [data-dur="90"]');
-  await pg.click('text=칸 더하기');
+  await pg.click('#dPills [data-d="금"]'); await pg.selectOption('#tStart', String(17 * 60)); await pg.selectOption('#tEnd', String(18 * 60 + 30)); await pg.click('#durPills [data-dur="90"]');
+  await pg.click('text=칸 만들기');
   ok(/오후 5:00 · 90분/.test(await pg.textContent('#slots')), '직접 더한 칸(금 오후 5:00 · 90분)');
-  ok(/오후 6:30까지/.test(await pg.textContent('#tEndNote')), '끝 시각 안내');
+  ok(/칸 1개/.test(await pg.textContent('#tEndNote')), '만들 칸 수 안내');
+  // 30분 단위 · 오후 5시~밤 10시 = 요일마다 10칸
+  await pg.selectOption('#tEnd', String(22 * 60)); await pg.click('#durPills [data-dur="30"]');
+  ok(/칸 10개/.test(await pg.textContent('#tEndNote')), '30분 단위 10칸 안내');
+  await pg.click('#dPills [data-d="목"]'); await pg.click('text=칸 만들기');
+  const s30 = await pg.textContent('#slots');
+  ok(/후보 칸 20개/.test(s30) && /오후 9:30 · 30분/.test(s30) && !!(await pg.$('[data-rmslot="목-9:30"]')), '금·목 30분 칸 20개 (금 5:00은 이미 있음)', s30.slice(-80));
+  await pg.click('#dPills [data-d="목"]');
+  for (const id of await pg.$$eval('[data-rmslot]', a => a.map(e => e.dataset.rmslot))) if (id !== '금-5:00') await pg.click('[data-rmslot="' + id + '"]');
   ok(!(await pg.$('text=슈국 기본 칸 넣기')), '기본 칸 버튼 없음');
   await baseSlots();
   ok(/후보 칸 15개/.test(await pg.textContent('#slots')), '기본 칸 14 + 직접 1 = 15');
