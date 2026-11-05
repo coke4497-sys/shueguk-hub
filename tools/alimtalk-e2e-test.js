@@ -49,6 +49,7 @@ const CFG = { result: 'success', ready: true, smsFallback: true, templates: {
   arrived: { label: '지각 등원 안내', ready: false, vars: ['학생명', '수업일', '반이름', '등원시각'],
     text: '[이수경국어학원] 지각 등원 안내\n#{학생명} 학생이 #{수업일} #{반이름} 수업에 지금 등원했습니다. (#{등원시각} 도착)\n앞서 보내 드린 미등원 안내는 확인하지 않으셔도 됩니다.' } } };
 const sends = [], getsCalled = [], posts = [];
+let AV_S = [], AV_T = [], AV_R = [];
 const GLITCH = { n: 0, down: 0 };
 const KD = n => new Date(Date.now() + 9 * 3600e3 + n * 86400e3).toISOString().slice(0, 10);   // 한국 날짜 — 발송 내역은 최근 7일만 보인다
 const DOWK = ['일', '월', '화', '수', '목', '금', '토'], dowOf = y => DOWK[new Date(y + 'T00:00:00Z').getUTCDay()];
@@ -96,7 +97,7 @@ function applyFilter(rows, url){
       if (p.startsWith('/auth/v1/token')) return json({ access_token: 'tok', refresh_token: 'refresh-tok', expires_in: 3600, user: { id: '1' } });
       if (p.startsWith('/rest/v1/teacher_accounts')) return json([{ user_id: '11111111-1111-1111-1111-111111111111', login_id: 't', display_name: '테스트', active: true }]);
       if (auth !== 'Bearer tok') return json({ error: 'need teacher' }, 401);
-      const tbl = p.slice(9).split('?')[0], M = { students: STUDENTS, tt_classes: CLASSES };
+      const tbl = p.slice(9).split('?')[0], M = { students: STUDENTS, tt_classes: CLASSES, avail_surveys: AV_S, avail_targets: AV_T, avail_responses: AV_R };
       if (!M[tbl]) return json({ error: 'unhandled' }, 404);
       const off = +(new URL(url).searchParams.get('offset') || 0);
       return json(off ? [] : applyFilter(M[tbl], url));
@@ -469,6 +470,25 @@ function applyFilter(rows, url){
   ok(await pg.$eval('#kindSel option[value="arrived"]', o => o.disabled), '준비 전 종류(지각 등원)는 잠김');
   await pg.selectOption('#kindSel', 'notice_sched');
   ok(await pg.isVisible('#noticeBox') && await pg.isVisible('#modeSeg') && !(await pg.isVisible('#attBox')) && await pg.isVisible('#when'), '공지 종류로 돌아오면 제목·받을 학생·예약 줄이 다시');
+
+  console.log('⑭ 시간표 조사에서 넘어오기 — 미제출 학생·종류·제목·마감일');
+  CFG.templates.notice_avail = Object.assign(tpl('재원생 스케쥴 조사 안내', true), { vars: ['학생명', '제목', '마감일', '접근코드'] });
+  CFG.templates.notice_avail_new = Object.assign(tpl('신입생 스케쥴 조사 안내', false), { vars: ['학생명', '제목', '마감일', '접근코드'] });
+  const twoStu = STUDENTS.filter(x => x.code && !/퇴원/.test(x.enrolled || '')).slice(0, 3);
+  AV_S = [{ id: 5, title: '화정고1 겨울 시간표 조사', due: '2026-11-12' }];
+  AV_T = twoStu.map(x => ({ survey_id: 5, code: x.code })).concat([{ survey_id: 5, code: 'gone-code' }]);
+  AV_R = [{ survey_id: 5, code: twoStu[0].code }];
+  const pg2 = await ctx.newPage();
+  pg2.on('pageerror', e => { bad++; console.error('  ✗ pageerror', e.message); });
+  await pg2.goto(`http://localhost:${PORT}/alimtalk.html?avail=5&kind=notice_avail`);
+  await pg2.waitForFunction(() => /시간표 조사/.test(document.getElementById('cfgState').textContent));
+  ok(await pg2.inputValue('#kindSel') === 'notice_avail', '종류 = 재원생 스케쥴 조사 안내');
+  ok(await pg2.inputValue('#title') === '화정고1 겨울 시간표 조사' && await pg2.inputValue('.xvar[data-var="마감일"]') === '11/12(목)', '제목·마감일 채움');
+  const chips = await pg2.$$eval('#chips .fchip', a => a.map(e => e.textContent));
+  ok(chips.length === 2 && !chips.some(c => c.indexOf(twoStu[0].name) >= 0), '제출한 학생 빼고 2명 담음: ' + chips.join(' / '));
+  ok(/아직 제출하지 않은 학생 2명/.test(await pg2.textContent('#cfgState')) && /명단에 없는 1명/.test(await pg2.textContent('#cfgState')), '안내 줄');
+  ok(/▶ 화정고1 겨울 시간표 조사/.test(await pg2.textContent('#prev')), '미리보기 제목');
+  await pg2.close();
 
   await browser.close(); server.close();
   console.log(bad ? `\n${bad}건 실패 / ${n}건` : `\n✓ ${n}건 모두 통과`);

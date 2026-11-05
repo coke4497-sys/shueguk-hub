@@ -981,7 +981,42 @@
   }).catch(() => { $('sum').innerHTML = '<div class="warn">재원 명단을 불러오지 못했습니다. 새로고침해 주세요.</div>'; });
   setMode('cls');
   setBook('정규');
-  loadCfg().then(loadLog);   // 기록의 종류 이름은 설정에서 온다
+  const CFG_READY = loadCfg();
+  CFG_READY.then(loadLog);   // 기록의 종류 이름은 설정에서 온다
+
+  /* ── 시간표 조사에서 넘어오기 (2026-11-05, 리포트 062) — avail.html [알림톡 보내기]가 ?avail=조사번호 로 연다.
+   * 그 조사의 대상 중 아직 제출하지 않은 학생을 [개인]으로 담고, 종류(재원생/신입생 스케쥴 조사 안내)·제목·마감일을 채운다.
+   * 보내기 전 확인·중복 방지·50건씩 나누기는 이 화면 그대로. */
+  const AV_Q = new URLSearchParams(location.search);
+  if (AV_Q.get('avail')){
+    const sid = String(parseInt(AV_Q.get('avail'), 10) || 0);
+    const kindWant = AV_Q.get('kind') === 'notice_avail_new' ? 'notice_avail_new' : 'notice_avail';
+    const stuReady = new Promise(res => { const tick = () => STUS.length ? res() : setTimeout(tick, 150); tick(); });
+    Promise.all([CFG_READY, stuReady,
+      sbAll('/avail_surveys?id=eq.' + sid + '&select=id,title,due'),
+      sbAll('/avail_targets?survey_id=eq.' + sid + '&select=code'),
+      sbAll('/avail_responses?survey_id=eq.' + sid + '&select=code')])
+      .then(([, , sv, tg, rs]) => {
+        const s = sv[0]; if (!s) { toast('시간표 조사를 찾지 못했어요'); return; }
+        const done = {}; rs.forEach(r => { done[r.code] = 1; });
+        const keys = [], gone = [];
+        tg.forEach(t => { if (done[t.code]) return; const st = STUS.find(x => x.code === t.code); if (st) keys.push(st.key); else gone.push(t.code); });
+        setMode('stu'); SEL.stu = keys; drawChips();
+        if (tplOf(kindWant)) $('kindSel').value = kindWant;
+        kindChanged();
+        $('title').value = s.title;
+        const due = document.querySelector('.xvar[data-var="마감일"]');
+        if (due && s.due){ const d = new Date(s.due + 'T00:00:00'); due.value = (d.getMonth() + 1) + '/' + d.getDate() + '(' + '일월화수목금토'.charAt(d.getDay()) + ')'; }
+        refresh();
+        const t = tplOf(kindWant);
+        const note = '시간표 조사 "' + s.title + '"에서 아직 제출하지 않은 학생 ' + keys.length + '명을 담았습니다.' +
+          (t && !t.ready ? ' — ' + t.label + ' 템플릿은 아직 솔라피 심사 전이라 보낼 수 없어요.' : ' 재원생/신입생 안내는 종류에서 바꿀 수 있어요.') +
+          (gone.length ? ' (퇴원 등으로 명단에 없는 ' + gone.length + '명은 뺐어요)' : '');
+        const st = $('cfgState'); if (st){ st.className = 'state'; st.textContent = note; }
+        showTab('send');
+      })
+      .catch(err => { console.error(err); toast('시간표 조사 정보를 불러오지 못했어요'); });
+  }
 
   /* ── 탭 — 알림톡 보내기 / 발송 내역 / 알림톡 설정 (2026-10-03 원장님 디자인 시안). 슈국 스케쥴 [알림톡]은 #settings 로 온다 ── */
   const TABS = ['send', 'log', 'settings'];
