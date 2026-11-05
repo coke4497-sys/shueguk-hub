@@ -171,16 +171,17 @@
   .dpills{display:inline-flex;gap:4px;flex-wrap:wrap;}
   .dpills .btn.on{background:var(--lilac);color:var(--lilac-ink);font-weight:700;}
   .slots{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
-  .sgrid-wrap{overflow-x:auto;max-width:100%;}
-  .sgrid{border-collapse:separate;border-spacing:3px;}
-  .sgrid th{font-weight:400;font-size:.72rem;color:var(--cap);text-align:center;line-height:1.15;white-space:nowrap;padding:0 1px;}
-  .sgrid th small{display:block;font-size:.62rem;}
-  .sgrid th.dy{font-family:"Do Hyeon",var(--sans);font-size:1.05rem;color:var(--ink);padding-right:6px;}
-  .sgrid td{padding:0;}
-  .sgrid .sx{display:block;width:34px;height:26px;border-radius:6px;border:none;padding:0;}
-  .sgrid .sx.on{background:var(--lilac);cursor:pointer;}
-  .sgrid .sx.on:hover{background:#D9CAE7;}
-  .sgrid .sx.none{background:#F2F5F3;}
+.sgrid-wrap{overflow-x:auto;max-width:100%;padding-bottom:2px;}
+  .sgrid{--sc:30px;display:inline-flex;flex-direction:column;gap:4px;}
+  .sgrid .shead,.sgrid .srow{display:grid;align-items:stretch;}
+  .sgrid .shead{height:30px;}
+  .sgrid .tk{grid-row:1;position:relative;left:0;transform:translateX(-50%);justify-self:start;align-self:end;font-size:.7rem;color:var(--cap);text-align:center;line-height:1.1;white-space:nowrap;}
+  .sgrid .tk small{display:block;font-size:.6rem;}
+  .sgrid .srow{row-gap:3px;}
+  .sgrid .dy{grid-column:1;grid-row:1;font-family:"Do Hyeon",var(--sans);font-weight:400;font-size:1.05rem;align-self:center;}
+  .sgrid .bg{background:#F2F5F3;border-left:1px solid #fff;}
+  .sgrid .sx{border:none;padding:0;margin:2px 1px;border-radius:6px;background:var(--lilac);cursor:pointer;z-index:1;}
+  .sgrid .sx:hover{background:#D9CAE7;}
   .slots .sd{display:flex;gap:8px;align-items:flex-start;}
   .slots .sd b{font-family:"Do Hyeon",var(--sans);font-weight:400;font-size:1.05rem;width:28px;flex:none;padding-top:3px;}
   .slots .sd .chips{margin-top:0;}
@@ -392,23 +393,39 @@
     toast(n ? '칸 ' + n + '개를 만들었어요' : '이미 있는 칸이에요');
     drawSlots(); summary();
   }
-  function clearSlots(){ if (SLOTS.length && !confirm('후보 칸을 모두 지울까요?')) return; SLOTS = []; drawSlots(); summary(); }
-  // 후보 칸 = 표 한 장 — 가로축 시간, 세로축 요일 (2026-11-05 원장님 "시간을 가로축에 표시하고 한칸한칸 30분이라고 나오지 않았으면")
+  function clearSlots(){ if (SLOTS.length && !confirm('후보 칸을 모두 지울까요?')) return; SLOTS = []; AX = null; drawSlots(); summary(); }
+  // 후보 칸 = 시간 눈금 고정 표 — 가로축 30분 눈금(선 위에 시각), 세로축 요일, 칸은 실제 길이만큼
+  // (2026-11-05 원장님 "시간을 가로축에" → "시간 카드가 움직이면 안돼요. 정확하지도 않아요")
+  // 눈금은 칸을 빼도 줄지 않는다(AX) — 넓어지기만 하고 [모두 지우기]에서 처음으로.
+  let AX = null;
   function apOf(m){ return m < 720 ? '오전' : (m >= 1320 ? '밤' : '오후'); }
   function drawSlots(){
     SLOTS.sort(slotSort);
-    if (!SLOTS.length){ $('slots').innerHTML = '<p class="muted" style="margin:0">아직 칸이 없어요. 요일 → 시간(부터·까지) → 칸 단위를 고르고 [칸 만들기]를 누르세요.</p>'; return; }
+    if (!SLOTS.length){ AX = null; $('slots').innerHTML = '<p class="muted" style="margin:0">아직 칸이 없어요. 요일 → 시간(부터·까지) → 칸 단위를 고르고 [칸 만들기]를 누르세요.</p>'; return; }
+    const lo = Math.min(...SLOTS.map(s => mins(s.start))), hi = Math.max(...SLOTS.map(s => mins(s.end)));
+    AX = AX ? [Math.min(AX[0], lo), Math.max(AX[1], hi)] : [lo, hi];
+    const a0 = Math.floor(AX[0] / 30) * 30, a1 = Math.ceil(AX[1] / 30) * 30, n = (a1 - a0) / 30;
+    const cols = 'grid-template-columns:44px repeat(' + n + ',var(--sc)) 22px';
+    let prev = '', ticks = '';
+    for (let i = 0; i <= n; i++) {
+      const m = a0 + i * 30, ap = apOf(m), show = ap !== prev; prev = ap;
+      ticks += '<span class="tk" style="grid-column:' + (i + 2) + '">' + (show ? '<small>' + ap + '</small>' : '<small>&nbsp;</small>') + fmt12(m) + '</span>';
+    }
     const days = DAY_LIST.filter(d => SLOTS.some(s => s.day === d));
-    const starts = [...new Set(SLOTS.map(s => mins(s.start)))].sort((x, y) => x - y);
-    let prev = '';
-    const head = '<tr><th></th>' + starts.map(m => { const ap = apOf(m), show = ap !== prev; prev = ap; return '<th>' + (show ? '<small>' + ap + '</small>' : '<small>&nbsp;</small>') + fmt12(m) + '</th>'; }).join('') + '</tr>';
-    const body = days.map(d => '<tr><th class="dy">' + d + '</th>' + starts.map(m => {
-      const sl = SLOTS.find(x => x.day === d && mins(x.start) === m);
-      if (!sl) return '<td><span class="sx none"></span></td>';
-      const lab = d + ' ' + hmLabel(mins(sl.start)) + '~' + hmLabel(mins(sl.end));
-      return '<td><button type="button" class="sx on" data-rmslot="' + esc(sl.id) + '" title="' + esc(lab) + ' · 누르면 빼요" aria-label="' + esc(lab + ' 빼기') + '"></button></td>';
-    }).join('') + '</tr>').join('');
-    $('slots').innerHTML = '<div class="sgrid-wrap"><table class="sgrid"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
+    const rows = days.map(d => {
+      const list = SLOTS.filter(x => x.day === d), lane = {}, ends = [];
+      list.slice().sort((x, y) => mins(x.start) - mins(y.start)).forEach(sl => { const st = mins(sl.start); let i = 0; while (i < ends.length && ends[i] > st) i++; ends[i] = mins(sl.end); lane[sl.id] = i; });
+      const nl = Math.max(1, ends.length);
+      let h = '<div class="srow" style="' + cols + ';grid-template-rows:repeat(' + nl + ',28px)"><b class="dy" style="grid-row:1 / span ' + nl + '">' + d + '</b>';
+      for (let r = 1; r <= nl; r++) for (let i = 0; i < n; i++) h += '<span class="bg" style="grid-column:' + (i + 2) + ';grid-row:' + r + '"></span>';
+      list.forEach(sl => {
+        const st = mins(sl.start), en = mins(sl.end), c = (st - a0) / 30 + 2, w = Math.max(1, Math.round((en - st) / 30));
+        const lab = d + ' ' + hmLabel(st) + '~' + hmLabel(en);
+        h += '<button type="button" class="sx" data-rmslot="' + esc(sl.id) + '" style="grid-column:' + c + ' / span ' + w + ';grid-row:' + (lane[sl.id] + 1) + '" title="' + esc(lab) + ' · 누르면 빼요" aria-label="' + esc(lab + ' 빼기') + '"></button>';
+      });
+      return h + '</div>';
+    }).join('');
+    $('slots').innerHTML = '<div class="sgrid-wrap"><div class="sgrid"><div class="shead" style="' + cols + '">' + ticks + '</div>' + rows + '</div></div>' +
       '<p class="muted" style="margin:2px 0 0">후보 칸 ' + SLOTS.length + '개 · 칸을 누르면 뺍니다</p>';
   }
   document.addEventListener('click', e => {
