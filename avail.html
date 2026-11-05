@@ -237,7 +237,9 @@
     <label class="f">후보 시간 칸</label>
     <div class="slot-add">
       <span class="dpills" id="dPills"></span>
-      <select id="tStart"></select><span class="muted">~</span><select id="tEnd"></select>
+      <select id="tStart" aria-label="시작 시각"></select>
+      <select id="tDur" aria-label="수업 길이"><option value="30">30분</option><option value="60">60분</option><option value="90">90분</option><option value="120" selected>120분</option></select>
+      <span class="muted" id="tEndNote"></span>
       <button class="btn sm lav" type="button" onclick="addSlot()">칸 더하기</button>
       <button class="btn sm" type="button" onclick="presetSlots()">슈국 기본 칸 넣기</button>
       <button class="btn sm" type="button" onclick="clearSlots()">모두 지우기</button>
@@ -327,14 +329,18 @@
   }
   function fmt12(m){ let h = Math.floor(m / 60) % 12; if (h === 0) h = 12; return h + ':' + ('0' + (m % 60)).slice(-2); }
   function timeValOf(m){ if (m < 600) return '오전' + fmt12(m); if (m >= 1320) return '밤' + fmt12(m); return fmt12(m); }
+  function hmLabel(m){ const ap = m < 720 ? '오전' : (m >= 1320 ? '밤' : '오후'); return ap + ' ' + fmt12(m); }
+  function slotLabel(sl){ const a = mins(sl.start), b = mins(sl.end); return hmLabel(a) + ' · ' + (b - a) + '분'; }
   function slotSort(a, b){ return (DAYS[a.day] - DAYS[b.day]) || (mins(a.start) - mins(b.start)); }
 
   /* ── 후보 칸 ── */
   function fillTimeSel(){
     let o = '';
-    for (let m = 8 * 60; m <= 23 * 60; m += 30) o += '<option value="' + m + '">' + timeValOf(m) + '</option>';
-    $('tStart').innerHTML = o; $('tEnd').innerHTML = o;
-    $('tStart').value = String(17 * 60 + 30); $('tEnd').value = String(19 * 60 + 30);
+    for (let m = 8 * 60; m <= 23 * 60; m += 30) o += '<option value="' + m + '">' + hmLabel(m) + '</option>';
+    $('tStart').innerHTML = o;
+    $('tStart').value = String(17 * 60 + 30);
+    ['tStart', 'tDur'].forEach(id => $(id).addEventListener('change', endNote));
+    endNote();
     $('dPills').innerHTML = DAY_LIST.map(d => '<button class="btn sm" type="button" data-d="' + d + '">' + d + '</button>').join('');
   }
   $('dPills') && document.addEventListener('click', e => {
@@ -348,10 +354,16 @@
     if (SLOTS.some(s => s.id === id)) return false;
     SLOTS.push({ id, day, start, end }); return true;
   }
+  // 끝 시각 = 시작 + 수업 길이(30·60·90·120분 — 2026-11-05 원장님), 밤 12시까지
+  function slotEnd(){ return +$('tStart').value + +$('tDur').value; }
+  function endNote(){
+    const e = slotEnd();
+    $('tEndNote').textContent = e > 1440 ? '밤 12시를 넘어요' : '→ ' + hmLabel(e) + '까지';
+  }
   function addSlot(){
     if (!DSEL.length){ toast('요일을 먼저 골라 주세요'); return; }
-    const s = +$('tStart').value, e = +$('tEnd').value;
-    if (e <= s){ toast('끝 시간이 시작보다 늦어야 해요'); return; }
+    const s = +$('tStart').value, e = slotEnd();
+    if (e > 1440){ toast('끝 시각이 밤 12시를 넘어요. 시작 시각이나 길이를 바꿔 주세요'); return; }
     let n = 0; DSEL.forEach(d => { if (pushSlot(d, timeValOf(s), timeValOf(e))) n++; });
     if (!n) toast('이미 있는 칸이에요');
     drawSlots(); summary();
@@ -367,7 +379,7 @@
     SLOTS.sort(slotSort);
     const byDay = {}; SLOTS.forEach(s => { (byDay[s.day] = byDay[s.day] || []).push(s); });
     $('slots').innerHTML = SLOTS.length ? DAY_LIST.filter(d => byDay[d]).map(d => '<div class="sd"><b>' + d + '</b><div class="chips">' +
-      byDay[d].map(s => '<span class="fchip">' + esc(s.start + '~' + s.end) + '<button type="button" data-rmslot="' + esc(s.id) + '" aria-label="빼기" title="빼기">×</button></span>').join('') +
+      byDay[d].map(s => '<span class="fchip" title="' + esc(hmLabel(mins(s.start)) + '~' + hmLabel(mins(s.end))) + '">' + esc(slotLabel(s)) + '<button type="button" data-rmslot="' + esc(s.id) + '" aria-label="빼기" title="빼기">×</button></span>').join('') +
       '</div></div>').join('') + '<p class="muted" style="margin:2px 0 0">후보 칸 ' + SLOTS.length + '개</p>'
       : '<p class="muted" style="margin:0">아직 칸이 없어요. 요일을 고르고 시간을 정해 [칸 더하기]를 누르거나 [슈국 기본 칸 넣기]를 누르세요.</p>';
   }
@@ -873,7 +885,7 @@
   /* ── 결과 — 칸마다 가능 인원(학교·학년으로 거르기) · 미제출 · 응답 표 ── */
   function rfOf(id){ return RFILT[id] || (RFILT[id] = { school: '', grade: '' }); }
   function rfKeep(id, x){ const f = rfOf(id); return (!f.school || x.school === f.school) && (!f.grade || gradeShort(x.grade) === f.grade); }
-  function slotName(s, sid){ const sl = (s.slots || []).find(x => x.id === sid); return sl ? sl.day + ' ' + sl.start : sid; }
+  function slotName(s, sid){ const sl = (s.slots || []).find(x => x.id === sid); return sl ? sl.day + ' ' + hmLabel(mins(sl.start)) : sid; }
   function heatColor(r){   // 가능 비율 0 → 연핑크, 1 → 진한 세이지
     if (r >= 0.999) return '#BFE3D2';
     if (r >= 0.9) return '#D3ECDF';
@@ -903,18 +915,18 @@
     const noOf = {}; rs.forEach(r => (r.no || []).forEach(k => { (noOf[k] = noOf[k] || []).push(r); }));
     h += '<h4>칸마다 가능한 학생 <span class="muted" style="font-family:var(--sans);font-weight:400;font-size:.8rem">제출한 ' + rs.length + '명 기준 · 칸을 누르면 안 되는 학생</span></h4>';
     h += '<div class="res"><table class="heat"><thead><tr><th></th>' + days.map(d => '<th>' + d + '</th>').join('') + '</tr></thead><tbody>' +
-      times.map(t => '<tr><th class="tm">' + esc(t) + '</th>' + days.map(d => {
+      times.map(t => '<tr><th class="tm">' + esc(hmLabel(mins(t))) + '</th>' + days.map(d => {
         const sl = slots.find(x => x.day === d && mins(x.start) === mins(t));
         if (!sl) return '<td><div class="none"></div></td>';
         const no = (noOf[sl.id] || []).length, okN = rs.length - no;
         const sel = CELL[s.id] === sl.id;
-        return '<td><button class="cell' + (sel ? ' sel' : '') + '" style="background:' + (rs.length ? heatColor(okN / rs.length) : '#EEF1EF') + '" onclick="pickCell(' + s.id + ',\'' + esc(sl.id) + '\')" title="' + esc(sl.day + ' ' + sl.start + '~' + sl.end) + '">' +
+        return '<td><button class="cell' + (sel ? ' sel' : '') + '" style="background:' + (rs.length ? heatColor(okN / rs.length) : '#EEF1EF') + '" onclick="pickCell(' + s.id + ',\'' + esc(sl.id) + '\')" title="' + esc(sl.day + ' ' + slotLabel(sl)) + '">' +
           '<b>' + okN + '</b><small>' + (no ? '안 됨 ' + no : '모두 가능') + '</small></button></td>';
       }).join('') + '</tr>').join('') + '</tbody></table></div>';
     if (CELL[s.id]){
       const sl = slots.find(x => x.id === CELL[s.id]);
       const ns = noOf[CELL[s.id]] || [];
-      h += '<div class="who-no">' + (sl ? esc(sl.day + ' ' + sl.start + '~' + sl.end) : '') + ' — ' +
+      h += '<div class="who-no">' + (sl ? esc(sl.day + ' ' + slotLabel(sl)) : '') + ' — ' +
         (ns.length ? '안 되는 학생 <b>' + ns.length + '명</b>: ' + ns.map(r => esc(r.name) + (r.school ? '<span class="muted">(' + esc(r.school.replace(/고등학교|중학교/, '')) + ')</span>' : '')).join(', ') : '제출한 학생 모두 가능해요') + '</div>';
     }
     h += placeHtml(s, rs);
@@ -951,10 +963,10 @@
     if (!r.plans.length) return h + '<p class="muted">추천할 안이 없어요.</p>';
     h += '<p class="muted" style="margin:0 0 6px">칸 조합 ' + r.combos.toLocaleString() + '개' + (r.beam ? '(많아서 가능성 높은 조합 위주로)' : '') + '를 따져 본 결과입니다 · 주 ' + o.f + '회 · 정원 ' + o.cap + '명' + (o.f === 2 ? ' · 가·나는 선생님이 정해 주세요' : '') + '</p>';
     r.plans.forEach((p, i) => {
-      h += '<div class="pl-card"><div class="pl-hd"><b>' + (i + 1) + '안</b><span>' + p.classes.map(c => esc(c.slot.day + ' ' + c.slot.start)).join(' · ') + '</span>' +
+      h += '<div class="pl-card"><div class="pl-hd"><b>' + (i + 1) + '안</b><span>' + p.classes.map(c => esc(c.slot.day + ' ' + hmLabel(mins(c.slot.start)))).join(' · ') + '</span>' +
         '<span class="pl-n' + (p.full === p.total ? ' all' : '') + '">' + p.full + ' / ' + p.total + '명 배정' + (p.full === p.total ? ' · 모두' : '') + '</span>' +
         '<button class="btn sm" type="button" onclick="plCopy(' + s.id + ',' + i + ')">표 복사</button></div>' +
-        '<div class="pl-cls">' + p.classes.map(c => '<div class="pl-c"><p class="t">' + esc(c.slot.day + ' ' + c.slot.start + '~' + c.slot.end) + ' <span class="muted">' + c.stus.length + ' / ' + o.cap + '명</span></p>' +
+        '<div class="pl-cls">' + p.classes.map(c => '<div class="pl-c"><p class="t">' + esc(c.slot.day + ' ' + slotLabel(c.slot)) + ' <span class="muted">' + c.stus.length + ' / ' + o.cap + '명</span></p>' +
           '<div class="names">' + (c.stus.length ? c.stus.slice().sort((a, b) => a.name.localeCompare(b.name, 'ko')).map(st => '<span>' + esc(st.name) + '</span>').join('') : '<span class="muted">비어 있음</span>') + '</div></div>').join('') + '</div>' +
         (p.left.length ? '<div class="who-no">어느 반에도 못 들어가는 학생 <b>' + p.left.length + '명</b>: ' + p.left.map(x => esc(x.st.name) + ' <span class="muted">(' + x.why + ')</span>').join(', ') + '</div>' : '') +
         (p.half.length ? '<div class="who-no">주 1회만 들어가는 학생 <b>' + p.half.length + '명</b>: ' + p.half.map(x => esc(x.st.name) + ' <span class="muted">(' + x.why + ')</span>').join(', ') + '</div>' : '') +
@@ -979,7 +991,7 @@
   function plCopy(id, i){
     const o = PL[id], p = o && o.res && o.res.plans[i]; if (!p) return;
     const lines = ['반\t이름\t학교\t학년'];
-    p.classes.forEach(c => c.stus.forEach(st => lines.push([c.slot.day + ' ' + c.slot.start + '~' + c.slot.end, st.name, st.school, gradeShort(st.grade)].join('\t'))));
+    p.classes.forEach(c => c.stus.forEach(st => lines.push([c.slot.day + ' ' + slotLabel(c.slot), st.name, st.school, gradeShort(st.grade)].join('\t'))));
     p.left.forEach(x => lines.push(['못 들어감(' + x.why + ')', x.st.name, x.st.school, gradeShort(x.st.grade)].join('\t')));
     navigator.clipboard.writeText(lines.join('\n')).then(() => toast((i + 1) + '안을 복사했어요'), () => toast('복사하지 못했어요'));
   }
