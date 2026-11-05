@@ -240,9 +240,9 @@
     <label class="f">후보 시간 칸</label>
     <div class="slot-steps">
       <div class="sstep"><span class="sn">1</span><span class="sl">요일</span><span class="dpills" id="dPills"></span></div>
-      <div class="sstep"><span class="sn">2</span><span class="sl">시작 시각</span><select id="tStart" aria-label="시작 시각"></select><span class="muted">30분 단위</span></div>
-      <div class="sstep"><span class="sn">3</span><span class="sl">수업 길이</span><span class="dpills" id="durPills"><button class="btn sm" type="button" data-dur="30">30분</button><button class="btn sm" type="button" data-dur="60">60분</button><button class="btn sm" type="button" data-dur="90">90분</button><button class="btn sm on" type="button" data-dur="120">120분</button></span><span class="muted" id="tEndNote"></span></div>
-      <div class="sstep"><span class="sn">4</span><button class="btn sm lav" type="button" onclick="addSlot()">칸 더하기</button><button class="btn sm" type="button" onclick="clearSlots()">모두 지우기</button></div>
+      <div class="sstep"><span class="sn">2</span><span class="sl">시간</span><select id="tStart" aria-label="시작 시각"></select><span class="muted">부터</span><select id="tEnd" aria-label="끝 시각"></select><span class="muted">까지</span></div>
+      <div class="sstep"><span class="sn">3</span><span class="sl">칸 단위</span><span class="dpills" id="durPills"><button class="btn sm on" type="button" data-dur="30">30분</button><button class="btn sm" type="button" data-dur="60">60분</button><button class="btn sm" type="button" data-dur="90">90분</button><button class="btn sm" type="button" data-dur="120">120분</button></span><span class="muted" id="tEndNote"></span></div>
+      <div class="sstep"><span class="sn">4</span><button class="btn sm lav" type="button" onclick="addSlot()">칸 만들기</button><button class="btn sm" type="button" onclick="clearSlots()">모두 지우기</button></div>
     </div>
     <div class="slots" id="slots"></div>
 
@@ -337,9 +337,11 @@
   function fillTimeSel(){
     let o = '';
     for (let m = 8 * 60; m <= 23 * 60; m += 30) o += '<option value="' + m + '">' + hmLabel(m) + '</option>';
-    $('tStart').innerHTML = o;
-    $('tStart').value = String(17 * 60 + 30);
-    $('tStart').addEventListener('change', endNote);
+    let oe = '';
+    for (let m = 8 * 60 + 30; m <= 24 * 60; m += 30) oe += '<option value="' + m + '">' + hmLabel(m) + '</option>';
+    $('tStart').innerHTML = o; $('tEnd').innerHTML = oe;
+    $('tStart').value = String(17 * 60); $('tEnd').value = String(22 * 60);
+    $('tStart').addEventListener('change', endNote); $('tEnd').addEventListener('change', endNote);
     endNote();
     $('dPills').innerHTML = DAY_LIST.map(d => '<button class="btn sm" type="button" data-d="' + d + '">' + d + '</button>').join('');
   }
@@ -355,24 +357,29 @@
     SLOTS.push({ id, day, start, end }); return true;
   }
   // 끝 시각 = 시작 + 수업 길이(30·60·90·120분 — 2026-11-05 원장님), 밤 12시까지
-  let DUR = 120;
+  let DUR = 30;
   document.addEventListener('click', e => {
     const b = e.target.closest('#durPills [data-dur]'); if (!b) return;
     DUR = +b.dataset.dur;
     document.querySelectorAll('#durPills [data-dur]').forEach(x => x.classList.toggle('on', x === b));
     endNote();
   });
-  function slotEnd(){ return +$('tStart').value + DUR; }
+  // 시작~끝 사이를 칸 단위로 이어서 나눈다 (2026-11-05 원장님 "요일선택 30분단위라고 하면 10시까지 30분 단위로 칸이 생겨나도록")
+  function slotRange(){
+    const s = +$('tStart').value, e = +$('tEnd').value, out = [];
+    for (let m = s; m + DUR <= e; m += DUR) out.push([m, m + DUR]);
+    return out;
+  }
   function endNote(){
-    const e = slotEnd();
-    $('tEndNote').textContent = e > 1440 ? '밤 12시를 넘어요' : '→ ' + hmLabel(e) + '까지';
+    const r = slotRange();
+    $('tEndNote').textContent = r.length ? '→ 요일마다 칸 ' + r.length + '개 (' + hmLabel(r[0][0]) + '~' + hmLabel(r[r.length - 1][1]) + ')' : '끝 시각이 시작보다 칸 단위만큼 늦어야 해요';
   }
   function addSlot(){
     if (!DSEL.length){ toast('요일을 먼저 골라 주세요'); return; }
-    const s = +$('tStart').value, e = slotEnd();
-    if (e > 1440){ toast('끝 시각이 밤 12시를 넘어요. 시작 시각이나 길이를 바꿔 주세요'); return; }
-    let n = 0; DSEL.forEach(d => { if (pushSlot(d, timeValOf(s), timeValOf(e))) n++; });
-    if (!n) toast('이미 있는 칸이에요');
+    const r = slotRange();
+    if (!r.length){ toast('끝 시각이 시작보다 칸 단위만큼 늦어야 해요'); return; }
+    let n = 0; DSEL.forEach(d => r.forEach(([a, b]) => { if (pushSlot(d, timeValOf(a), timeValOf(b))) n++; }));
+    toast(n ? '칸 ' + n + '개를 만들었어요' : '이미 있는 칸이에요');
     drawSlots(); summary();
   }
   function clearSlots(){ if (SLOTS.length && !confirm('후보 칸을 모두 지울까요?')) return; SLOTS = []; drawSlots(); summary(); }
@@ -382,7 +389,7 @@
     $('slots').innerHTML = SLOTS.length ? DAY_LIST.filter(d => byDay[d]).map(d => '<div class="sd"><b>' + d + '</b><div class="chips">' +
       byDay[d].map(s => '<span class="fchip" title="' + esc(hmLabel(mins(s.start)) + '~' + hmLabel(mins(s.end))) + '">' + esc(slotLabel(s)) + '<button type="button" data-rmslot="' + esc(s.id) + '" aria-label="빼기" title="빼기">×</button></span>').join('') +
       '</div></div>').join('') + '<p class="muted" style="margin:2px 0 0">후보 칸 ' + SLOTS.length + '개</p>'
-      : '<p class="muted" style="margin:0">아직 칸이 없어요. 요일 → 시작 시각 → 수업 길이를 고르고 [칸 더하기]를 누르세요.</p>';
+      : '<p class="muted" style="margin:0">아직 칸이 없어요. 요일 → 시간(부터·까지) → 칸 단위를 고르고 [칸 만들기]를 누르세요.</p>';
   }
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-rmslot]'); if (!b) return;
