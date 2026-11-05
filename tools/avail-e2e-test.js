@@ -135,29 +135,42 @@ function seed(){
     for (const d of ['월','화','수','목','금','토','일']) { const on = await pg.$eval('#dPills [data-d="' + d + '"]', e => e.classList.contains('on')); if (on !== days.includes(d)) await pg.click('#dPills [data-d="' + d + '"]'); }
     await pg.click('#durPills [data-dur="120"]');
     await pg.selectOption('#tStart', String(starts[0])); await pg.selectOption('#tEnd', String(starts[1]));
-    await pg.click('text=칸 만들기');
+    await pg.click('#buildBar .bb-p');
   }
   async function baseSlots(){ await addSlots(['수','목','금'], [1050, 1290]); await addSlots(['토','일'], [660, 1140]); }
   await pg.fill('#sTitle', '화정고1 겨울 시간표');
-  ok(/후보 시간 칸을 넣어/.test(await pg.textContent('#goNote')), '칸 없으면 잠김');
+  ok(/후보 칸을 만들어/.test(await pg.textContent('#goNote')) && (await pg.$eval('#goBtn', e => e.disabled)), '칸 없으면 잠김(아래 바 사유)');
+  ok((await pg.$eval('#goBar', e => getComputedStyle(e).position)) === 'fixed', '아래 고정 바');
+  ok(!(await pg.$('#tEnd option[value="' + (16 * 60) + '"]')), '끝 시각은 시작보다 늦은 것만');
   await pg.click('#dPills [data-d="금"]'); await pg.selectOption('#tStart', String(17 * 60)); await pg.selectOption('#tEnd', String(18 * 60 + 30)); await pg.click('#durPills [data-dur="90"]');
-  await pg.click('text=칸 만들기');
-  ok(/금 오후 5:00~오후 6:30/.test(await pg.getAttribute('[data-rmslot="금-5:00"]', 'title')) && !/30분|90분/.test(await pg.textContent('#slots')), '직접 더한 칸(금 오후 5:00~6:30) · 칸에 분 글자 없음');
-  ok(/칸 1개/.test(await pg.textContent('#tEndNote')), '만들 칸 수 안내');
+  await pg.click('#buildBar .bb-p');
+  ok(/금 오후 5:00~밤 6:30/.test(await pg.getAttribute('[data-rmslot="금-5:00"]', 'title')) && !/90분/.test(await pg.textContent('#slots')), '직접 더한 칸(금 오후 5:00~밤 6:30) · 칸에 분 글자 없음', await pg.getAttribute('[data-rmslot="금-5:00"]', 'title'));
+  ok(/요일마다 1칸/.test(await pg.textContent('#tEndNote')), '만들 칸 수 안내');
+  ok(/금 오후 5:00~밤 6:30 · 90분 칸으로 만들었어요/.test(await pg.textContent('#buildMsg')) && !(await pg.$eval('#buildBar', e => e.classList.contains('chg'))), '만들기 바: 만든 설정');
   // 30분 단위 · 오후 5시~밤 10시 = 요일마다 10칸
   await pg.selectOption('#tEnd', String(22 * 60)); await pg.click('#durPills [data-dur="30"]');
-  ok(/칸 10개/.test(await pg.textContent('#tEndNote')), '30분 단위 10칸 안내');
-  await pg.click('#dPills [data-d="금"]'); await pg.click('#dPills [data-d="목"]'); await pg.click('text=칸 만들기');
+  ok(/요일마다 10칸/.test(await pg.textContent('#tEndNote')), '30분 단위 10칸 안내');
+  await pg.click('#dPills [data-d="금"]'); await pg.click('#dPills [data-d="목"]');
+  ok((await pg.$eval('#buildBar', e => e.classList.contains('chg'))) && /설정이 바뀌었어요/.test(await pg.textContent('#buildMsg')), '설정이 바뀌면 노랑');
+  await pg.click('#buildBar .bb-p');
   ok((await pg.$$eval('#dPills .on', a => a.length)) === 0, '칸 만들기 뒤 요일 선택이 비워짐');
   const s30 = await pg.textContent('#slots');
-  const sgHeads = await pg.$$eval('#slots .sgrid .shead .tk', a => a.map(e => e.textContent));
-  ok(/후보 칸 20개/.test(s30) && !!(await pg.$('[data-rmslot="목-9:30"]')) && sgHeads.length === 11 && sgHeads[0] === '오후5:00' && sgHeads[10] === '밤10:00', '금·목 30분 칸 20개 · 눈금 5:00~10:00 고정 30분', sgHeads.join('|'));
-  ok(await pg.$$eval('#slots .sgrid .srow .dy', r => r.map(e => e.textContent).join()) === '목,금', '세로축 요일');
-  const geo = await pg.evaluate(() => { const r = s => document.querySelector('[data-rmslot="' + s + '"]').getBoundingClientRect(); const t = [...document.querySelectorAll('#slots .tk')].map(e => { const b = e.getBoundingClientRect(); return b.left + b.width / 2; }); return { a: r('목-5:00').left, b: r('목-9:30').right, t0: t[0], t10: t[10] }; });
-  ok(Math.abs(geo.a - geo.t0) < 4 && Math.abs(geo.b - geo.t10) < 4, '칸 시작·끝이 눈금 선과 맞음', JSON.stringify(geo));
+  ok(/후보 칸 20개/.test(s30) && !!(await pg.$('[data-rmslot="목-9:30"]')), '금·목 30분 칸 20개', s30.slice(-40));
+  ok(await pg.$$eval('#slots .stab .hd .dh', r => r.map(e => e.textContent).join()) === '목,금', '요일 = 열(목·금)');
+  const rowsT = await pg.$$eval('#slots .stab .r:not(.hd):not(.ft) .tc', a => a.map(e => e.textContent));
+  ok(rowsT.length === 10 && rowsT[0] === '오후5:00' && rowsT[1] === '밤5:30'.replace('밤', '오후') && rowsT[2] === '밤6:00' && rowsT[9] === '밤9:30', '시간 = 행(5:00~9:30, 30분)', rowsT.join('|'));
+  const geo = await pg.evaluate(() => { const r = s => document.querySelector('[data-rmslot="' + s + '"]').getBoundingClientRect(); const h = [...document.querySelectorAll('#slots .stab .hd .dh')].map(e => e.getBoundingClientRect()); return { mok: r('목-5:00').left >= h[0].left - 1 && r('목-5:00').right <= h[0].right + 1, geum: r('금-9:30').left >= h[1].left - 1, down: r('목-9:30').top > r('목-5:00').top }; });
+  ok(geo.mok && geo.geum && geo.down, '칸이 그 요일 열·시간 행에', JSON.stringify(geo));
+  ok((await pg.$eval('[data-rmslot="목-5:00"]', e => getComputedStyle(e).backgroundColor)) === 'rgb(221, 210, 236)', '후보 칸 색 #ddd2ec');
   await pg.click('[data-rmslot="목-9:30"]');
-  ok((await pg.$$eval('#slots .sgrid .shead .tk', a => a.length)) === 11, '칸을 빼도 눈금이 그대로');
-  for (const id of await pg.$$eval('[data-rmslot]', a => a.map(e => e.dataset.rmslot))) if (id !== '금-5:00') await pg.click('[data-rmslot="' + id + '"]');
+  ok((await pg.$eval('[data-rmslot="목-9:30"]', e => e.classList.contains('off'))) && /후보 칸 19개/.test(await pg.textContent('#slots')) && /뺀 칸/.test(await pg.getAttribute('[data-rmslot="목-9:30"]', 'title')), '칸을 빼면 연하게 남음');
+  await pg.click('[data-rmslot="목-9:30"]');
+  ok(/후보 칸 20개/.test(await pg.textContent('#slots')), '다시 누르면 되살아남');
+  await pg.click('[data-dcol="목"]');
+  ok(/후보 칸 10개/.test(await pg.textContent('#slots')) && (await pg.textContent('[data-dcol="목"]')) === '되살리기', '열 빼기 → 되살리기');
+  await pg.click('[data-dcol="목"]');
+  ok(/후보 칸 20개/.test(await pg.textContent('#slots')), '열 되살리기');
+  for (const id of await pg.$$eval('[data-rmslot]:not(.off)', a => a.map(e => e.dataset.rmslot))) if (id !== '금-5:00') await pg.click('[data-rmslot="' + id + '"]');
   ok(!(await pg.$('text=슈국 기본 칸 넣기')), '기본 칸 버튼 없음');
   await baseSlots();
   ok(/후보 칸 15개/.test(await pg.textContent('#slots')), '기본 칸 14 + 직접 1 = 15');
@@ -181,8 +194,12 @@ function seed(){
   // ④ 개인 여러 명 · 접근코드 없는 학생 안내
   await pg.fill('#sTitle', '개인 조사'); await baseSlots();
   await pg.click('#modeSeg [data-m=stu]');
-  await pg.fill('#stuQ', '최하늘'); await pg.click('#pane-stu .btn');
-  await pg.fill('#stuQ', '김나연'); await pg.click('#pane-stu .btn');
+  ok(/아직 고른 학생이 없어요/.test(await pg.textContent('#chips')), '개인: 아무도 없음 안내');
+  await pg.fill('#stuQ', '최하'); await pg.waitForTimeout(80);
+  ok(!(await pg.$eval('#stuSug', e => e.hidden)) && /최하늘/.test(await pg.textContent('#stuSug')), '이름 입력 → 제안 목록');
+  await pg.click('#stuSug [data-sug]');
+  await pg.fill('#stuQ', '김나연'); await pg.click('#pane-stu .stu-add');
+  ok((await pg.$$eval('#chips .fchip', a => a.length)) === 2, '담은 학생 알약 2');
   ok(/대상 학생 2명/.test(T(await pg.textContent('#sum'))), '개인 여러 명 담기');
   await pg.click('#modeSeg [data-m=grade]'); await pg.click('#gradePills [data-g="고1"]');
   ok(/접근코드\)가 없는 학생 1명: 정코드/.test(T(await pg.textContent('#sum'))), '접근코드 없는 학생 안내');

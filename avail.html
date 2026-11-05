@@ -158,33 +158,15 @@
   .fchip a{color:var(--ink);text-decoration:none;cursor:pointer;}
   .fchip a:hover{text-decoration:underline;}
   .fchip button{border:none;background:none;color:var(--cap);cursor:pointer;font-size:.9rem;padding:0 4px;line-height:1;}
-  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#2A332F;color:#fff;font-size:.86rem;padding:9px 16px;border-radius:20px;opacity:0;transition:.2s;pointer-events:none;z-index:9;}
+  #toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(20px);background:#2A332F;color:#fff;font-size:.86rem;padding:9px 16px;border-radius:20px;opacity:0;transition:.2s;pointer-events:none;z-index:9;}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   input[type=date]{font:inherit;font-size:.95rem;padding:9px 12px;border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--ink);}
   textarea{width:100%;font:inherit;font-size:.95rem;padding:10px 12px;border:1px solid var(--line);border-radius:11px;min-height:70px;resize:vertical;}
   /* 후보 칸 */
   .slot-steps{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
-  .sstep{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-  .sstep select{width:auto;}
-  .sstep .sn{width:22px;height:22px;border-radius:50%;background:var(--lilac);color:var(--lilac-ink);font-size:.75rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:none;}
-  .sstep .sl{min-width:64px;font-size:.88rem;color:var(--ink2,#4F5C56);}
   .dpills{display:inline-flex;gap:4px;flex-wrap:wrap;}
   .dpills .btn.on{background:var(--lilac);color:var(--lilac-ink);font-weight:700;}
-  .slots{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
-.sgrid-wrap{overflow-x:auto;max-width:100%;padding-bottom:2px;}
-  .sgrid{--sc:30px;display:inline-flex;flex-direction:column;gap:4px;}
-  .sgrid .shead,.sgrid .srow{display:grid;align-items:stretch;}
-  .sgrid .shead{height:30px;}
-  .sgrid .tk{grid-row:1;position:relative;left:0;transform:translateX(-50%);justify-self:start;align-self:end;font-size:.7rem;color:var(--cap);text-align:center;line-height:1.1;white-space:nowrap;}
-  .sgrid .tk small{display:block;font-size:.6rem;}
-  .sgrid .srow{row-gap:3px;}
-  .sgrid .dy{grid-column:1;grid-row:1;font-family:"Do Hyeon",var(--sans);font-weight:400;font-size:1.05rem;align-self:center;}
-  .sgrid .bg{background:#F4F7F5;border-left:1px solid #D3DDD8;}
-  .sgrid .sx{border:1px solid #C9B8DC;padding:0;margin:3px 2px;border-radius:6px;background:var(--lilac);cursor:pointer;z-index:1;}
-  .sgrid .sx:hover{background:#D9CAE7;}
-  .slots .sd{display:flex;gap:8px;align-items:flex-start;}
-  .slots .sd b{font-family:"Do Hyeon",var(--sans);font-weight:400;font-size:1.05rem;width:28px;flex:none;padding-top:3px;}
-  .slots .sd .chips{margin-top:0;}
+  .slots:empty{display:none;}
   /* 조사 목록·결과 */
   .sv{padding:14px 0;border-top:1px solid var(--line-soft);}
   .sv:first-child{border-top:none;}
@@ -229,55 +211,154 @@
     .heat .cell,.heat .none{min-width:52px;}
     .res table.rt{font-size:.8rem;}
   }
+
+  /* 2026-11-05 원장님 디자인 묶음(design_handoff_timetable_survey) — 조사 만들기 화면 */
+  body{background:#e4efea;color:#33443c;padding-bottom:120px;}
+  .wrap{max-width:780px;}
+  .back.pill{align-self:flex-start;gap:6px;font-size:14px;color:#2b3a33;background:#fff;border-radius:999px;padding:8px 14px;}
+  .back.pill svg{width:14px;height:14px;}
+  header.hd{display:flex;flex-direction:column;gap:8px;padding:22px 4px 18px;}
+  header.hd .kick{font-size:12px;letter-spacing:3px;color:#4b6157;}
+  header.hd h1{font-size:30px;color:#2b3a33;font-weight:700;}
+  header.hd .intro{margin:0;font-size:15px;line-height:1.6;color:#54655c;}
+  header.hd .intro b{color:#2b3a33;}
+  .addcol{display:flex;flex-direction:column;gap:18px;margin-bottom:18px;}
+  .card{border-radius:24px;box-shadow:none;}
+  .card.dz{padding:24px 22px;margin:0;display:flex;flex-direction:column;gap:16px;}
+  .h2n{margin:0!important;display:flex;align-items:baseline;gap:10px;font-family:var(--serif);font-weight:700;font-size:20px!important;color:#2b3a33;}
+  .h2n .no{font-family:"Do Hyeon",var(--sans);font-weight:400;color:#7f9e8e;}
+  .dsub{display:block;font-size:13px;color:#8a978f;margin-top:4px;}
+  .dz-info{grid-template-columns:minmax(0,1fr) 180px!important;}
+  .dzl{display:flex;flex-direction:column;gap:6px;font-size:13px;color:#54655c;}
+  .dzl em{font-style:normal;color:#8a978f;}
+  .dz input[type=text],.dz input[type=date],.dz textarea{font-size:15px;color:#2b3a33;padding:12px 14px;border:1px solid #dde5e0;border-radius:14px;background:#fafbf9;min-width:0;min-height:0;}
+  .dz select{font-size:14px;color:#2b3a33;padding:9px 10px;border:1px solid #dde5e0;border-radius:12px;background:#fafbf9;width:auto;}
+  .slot-set{display:grid;grid-template-columns:64px minmax(0,1fr);gap:14px 12px;align-items:center;}
+  .slot-set .sl{font-size:14px;color:#54655c;}
+  .tline{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+  .mut{font-size:13px;color:#8a978f;}
+  .dpills{display:flex;flex-wrap:wrap;gap:6px;}
+  .dchip{font:inherit;border:0;cursor:pointer;padding:8px 13px;border-radius:12px;font-size:14px;background:#f1f4f1;color:#54655c;}
+  .dchip.dy{width:40px;padding:8px 0;text-align:center;}
+  .dchip.on{background:#e6def0;color:#4a3f63;}
+  .buildbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:12px 14px;border-radius:16px;background:#f1f4f1;}
+  .buildbar.chg{background:#f7f0dc;}
+  .buildbar #buildMsg{flex:1;min-width:180px;font-size:13px;color:#4b6157;}
+  .bb-w,.bb-p{font:inherit;border:0;cursor:pointer;font-size:14px;padding:9px 14px;border-radius:12px;background:#fff;color:#54655c;}
+  .bb-p{background:#4a3f63;color:#fff;padding:9px 16px;}
+  .stab-wrap{overflow-x:auto;padding-bottom:4px;}
+  .stab{display:flex;flex-direction:column;max-width:640px;border:1px solid #d5ddd8;border-radius:12px;overflow:hidden;}
+  .stab .r{display:flex;border-bottom:1px solid #e3e8e4;}
+  .stab .r.hd{background:#f1f4f1;border-bottom:1px solid #d5ddd8;}
+  .stab .r.ft{border-bottom:0;}
+  .stab .tc{width:76px;flex:none;display:flex;align-items:baseline;justify-content:center;gap:4px;padding:8px 0;background:#f8faf8;border-right:1px solid #d5ddd8;line-height:1.2;}
+  .stab .hd .tc{align-items:center;background:transparent;font-size:12px;color:#54655c;}
+  .stab .ft .tc{background:transparent;}
+  .stab .tc small{font-size:11px;color:#4b6157;}
+  .stab .tc b{font-family:"Do Hyeon",var(--sans);font-weight:400;font-size:15px;color:#2b3a33;}
+  .stab .dh{flex:1;min-width:56px;text-align:center;padding:8px 0;font-family:"Do Hyeon",var(--sans);font-size:17px;color:#2b3a33;border-right:1px solid #e3e8e4;}
+  .stab .cx{flex:1;min-width:56px;font:inherit;border:0;border-right:1px solid #fff;padding:0;cursor:pointer;background:#ddd2ec;box-sizing:border-box;}
+  .stab .cx:hover{filter:brightness(.95);}
+  .stab .cx.off{background:#f4f6f4;}
+  .stab .cx.na{background:#fff;cursor:default;}
+  .stab .cx.na:hover{filter:none;}
+  .stab .ftb{flex:1;min-width:56px;font:inherit;border:0;border-right:1px solid #e3e8e4;background:none;text-align:center;padding:8px 0;font-size:12px;color:#8a978f;cursor:pointer;}
+  .stab .ftb:hover{color:#2b3a33;}
+  .slegend{display:flex;flex-wrap:wrap;align-items:center;gap:14px;font-size:12px;color:#54655c;margin-top:10px;}
+  .slegend span{display:flex;align-items:center;gap:5px;}
+  .slegend i{width:12px;height:12px;border-radius:4px;box-sizing:border-box;}
+  .slegend .l-on{background:#ddd2ec;}
+  .slegend .l-off{background:#f4f6f4;border:1px dashed #cdd6d0;}
+  .slegend .cnt{margin-left:auto;font-size:13px;color:#2b3a33;}
+  .slegend .cnt b{font-family:"Do Hyeon",var(--sans);font-weight:400;font-size:18px;}
+  .tseg{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;background:#f1f4f1;border-radius:999px;padding:4px;}
+  .tseg.sm{display:inline-grid;grid-template-columns:repeat(2,auto);}
+  .tseg button{font:inherit;border:0;cursor:pointer;text-align:center;padding:9px 4px;border-radius:999px;font-size:14px;white-space:nowrap;background:transparent;color:#54655c;}
+  .tseg.sm button{padding:7px 14px;}
+  .tseg button.on{background:#fff;color:#4a3f63;}
+  .gpills .btn{background:#f1f4f1;color:#54655c;font-size:14px;padding:8px 13px;border-radius:12px;}
+  .gpills .btn.on{background:#e6def0;color:#4a3f63;font-weight:400;}
+  .stu-box{position:relative;display:flex;gap:8px;}
+  .stu-box #stuQ{flex:1;max-width:none;}
+  .sug{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:3;background:#fff;border-radius:14px;box-shadow:0 8px 24px rgba(58,77,69,.16);padding:6px;display:flex;flex-direction:column;}
+  .sug[hidden]{display:none;}
+  .sug button{font:inherit;border:0;background:none;cursor:pointer;display:flex;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:10px;font-size:14px;color:#2b3a33;text-align:left;}
+  .sug button:hover,.sug button.on{background:#f1f4f1;}
+  .sug button span{color:#8a978f;font-size:13px;}
+  .chips{margin-top:0;}
+  .chips:empty{display:none;}
+  .chips .fchip{display:flex;align-items:center;gap:6px;padding:6px 8px 6px 12px;border-radius:999px;font-size:14px;background:#e6def0;color:#4a3f63;}
+  .chips .fchip button{width:20px;height:20px;display:flex;align-items:center;justify-content:center;border-radius:999px;background:#fff;font-size:12px;color:#4a3f63;padding:0;}
+  .chips .none{font-size:13px;color:#8a978f;}
+  .sum{margin-top:0;}
+  .sum:empty{display:none;}
+  .gobar{position:fixed;left:0;right:0;bottom:0;z-index:6;padding:12px 18px calc(12px + env(safe-area-inset-bottom));background:rgba(228,239,234,.92);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);transition:transform .2s;}
+  .gobar.away{transform:translateY(110%);}
+  .gobar .in{max-width:744px;margin:0 auto;display:flex;align-items:center;gap:12px;background:#fff;border-radius:999px;padding:8px 8px 8px 20px;box-shadow:0 4px 16px rgba(58,77,69,.12);}
+  .gobar .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+  .gobar .sm{font-size:13px;color:#2b3a33;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .gobar .why{font-size:12px;color:#a8434f;}
+  .gobar .why.ok{color:#4b6157;}
+  #goBtn{flex:none;font:inherit;border:0;cursor:pointer;font-size:15px;padding:12px 20px;border-radius:999px;background:#4a3f63;color:#fff;}
+  #goBtn:disabled{background:#ebe6f1;color:#a99fbb;cursor:not-allowed;opacity:1;}
+  @media (max-width:560px){ .dz-info{grid-template-columns:1fr!important;} .tseg{grid-template-columns:repeat(3,minmax(0,1fr));} .tseg.sm{grid-template-columns:repeat(2,auto);} .gobar .in{padding-left:16px;} #goBtn{padding:12px 14px;font-size:14px;} }
 </style>
 </head>
 <body>
 <main class="wrap">
-  <a class="back" href="ops.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> 슈국 운영으로 가기</a>
-  <header>
-    <div class="h-row"><h1>시간표 조사</h1></div>
+  <a class="back pill" href="ops.html"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8H3M7 4L3 8l4 4"/></svg>슈국 운영으로 가기</a>
+  <header class="hd">
+    <span class="kick">SHUEGUK · 시간표</span>
+    <h1>시간표 조사</h1>
     <p class="intro">새 시간표로 바꿀 때 후보 시간 칸을 정해 조사를 엽니다. 학생과 학부모님은 학생 페이지의 <b>시간표 조사</b>에서 안 되는 칸을 골라 제출해요(처음 제출하면 별 +1). 결과에서 칸마다 가능한 인원을 확인합니다.</p>
   </header>
 
-  <section class="card" id="addCard">
-    <h2>조사 만들기</h2>
-    <div class="row2">
-      <div><label class="f" for="sTitle">제목 (학생에게 보여요)</label><input type="text" id="sTitle" maxlength="60" placeholder="예) 화정고1 겨울방학 새 시간표 조사"></div>
-      <div><label class="f" for="sDue">마감일 (그 날 밤까지 받아요)</label><input type="date" id="sDue"></div>
+  <div id="addCard" class="addcol">
+  <section class="card dz">
+    <h2 class="h2n"><span class="no">1</span>조사 정보</h2>
+    <div class="row2 dz-info">
+      <label class="dzl" for="sTitle"><span>제목 <em>· 학생에게 보여요</em></span><input type="text" id="sTitle" maxlength="60" placeholder="예) 화정고1 겨울방학 새 시간표 조사"></label>
+      <label class="dzl" for="sDue"><span>마감일 <em>· 그 날 밤까지</em></span><input type="date" id="sDue"></label>
     </div>
-    <label class="f" for="sMemo">안내 (선택 — 학생에게 보여요)</label>
-    <textarea id="sMemo" maxlength="300" placeholder="예) 12/16(수)부터 바뀌는 시간표입니다. 수업이 어려운 시간을 모두 골라 주세요."></textarea>
+    <label class="dzl" for="sMemo"><span>안내 <em>· 선택, 학생에게 보여요</em></span>
+    <textarea id="sMemo" rows="2" maxlength="300" placeholder="예) 12/16(수)부터 바뀌는 시간표입니다. 수업이 어려운 시간을 모두 골라 주세요."></textarea></label>
+  </section>
 
-    <label class="f">후보 시간 칸</label>
-    <div class="slot-steps">
-      <div class="sstep"><span class="sn">1</span><span class="sl">요일</span><span class="dpills" id="dPills"></span></div>
-      <div class="sstep"><span class="sn">2</span><span class="sl">시간</span><select id="tStart" aria-label="시작 시각"></select><span class="muted">부터</span><select id="tEnd" aria-label="끝 시각"></select><span class="muted">까지</span></div>
-      <div class="sstep"><span class="sn">3</span><span class="sl">칸 단위</span><span class="dpills" id="durPills"><button class="btn sm on" type="button" data-dur="30">30분</button><button class="btn sm" type="button" data-dur="60">60분</button><button class="btn sm" type="button" data-dur="90">90분</button><button class="btn sm" type="button" data-dur="120">120분</button></span><span class="muted" id="tEndNote"></span></div>
-      <div class="sstep"><span class="sn">4</span><button class="btn sm lav" type="button" onclick="addSlot()">칸 만들기</button><button class="btn sm" type="button" onclick="clearSlots()">모두 지우기</button></div>
+  <section class="card dz">
+    <div><h2 class="h2n"><span class="no">2</span>후보 시간 칸</h2>
+    <span class="dsub">요일 · 시간 · 칸 단위를 정하고 칸을 만든 뒤, 필요 없는 칸은 눌러서 뺍니다.</span></div>
+    <div class="slot-set">
+      <span class="sl">요일</span><div class="dpills" id="dPills"></div>
+      <span class="sl">시간</span><div class="tline"><select id="tStart" aria-label="시작 시각"></select><span class="mut">부터</span><select id="tEnd" aria-label="끝 시각"></select><span class="mut">까지</span></div>
+      <span class="sl">칸 단위</span><div class="tline"><span class="dpills" id="durPills"><button class="dchip on" type="button" data-dur="30">30분</button><button class="dchip" type="button" data-dur="60">60분</button><button class="dchip" type="button" data-dur="90">90분</button><button class="dchip" type="button" data-dur="120">120분</button></span><span class="mut" id="tEndNote"></span></div>
     </div>
+    <div class="buildbar" id="buildBar"><span id="buildMsg"></span><button class="bb-w" type="button" onclick="clearSlots()">모두 지우기</button><button class="bb-p" type="button" onclick="addSlot()">칸 만들기</button></div>
     <div class="slots" id="slots"></div>
+  </section>
 
-    <label class="f">조사 대상</label>
-    <div class="seg modes" id="modeSeg">
-      <button class="btn sm" type="button" data-m="all">전체</button><button class="btn sm" type="button" data-m="grade">학년</button><button class="btn sm" type="button" data-m="school">학교</button><button class="btn sm" type="button" data-m="cls">반</button><button class="btn sm on" type="button" data-m="stu">개인 (여러 명)</button>
+  <section class="card dz">
+    <h2 class="h2n"><span class="no">3</span>조사 대상</h2>
+    <div class="tseg" id="modeSeg">
+      <button type="button" data-m="all">전체</button><button type="button" data-m="grade">학년</button><button type="button" data-m="school">학교</button><button type="button" data-m="cls">반</button><button class="on" type="button" data-m="stu">개인 (여러 명)</button>
     </div>
     <div class="mpane" id="pane-all"><p class="muted" id="allNote">재원생 전체를 대상으로 해요.</p></div>
     <div class="mpane" id="pane-grade"><div class="gpills" id="gradePills"><span class="muted">재원 명단을 불러오는 중…</span></div></div>
-    <div class="mpane" id="pane-school"><div class="cls-bar"><select id="schSel" onchange="addSchool(this.value)"></select></div><p class="muted" style="margin:6px 0 0">한 학교의 한 학년만 고르려면 [학교]로 담은 뒤 아래 '학년만' 칸에서 학년을 고르세요.</p>
-      <div class="cls-bar"><select id="schGrade" onchange="summary()"><option value="">학년 모두</option></select></div></div>
+    <div class="mpane" id="pane-school"><div class="cls-bar"><select id="schSel" onchange="addSchool(this.value)"></select><select id="schGrade" onchange="summary()"><option value="">학년 모두</option></select></div><p class="muted" style="margin:6px 0 0">한 학교의 한 학년만 고르려면 학교를 담은 뒤 옆 칸에서 학년을 고르세요.</p></div>
     <div class="mpane" id="pane-cls"><div class="cls-bar">
-      <span class="seg"><button class="btn sm on" type="button" id="bk-정규" onclick="setBook('정규')">정규</button><button class="btn sm" type="button" id="bk-내신" onclick="setBook('내신')">내신</button></span>
+      <span class="tseg sm"><button class="on" type="button" id="bk-정규" onclick="setBook('정규')">정규</button><button type="button" id="bk-내신" onclick="setBook('내신')">내신</button></span>
       <select id="tSel" onchange="fillClassSel()"></select>
       <select id="clsSel" onchange="addClass(this.value)"><option value="">반 목록을 불러오는 중…</option></select>
     </div></div>
-    <div class="mpane" id="pane-stu"><div class="cls-bar">
-      <input type="text" id="stuQ" list="stuList" placeholder="학생 이름을 입력하고 목록에서 고르세요 (여러 명 담을 수 있어요)" autocomplete="off"><datalist id="stuList"></datalist>
-      <button class="btn sm" type="button" onclick="addStu()">추가</button>
+    <div class="mpane" id="pane-stu"><div class="stu-box">
+      <input type="text" id="stuQ" placeholder="학생 이름을 입력하고 목록에서 고르세요" autocomplete="off">
+      <button class="btn sm stu-add" type="button" onclick="addStu()">추가</button>
+      <div class="sug" id="stuSug" hidden></div>
     </div></div>
     <div class="chips" id="chips"></div>
     <div class="sum" id="sum"></div>
-    <div class="go-row"><span class="muted" id="goNote"></span><button class="btn lav" id="goBtn" onclick="createSurvey()" disabled>조사 만들고 열기</button></div>
   </section>
+  </div>
+  <div class="gobar" id="goBar"><div class="in"><div class="tx"><span class="sm" id="goSum"></span><span class="why" id="goNote"></span></div><button id="goBtn" onclick="createSurvey()" disabled>조사 만들고 열기</button></div></div>
 
   <section class="card">
     <h2>조사 목록</h2>
@@ -340,7 +421,9 @@
   }
   function fmt12(m){ let h = Math.floor(m / 60) % 12; if (h === 0) h = 12; return h + ':' + ('0' + (m % 60)).slice(-2); }
   function timeValOf(m){ if (m < 600) return '오전' + fmt12(m); if (m >= 1320) return '밤' + fmt12(m); return fmt12(m); }
-  function hmLabel(m){ const ap = m < 720 ? '오전' : (m >= 1320 ? '밤' : '오후'); return ap + ' ' + fmt12(m); }
+  function hmLabel(m){ return apOf(m) + ' ' + fmt12(m); }
+  // 화면 표시: 12시 전 오전 · 18시 전 오후 · 그 뒤 밤 (2026-11-05 디자인 묶음 — 저장 값은 timeValOf 그대로)
+  function apOf(m){ m = ((m % 1440) + 1440) % 1440; return m < 720 ? '오전' : (m < 1080 ? '오후' : '밤'); }
   function slotLabel(sl){ const a = mins(sl.start), b = mins(sl.end); return hmLabel(a) + ' · ' + (b - a) + '분'; }
   function slotSort(a, b){ return (DAYS[a.day] - DAYS[b.day]) || (mins(a.start) - mins(b.start)); }
 
@@ -348,26 +431,35 @@
   function fillTimeSel(){
     let o = '';
     for (let m = 8 * 60; m <= 23 * 60; m += 30) o += '<option value="' + m + '">' + hmLabel(m) + '</option>';
-    let oe = '';
-    for (let m = 8 * 60 + 30; m <= 24 * 60; m += 30) oe += '<option value="' + m + '">' + hmLabel(m) + '</option>';
-    $('tStart').innerHTML = o; $('tEnd').innerHTML = oe;
-    $('tStart').value = String(17 * 60); $('tEnd').value = String(22 * 60);
-    $('tStart').addEventListener('change', endNote); $('tEnd').addEventListener('change', endNote);
+    $('tStart').innerHTML = o;
+    $('tStart').value = String(16 * 60); fillEndSel(22 * 60);
+    $('tStart').addEventListener('change', () => { fillEndSel(+$('tEnd').value); endNote(); });
+    $('tEnd').addEventListener('change', endNote);
+    $('dPills').innerHTML = DAY_LIST.map(d => '<button class="dchip dy" type="button" data-d="' + d + '">' + d + '</button>').join('');
     endNote();
-    $('dPills').innerHTML = DAY_LIST.map(d => '<button class="btn sm" type="button" data-d="' + d + '">' + d + '</button>').join('');
   }
-  $('dPills') && document.addEventListener('click', e => {
+  // 끝 시각은 시작보다 늦은 것만 (디자인 묶음)
+  function fillEndSel(want){
+    const st = +$('tStart').value; let oe = '';
+    for (let m = st + 30; m <= 24 * 60; m += 30) oe += '<option value="' + m + '">' + hmLabel(m) + '</option>';
+    $('tEnd').innerHTML = oe;
+    $('tEnd').value = String(want > st && want <= 1440 ? want : Math.min(1440, st + 60));
+  }
+  document.addEventListener('click', e => {
     const b = e.target.closest('#dPills [data-d]'); if (!b) return;
     const d = b.dataset.d, i = DSEL.indexOf(d);
     if (i >= 0) DSEL.splice(i, 1); else DSEL.push(d);
-    b.classList.toggle('on', i < 0);
+    b.classList.toggle('on', i < 0); buildMsg();
   });
+  // 뺀 칸은 지우지 않고 OFF 에 둔다 — 표에 연하게 남고 다시 누르면 되살아난다 (2026-11-05 디자인 묶음)
+  let OFF = {}, LAST = null;
   function pushSlot(day, start, end){
     const id = day + '-' + start;
+    if (OFF[id]){ SLOTS.push(OFF[id]); delete OFF[id]; return true; }   // 칸 만들기를 다시 누르면 뺀 칸도 되살린다
     if (SLOTS.some(s => s.id === id)) return false;
     SLOTS.push({ id, day, start, end }); return true;
   }
-  // 끝 시각 = 시작 + 수업 길이(30·60·90·120분 — 2026-11-05 원장님), 밤 12시까지
+  // 칸 단위 30·60·90·120분 (2026-11-05 원장님)
   let DUR = 30;
   document.addEventListener('click', e => {
     const b = e.target.closest('#durPills [data-dur]'); if (!b) return;
@@ -383,56 +475,74 @@
   }
   function endNote(){
     const r = slotRange();
-    $('tEndNote').textContent = r.length ? '→ 요일마다 칸 ' + r.length + '개 (' + hmLabel(r[0][0]) + '~' + hmLabel(r[r.length - 1][1]) + ')' : '끝 시각이 시작보다 칸 단위만큼 늦어야 해요';
+    $('tEndNote').textContent = r.length ? '요일마다 ' + r.length + '칸' : '끝 시각이 시작보다 칸 단위만큼 늦어야 해요';
+    buildMsg();
+  }
+  function setKey(){ return [DSEL.slice().sort((a, b) => DAYS[a] - DAYS[b]).join(''), $('tStart').value, $('tEnd').value, DUR].join('|'); }
+  // 만들기 바 — 만든 뒤 설정이 바뀌면 노랑
+  function buildMsg(){
+    const bar = $('buildBar'); if (!bar) return;
+    let m = '', chg = false;
+    if (!SLOTS.length && !Object.keys(OFF).length) m = '요일 · 시간 · 칸 단위를 고르고 칸 만들기를 눌러 주세요.';
+    else if (DSEL.length && LAST && setKey() !== LAST.key){ m = '설정이 바뀌었어요. 칸 만들기를 누르면 이 설정의 칸을 더합니다.'; chg = true; }
+    else if (LAST) m = LAST.msg + ' 다른 요일·시간도 이어서 만들 수 있어요.';
+    else m = '칸 만들기를 누르면 아래 표에 칸이 생깁니다.';
+    $('buildMsg').textContent = m; bar.classList.toggle('chg', chg);
   }
   function addSlot(){
     if (!DSEL.length){ toast('요일을 먼저 골라 주세요'); return; }
     const r = slotRange();
     if (!r.length){ toast('끝 시각이 시작보다 칸 단위만큼 늦어야 해요'); return; }
     let n = 0; DSEL.forEach(d => r.forEach(([a, b]) => { if (pushSlot(d, timeValOf(a), timeValOf(b))) n++; }));
-    toast(n ? '칸 ' + n + '개를 만들었어요 · 다른 요일을 골라 이어서 만드세요' : '이미 있는 칸이에요');
+    const ds = DSEL.slice().sort((a, b) => DAYS[a] - DAYS[b]);
+    LAST = { key: setKey(), msg: ds.join('·') + ' ' + hmLabel(+$('tStart').value) + '~' + hmLabel(+$('tEnd').value) + ' · ' + DUR + '분 칸으로 만들었어요.' };
+    toast(n ? '칸 ' + n + '개를 만들었어요' : '이미 있는 칸이에요');
     // 만든 뒤 요일 선택은 비운다 — 다른 요일을 새로 고르게 (2026-11-05 원장님)
     DSEL = []; document.querySelectorAll('#dPills [data-d]').forEach(x => x.classList.remove('on'));
     drawSlots(); summary();
   }
-  function clearSlots(){ if (SLOTS.length && !confirm('후보 칸을 모두 지울까요?')) return; SLOTS = []; AX = null; drawSlots(); summary(); }
-  // 후보 칸 = 시간 눈금 고정 표 — 가로축 30분 눈금(선 위에 시각), 세로축 요일, 칸은 실제 길이만큼
-  // (2026-11-05 원장님 "시간을 가로축에" → "시간 카드가 움직이면 안돼요. 정확하지도 않아요")
-  // 눈금은 칸을 빼도 줄지 않는다(AX) — 넓어지기만 하고 [모두 지우기]에서 처음으로.
-  let AX = null;
-  function apOf(m){ return m < 720 ? '오전' : (m >= 1320 ? '밤' : '오후'); }
+  function clearSlots(){ if ((SLOTS.length || Object.keys(OFF).length) && !confirm('후보 칸을 모두 지울까요?')) return; SLOTS = []; OFF = {}; LAST = null; drawSlots(); summary(); }
+  // 후보 칸 표 — 요일 = 열, 시간(칸 시작) = 행 (2026-11-05 디자인 묶음). 칸을 누르면 빼기/되살리기, 맨 아래 '열 빼기'.
   function drawSlots(){
     SLOTS.sort(slotSort);
-    if (!SLOTS.length){ AX = null; $('slots').innerHTML = '<p class="muted" style="margin:0">아직 칸이 없어요. 요일 → 시간(부터·까지) → 칸 단위를 고르고 [칸 만들기]를 누르세요.</p>'; return; }
-    const lo = Math.min(...SLOTS.map(s => mins(s.start))), hi = Math.max(...SLOTS.map(s => mins(s.end)));
-    AX = AX ? [Math.min(AX[0], lo), Math.max(AX[1], hi)] : [lo, hi];
-    const a0 = Math.floor(AX[0] / 30) * 30, a1 = Math.ceil(AX[1] / 30) * 30, n = (a1 - a0) / 30;
-    const cols = 'grid-template-columns:44px repeat(' + n + ',var(--sc)) 22px';
-    let prev = '', ticks = '';
-    for (let i = 0; i <= n; i++) {
-      const m = a0 + i * 30, ap = apOf(m), show = ap !== prev; prev = ap;
-      ticks += '<span class="tk" style="grid-column:' + (i + 2) + '">' + (show ? '<small>' + ap + '</small>' : '<small>&nbsp;</small>') + fmt12(m) + '</span>';
-    }
-    const days = DAY_LIST.filter(d => SLOTS.some(s => s.day === d));
-    const rows = days.map(d => {
-      const list = SLOTS.filter(x => x.day === d), lane = {}, ends = [];
-      list.slice().sort((x, y) => mins(x.start) - mins(y.start)).forEach(sl => { const st = mins(sl.start); let i = 0; while (i < ends.length && ends[i] > st) i++; ends[i] = mins(sl.end); lane[sl.id] = i; });
-      const nl = Math.max(1, ends.length);
-      let h = '<div class="srow" style="' + cols + ';grid-template-rows:repeat(' + nl + ',28px)"><b class="dy" style="grid-row:1 / span ' + nl + '">' + d + '</b>';
-      for (let r = 1; r <= nl; r++) for (let i = 0; i < n; i++) h += '<span class="bg" style="grid-column:' + (i + 2) + ';grid-row:' + r + '"></span>';
-      list.forEach(sl => {
-        const st = mins(sl.start), en = mins(sl.end), c = (st - a0) / 30 + 2, w = Math.max(1, Math.round((en - st) / 30));
-        const lab = d + ' ' + hmLabel(st) + '~' + hmLabel(en);
-        h += '<button type="button" class="sx" data-rmslot="' + esc(sl.id) + '" style="grid-column:' + c + ' / span ' + w + ';grid-row:' + (lane[sl.id] + 1) + '" title="' + esc(lab) + ' · 누르면 빼요" aria-label="' + esc(lab + ' 빼기') + '"></button>';
+    const all = SLOTS.concat(Object.keys(OFF).map(k => OFF[k]));
+    buildMsg();
+    if (!all.length){ $('slots').innerHTML = ''; return; }
+    const days = DAY_LIST.filter(d => all.some(s => s.day === d));
+    const starts = [...new Set(all.map(s => mins(s.start)))].sort((a, b) => a - b);
+    const at = {}; all.forEach(s => { at[s.day + '|' + mins(s.start)] = s; });
+    let h = '<div class="stab-wrap"><div class="stab" style="min-width:' + (76 + days.length * 56) + 'px"><div class="r hd"><span class="tc">시간</span>' +
+      days.map(d => '<span class="dh">' + d + '</span>').join('') + '</div>';
+    starts.forEach(m => {
+      h += '<div class="r"><span class="tc"><small>' + apOf(m) + '</small><b>' + fmt12(m) + '</b></span>';
+      days.forEach(d => {
+        const sl = at[d + '|' + m];
+        if (!sl){ h += '<span class="cx na"></span>'; return; }
+        const off = !!OFF[sl.id], lab = d + ' ' + hmLabel(mins(sl.start)) + '~' + hmLabel(mins(sl.end));
+        h += '<button type="button" class="cx' + (off ? ' off' : '') + '" data-rmslot="' + esc(sl.id) + '" title="' + esc(lab + (off ? ' · 뺀 칸 · 누르면 되살려요' : ' · 누르면 빼요')) + '" aria-label="' + esc(lab + (off ? ' 되살리기' : ' 빼기')) + '"></button>';
       });
-      return h + '</div>';
-    }).join('');
-    $('slots').innerHTML = '<div class="sgrid-wrap"><div class="sgrid"><div class="shead" style="' + cols + '">' + ticks + '</div>' + rows + '</div></div>' +
-      '<p class="muted" style="margin:2px 0 0">후보 칸 ' + SLOTS.length + '개 · 칸을 누르면 뺍니다</p>';
+      h += '</div>';
+    });
+    h += '<div class="r ft"><span class="tc"></span>' + days.map(d => {
+      const live = SLOTS.some(s => s.day === d);
+      return '<button type="button" class="ftb" data-dcol="' + d + '">' + (live ? '열 빼기' : '되살리기') + '</button>';
+    }).join('') + '</div></div></div>';
+    h += '<div class="slegend"><span><i class="l-on"></i>후보 칸</span><span><i class="l-off"></i>뺀 칸</span><span class="cnt">후보 칸 <b>' + SLOTS.length + '</b>개 · 칸을 누르면 뺍니다</span></div>';
+    $('slots').innerHTML = h;
   }
   document.addEventListener('click', e => {
-    const b = e.target.closest('[data-rmslot]'); if (!b) return;
-    SLOTS = SLOTS.filter(s => s.id !== b.dataset.rmslot); drawSlots(); summary();
+    const b = e.target.closest('[data-rmslot]');
+    if (b){
+      const id = b.dataset.rmslot;
+      if (OFF[id]){ SLOTS.push(OFF[id]); delete OFF[id]; }
+      else { const sl = SLOTS.find(s => s.id === id); if (sl){ OFF[id] = sl; SLOTS = SLOTS.filter(s => s.id !== id); } }
+      drawSlots(); summary(); return;
+    }
+    const c = e.target.closest('[data-dcol]'); if (!c) return;
+    const d = c.dataset.dcol;
+    if (SLOTS.some(s => s.day === d)){ SLOTS.filter(s => s.day === d).forEach(s => { OFF[s.id] = s; }); SLOTS = SLOTS.filter(s => s.day !== d); }
+    else Object.keys(OFF).forEach(k => { if (OFF[k].day === d){ SLOTS.push(OFF[k]); delete OFF[k]; } });
+    drawSlots(); summary();
   });
 
   /* ── 명단 이름 → 재원 학생 (clinic_assign clsFind 와 같은 규칙) ── */
@@ -502,7 +612,7 @@
   /* ── 방식 고르기 ── */
   function setMode(m){
     MODE = m;
-    document.querySelectorAll('#modeSeg .btn').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+    document.querySelectorAll('#modeSeg button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
     ['all', 'grade', 'school', 'cls', 'stu'].forEach(x => $('pane-' + x).classList.toggle('on', x === m));
     drawChips(); summary();
   }
@@ -517,7 +627,6 @@
     $('schSel').innerHTML = '<option value="">학교를 고르세요 (' + Object.keys(sc).length + '곳)</option>' +
       Object.keys(sc).sort((a, b) => sc[b] - sc[a] || a.localeCompare(b, 'ko')).map(x => '<option value="' + esc(x) + '">' + esc(x) + ' (' + sc[x] + '명)</option>').join('');
     // 개인 — 이름 · 학교 학년 (동명이인 구분)
-    $('stuList').innerHTML = STUS.filter(s => s.code).map(s => '<option value="' + esc(stuKey(s)) + '"></option>').join('');
     $('allNote').textContent = '재원생 전체 ' + STUS.filter(s => s.code).length + '명에게 배정해요.';
   }
   function stuKey(s){ return s.name + ' · ' + [s.school, gradeShort(s.grade)].filter(Boolean).join(' '); }
@@ -534,17 +643,33 @@
     if (!s){ const hits = STUS.filter(x => x.code && x.name === q); if (hits.length === 1) s = hits[0]; else if (hits.length > 1){ toast('같은 이름이 ' + hits.length + '명 있어요 — 목록에서 학교까지 골라 주세요'); return; } }
     if (!s){ toast('재원 명단에서 찾지 못했어요'); return; }
     if (SEL.stu.indexOf(s.code) < 0) SEL.stu.push(s.code);
-    $('stuQ').value = ''; drawChips(); summary();
+    $('stuQ').value = ''; $('stuSug').hidden = true; drawChips(); summary();
   }
-  $('stuQ').addEventListener('change', () => { if (STUS.some(x => x.code && stuKey(x) === $('stuQ').value.trim())) addStu(); });
-  $('stuQ').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addStu(); } });
+  // 이름 입력 → 아래 제안 목록(이름 + 학교 학년), 누르면 담김 (2026-11-05 디자인 묶음)
+  function drawSug(){
+    const q = $('stuQ').value.trim(), box = $('stuSug');
+    const hits = q ? STUS.filter(x => x.code && x.name.indexOf(q) >= 0 && SEL.stu.indexOf(x.code) < 0).slice(0, 6) : [];
+    box.hidden = !hits.length;
+    box.innerHTML = hits.map(x => '<button type="button" data-sug="' + esc(x.code) + '">' + esc(x.name) + '<span>' + esc([x.school, gradeShort(x.grade)].filter(Boolean).join(' ')) + '</span></button>').join('');
+  }
+  $('stuQ').addEventListener('input', drawSug);
+  $('stuQ').addEventListener('focus', drawSug);
+  $('stuQ').addEventListener('blur', () => setTimeout(() => { $('stuSug').hidden = true; }, 150));
+  $('stuQ').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); addStu(); } if (e.key === 'Escape') $('stuSug').hidden = true; });
+  $('stuSug').addEventListener('mousedown', e => e.preventDefault());
+  $('stuSug').addEventListener('click', e => {
+    const b = e.target.closest('[data-sug]'); if (!b) return;
+    if (SEL.stu.indexOf(b.dataset.sug) < 0) SEL.stu.push(b.dataset.sug);
+    $('stuQ').value = ''; $('stuSug').hidden = true; drawChips(); summary(); $('stuQ').focus();
+  });
   function drawChips(){
     let items = [];
     if (MODE === 'grade') items = SEL.grade.map(v => ['grade', v, v]);
     if (MODE === 'school') items = SEL.school.map(v => ['school', v, v]);
     if (MODE === 'cls') items = SEL.cls.map(c => ['cls', pickKey(c), c.book + ' ' + c.day + ' ' + c.start + ' · ' + c.name + (c.teacher ? ' · ' + tLabel(c.teacher) : '')]);
     if (MODE === 'stu') items = SEL.stu.map(code => { const s = STUS.find(x => x.code === code); return ['stu', code, s ? stuKey(s) : code]; });
-    $('chips').innerHTML = items.map(([k, v, l]) => '<span class="fchip">' + esc(l) + '<button type="button" data-k="' + k + '" data-v="' + esc(v) + '" aria-label="빼기" title="빼기">×</button></span>').join('');
+    $('chips').innerHTML = items.map(([k, v, l]) => '<span class="fchip">' + esc(l) + '<button type="button" data-k="' + k + '" data-v="' + esc(v) + '" aria-label="빼기" title="빼기">×</button></span>').join('') ||
+      (MODE === 'stu' ? '<span class="none">아직 고른 학생이 없어요.</span>' : '');
   }
   $('chips').addEventListener('click', e => {
     const b = e.target.closest('button[data-k]'); if (!b) return;
@@ -617,21 +742,33 @@
     if (MODE === 'school') fillSchGrade();
     const spec = specOf(MODE);
     const title = $('sTitle').value.trim();
-    const pre = !title ? '제목을 적어 주세요' : !SLOTS.length ? '후보 시간 칸을 넣어 주세요' : '';
-    if (!spec.length){ $('sum').innerHTML = ''; $('goBtn').disabled = true; $('goNote').textContent = pre || MODE_NAME[MODE] + '을(를) 골라 주세요'; return; }
-    if (!STUS.length){ $('sum').innerHTML = '<span class="muted">재원 명단을 불러오는 중…</span>'; $('goBtn').disabled = true; return; }
-    const e = expand(spec); onlyGrade(e.out);
-    const n = Object.keys(e.out).length;
-    let h = (MODE === 'all' ? '재원생 전체' : MODE_NAME[MODE] + ' <b>' + spec.length + '개</b>') + (MODE === 'school' && $('schGrade').value ? ' · ' + esc($('schGrade').value) + '만' : '') + ' · 대상 학생 <b>' + n + '명</b>';
-    const w = [];
-    if (e.miss.length) w.push('재원 명단에 없는 이름 ' + e.miss.length + '명: ' + e.miss.map(esc).join(', '));
-    if (e.dup.length) w.push('동명이인이라 못 가린 이름 ' + e.dup.length + '명: ' + e.dup.map(esc).join(', '));
-    if (e.nocode.length) w.push('학생 페이지 링크(접근코드)가 없는 학생 ' + e.nocode.length + '명: ' + e.nocode.map(esc).join(', '));
-    if (w.length) h += '<div class="warn">이 학생들은 대상에 들어가지 않아요 — ' + w.join('<br>') + '</div>';
-    $('sum').innerHTML = h;
-    const lack = pre || (!n ? '대상 학생이 없어요' : '');
-    $('goBtn').disabled = !!lack; $('goNote').textContent = lack;
+    const pre = !title ? '제목을 적어 주세요' : !SLOTS.length ? '후보 칸을 만들어 주세요' : '';
+    const NEED = { grade: '학년을 하나 이상 골라 주세요', school: '학교를 하나 이상 골라 주세요', cls: '반을 하나 이상 골라 주세요', stu: '학생을 한 명 이상 추가해 주세요' };
+    let n = 0, lack = '';
+    if (!spec.length){ $('sum').innerHTML = ''; lack = pre || NEED[MODE] || ''; }
+    else if (!STUS.length){ $('sum').innerHTML = '<span class="muted">재원 명단을 불러오는 중…</span>'; lack = pre || '재원 명단을 불러오는 중이에요'; }
+    else {
+      const e = expand(spec); onlyGrade(e.out);
+      n = Object.keys(e.out).length;
+      let h = (MODE === 'all' ? '재원생 전체' : MODE_NAME[MODE] + ' <b>' + spec.length + '개</b>') + (MODE === 'school' && $('schGrade').value ? ' · ' + esc($('schGrade').value) + '만' : '') + ' · 대상 학생 <b>' + n + '명</b>';
+      const w = [];
+      if (e.miss.length) w.push('재원 명단에 없는 이름 ' + e.miss.length + '명: ' + e.miss.map(esc).join(', '));
+      if (e.dup.length) w.push('동명이인이라 못 가린 이름 ' + e.dup.length + '명: ' + e.dup.map(esc).join(', '));
+      if (e.nocode.length) w.push('학생 페이지 링크(접근코드)가 없는 학생 ' + e.nocode.length + '명: ' + e.nocode.map(esc).join(', '));
+      if (w.length) h += '<div class="warn">이 학생들은 대상에 들어가지 않아요 — ' + w.join('<br>') + '</div>';
+      $('sum').innerHTML = h;
+      lack = pre || (!n ? '대상 학생이 없어요' : '');
+    }
+    // 아래 고정 바 — "후보 칸 N개 · 대상" + 사유 (2026-11-05 디자인 묶음)
+    const lbl = MODE === 'all' ? '전체 학생' : MODE === 'stu' ? '학생 ' + SEL.stu.length + '명'
+      : spec.length ? MODE_NAME[MODE] + ' ' + spec.map(specLabel).join(', ') : MODE_NAME[MODE] + ' 미선택';
+    $('goSum').textContent = '후보 칸 ' + SLOTS.length + '개 · ' + lbl + (n && MODE !== 'stu' ? ' · ' + n + '명' : '');
+    const d = $('sDue').value;
+    const okMsg = d ? (+d.slice(5, 7)) + '/' + (+d.slice(8, 10)) + ' 밤까지 받아요' : '마감일 없이 받아요';
+    $('goNote').textContent = lack || okMsg; $('goNote').classList.toggle('ok', !lack);
+    $('goBtn').disabled = !!lack;
   }
+  $('sDue').addEventListener('change', summary);
   $('sTitle').addEventListener('input', summary);
 
   /* ── 조사 만들기 ── */
@@ -655,9 +792,9 @@
       .then(sid => {
         toast('조사를 열었어요 — 대상 ' + n + '명');
         if (window.shuegukActivity) shuegukActivity('시간표 조사', '조사 열기', title, '대상 ' + n + '명 · 칸 ' + SLOTS.length + '개', true);
-        $('sTitle').value = ''; $('sMemo').value = ''; SLOTS = []; drawSlots();
+        $('sTitle').value = ''; $('sMemo').value = ''; SLOTS = []; OFF = {}; LAST = null; drawSlots();
         SEL = { grade: [], school: [], cls: [], stu: [] }; fillPickers(); fillClassSel(); drawChips(); summary();
-        OPEN[sid] = true; $('goNote').textContent = '';
+        OPEN[sid] = true;
         return loadSurveys();
       })
       .catch(err => { console.error(err); $('goNote').textContent = /avail_surveys|404|PGRST205/.test(String(err)) ? '데이터베이스 062 적용이 필요해요' : '만들지 못했어요 — 다시 눌러 주세요'; $('goBtn').disabled = false; });
@@ -1058,6 +1195,7 @@
   }
 
   /* ── 시작 ── */
+  if (window.IntersectionObserver) new IntersectionObserver(es => { es.forEach(x => $('goBar').classList.toggle('away', !x.isIntersecting)); }).observe($('addCard'));
   fillTimeSel(); drawSlots();
   $('sDue').value = new Date(Date.now() + 9 * 3600e3 + 7 * 864e5).toISOString().slice(0, 10);
   if (window.TeacherAuth && TeacherAuth.ready) TeacherAuth.ready.then(c => { ME = (c && c.profile && c.profile.display_name) || ''; }).catch(() => {});
