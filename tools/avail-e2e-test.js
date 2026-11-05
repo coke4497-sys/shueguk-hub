@@ -147,7 +147,8 @@ function seed(){
   // 30분 단위 · 오후 5시~밤 10시 = 요일마다 10칸
   await pg.selectOption('#tEnd', String(22 * 60)); await pg.click('#durPills [data-dur="30"]');
   ok(/칸 10개/.test(await pg.textContent('#tEndNote')), '30분 단위 10칸 안내');
-  await pg.click('#dPills [data-d="목"]'); await pg.click('text=칸 만들기');
+  await pg.click('#dPills [data-d="금"]'); await pg.click('#dPills [data-d="목"]'); await pg.click('text=칸 만들기');
+  ok((await pg.$$eval('#dPills .on', a => a.length)) === 0, '칸 만들기 뒤 요일 선택이 비워짐');
   const s30 = await pg.textContent('#slots');
   const sgHeads = await pg.$$eval('#slots .sgrid .shead .tk', a => a.map(e => e.textContent));
   ok(/후보 칸 20개/.test(s30) && !!(await pg.$('[data-rmslot="목-9:30"]')) && sgHeads.length === 11 && sgHeads[0] === '오후5:00' && sgHeads[10] === '밤10:00', '금·목 30분 칸 20개 · 눈금 5:00~10:00 고정 30분', sgHeads.join('|'));
@@ -156,7 +157,6 @@ function seed(){
   ok(Math.abs(geo.a - geo.t0) < 4 && Math.abs(geo.b - geo.t10) < 4, '칸 시작·끝이 눈금 선과 맞음', JSON.stringify(geo));
   await pg.click('[data-rmslot="목-9:30"]');
   ok((await pg.$$eval('#slots .sgrid .shead .tk', a => a.length)) === 11, '칸을 빼도 눈금이 그대로');
-  await pg.click('#dPills [data-d="목"]');
   for (const id of await pg.$$eval('[data-rmslot]', a => a.map(e => e.dataset.rmslot))) if (id !== '금-5:00') await pg.click('[data-rmslot="' + id + '"]');
   ok(!(await pg.$('text=슈국 기본 칸 넣기')), '기본 칸 버튼 없음');
   await baseSlots();

@@ -390,7 +390,9 @@
     const r = slotRange();
     if (!r.length){ toast('끝 시각이 시작보다 칸 단위만큼 늦어야 해요'); return; }
     let n = 0; DSEL.forEach(d => r.forEach(([a, b]) => { if (pushSlot(d, timeValOf(a), timeValOf(b))) n++; }));
-    toast(n ? '칸 ' + n + '개를 만들었어요' : '이미 있는 칸이에요');
+    toast(n ? '칸 ' + n + '개를 만들었어요 · 다른 요일을 골라 이어서 만드세요' : '이미 있는 칸이에요');
+    // 만든 뒤 요일 선택은 비운다 — 다른 요일을 새로 고르게 (2026-11-05 원장님)
+    DSEL = []; document.querySelectorAll('#dPills [data-d]').forEach(x => x.classList.remove('on'));
     drawSlots(); summary();
   }
   function clearSlots(){ if (SLOTS.length && !confirm('후보 칸을 모두 지울까요?')) return; SLOTS = []; AX = null; drawSlots(); summary(); }
