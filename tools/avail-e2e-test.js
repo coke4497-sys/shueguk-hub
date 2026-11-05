@@ -95,10 +95,34 @@ function seed(){
   t = T(await pg.textContent('#s1 .resbox'));
   ok(/아직 제출하지 않은 학생 1명/.test(t) && /박지현/.test(t), '미제출 학생');
   ok(/토 11:00/.test(t) && /모두 가능/.test(t) && /학부모님/.test(t), '응답 표(안 되는 칸·모두 가능·누가)');
+  // 자동 배치 추천 — 1칸·주 1회
+  ok(/\[추천 받기\]/.test(T(await pg.textContent('#s1 .resbox'))), '추천 안내');
+  await pg.selectOption('#s1 .pl-bar select:nth-of-type(1)', '1'); await pg.waitForTimeout(100);
+  await pg.click('#s1 .pl-bar .btn.lav'); await pg.waitForTimeout(400);
+  let cards = await pg.$$eval('#s1 .pl-card', a => a.map(e => e.textContent.replace(/\s+/g, ' ')));
+  ok(cards.length === 2 && /1안\s*수 5:30/.test(cards[0]) && /2 \/ 2명 배정 · 모두/.test(cards[0]), '1안 = 수 5:30 두 명 모두', cards[0]);
+  ok(/2안\s*토 11:00/.test(cards[1]) && /1 \/ 2명/.test(cards[1]) && /김나연 \(가능한 칸 없음\)/.test(cards[1]), '2안 = 토 11:00 · 김나연 못 들어감(이유)', cards[1]);
+  ok(/조합 2개/.test(T(await pg.textContent('#s1 .resbox'))), '따져 본 조합 수');
+  await pg.click('#s1 .pl-card .btn'); await pg.waitForTimeout(150);
+  const pc = (await pg.evaluate(() => navigator.clipboard.readText())).split('\n');
+  ok(pc[0] === '반\t이름\t학교\t학년' && pc.some(l => /^수 5:30~7:30\t김나연\t화정고\t고1$/.test(l)), '1안 표 복사', pc);
+  // 정원 1 로 바꾸면 결과가 지워지고 다시 계산
+  await pg.fill('#s1 .pl-bar input', '1'); await pg.press('#s1 .pl-bar input', 'Tab'); await pg.waitForTimeout(150);
+  ok(!(await pg.$('#s1 .pl-card')), '설정 바꾸면 결과 지움');
+  await pg.click('#s1 .pl-bar .btn.lav'); await pg.waitForTimeout(400);
+  cards = await pg.$$eval('#s1 .pl-card', a => a.map(e => e.textContent.replace(/\s+/g, ' ')));
+  ok(/1 \/ 2명 배정/.test(cards[0]) && /정원이 참|가능한 칸 없음/.test(cards[0]), '정원 1이면 한 명은 못 들어감', cards[0]);
+  // 주 2회 — 두 칸(수·토)
+  await pg.selectOption('#s1 .pl-bar select:nth-of-type(1)', '2'); await pg.selectOption('#s1 .pl-bar select:nth-of-type(2)', '2');
+  await pg.fill('#s1 .pl-bar input', '9'); await pg.press('#s1 .pl-bar input', 'Tab'); await pg.waitForTimeout(100);
+  await pg.click('#s1 .pl-bar .btn.lav'); await pg.waitForTimeout(400);
+  t = T(await pg.textContent('#s1 .resbox'));
+  ok(/1 \/ 2명 배정/.test(t) && /김나연/.test(t) && /가·나는 선생님이 정해/.test(t), '주 2회: 토가 안 되는 김나연은 못 들어감');
   // 학년 거르기
   await pg.selectOption('#s1 .res-bar select:nth-of-type(2)', '고1'); await pg.waitForTimeout(100);
   t = T(await pg.textContent('#s1 .resbox'));
   ok(/대상 2명 · 제출 1명/.test(t) && !/이서윤/.test(t), '고1만 거르기');
+  ok(!(await pg.$('#s1 .pl-card')) && /제출한 1명 기준/.test(t), '거르면 추천도 그 학생들로 다시');
   // 표 복사
   await pg.click('#s1 .resbox h4 .btn'); await pg.waitForTimeout(150);
   const clip = await pg.evaluate(() => navigator.clipboard.readText());

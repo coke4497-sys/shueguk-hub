@@ -199,6 +199,17 @@
   .ok-all{color:#3A6B5E;font-size:.8rem;}
   .names{font-size:.86rem;line-height:1.8;}
   .names span{display:inline-block;background:#fff;border-radius:8px;padding:0 8px;margin:2px 3px 2px 0;}
+  .pl-card{background:#fff;border-radius:12px;padding:12px 14px;margin-top:10px;}
+  .pl-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .pl-hd b{font-family:"Do Hyeon",var(--sans);font-weight:400;font-size:1.15rem;color:var(--lilac-ink);}
+  .pl-hd span{font-size:.88rem;}
+  .pl-hd .pl-n{margin-left:auto;font-size:.84rem;background:#F6EFD8;color:#7A6330;border-radius:20px;padding:2px 10px;}
+  .pl-hd .pl-n.all{background:#E2F4EC;color:#2A6555;}
+  .pl-cls{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px;margin-top:8px;}
+  .pl-c{background:#F7F9F8;border-radius:10px;padding:8px 10px;}
+  .pl-c .t{margin:0 0 2px;font-size:.86rem;font-weight:700;}
+  .pl-c .names span{background:#fff;}
+  .pl-bar{gap:8px;font-size:.86rem;}
   @media (max-width:640px){
     .heat .cell,.heat .none{min-width:52px;}
     .res table.rt{font-size:.8rem;}
@@ -665,6 +676,198 @@
       .catch(() => toast('지우지 못했어요'));
   }
 
+
+  /* ── PLACE-CORE: 자동 배치 추천 (2026-11-05 원장님 "자동 배치 추천도 만들어줘") ──────────────
+   * 후보 칸 중 n칸을 골라 반을 연다고 할 때, 제출한 학생을 가장 많이 넣는 칸 조합을 찾는다.
+   * · 주 1회: 학생마다 가능한 칸 하나 · 주 2회: 서로 다른 요일의 가능한 칸 둘(가·나는 선생님이 정한다).
+   * · 칸마다 정원(cap). 배정은 최대 유량(정확) → 칸 인원을 고르게 옮겨 맞춘다.
+   * · 조합이 10만 개 이하이면 모두 보고(빠른 상한으로 줄 세운 뒤 위 400개만 정확히 계산), 넘으면 빔 탐색.
+   * · 순서: 다 들어간 학생 수 → 들어간 횟수 합 → 칸 인원 차이 작은 순.
+   * tools/avail-place-test.js 가 이 블록만 떼어 검사한다 — 고치면 함께. */
+  const PLACE = (function(){
+    function combos(m, n){ let c = 1; for (let i = 0; i < n; i++) c = c * (m - i) / (i + 1); return Math.round(c); }
+    function maxflow(N, edges, src, snk){
+      const head = new Array(N).fill(-1), to = [], cap = [], nxt = [];
+      const add = (u, v, c) => { to.push(v); cap.push(c); nxt.push(head[u]); head[u] = to.length - 1; to.push(u); cap.push(0); nxt.push(head[v]); head[v] = to.length - 1; };
+      edges.forEach(e => add(e[0], e[1], e[2]));
+      let flow = 0;
+      const level = new Array(N), it = new Array(N);
+      const bfs = () => { level.fill(-1); level[src] = 0; const q = [src];
+        for (let qi = 0; qi < q.length; qi++){ const u = q[qi]; for (let e = head[u]; e >= 0; e = nxt[e]) if (cap[e] > 0 && level[to[e]] < 0){ level[to[e]] = level[u] + 1; q.push(to[e]); } }
+        return level[snk] >= 0; };
+      const dfs = (u, f) => { if (u === snk) return f;
+        for (; it[u] >= 0; it[u] = nxt[it[u]]){ const e = it[u], v = to[e];
+          if (cap[e] > 0 && level[v] === level[u] + 1){ const d = dfs(v, Math.min(f, cap[e])); if (d > 0){ cap[e] -= d; cap[e ^ 1] += d; return d; } } }
+        return 0; };
+      while (bfs()){ for (let i = 0; i < N; i++) it[i] = head[i]; let f; while ((f = dfs(src, 1e9)) > 0) flow += f; }
+      return { flow, to, cap, head, nxt };
+    }
+    /* 학생 배정: stus[i].ok = 가능한 칸 번호 집합(Set), slots[j].day */
+    /* 주 2회: 최대 유량은 '들어간 횟수 합'을 최대로 하므로 한 번만 들어간 학생이 자리를 차지할 수 있다.
+     * 한 번만 들어간 학생을 한 명씩 빼 보고, 다 들어간 학생이 늘거나 같으면서 반쪽이 줄면 그대로 둔다. */
+    function assign(stus, slots, pick, f, cap, order){
+      if (f !== 2) return assign1(stus, slots, pick, f, cap, null);
+      const halves = r => r.got.map((g, i) => g.length === 1 ? i : -1).filter(i => i >= 0);
+      let excl = new Set(), best = assign1(stus, slots, pick, f, cap, excl, order);
+      for (let guard = 0; guard < stus.length; guard++){
+        let improved = false;
+        for (const h of halves(best)){
+          const ex2 = new Set(excl); ex2.add(h);
+          const r2 = assign1(stus, slots, pick, f, cap, ex2, order);
+          if (r2.full > best.full || (r2.full === best.full && halves(r2).length < halves(best).length)){ best = r2; excl = ex2; improved = true; break; }
+        }
+        if (!improved) break;
+      }
+      return repair(stus, slots, pick, best, cap);
+    }
+    /* 주 2회 손질: 반쪽 배정을 비운 뒤, 못 들어간 학생을 빈 자리에 넣는다.
+     * 자리가 차 있으면 그 반의 다른 학생 한 명을 그 학생이 갈 수 있는 빈 반으로 옮겨 자리를 만든다. */
+    function repair(stus, slots, pick, r, cap){
+      const P = pick.length, got = r.got.map(g => g.length === 2 ? g.slice() : []);
+      const load = pick.map(() => 0); got.forEach(g => g.forEach(k => load[k]++));
+      const can = (i, k) => stus[i].ok.has(pick[k]);
+      const dayK = k => slots[pick[k]].day;
+      const free = k => load[k] < cap;
+      // 반 k 의 학생 한 명을 다른 빈 반으로 옮긴다(옮길 학생의 나머지 반과 요일이 겹치지 않게, ban 칸은 쓰지 않음).
+      // 옮긴 기록을 돌려줘 실패하면 되돌린다. 반마다 학생 목록(mem)을 들고 있어 전원을 훑지 않는다.
+      const mem = pick.map(() => []); got.forEach((g, x) => g.forEach(k => mem[k].push(x)));
+      const move = (x, from, to) => { const g = got[x]; g[g.indexOf(from)] = to; load[from]--; load[to]++; mem[from].splice(mem[from].indexOf(x), 1); mem[to].push(x); };
+      const evict = (k, ban) => {
+        for (const x of mem[k]){
+          const g = got[x], other = g[0] === k ? g[1] : g[0];
+          for (let c = 0; c < P; c++){
+            if (c === k || ban.indexOf(c) >= 0 || !free(c) || !can(x, c) || c === other || dayK(c) === dayK(other)) continue;
+            move(x, k, c); return [x, k, c];
+          }
+        }
+        return null;
+      };
+      const place = i => {
+        for (let a = 0; a < P; a++){ if (!can(i, a)) continue;
+          for (let b = a + 1; b < P; b++){
+            if (dayK(a) === dayK(b) || !can(i, b)) continue;
+            const log = [];
+            if (!free(a)){ const m = evict(a, [b]); if (m) log.push(m); }
+            if (free(a) && !free(b)){ const m = evict(b, [a]); if (m) log.push(m); }
+            if (free(a) && free(b)){ got[i] = [a, b]; load[a]++; load[b]++; mem[a].push(i); mem[b].push(i); changed = true; return true; }
+            log.reverse().forEach(m => move(m[0], m[2], m[1]));
+          }
+        }
+        return false;
+      };
+      let changed;
+      for (let round = 0; round < 6; round++){
+        changed = false;
+        for (let i = 0; i < got.length; i++) if (!got[i].length) place(i);
+        if (!changed) break;
+      }
+      const out = rebalance(stus, slots, pick, got, 2, cap);
+      return (out.full > r.full || (out.full === r.full && out.units >= r.units)) ? out : r;
+    }
+    function assign1(stus, slots, pick, f, cap, excl, order){
+      const S = stus.length, P = pick.length, days = [];
+      pick.forEach(j => { if (days.indexOf(slots[j].day) < 0) days.push(slots[j].day); });
+      const D = f === 2 ? days.length : 0;
+      const src = 0, snk = 1, sBase = 2, dBase = sBase + S, pBase = dBase + S * D, N = pBase + P;
+      const edges = [], pe = [];   // pe = 학생→칸 간선 위치 (나중에 읽는다)
+      (order || stus.map((_, i) => i)).forEach(i => { const st = stus[i];
+        if (excl && excl.has(i)) return;
+        edges.push([src, sBase + i, f]);
+        pick.forEach((j, k) => {
+          if (!st.ok.has(j)) return;
+          if (f === 2){ const di = days.indexOf(slots[j].day); pe.push([i, k, edges.length]); edges.push([dBase + i * D + di, pBase + k, 1]); }
+          else { pe.push([i, k, edges.length]); edges.push([sBase + i, pBase + k, 1]); }
+        });
+        if (f === 2) days.forEach((d, di) => { if (pick.some(j => slots[j].day === d && st.ok.has(j))) edges.push([sBase + i, dBase + i * D + di, 1]); });
+      });
+      pick.forEach((j, k) => edges.push([pBase + k, snk, cap]));
+      const g = maxflow(N, edges, src, snk);
+      const got = stus.map(() => []);
+      pe.forEach(([i, k, ei]) => { if (g.cap[ei * 2] === 0) got[i].push(k); });   // 간선 ei 는 to/cap 의 2*ei 자리
+      return rebalance(stus, slots, pick, got, f, cap);
+    }
+    /* 칸 인원 고르게 — 많은 칸의 학생을 적은 칸으로(가능하고, 주 2회면 다른 칸과 요일이 겹치지 않을 때) */
+    function rebalance(stus, slots, pick, got, f, cap){
+      const load = pick.map(() => 0); got.forEach(g => g.forEach(k => load[k]++));
+      for (let guard = 0; guard < 2000; guard++){
+        let moved = false;
+        const order = pick.map((_, k) => k).sort((a, b) => load[b] - load[a]);
+        outer: for (const a of order){
+          for (const b of order.slice().reverse()){
+            if (load[a] - load[b] < 2) continue;
+            for (let i = 0; i < got.length; i++){
+              const g = got[i]; if (g.indexOf(a) < 0 || g.indexOf(b) >= 0 || !stus[i].ok.has(pick[b])) continue;
+              if (f === 2 && g.some(k => k !== a && slots[pick[k]].day === slots[pick[b]].day)) continue;
+              g[g.indexOf(a)] = b; load[a]--; load[b]++; moved = true; break outer;
+            }
+          }
+        }
+        if (!moved) break;
+      }
+      const full = got.filter(g => g.length >= f).length, units = got.reduce((t, g) => t + g.length, 0);
+      return { got, load, full, units, spread: Math.max.apply(null, load) - Math.min.apply(null, load) };
+    }
+    function better(a, b){ return a.full - b.full || a.units - b.units || b.spread - a.spread; }
+    /* slots: [{id,day,start}], stus: [{code,name,no:[id]}] → 상위 안 3개 */
+    function plan(slots, stus, n, f, cap){
+      const m = slots.length;
+      if (!m || n < 1 || n > m) return { plans: [], note: '칸 수를 다시 골라 주세요' };
+      if (f === 2 && new Set(slots.map(x => x.day)).size < 2) return { plans: [], note: '주 2회는 요일이 둘 이상이어야 해요' };
+      const idx = {}; slots.forEach((x, j) => { idx[x.id] = j; });
+      const S = stus.map(st => { const no = new Set((st.no || []).map(k => idx[k])); const ok = new Set(); slots.forEach((x, j) => { if (!no.has(j)) ok.add(j); }); return { st, ok }; });
+      const dayOf = slots.map(x => x.day), dayList = []; dayOf.forEach(d => { if (dayList.indexOf(d) < 0) dayList.push(d); });
+      // 빠른 상한: 이 조합에서 f번 들어갈 수 있는 학생 수(정원 무시)
+      const quick = pick => { let c = 0; S.forEach(x => { if (f === 1){ if (pick.some(j => x.ok.has(j))) c++; } else { const ds = new Set(); pick.forEach(j => { if (x.ok.has(j)) ds.add(dayOf[j]); }); if (ds.size >= 2) c++; } }); return Math.min(c, Math.floor(n * cap / f)); };
+      let cand = [];
+      const total = combos(m, n);
+      if (total <= 100000){
+        const pick = [];
+        const rec = start => { if (pick.length === n){ cand.push({ pick: pick.slice(), q: quick(pick) }); return; }
+          for (let j = start; j <= m - (n - pick.length); j++){ pick.push(j); rec(j + 1); pick.pop(); } };
+        rec(0);
+      } else {   // 빔 탐색 — 한 칸씩 더하며 위 300개만 남긴다
+        let beam = [[]];
+        for (let step = 0; step < n; step++){
+          const next = [], seen = {};
+          beam.forEach(b => { for (let j = (b.length ? b[b.length - 1] + 1 : 0); j < m; j++){ const p = b.concat(j); const key = p.join(','); if (seen[key]) continue; seen[key] = 1; next.push({ pick: p, q: quick(p) }); } });
+          next.sort((a, b) => b.q - a.q); beam = next.slice(0, 300).map(x => x.pick);
+        }
+        cand = beam.map(p => ({ pick: p, q: quick(p) }));
+      }
+      cand.sort((a, b) => b.q - a.q);
+      const SS = S.map(x => ({ ok: x.ok }));
+      let top = cand.slice(0, 400).map(c => { const r = assign(SS, slots, c.pick, f, cap); r.pick = c.pick; return r; });
+      const ord = (a, b) => better(b, a) || a.pick.join(',').localeCompare(b.pick.join(','));
+      top.sort(ord);
+      // 주 2회: 위 조합 몇 개는 학생 순서를 바꿔 여러 번 더 풀어 가장 좋은 배정을 쓴다(최대 유량 결과가 순서에 따라 달라서)
+      if (f === 2){
+        const TOPN = SS.length <= 40 ? 20 : 8, TRIES = SS.length <= 40 ? 30 : 4;   // 학생이 많으면 줄인다(화면이 멈추지 않게)
+        let seed = 12345; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+        top = top.map((r, i) => {
+          if (i >= TOPN) return r;
+          let best = r;
+          for (let k = 0; k < TRIES; k++){
+            const ordr = SS.map((_, j) => j); for (let j = ordr.length - 1; j > 0; j--){ const q = Math.floor(rnd() * (j + 1)); const t = ordr[j]; ordr[j] = ordr[q]; ordr[q] = t; }
+            const x = assign(SS, slots, r.pick, f, cap, ordr); if (better(x, best) > 0) best = x;
+          }
+          best.pick = r.pick; return best;
+        });
+        top.sort(ord);
+      }
+      const plans = top.slice(0, 3).map(r => {
+        const classes = r.pick.map((j, k) => ({ slot: slots[j], stus: [] }));
+        const left = [], half = [];
+        r.got.forEach((g, i) => { g.forEach(k => classes[k].stus.push(S[i].st)); if (!g.length) left.push(S[i].st); else if (g.length < f) half.push(S[i].st); });
+        // 못 들어간 이유: 고른 칸 중 가능한 칸이 모자람 vs 정원이 차서
+        const why = st => { const x = S.find(y => y.st === st); const ds = new Set(); let c = 0; r.pick.forEach(j => { if (x.ok.has(j)){ c++; ds.add(dayOf[j]); } }); return (f === 1 ? c === 0 : ds.size < 2) ? '가능한 칸 없음' : '정원이 참'; };
+        classes.sort((a, b) => slotSort(a.slot, b.slot));
+        return { classes, full: r.full, total: S.length, left: left.map(st => ({ st, why: why(st) })), half: half.map(st => ({ st, why: why(st) })), spread: r.spread };
+      });
+      return { plans, total: S.length, combos: total, beam: total > 100000 };
+    }
+    return { plan, combos };
+  })();
+
   /* ── 결과 — 칸마다 가능 인원(학교·학년으로 거르기) · 미제출 · 응답 표 ── */
   function rfOf(id){ return RFILT[id] || (RFILT[id] = { school: '', grade: '' }); }
   function rfKeep(id, x){ const f = rfOf(id); return (!f.school || x.school === f.school) && (!f.grade || gradeShort(x.grade) === f.grade); }
@@ -712,6 +915,7 @@
       h += '<div class="who-no">' + (sl ? esc(sl.day + ' ' + sl.start + '~' + sl.end) : '') + ' — ' +
         (ns.length ? '안 되는 학생 <b>' + ns.length + '명</b>: ' + ns.map(r => esc(r.name) + (r.school ? '<span class="muted">(' + esc(r.school.replace(/고등학교|중학교/, '')) + ')</span>' : '')).join(', ') : '제출한 학생 모두 가능해요') + '</div>';
     }
+    h += placeHtml(s, rs);
     // 미제출
     const done = {}; rs.forEach(r => { done[r.code] = 1; });
     const miss = tg.filter(t => !done[t.code]);
@@ -726,7 +930,58 @@
     }
     return h + '</div>';
   }
-  function rfSet(id, k, v){ rfOf(id)[k] = v; CELL[id] = ''; drawList(); }
+  function rfSet(id, k, v){ rfOf(id)[k] = v; CELL[id] = ''; if (PL[id]) PL[id].res = null; drawList(); }
+  /* ── 자동 배치 추천 화면 — 결과 상자 안. 지금 고른 학교·학년의 제출 학생으로 계산한다 ── */
+  const PL = {};
+  function plOf(id, s){ return PL[id] || (PL[id] = { n: Math.min(4, (s.slots || []).length), f: 1, cap: 9, res: null, busy: false, at: 0 }); }
+  function placeHtml(s, rs){
+    const o = plOf(s.id, s), m = (s.slots || []).length;
+    let h = '<h4>자동 배치 추천 <span class="muted" style="font-family:var(--sans);font-weight:400;font-size:.8rem">제출한 ' + rs.length + '명 기준 · 아직 안 낸 학생은 빠져요</span></h4>' +
+      '<div class="res-bar pl-bar">열 칸 <select onchange="plSet(' + s.id + ',\'n\',+this.value)">' +
+      Array.from({ length: Math.min(m, 10) }, (_, i) => i + 1).map(k => '<option value="' + k + '"' + (o.n === k ? ' selected' : '') + '>' + k + '칸</option>').join('') + '</select>' +
+      '<select onchange="plSet(' + s.id + ',\'f\',+this.value)"><option value="1"' + (o.f === 1 ? ' selected' : '') + '>주 1회</option><option value="2"' + (o.f === 2 ? ' selected' : '') + '>주 2회 (서로 다른 요일)</option></select>' +
+      '정원 <input type="number" min="1" max="60" value="' + o.cap + '" style="width:70px;font:inherit;padding:8px;border:1px solid var(--line);border-radius:10px" onchange="plSet(' + s.id + ',\'cap\',+this.value)">명' +
+      '<button class="btn sm lav" type="button" onclick="plRun(' + s.id + ')"' + (o.busy || !rs.length ? ' disabled' : '') + '>' + (o.busy ? '계산하는 중…' : '추천 받기') + '</button></div>';
+    if (!rs.length) return h + '<p class="muted" style="margin:0">제출한 학생이 있어야 추천할 수 있어요.</p>';
+    const r = o.res;
+    if (!r) return h + '<p class="muted" style="margin:0">반을 몇 칸에 열지, 주 몇 회인지, 반 정원을 정하고 [추천 받기]를 누르세요. 가능한 칸 조합을 모두 따져 학생을 가장 많이 넣는 안 세 가지를 보여 드려요.</p>';
+    if (r.note) return h + '<div class="warn">' + esc(r.note) + '</div>';
+    if (!r.plans.length) return h + '<p class="muted">추천할 안이 없어요.</p>';
+    h += '<p class="muted" style="margin:0 0 6px">칸 조합 ' + r.combos.toLocaleString() + '개' + (r.beam ? '(많아서 가능성 높은 조합 위주로)' : '') + '를 따져 본 결과입니다 · 주 ' + o.f + '회 · 정원 ' + o.cap + '명' + (o.f === 2 ? ' · 가·나는 선생님이 정해 주세요' : '') + '</p>';
+    r.plans.forEach((p, i) => {
+      h += '<div class="pl-card"><div class="pl-hd"><b>' + (i + 1) + '안</b><span>' + p.classes.map(c => esc(c.slot.day + ' ' + c.slot.start)).join(' · ') + '</span>' +
+        '<span class="pl-n' + (p.full === p.total ? ' all' : '') + '">' + p.full + ' / ' + p.total + '명 배정' + (p.full === p.total ? ' · 모두' : '') + '</span>' +
+        '<button class="btn sm" type="button" onclick="plCopy(' + s.id + ',' + i + ')">표 복사</button></div>' +
+        '<div class="pl-cls">' + p.classes.map(c => '<div class="pl-c"><p class="t">' + esc(c.slot.day + ' ' + c.slot.start + '~' + c.slot.end) + ' <span class="muted">' + c.stus.length + ' / ' + o.cap + '명</span></p>' +
+          '<div class="names">' + (c.stus.length ? c.stus.slice().sort((a, b) => a.name.localeCompare(b.name, 'ko')).map(st => '<span>' + esc(st.name) + '</span>').join('') : '<span class="muted">비어 있음</span>') + '</div></div>').join('') + '</div>' +
+        (p.left.length ? '<div class="who-no">어느 반에도 못 들어가는 학생 <b>' + p.left.length + '명</b>: ' + p.left.map(x => esc(x.st.name) + ' <span class="muted">(' + x.why + ')</span>').join(', ') + '</div>' : '') +
+        (p.half.length ? '<div class="who-no">주 1회만 들어가는 학생 <b>' + p.half.length + '명</b>: ' + p.half.map(x => esc(x.st.name) + ' <span class="muted">(' + x.why + ')</span>').join(', ') + '</div>' : '') +
+        '</div>';
+    });
+    return h;
+  }
+  function plSet(id, k, v){ const o = PL[id]; if (!o) return; if (k === 'cap') v = Math.max(1, Math.min(60, v || 1)); o[k] = v; o.res = null; drawList(); }
+  function plStus(id){
+    const codes = {}; TGTS.filter(t => t.survey_id === id && rfKeep(id, t)).forEach(t => { codes[t.code] = 1; });
+    return RESP.filter(r => r.survey_id === id && codes[r.code]);
+  }
+  function plRun(id){
+    const s = SURVEYS.find(x => x.id === id), o = PL[id]; if (!s || !o || o.busy) return;
+    o.busy = true; drawList();
+    setTimeout(() => {
+      try { o.res = PLACE.plan((s.slots || []).slice().sort(slotSort), plStus(id), o.n, o.f, o.cap); }
+      catch (e){ console.error(e); o.res = { plans: [], note: '계산하지 못했어요 — 칸 수를 줄여 다시 해 보세요' }; }
+      o.busy = false; drawList();
+    }, 30);
+  }
+  function plCopy(id, i){
+    const o = PL[id], p = o && o.res && o.res.plans[i]; if (!p) return;
+    const lines = ['반\t이름\t학교\t학년'];
+    p.classes.forEach(c => c.stus.forEach(st => lines.push([c.slot.day + ' ' + c.slot.start + '~' + c.slot.end, st.name, st.school, gradeShort(st.grade)].join('\t'))));
+    p.left.forEach(x => lines.push(['못 들어감(' + x.why + ')', x.st.name, x.st.school, gradeShort(x.st.grade)].join('\t')));
+    navigator.clipboard.writeText(lines.join('\n')).then(() => toast((i + 1) + '안을 복사했어요'), () => toast('복사하지 못했어요'));
+  }
+
   function pickCell(id, sid){ CELL[id] = CELL[id] === sid ? '' : sid; drawList(); }
   function copyRes(id){
     const s = SURVEYS.find(x => x.id === id); if (!s) return;
