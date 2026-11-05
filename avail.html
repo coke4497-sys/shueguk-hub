@@ -163,8 +163,11 @@
   input[type=date]{font:inherit;font-size:.95rem;padding:9px 12px;border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--ink);}
   textarea{width:100%;font:inherit;font-size:.95rem;padding:10px 12px;border:1px solid var(--line);border-radius:11px;min-height:70px;resize:vertical;}
   /* 후보 칸 */
-  .slot-add{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px;}
-  .slot-add select{width:auto;}
+  .slot-steps{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
+  .sstep{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .sstep select{width:auto;}
+  .sstep .sn{width:22px;height:22px;border-radius:50%;background:var(--lilac);color:var(--lilac-ink);font-size:.75rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex:none;}
+  .sstep .sl{min-width:64px;font-size:.88rem;color:var(--ink2,#4F5C56);}
   .dpills{display:inline-flex;gap:4px;flex-wrap:wrap;}
   .dpills .btn.on{background:var(--lilac);color:var(--lilac-ink);font-weight:700;}
   .slots{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
@@ -235,14 +238,11 @@
     <textarea id="sMemo" maxlength="300" placeholder="예) 12/16(수)부터 바뀌는 시간표입니다. 수업이 어려운 시간을 모두 골라 주세요."></textarea>
 
     <label class="f">후보 시간 칸</label>
-    <div class="slot-add">
-      <span class="dpills" id="dPills"></span>
-      <select id="tStart" aria-label="시작 시각"></select>
-      <select id="tDur" aria-label="수업 길이"><option value="30">30분</option><option value="60">60분</option><option value="90">90분</option><option value="120" selected>120분</option></select>
-      <span class="muted" id="tEndNote"></span>
-      <button class="btn sm lav" type="button" onclick="addSlot()">칸 더하기</button>
-      <button class="btn sm" type="button" onclick="presetSlots()">슈국 기본 칸 넣기</button>
-      <button class="btn sm" type="button" onclick="clearSlots()">모두 지우기</button>
+    <div class="slot-steps">
+      <div class="sstep"><span class="sn">1</span><span class="sl">요일</span><span class="dpills" id="dPills"></span></div>
+      <div class="sstep"><span class="sn">2</span><span class="sl">시작 시각</span><select id="tStart" aria-label="시작 시각"></select><span class="muted">30분 단위</span></div>
+      <div class="sstep"><span class="sn">3</span><span class="sl">수업 길이</span><span class="dpills" id="durPills"><button class="btn sm" type="button" data-dur="30">30분</button><button class="btn sm" type="button" data-dur="60">60분</button><button class="btn sm" type="button" data-dur="90">90분</button><button class="btn sm on" type="button" data-dur="120">120분</button></span><span class="muted" id="tEndNote"></span></div>
+      <div class="sstep"><span class="sn">4</span><button class="btn sm lav" type="button" onclick="addSlot()">칸 더하기</button><button class="btn sm" type="button" onclick="clearSlots()">모두 지우기</button></div>
     </div>
     <div class="slots" id="slots"></div>
 
@@ -339,7 +339,7 @@
     for (let m = 8 * 60; m <= 23 * 60; m += 30) o += '<option value="' + m + '">' + hmLabel(m) + '</option>';
     $('tStart').innerHTML = o;
     $('tStart').value = String(17 * 60 + 30);
-    ['tStart', 'tDur'].forEach(id => $(id).addEventListener('change', endNote));
+    $('tStart').addEventListener('change', endNote);
     endNote();
     $('dPills').innerHTML = DAY_LIST.map(d => '<button class="btn sm" type="button" data-d="' + d + '">' + d + '</button>').join('');
   }
@@ -355,7 +355,14 @@
     SLOTS.push({ id, day, start, end }); return true;
   }
   // 끝 시각 = 시작 + 수업 길이(30·60·90·120분 — 2026-11-05 원장님), 밤 12시까지
-  function slotEnd(){ return +$('tStart').value + +$('tDur').value; }
+  let DUR = 120;
+  document.addEventListener('click', e => {
+    const b = e.target.closest('#durPills [data-dur]'); if (!b) return;
+    DUR = +b.dataset.dur;
+    document.querySelectorAll('#durPills [data-dur]').forEach(x => x.classList.toggle('on', x === b));
+    endNote();
+  });
+  function slotEnd(){ return +$('tStart').value + DUR; }
   function endNote(){
     const e = slotEnd();
     $('tEndNote').textContent = e > 1440 ? '밤 12시를 넘어요' : '→ ' + hmLabel(e) + '까지';
@@ -368,12 +375,6 @@
     if (!n) toast('이미 있는 칸이에요');
     drawSlots(); summary();
   }
-  // 슈국 기본 칸 — 평일 5:30·8:00, 주말 11:00·1:30·4:30·7:00 (2027 예상 고1 시간표의 칸과 같다)
-  function presetSlots(){
-    ['수', '목', '금'].forEach(d => { pushSlot(d, '5:30', '7:30'); pushSlot(d, '8:00', '10:00'); });
-    ['토', '일'].forEach(d => { pushSlot(d, '11:00', '1:00'); pushSlot(d, '1:30', '3:30'); pushSlot(d, '4:30', '6:30'); pushSlot(d, '7:00', '9:00'); });
-    drawSlots(); summary();
-  }
   function clearSlots(){ if (SLOTS.length && !confirm('후보 칸을 모두 지울까요?')) return; SLOTS = []; drawSlots(); summary(); }
   function drawSlots(){
     SLOTS.sort(slotSort);
@@ -381,7 +382,7 @@
     $('slots').innerHTML = SLOTS.length ? DAY_LIST.filter(d => byDay[d]).map(d => '<div class="sd"><b>' + d + '</b><div class="chips">' +
       byDay[d].map(s => '<span class="fchip" title="' + esc(hmLabel(mins(s.start)) + '~' + hmLabel(mins(s.end))) + '">' + esc(slotLabel(s)) + '<button type="button" data-rmslot="' + esc(s.id) + '" aria-label="빼기" title="빼기">×</button></span>').join('') +
       '</div></div>').join('') + '<p class="muted" style="margin:2px 0 0">후보 칸 ' + SLOTS.length + '개</p>'
-      : '<p class="muted" style="margin:0">아직 칸이 없어요. 요일을 고르고 시간을 정해 [칸 더하기]를 누르거나 [슈국 기본 칸 넣기]를 누르세요.</p>';
+      : '<p class="muted" style="margin:0">아직 칸이 없어요. 요일 → 시작 시각 → 수업 길이를 고르고 [칸 더하기]를 누르세요.</p>';
   }
   document.addEventListener('click', e => {
     const b = e.target.closest('[data-rmslot]'); if (!b) return;

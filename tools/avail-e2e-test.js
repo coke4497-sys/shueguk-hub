@@ -130,14 +130,21 @@ function seed(){
   ok(lines[0] === '이름\t학교\t학년\t수 5:30\t토 11:00\t메모\t마지막 저장', '복사 머리: ' + lines[0]);
   ok(/^김나연\t화정고\t고1\tO\tX\t토 오전 학원/.test(lines[1]) && /^박지현\t.*미제출/.test(lines[2]), '복사 줄(O/X·미제출)');
 
-  // ③ 만들기 — 칸 직접·기본 칸·빼기
+  // ③ 만들기 — 칸 직접·빼기
+  async function addSlots(days, starts){
+    for (const d of ['월','화','수','목','금','토','일']) { const on = await pg.$eval('#dPills [data-d="' + d + '"]', e => e.classList.contains('on')); if (on !== days.includes(d)) await pg.click('#dPills [data-d="' + d + '"]'); }
+    await pg.click('#durPills [data-dur="120"]');
+    for (const m of starts) { await pg.selectOption('#tStart', String(m)); await pg.click('text=칸 더하기'); }
+  }
+  async function baseSlots(){ await addSlots(['수','목','금'], [1050, 1200]); await addSlots(['토','일'], [660, 810, 990, 1140]); }
   await pg.fill('#sTitle', '화정고1 겨울 시간표');
   ok(/후보 시간 칸을 넣어/.test(await pg.textContent('#goNote')), '칸 없으면 잠김');
-  await pg.click('#dPills [data-d="금"]'); await pg.selectOption('#tStart', String(17 * 60)); await pg.selectOption('#tDur', '90');
+  await pg.click('#dPills [data-d="금"]'); await pg.selectOption('#tStart', String(17 * 60)); await pg.click('#durPills [data-dur="90"]');
   await pg.click('text=칸 더하기');
   ok(/오후 5:00 · 90분/.test(await pg.textContent('#slots')), '직접 더한 칸(금 오후 5:00 · 90분)');
   ok(/오후 6:30까지/.test(await pg.textContent('#tEndNote')), '끝 시각 안내');
-  await pg.click('text=슈국 기본 칸 넣기');
+  ok(!(await pg.$('text=슈국 기본 칸 넣기')), '기본 칸 버튼 없음');
+  await baseSlots();
   ok(/후보 칸 15개/.test(await pg.textContent('#slots')), '기본 칸 14 + 직접 1 = 15');
   await pg.click('[data-rmslot="금-5:00"]');
   ok(/후보 칸 14개/.test(await pg.textContent('#slots')), '칸 빼기');
@@ -157,7 +164,7 @@ function seed(){
   ok(/화정고1 겨울 시간표/.test(await pg.textContent('#list')), '새 조사 목록에');
 
   // ④ 개인 여러 명 · 접근코드 없는 학생 안내
-  await pg.fill('#sTitle', '개인 조사'); await pg.click('text=슈국 기본 칸 넣기');
+  await pg.fill('#sTitle', '개인 조사'); await baseSlots();
   await pg.click('#modeSeg [data-m=stu]');
   await pg.fill('#stuQ', '최하늘'); await pg.click('#pane-stu .btn');
   await pg.fill('#stuQ', '김나연'); await pg.click('#pane-stu .btn');
