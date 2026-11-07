@@ -365,8 +365,8 @@
   function mainLoc(work){ var c = {}; work.forEach(function(w){ c[w.loc] = (c[w.loc] || 0) + w.min + 0.001; }); return Object.keys(c).sort(function(a, b){ return c[b] - c[a]; }); }
   function render(){
     if (!D) return;
-    $('warns').innerHTML = D.warn.map(function(w){ return '<div class="warn">' + esc(w) + '</div>'; }).join('')
-      + (D.unknown.length ? '<div class="warn">시간표 담당 이름을 사람과 잇지 못해 수업 시간에서 뺐습니다: ' + esc(D.unknown.join(', ')) + ' (같은 이름이 둘이거나 슈톡 계정이 없음)</div>' : '');
+    $('warns').innerHTML = D.warn.map(function(w){ return '<div class="warn">' + esc(w) + '</div>'; }).join('');
+    // 담당 이름을 잇지 못한 안내 줄은 2026-11-07 원장님 요청으로 뺐다(계산에서 빼는 것은 그대로)
     var list = Object.keys(D.map).map(function(k){ return D.map[k]; });
     list.sort(function(a, b){
       // 근무 시간 많은 순(2026-10-31 원장님) — 같으면 선생님 먼저, 이름 가나다
