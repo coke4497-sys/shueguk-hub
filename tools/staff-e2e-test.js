@@ -33,7 +33,7 @@ const PLOGS = [
   { id: 1, user_id: HEEJU, name: '고희주', loc: '화정센터', is_on: true, at: K('2026-10-21', '15:00') },
   { id: 2, user_id: HEEJU, name: '고희주', loc: '본원', is_on: true, at: K('2026-10-21', '17:00') },
   { id: 3, user_id: HEEJU, name: '고희주', loc: '본원', is_on: false, at: K('2026-10-21', '19:30') },
-  { id: 4, user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, at: K('2026-10-20', '14:00') },   // 어제 퇴근 안 누름
+  { id: 4, user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, at: new Date(Date.parse(K('2026-10-20', '14:00')) + 37000).toISOString() },   // 어제 퇴근 안 누름(초까지 있는 기록)
   { id: 5, user_id: EUNJI, name: '이은지', loc: '본원', is_on: true, at: K('2026-10-21', '16:00') },   // 오늘 근무 중
   { id: 6, user_id: PARK, name: '박언호', loc: '화정센터', is_on: true, at: K('2026-10-20', '21:00') },   // 자정 넘어 퇴근(근무일 경계 새벽 5시)
   { id: 7, user_id: PARK, name: '박언호', loc: '화정센터', is_on: false, at: K('2026-10-21', '00:40') },
@@ -215,7 +215,7 @@ const calls = [];
   await page.click('#fxGo');
   await page.waitForSelector('#fixbox', { state: 'detached' });
   const fc = calls.find(c => c[0] === '/rest/v1/rpc/msg_presence_fix'), fb = JSON.parse(fc[2]);
-  ok(fb.p_user === EUNJI && fb.p_in_id === 4 && fb.p_out_id === null && fb.p_loc === '본원' && fb.p_in === K('2026-10-20', '14:00') && fb.p_out === K('2026-10-20', '20:30') && fb.p_reason === '퇴근 버튼 누락', '저장 본문 — 출근 줄 id·퇴근 줄 없음·시각·사유');
+  ok(fb.p_user === EUNJI && fb.p_in_id === 4 && fb.p_out_id === null && fb.p_loc === '본원' && fb.p_in === new Date(Date.parse(K('2026-10-20', '14:00')) + 37000).toISOString() && fb.p_out === K('2026-10-20', '20:30') && fb.p_reason === '퇴근 버튼 누락', '저장 본문 — 출근 줄 id·퇴근 줄 없음·시각·사유 · 바꾸지 않은 출근은 원래 초까지 그대로');
   ok(calls.some(c => c[0] === '/rest/v1/msg_presence_log' && c !== fc), '저장 뒤 다시 불러옴');
   await page.waitForSelector('#detail [data-fixnew]');   // 다시 불러와도 고른 사람(이은지)의 자세히가 남아 있음
   await page.click('#detail [data-fixnew]');

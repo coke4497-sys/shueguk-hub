@@ -489,7 +489,11 @@
   }
   function fixOpen(slot, w){
     var p = D.map[sel]; if (!p) return;
-    FIX = { uid: p.id, inId: w ? w.inId : null, outId: w ? w.outId : null, slot: slot };
+    FIX = { uid: p.id, inId: w ? w.inId : null, outId: w ? w.outId : null, slot: slot,
+            // 시각 칸은 분까지만이라, 바꾸지 않은 칸은 원래 기록 시각(초 포함)을 그대로 보낸다
+            // (같은 분에 센터를 옮긴 기록이 있으면 08:38:00 으로 당겨져 '겹침'이 났다 — 2026-11-08)
+            inHm: w ? hhmm(w.start) : '', inAt: w ? w.start : null,
+            outHm: w && w.how === 'out' ? hhmm(w.end) : '', outAt: w && w.how === 'out' ? w.end : null };
     document.querySelectorAll('.fixbox').forEach(function(b){ b.remove(); });
     var y = w ? w.ymd : today();
     var box = document.createElement('div');
@@ -510,7 +514,9 @@
     if (!FIX || FIX.busy) return;
     var ymd = $('fxDate') ? $('fxDate').value : null, p = D.map[sel];
     if (!ymd){ var w0 = p && p.work.filter(function(w){ return w.inId === FIX.inId; })[0]; ymd = w0 && w0.ymd; }
-    var inIso = fixIso(ymd, $('fxIn').value), outIso = fixIso(ymd, $('fxOut').value), why = $('fxWhy').value.trim(), msg = $('fxMsg');
+    var inV = $('fxIn').value, outV = $('fxOut').value;
+    var inIso = FIX.inAt && inV === FIX.inHm ? new Date(FIX.inAt).toISOString() : fixIso(ymd, inV);
+    var outIso = FIX.outAt && outV === FIX.outHm ? new Date(FIX.outAt).toISOString() : fixIso(ymd, outV), why = $('fxWhy').value.trim(), msg = $('fxMsg');
     msg.className = 'msg';
     if (!inIso || !outIso){ msg.textContent = FIX_ERR.need_time; return; }
     if (!why){ msg.textContent = FIX_ERR.need_reason; $('fxWhy').focus(); return; }
