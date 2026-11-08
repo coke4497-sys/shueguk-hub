@@ -216,6 +216,9 @@
   .shot figcaption{font-size:15px;margin:0 0 8px;color:var(--ink-soft);}
   .shot figcaption b{font-family:var(--serif);color:var(--ink);margin-right:6px;}
   .shot img{display:block;width:100%;height:auto;border-radius:12px;background:#fff;box-shadow:0 2px 12px rgba(42,51,47,.10);}
+  .news{background:#F4EFF8;border-radius:18px;}
+  .news h2{color:#5A4A6A;}
+  kbd.s{background:#E9EDF8;color:#4E5E86;}
 </style>
 </head>
 <body>
@@ -226,6 +229,19 @@
     <h1><span class="nw">초초초초간단!</span><br><span class="nw">슈국 수업 기록</span></h1>
     <p class="lead2">수업이 끝나면 반 카드의 <kbd>수업 기록</kbd>을 누르고 이것만 해 주세요.</p>
   </div>
+
+  <section class="news">
+    <h2>11/8부터 내신 기간 과제 검사가 바뀌었습니다</h2>
+    <p class="lead"><b>왜 바꿨나요?</b> 내신 대비는 한 주 한 주의 점수보다 <b>시험 전까지 받은 과제를 얼마나 완성해 가는지</b>가 중요하기 때문입니다. 그래서 확인 수업에서 내신 기간에 받은 과제를 한눈에 보고, 남은 과제를 하나씩 채워 가도록 바꿨어요.</p>
+    <ul class="keep">
+      <li><b>내신 기간에 받은 과제가 모두 나옵니다.</b> 지난주 과제만이 아니라 내신 기간 첫 주부터 받은 진도·확인 과제가 전부 보여요. 이번 주에 낸 과제는 다음 주 검사 몫입니다.</li>
+      <li><b>지난 검사 결과가 그대로 이어집니다.</b> 이미 끝낸 과제에는 <kbd class="y">완료</kbd>, 지난주에 평가한 과제에는 '지난 검사 이어받음'이 붙어요. 지난주에 일부만 해 온 과제는 <b>진행 중</b>으로 이어집니다. <b>남은 과제만 평가하시면 됩니다.</b></li>
+      <li><b>평가는 과제마다 한 번만 누릅니다.</b> 별 5개와 채점·학습 분석·오답 분석 대신 <kbd class="n">부족</kbd> <kbd class="y">진행 중</kbd> <kbd class="s">잘함</kbd> <kbd>매우 잘함</kbd> 중 하나를 고르세요. 아직 덜 끝낸 과제는 진행 중이에요. 안 해 온 과제는 <kbd class="p">미제출</kbd>입니다.</li>
+      <li><b>메모는 과제 아래 두 칸입니다.</b> <b>공개 메모</b>는 학생·학부모님 리포트에 반영되고, <b>비공개 메모</b>는 선생님·조교만 봐요.</li>
+      <li><b>퍼센트는 내신 기간 전체 기준입니다.</b> '완료 3 / 12'처럼 끝낸 과제 수가 함께 보이고, 모든 과제가 매우 잘함이면 100%예요.</li>
+    </ul>
+    <p class="cap">이어받은 평가는 <b>[저장]</b>이나 <b>[리포트 생성]</b>을 누를 때 이번 수업 기록으로 저장됩니다. 정규 기간과 중3·고3은 지금 방식 그대로입니다.</p>
+  </section>
 
   <div class="todo">
     <div class="it"><div class="num">1</div><div>
@@ -245,7 +261,8 @@
     </div></div>
     <div class="it"><div class="num">4</div><div>
       <h3>과제 검사</h3>
-      <p>지난 수업에서 낸 과제가 학생마다 하나씩 나옵니다. 과제마다 <b>학습량</b>은 별 5개로, <b>채점·학습 분석·오답 분석</b>은 <kbd class="n">안함</kbd> <kbd class="y">일부함</kbd> <kbd>완벽</kbd> 중에서 고릅니다.</p>
+      <p>지난 수업에서 낸 과제가 학생마다 하나씩 나옵니다. <b>정규</b>는 과제마다 <b>학습량</b>을 별 5개로, <b>채점·학습 분석·오답 분석</b>을 <kbd class="n">안함</kbd> <kbd class="y">일부함</kbd> <kbd>완벽</kbd> 중에서 고릅니다.</p>
+      <p><b>내신 확인 수업</b>은 과제마다 <kbd class="n">부족</kbd> <kbd class="y">진행 중</kbd> <kbd class="s">잘함</kbd> <kbd>매우 잘함</kbd> 하나만 고르고, 아래 공개·비공개 메모를 적습니다(위 '바뀐 점' 참고).</p>
       <p>안 해 온 과제는 그 과제 옆 <kbd class="p">미제출</kbd>을, 하나도 안 해 왔으면 <kbd class="p">전체 미제출</kbd>을 누르세요. 모든 과제가 별 5개·완벽이면 <b>슈퍼스타 별 +1</b>입니다.</p>
       <p>검사할 필요가 없는 과제는 그 과제 옆 <kbd class="p">이 학생만 빼기</kbd> 또는 <kbd class="p">모두 빼기</kbd>로 검사 목록에서 뺄 수 있어요. 자세한 것은 아래 '배부된 과제 빼기'를 보세요.</p>
     </div></div>
@@ -308,8 +325,8 @@
     <h2>과제 검사는 이렇게 이어집니다</h2>
     <div class="three">
       <div><b class="bk">정규</b> <kbd>가 수업 · 나 수업</kbd><br>가와 나는 따로입니다. <b>지난주 같은 수업</b>에서 낸 과제를 검사해요.<br><small>1회 이동해 온 학생은 원래 반 과제로 검사합니다.</small></div>
-      <div><b class="bk">내신</b> <kbd class="y">진도 수업</kbd><br>진도·확인 수업이 이어집니다. 학생이 <b>바로 앞 수업</b>에서 받은 과제를 검사해요.</div>
-      <div><b class="bk">내신</b> <kbd class="p">확인 수업</kbd><br>과제 검사가 중심입니다. 수업 내용은 비워 두셔도 됩니다.</div>
+      <div><b class="bk">내신</b> <kbd class="y">진도 수업</kbd><br>과제 검사는 확인 수업에서 합니다. 진도와 다음 수업까지 과제를 적어 주세요.</div>
+      <div><b class="bk">내신</b> <kbd class="p">확인 수업</kbd><br>진도·확인 수업이 이어집니다. <b>내신 기간에 받은 과제 전체</b>를 쌓아 가며 검사해요.</div>
     </div>
     <p style="margin-top:14px">중3·고3은 내신 기간에도 정규 수업으로 기록됩니다.</p>
   </section>
@@ -356,7 +373,7 @@
         <li><kbd class="p">미제출</kbd>을 누르면 대책 칸이 열립니다(예: 10/16 금 5:30 재검사 약속).</li>
         <li><kbd class="p">전체 미제출</kbd>인데 코멘트를 비워 두면 '○○ 친구는 과제 제출을 하지 않았습니다!!!!'로 기록됩니다.</li>
         <li><b>[베낌 의심]</b>은 선생님만 보는 표시입니다. 학생 페이지와 리포트에는 나가지 않아요.</li>
-        <li>선생님만 볼 메모는 학생 카드의 <b>[더 보기]</b> 비공개 메모에 적으십시오.</li>
+        <li>선생님만 볼 메모는 학생 카드의 <b>[더 보기]</b> 비공개 메모에 적으십시오. 내신 확인 수업은 과제 아래 비공개 메모 칸에 바로 적어요.</li>
         <li>지난 기록과 미제출 대책은 학습 관리의 <a href="https://coke4497-sys.github.io/shueguk-report/classlog.html" target="_blank" rel="noopener">수업 기록 보기</a>에서 볼 수 있어요.</li>
       </ul>
     </div>
