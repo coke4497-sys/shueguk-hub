@@ -53,6 +53,7 @@ export function plan(msg: Msg, tasks: Task[], subs: Sub[], active: Set<string>, 
 // 근무일은 새벽 5시에 바뀐다(private.work_today 와 같음). 쉬는 날에도 나에게 생긴 할 일·넘긴 일은 받는다(plan·handPlan).
 export const ALWAYS_LOGIN = ['parkeh']
 export const WORK_DAY_H = 5
+export const TEACHER_DOWS = [3, 4, 5, 6, 7]   // 선생님 기본 근무 요일 1=월…7=일 (2026-11-09 원장님 "선생님들은 모두 수목금토일 근무")
 const WDAY = '일월화수목금토'
 function addDay(y: string, n: number) { const d = new Date(y + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
 export function workYmd(now = Date.now()) { return new Date(now + (9 - WORK_DAY_H) * 3600e3).toISOString().slice(0, 10) }
@@ -87,6 +88,9 @@ export function workSet(w: WorkIn) {
   // 근무 요일로 정해 둔 사람(msg_alert_days — 2026-11-09) — 시작일부터 그 요일이면 근무일
   const dow = ((new Date(w.day + 'T00:00:00Z').getUTCDay() + 6) % 7) + 1
   ;(w.days || []).forEach((d) => { if ((!d.start_on || d.start_on <= w.day) && (d.dows || []).map(Number).includes(dow)) set.add(d.user_id) })
+  // 선생님(role teacher)은 담당 반이 없어도 모두 수~일 근무(2026-11-09 원장님) — msg_alert_days 에 줄이 있는 사람은 그 줄을 따른다
+  const own = new Set((w.days || []).map((d) => d.user_id))
+  if (TEACHER_DOWS.includes(dow)) w.members.forEach((m) => { if (m.role === 'teacher' && !own.has(m.user_id)) set.add(m.user_id) })
   const book0 = (w.period && w.period.book) || '정규'
   const ov = (w.period && w.period.overrides && typeof w.period.overrides === 'object') ? w.period.overrides : {}
   const off = new Set(w.off)

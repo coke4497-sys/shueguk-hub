@@ -132,7 +132,10 @@ Deno.test('오늘 근무 일정 — 근무표·기본 근무표·출근 기록·
     period: { book: '정규', overrides: {} },
     off: ['r004'],
   })
-  assertEquals([...set].sort(), ['as1', 'as3', 'as4', 'boss', 'ceo', 't1'])
+  assertEquals([...set].sort(), ['as1', 'as3', 'as4', 'boss', 'ceo', 't1', 't2', 't3', 't4', 't5', 't6'])   // 일요일 — 선생님은 모두 근무(2026-11-09)
+  // 월요일 — 선생님 기본 근무 요일이 아니면 시간표·근무표대로
+  const mon = workSet({ day: '2026-10-26', members, shifts: [], roster: [], presence: [], off: [], classes: [], period: null })
+  assertEquals([...mon].sort(), ['boss', 'ceo'])
   assertEquals(teacherKey('박언호대표님'), '언호')   // 2026-10-27 원장님 — 표시 이름 끝의 '대표님'은 떼고 담당T와 맞춘다
   assertEquals(teacherKey('이은지 선생님'), '은지')
   // 학년 예외 — 중2만 내신이면 내신 중2 반 담당이 들어온다
