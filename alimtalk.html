@@ -629,7 +629,7 @@
    * 미등원의 #{학원번호} = 그 수업 센터 전화(timetable.html ALIM_CENTER_TEL 과 같은 표 — 바뀌면 둘 다). 지각 등원의 #{등원시각} = 지금 시각(고칠 수 있음). */
   const ATT = { ymd: '', book: '정규', cls: null, stus: [], from: '', reason: '', mk: '', tel: '', hm: '' };
   const ATT_FROM_OPTS = ['학부모님께', '학생에게'], ATT_MK_OPTS = ['보충 일정은 별도 안내드립니다.', '당일 결석이므로 보충을 진행하지 않습니다.'];
-  const ATT_CENTER_TEL = [['본원', '031-973-4497'], ['화정센터', '031-979-4497'], ['민트초코', '031-969-4497'], ['정리정독', '031-994-0624'], ['도래울', '031-969-4497']];
+  const ATT_CENTER_TEL = [['본원', '031-973-4497'], ['화정센터', '031-979-4497'], ['민트초코', '031-970-4497'], ['정리정독', '031-994-0624'], ['도래울', '031-969-4497']];
   const ATT_FIXED = { absent: '오늘까지의 수업 — 지난 날짜 결석도 보낼 수 있어요', preabsent: '내일부터의 수업 — 미리 알린 결석', noshow: '오늘 수업만', arrived: '오늘 수업만' };
   function attOpts(tpl, key, dflt){ const o = tpl && tpl.options && tpl.options[key]; return (o && o.length) ? o : dflt; }
   function attDow(ymd){ return ymd ? DOW[new Date(ymd + 'T00:00:00Z').getUTCDay()] : ''; }
