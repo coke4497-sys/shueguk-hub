@@ -596,6 +596,31 @@ ok "$(as $A "select (at=$(kt 1 '19:00'))::text from public.msg_presence_log wher
 ok "$(as $A "$(fx $C $CI $BO 본원 '1 10:24' '1 19:00' x)" | grep -c bad_out)" 1 "다른 사람의 퇴근 줄은 거절"
 ok "$(as $B "update public.msg_presence_log set at=now() where user_id='$B'" | grep -c 'permission denied')" 1 "기록 표에 직접 쓰기 불가"
 
+echo "── 시각 고치기 — 퇴근 없음(근무 중) (202611100001)"
+P -f supabase/migrations/202611100001_presence_fix_open.sql >/dev/null || { echo "근무 중 마이그레이션 실패"; exit 1; }
+P -f supabase/migrations/202611100001_presence_fix_open.sql >/dev/null && ok y y "근무 중 마이그레이션 다시 실행해도 오류 없음"
+nm(){ echo "(now() - interval '$1 minutes')"; }
+P >/dev/null <<SQL
+insert into public.msg_presence_log (user_id, name, loc, is_on, at) values
+ ('$C','고희주','본원',true,$(nm 20)), ('$C','고희주','본원',false,$(nm 15)), ('$C','고희주','본원',true,$(nm 10)), ('$C','고희주','본원',false,$(nm 5));
+update public.msg_presence set is_on=false, changed_at=$(nm 5) where user_id='$C';
+SQL
+T1=$(as $A "select id from public.msg_presence_log where user_id='$C' and at=(select min(at) from public.msg_presence_log where user_id='$C' and at > now() - interval '30 minutes')")
+T2=$(as $A "select id from public.msg_presence_log where user_id='$C' and not is_on and at > now() - interval '30 minutes' order by at limit 1")
+T3=$(as $A "select id from public.msg_presence_log where user_id='$C' and is_on and at > now() - interval '30 minutes' order by at desc limit 1")
+T4=$(as $A "select id from public.msg_presence_log where user_id='$C' and not is_on and at > now() - interval '30 minutes' order by at desc limit 1")
+fo(){ echo "select public.msg_presence_fix('$1', $2, $3, '본원', $4, null, '$5')"; }
+ok "$(as $B "$(fo $C $T3 $T4 "$(nm 10)" x)" | grep -c not_allowed)" 1 "근무 중 고치기도 원장님만"
+ok "$(as $A "$(fo $C $T1 $T2 "$(nm 20)" x)" | grep -c not_last)" 1 "뒤에 다른 기록이 있는 출근은 근무 중으로 못 둠"
+ok "$(as $A "$(fo $B $BI $BO "$(kt 1 '10:00')" x)" | grep -c open_not_today)" 1 "어제 기록은 근무 중으로 못 둠"
+ok "$(as $A "$(fo $C $T3 $T4 "$(nm 10)" '퇴근 잘못 넣음')" | grep -c in_id)" 1 "오늘 마지막 구간을 근무 중으로"
+ok "$(as $A "select count(*) from public.msg_presence_log where id=$T4")" 0 "퇴근 줄이 지워짐"
+ok "$(as $A "select is_on::text||'|'||loc from public.msg_presence where user_id='$C'")" "true|본원" "출근 표시가 켜짐"
+ok "$(as $A "select (after->'out' = 'null'::jsonb)::text||'|'||reason from public.msg_presence_fixes where user_id='$C' order by id desc limit 1")" "true|퇴근 잘못 넣음" "고친 기록에 퇴근 없음으로 남음"
+ok "$(as $A "$(fo $C null null "$(nm 3)" x)" | grep -c overlap)" 1 "이미 근무 중인데 새 근무 중 구간을 넣으면 겹침"
+ok "$(as $A "$(fo $C $T3 null "$(nm 8)" '출근 시각 정정')" | grep -c in_id)" 1 "근무 중 구간의 출근 시각만 고치기"
+ok "$(as $A "select (changed_at=(select at from public.msg_presence_log where id=$T3))::text||'|'||is_on::text from public.msg_presence where user_id='$C'")" "true|true" "출근 표시 시각도 따라감"
+
 echo "통과 $pass · 실패 $fail"
 psql -q -d postgres -c "drop database if exists $DB" >/dev/null
 [ $fail -eq 0 ]
