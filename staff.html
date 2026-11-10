@@ -479,6 +479,7 @@
     not_allowed: '원장님 계정만 고칠 수 있습니다.', need_reason: '사유를 적어 주십시오.', bad_loc: '센터를 골라 주십시오.', need_time: '출근·퇴근 시각을 모두 넣어 주십시오.',
     bad_order: '퇴근 시각이 출근 시각보다 늦어야 합니다.', future: '아직 오지 않은 시각은 넣을 수 없습니다.', too_long_shift: '한 구간은 18시간을 넘을 수 없습니다.',
     cross_day: '출근과 퇴근이 같은 근무일(새벽 5시 기준)이어야 합니다.', too_old: '92일보다 오래된 기록은 고칠 수 없습니다.', overlap: '그 시간에 다른 출퇴근 기록이 있어 겹칩니다.',
+    open_not_today: '근무 중으로는 오늘 기록만 둘 수 있습니다.', not_last: '이 출근 뒤에 다른 출퇴근 기록이 있어 근무 중으로 둘 수 없습니다.',
     has_out: '이 구간에는 이미 퇴근 기록이 있습니다. 화면을 새로 고친 뒤 다시 해 주십시오.', bad_in: '출근 기록을 찾지 못했습니다. 새로 고친 뒤 다시 해 주십시오.', bad_out: '퇴근 기록을 찾지 못했습니다. 새로 고친 뒤 다시 해 주십시오.'
   };
   function fixErrText(err){
@@ -502,13 +503,26 @@
       + '<div class="fr">' + (w ? '' : '<label>날짜 <input type="date" id="fxDate" value="' + y + '" max="' + today() + '"></label>')
       + '<label>센터 <select id="fxLoc">' + FIX_LOCS.map(function(l){ return '<option' + (w && w.loc === l ? ' selected' : '') + '>' + l + '</option>'; }).join('') + '</select></label>'
       + '<label>출근 <input type="time" id="fxIn" value="' + (w ? hhmm(w.start) : '') + '"></label>'
-      + '<label>퇴근 <input type="time" id="fxOut" value="' + (w && w.how === 'out' ? hhmm(w.end) : '') + '"></label></div>'
+      + '<label>퇴근 <input type="time" id="fxOut" value="' + (w && w.how === 'out' ? hhmm(w.end) : '') + '"></label>'
+      // 퇴근 없음(근무 중) — 오늘 근무일 기록에만 (2026-11-10)
+      + '<label id="fxOpenL"><input type="checkbox" id="fxOpen"' + (w && w.how === 'now' ? ' checked' : '') + '> 퇴근 없음 (근무 중)</label></div>'
       + '<div class="fr">' + FIX_WHY.map(function(t){ return '<button class="q" type="button" data-why="' + esc(t) + '">' + esc(t) + '</button>'; }).join('') + '</div>'
       + '<div class="fr"><input class="why" id="fxWhy" maxlength="200" placeholder="사유 (꼭 적어 주십시오)"></div>'
       + '<div class="fr"><button class="go" type="button" id="fxGo">저장</button><button class="cx" type="button" id="fxCx">취소</button><span class="msg" id="fxMsg"></span></div>'
       + '<p class="note" style="margin:0">새벽 5시 전 시각은 그 근무일 밤(다음 날 새벽)으로 들어갑니다. 조교 급여용 근무 일지는 따로 고쳐 주세요.</p>';
     $(slot).appendChild(box);
-    (w && w.how !== 'out' ? $('fxOut') : $('fxIn')).focus();
+    FIX.ymd = y;
+    fixOpenSync();
+    if ($('fxDate')) $('fxDate').addEventListener('change', fixOpenSync);
+    $('fxOpen').addEventListener('change', fixOpenSync);
+    (w && w.how !== 'out' && !$('fxOpen').checked ? $('fxOut') : $('fxIn')).focus();
+  }
+  // '퇴근 없음(근무 중)'은 오늘 근무일에만 보이고, 고르면 퇴근 칸을 잠근다
+  function fixOpenSync(){
+    var ymd = $('fxDate') ? $('fxDate').value : FIX && FIX.ymd, isToday = ymd === today();
+    $('fxOpenL').style.display = isToday ? '' : 'none';
+    if (!isToday) $('fxOpen').checked = false;
+    $('fxOut').disabled = $('fxOpen').checked;
   }
   function fixSave(){
     if (!FIX || FIX.busy) return;
@@ -518,7 +532,9 @@
     var inIso = FIX.inAt && inV === FIX.inHm ? new Date(FIX.inAt).toISOString() : fixIso(ymd, inV);
     var outIso = FIX.outAt && outV === FIX.outHm ? new Date(FIX.outAt).toISOString() : fixIso(ymd, outV), why = $('fxWhy').value.trim(), msg = $('fxMsg');
     msg.className = 'msg';
-    if (!inIso || !outIso){ msg.textContent = FIX_ERR.need_time; return; }
+    var open = $('fxOpen').checked && ymd === today();
+    if (open) outIso = null;
+    if (!inIso || (!outIso && !open)){ msg.textContent = FIX_ERR.need_time; return; }
     if (!why){ msg.textContent = FIX_ERR.need_reason; $('fxWhy').focus(); return; }
     FIX.busy = true; $('fxGo').disabled = true; msg.textContent = '저장하는 중…';
     rpc('msg_presence_fix', { p_user: FIX.uid, p_in_id: FIX.inId, p_out_id: FIX.outId, p_loc: $('fxLoc').value, p_in: inIso, p_out: outIso, p_reason: why })
