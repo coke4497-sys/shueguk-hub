@@ -111,7 +111,7 @@ function applyFilter(rows, url){
           const sent = b.items.map(it => ({ student: it.student, who: it.who, ok: it.to !== '01011110004', dup: it.student === '고이0' || LOG.some(r => r.ok && r.student === it.student && r.who === it.who && r.date === it.date), message: it.to === '01011110004' ? '수신 불가' : '보냈어요' }));
           sent.forEach((x, i) => { if (x.ok && !x.dup) LOG.unshift(b.schedule
             ? { ts: KD(0) + ' 10:0' + (i % 10), kind: b.kind, student: x.student, who: x.who, to: b.items[i].to, cls: b.items[i].cls, date: b.items[i].date, ok: false, res: '예약', sched: b.schedule, groupId: 'GS9', message: '', by: b.by || '' }
-            : { ts: KD(0) + ' 10:0' + (i % 10), kind: b.kind, student: x.student, who: x.who, to: b.items[i].to, cls: b.items[i].cls, date: b.items[i].date, ok: true, message: '', by: b.by || '' }); });
+            : { ts: KD(0) + ' 10:0' + (i % 10), kind: b.kind, student: x.student, who: x.who, to: b.items[i].to, cls: b.items[i].cls, date: b.items[i].date, ok: true, message: '', by: b.by || '', text: '실제로 보낸 글 · ' + x.student }); });
           if (GLITCH.n > 0){ GLITCH.n--; return json({ result: 'error', message: 'id 파라미터가 없습니다. 예: ?id=서정고3화작' }); }
           return json({ result: 'success', sent, okCount: sent.filter(x => x.ok && !x.dup).length, failCount: sent.filter(x => !x.ok).length });
         }
@@ -155,6 +155,10 @@ function applyFilter(rows, url){
   ok(/재원 명단에서 찾지 못했어요/.test(tips.find(x => x.indexOf('새친구') === 0) || '') && /miss/.test(tips.find(x => x.indexOf('새친구') === 0) || ''), '명단 밖 이름은 그렇다고 알림');
   ok(/같은 이름이 둘 이상이라 가리지 못했어요/.test(tips.find(x => x.indexOf('한동명') === 0) || ''), '동명이인은 가리지 못했다고 알림');
   ok(/보낸 사람 기록 없음/.test(await pg.textContent('#log')), '보낸 사람이 없는 옛 기록은 그렇다고 표시');
+  { // 보낸 내용 (2026-11-11) — 글이 없는 옛 기록은 템플릿으로 다시 만든다
+    const m = await pg.$eval('.log-row details.msg', d => ({ sum: d.querySelector('summary').textContent, box: d.querySelector('.msgbox').textContent, note: d.querySelector('.msgnote').textContent }));
+    ok(m.sum === '보낸 내용 보기' && /김철수 학생에게/.test(m.box) && /▶ 지난 안내/.test(m.box) && /템플릿으로 다시 만든/.test(m.note), '옛 기록의 보낸 내용 — 템플릿에 학생명·제목을 넣어 다시 만듦: ' + m.box.split('\n')[1]);
+  }
 
   console.log('①-2 탭 (2026-10-03 디자인 시안)');
   ok(await pg.isVisible('#tab-send') && !(await pg.isVisible('#tab-log')) && !(await pg.isVisible('#tab-settings')), '처음엔 [알림톡 보내기] 탭만 보임');
@@ -204,6 +208,10 @@ function applyFilter(rows, url){
   ok(/테스트 선생님/.test(await pg.textContent('#log')), '보낸 기록 줄에 보낸 사람 이름');
   await pg.waitForFunction(() => /10월 일정 안내/.test(document.getElementById('log').textContent));
   ok(true, '보낸 뒤 최근 기록 새로고침');
+  { // 보낸 내용 (2026-11-11) — 기록에 남은 실제 글
+    const m = await pg.$$eval('.log-row', rows => { const r = rows.find(x => /10월 일정 안내/.test(x.textContent)); const d = r && r.querySelector('details.msg'); return d ? { box: d.querySelector('.msgbox').textContent, note: d.querySelector('.msgnote').textContent } : null; });
+    ok(m && /^실제로 보낸 글 · /.test(m.box) && /께 보낸 글입니다/.test(m.note) && !/템플릿으로/.test(m.note), '새 기록의 보낸 내용 = 기록에 남은 실제 글 — ' + (m && m.box) + ' / ' + (m && m.note));
+  }
 
   console.log('④ 학년 · 50건 나누기 · 실패/중복 안내');
   sends.length = 0;

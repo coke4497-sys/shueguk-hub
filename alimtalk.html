@@ -162,6 +162,12 @@
   .logtbl .rc summary{cursor:pointer;color:var(--ink-soft);white-space:nowrap;}
   .logtbl .rc summary small{background:var(--soft);border-radius:7px;padding:0 6px;}
   .logtbl .rc .names{margin-top:6px;line-height:1.7;}
+  /* 보낸 내용 (2026-11-11 원장님 "알림톡 뭐라고 보냈는지 발송내역에서 확인") */
+  .logtbl .kt details.msg{margin-top:6px;}
+  .logtbl .kt details.msg summary{cursor:pointer;font-size:12.5px;color:#5A4A6A;list-style:none;display:inline-block;background:#EDE4F4;border-radius:999px;padding:3px 10px;}
+  .logtbl .kt details.msg summary::-webkit-details-marker{display:none;}
+  .msgbox{margin-top:8px;white-space:pre-wrap;word-break:break-all;background:#FBF6EA;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.6;color:#33443c;max-width:420px;}
+  .msgnote{margin-top:6px;font-size:12px;color:#5C6A64;line-height:1.5;}
   .logtbl .nm{border-bottom:1px dotted #B9C4BE;cursor:help;}
   .logtbl .nm.miss{border-bottom-style:dashed;color:var(--bad-ink);}
   .logtbl .n{white-space:nowrap;}
@@ -932,7 +938,7 @@
       rows.forEach(r => {
         const isSch = r.res === '예약' || r.res === '예약 취소';
         const k = r.kind + '§' + r.date + (/^N:/.test(String(r.date)) ? '' : '§' + String(r.cls || '')) + (isSch ? '§S' + r.sched : '');   // 출석 알림은 날짜·반마다 한 줄
-        if (!g[k]){ g[k] = { kind: r.kind, date: r.date, cls: String(r.cls || ''), ts: r.ts, ok: 0, bad: 0, sms: 0, sch: 0, cxl: 0, sent: 0, sched: isSch ? r.sched : '', gids: [], names: [], by: [] }; order.push(k); }
+        if (!g[k]){ g[k] = { kind: r.kind, date: r.date, cls: String(r.cls || ''), ts: r.ts, ok: 0, bad: 0, sms: 0, sch: 0, cxl: 0, sent: 0, sched: isSch ? r.sched : '', gids: [], names: [], by: [], texts: [] }; order.push(k); }
         const x = g[k];
         if (r.res === '예약'){
           if (schedMs(r.sched) > nowMs){ x.sch++; if (r.groupId && x.gids.indexOf(r.groupId) < 0) x.gids.push(r.groupId); }
@@ -942,6 +948,7 @@
         if (r.ok && /문자|SMS|LMS/i.test(String(r.message || ''))) x.sms++;   // 카카오톡을 못 받아 문자로 대체된 건(솔라피 메시지 기준)
         if (r.by && x.by.indexOf(r.by) < 0) x.by.push(r.by);
         if (x.names.length < 400) x.names.push({ nm: r.student, who: r.who, ok: r.ok || r.res === '예약' || r.res === '예약 취소' });
+        if (r.text && x.texts.length < 400) x.texts.push({ nm: r.student, who: r.who, text: String(r.text) });
         if (r.ts > x.ts) x.ts = r.ts;
       });
       LOG_G = { g: g, order: order, n: rows.filter(r => r.ok || r.res === '예약').length, people: Object.keys(rows.reduce((o, r) => { o[r.student] = 1; return o; }, {})).length };
@@ -966,11 +973,34 @@
         (x.sch && x.gids.length ? '<br><button type="button" class="cxbtn" onclick="cancelSched(' + order.indexOf(k) + ')">예약 취소</button>' : '');
       return '<tr class="log-row"><td class="ts" data-l="날짜"><span>' + esc(d) + '</span><small>' + esc(hm) + '</small></td>' +
         '<td class="kt" data-l="종류 · 제목"><span class="kd">' + esc(t ? t.label : x.kind) + '</span><span class="tt">' + esc(title) + '</span>' +
-        '<span class="by">' + (x.by.length ? esc(x.by.join('·') + ' 선생님') : '보낸 사람 기록 없음') + '</span></td>' +
+        '<span class="by">' + (x.by.length ? esc(x.by.join('·') + ' 선생님') : '보낸 사람 기록 없음') + '</span>' + logMsgHtml(x, title, k, open) + '</td>' +
         '<td class="rc" data-l="받을 학생"><details data-k="' + esc(k) + '"' + (open[k] ? ' open' : '') + '><summary>받은 분 보기 <small>' + x.names.length + '</small></summary><div class="names">' + x.names.map(logName).join(', ') + '</div></details></td>' +
         '<td class="n" data-l="인원">' + (x.ok + x.sch + x.sent + x.cxl) + '건' + (x.bad ? ' <span class="bad">+' + x.bad + '</span>' : '') + '</td>' +
         '<td class="st" data-l="상태">' + st + '</td></tr>';
     }).join('') + '</tbody></table>';
+  }
+  /* 보낸 내용 — 기록(M열 '내용')에 남은 실제 글. 2026-11-11 전 기록은 글이 없어 템플릿에 아는 값만 넣어 다시 만든다. */
+  function logMsgHtml(x, title, k, open){
+    const mk = 'm' + k, t = tplOf(x.kind);
+    let body = '', note = '';
+    if (x.texts.length){
+      const first = x.texts[0], nm = first.nm;
+      // 학생 이름만 다른 글은 같은 글로 본다
+      const kinds = {};
+      x.texts.forEach(y => { kinds[String(y.text).split(y.nm).join('\u0000')] = 1; });
+      const n = Object.keys(kinds).length;
+      body = first.text;
+      note = nm + (first.who ? ' ' + whoLbl(first.who) : '') + '께 보낸 글입니다.' +
+        (x.texts.length > 1 ? (n > 1 ? ' 받는 분마다 학생 이름 밖의 내용도 다른 글이 ' + n + '가지 있어요.' : ' 다른 분께도 학생 이름만 바꿔 같은 글이 갔어요.') : '') +
+        (x.texts.length < x.names.length ? ' (글이 기록되기 전에 보낸 ' + (x.names.length - x.texts.length) + '건은 빠져 있습니다)' : '');
+    } else if (t && t.text){
+      const nm = x.names.length ? x.names[0].nm : '';
+      const m = /^N:\d{4}-\d{2}-\d{2}\|(.*)$/.exec(x.date);
+      body = String(t.text).replace(/#\{([^}]+)\}/g, (_, v) => v === '학생명' ? (nm || '#{학생명}') : (v === '제목' && m) ? m[1] : (v === '반이름' && x.cls && x.cls !== '공지') ? x.cls : '#{' + v + '}');
+      note = '이 기록은 보낸 글을 남기기 전(2026-11-11 전)에 보낸 것이라 템플릿으로 다시 만든 글입니다. #{ } 칸의 실제 값은 기록에 없어요.';
+    } else return '';
+    return '<details class="msg" data-k="' + esc(mk) + '"' + (open[mk] ? ' open' : '') + '><summary>보낸 내용 보기</summary>' +
+      '<div class="msgbox">' + esc(body) + '</div><div class="msgnote">' + esc(note) + '</div></details>';
   }
   /* ── 시작 ── */
   sbAll('/students?select=id,name,school,grade,code,enrolled,phone_student,phone_parent1,phone_parent2&order=seq,id').then(rows => {
