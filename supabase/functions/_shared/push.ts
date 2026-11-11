@@ -53,6 +53,7 @@ export function plan(msg: Msg, tasks: Task[], subs: Sub[], active: Set<string>, 
 // 근무일은 새벽 5시에 바뀐다(private.work_today 와 같음). 쉬는 날에도 나에게 생긴 할 일·넘긴 일은 받는다(plan·handPlan).
 export const ALWAYS_LOGIN = ['parkeh']
 export const WORK_DAY_H = 5
+export const TEACHER_DOWS = [3, 4, 5, 6, 7]   // 선생님 기본 근무 요일 1=월…7=일 (2026-11-09 원장님 "선생님들은 모두 수목금토일 근무")
 const WDAY = '일월화수목금토'
 function addDay(y: string, n: number) { const d = new Date(y + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10) }
 export function workYmd(now = Date.now()) { return new Date(now + (9 - WORK_DAY_H) * 3600e3).toISOString().slice(0, 10) }
@@ -74,6 +75,7 @@ export type WorkIn = {
   classes: { book: string; class_id: string; name: string; teacher: string; roster: string }[]
   period: { book?: string; overrides?: Record<string, string> | null } | null
   off: string[]
+  days?: { user_id: string; start_on: string | null; dows: number[] | null }[]
 }
 // 순수 함수(시험용) — 오늘 알림을 받을 사람 user_id
 export function workSet(w: WorkIn) {
@@ -83,6 +85,12 @@ export function workSet(w: WorkIn) {
   w.shifts.forEach((r) => { taken.add(r.loc + '|' + r.slot); if (r.user_id) set.add(r.user_id) })
   w.roster.forEach((r) => { if (!taken.has(r.loc + '|' + r.slot)) set.add(r.user_id) })   // 그 칸을 아직 안 채운 날(work_fill 전)
   w.presence.forEach((r) => set.add(r.user_id))
+  // 근무 요일로 정해 둔 사람(msg_alert_days — 2026-11-09) — 시작일부터 그 요일이면 근무일
+  const dow = ((new Date(w.day + 'T00:00:00Z').getUTCDay() + 6) % 7) + 1
+  ;(w.days || []).forEach((d) => { if ((!d.start_on || d.start_on <= w.day) && (d.dows || []).map(Number).includes(dow)) set.add(d.user_id) })
+  // 선생님(role teacher)은 담당 반이 없어도 모두 수~일 근무(2026-11-09 원장님) — msg_alert_days 에 줄이 있는 사람은 그 줄을 따른다
+  const own = new Set((w.days || []).map((d) => d.user_id))
+  if (TEACHER_DOWS.includes(dow)) w.members.forEach((m) => { if (m.role === 'teacher' && !own.has(m.user_id)) set.add(m.user_id) })
   const book0 = (w.period && w.period.book) || '정규'
   const ov = (w.period && w.period.overrides && typeof w.period.overrides === 'object') ? w.period.overrides : {}
   const off = new Set(w.off)
@@ -116,16 +124,34 @@ export async function workingToday(admin: any, now = Date.now()): Promise<Set<st
       admin.from('tt_classes').select(sel).like('class_id', wid + '*').limit(200),
       admin.from('tt_period').select('book,overrides').eq('week_wednesday', weekWed(day)).limit(1),
       admin.from('tt_log').select('from_class_id').in('kind', ['주간반휴강', '주간반이동']).eq('apply_date', day).limit(500),
+      admin.from('msg_alert_days').select('user_id,start_on,dows'),
     ])
     // deno-lint-ignore no-explicit-any
-    if (r.some((x: any) => x.error)) { console.error('workingToday lookup failed'); return null }
+    if (r.slice(0, 8).some((x: any) => x.error)) { console.error('workingToday lookup failed'); return null }
     return workSet({
       day, members: r[0].data || [], shifts: r[1].data || [], roster: r[2].data || [], presence: r[3].data || [],
       classes: (r[4].data || []).concat(r[5].data || []), period: (r[6].data || [])[0] || null,
       // deno-lint-ignore no-explicit-any
       off: (r[7].data || []).map((x: any) => x.from_class_id),
+      days: r[8].error ? [] : (r[8].data || []),   // 표가 없어도(마이그레이션 전) 종전처럼
     })
   } catch (_) { return null }
+}
+
+// 근무 시작 전인 사람(msg_alert_days.start_on > 오늘 근무일) — 어떤 슈톡 알림도 보내지 않는다. 못 읽으면 빈 집합(종전처럼).
+export function mutedSet(days: { user_id: string; start_on: string | null }[], day: string) {
+  return new Set(days.filter((d) => d.start_on && d.start_on > day).map((d) => d.user_id))
+}
+// deno-lint-ignore no-explicit-any
+export async function activeUsers(admin: any, now = Date.now()) {
+  const [a, d] = await Promise.all([
+    admin.from('teacher_accounts').select('user_id,display_name').eq('active', true),
+    admin.from('msg_alert_days').select('user_id,start_on'),
+  ])
+  if (a.error) return { error: a.error, data: null, set: new Set<string>() }
+  const mute = d.error ? new Set<string>() : mutedSet(d.data || [], workYmd(now))
+  const data = (a.data || []).filter((r: { user_id: string }) => !mute.has(r.user_id))
+  return { error: null, data, set: new Set<string>(data.map((r: { user_id: string }) => r.user_id)) }
 }
 
 // 넘겨받은 사람에게 보낼 내용 — 순수 함수(시험용). 쪽지(note — 202610290003)도 같은 길로 가고 제목만 '○○ → 나에게 쪽지'.
@@ -263,7 +289,7 @@ export async function pushMessage(admin: any, id: number, extra?: (q: any) => an
   const [t, s, a, work] = await Promise.all([
     admin.from('msg_tasks').select('assignee,text').eq('message_id', id),
     admin.from('msg_push_subs').select('*'),
-    admin.from('teacher_accounts').select('user_id').eq('active', true),
+    activeUsers(admin),   // 근무 시작 전인 사람은 뺀다(msg_alert_days)
     workingToday(admin),
   ])
   if (t.error || s.error || a.error) return { status: 503, body: { error: 'lookup_failed' } }
@@ -273,7 +299,7 @@ export async function pushMessage(admin: any, id: number, extra?: (q: any) => an
   const { data: claimed, error: ce } = await q.select('id,author,author_name,body,files,deleted_at,bot')
   if (ce) return { status: 503, body: { error: 'claim_failed' } }
   if (!claimed || !claimed.length) return { status: 200, body: { skipped: true } }
-  const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
+  const active = a.set
   const items = plan(claimed[0], t.data || [], s.data || [], active, work)
   const r = await deliver(admin, items)
   const { failedIds, ...cnt } = r
@@ -327,12 +353,12 @@ export async function retryPush(admin: any, id: number) {
     admin.from('msg_messages').select('id,author,author_name,body,files,deleted_at,bot').eq('id', id).maybeSingle(),
     admin.from('msg_tasks').select('assignee,text').eq('message_id', id),
     admin.from('msg_push_subs').select('*').in('id', ids),
-    admin.from('teacher_accounts').select('user_id').eq('active', true),
+    activeUsers(admin),   // 근무 시작 전인 사람은 뺀다(msg_alert_days)
     workingToday(admin),
   ])
   if (m.error || t.error || s.error || a.error) { await restore(ids); return { status: 503 } }
   if (!m.data || m.data.deleted_at) return { status: 200, skipped: true }
-  const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
+  const active = a.set
   const r = await deliver(admin, onlySubs(plan(m.data, t.data || [], s.data || [], active, work), ids))
   if (r.failedIds.length && !(await restore(r.failedIds))) return { status: 503, lost: r.failedIds }
   return { status: r.failed ? 503 : 200 }
@@ -367,12 +393,12 @@ export async function retryHand(admin: any, id: number) {
   const [t, s, a] = await Promise.all([
     admin.from('msg_tasks').select('*').eq('id', id).maybeSingle(),   // * — note(쪽지, 202610290003) 열이 아직 없는 DB 에서도 돈다
     admin.from('msg_push_subs').select('*').in('id', h.subs),
-    admin.from('teacher_accounts').select('user_id').eq('active', true),
+    activeUsers(admin),   // 근무 시작 전인 사람은 뺀다(msg_alert_days)
   ])
   if (t.error || s.error || a.error) { await restore(h); return { status: 503 } }
   // 그 사이 다른 사람에게 다시 넘겼으면 옛 사람에게는 보내지 않는다
   if (!t.data || t.data.assignee !== h.to || (h.by_id && t.data.hand_by !== h.by_id) || (typeof h.gen === 'number' && t.data.hand_gen !== h.gen)) return { status: 200, skipped: true }
-  const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
+  const active = a.set
   const r = await deliver(admin, onlySubs(handPlan({ ...t.data, to: h.to }, h.by || '', s.data || [], active), h.subs))
   // 보내는 사이 다시 넘겼으면(hand_by 가 바뀜) 옛 정보를 되살리지 않는다 (Codex 검토)
   if (r.failedIds.length && !(await restore({ ...h, subs: r.failedIds }))) return { status: 503, lost: r.failedIds }
@@ -385,7 +411,7 @@ export async function retryHand(admin: any, id: number) {
 export async function pushHand(admin: any, id: number, by?: string) {
   let tq = admin.from('msg_tasks').select('*').eq('id', id).not('hand_push', 'is', null)   // * — note(쪽지, 202610290003) 열이 아직 없는 DB 에서도 돈다
   if (by) tq = tq.eq('hand_by', by)
-  const [t, a] = await Promise.all([tq.maybeSingle(), admin.from('teacher_accounts').select('user_id,display_name').eq('active', true)])
+  const [t, a] = await Promise.all([tq.maybeSingle(), activeUsers(admin)])
   if (t.error || a.error) return { status: 503, body: { error: 'lookup_failed' } }
   if (!t.data) return { status: 200, body: { skipped: true } }
   const to = t.data.hand_push as string
@@ -405,7 +431,7 @@ export async function pushHand(admin: any, id: number, by?: string) {
   const gen = t.data.hand_gen
   const turn: [string, unknown][] = [['assignee', to], ['hand_by', t.data.hand_by], ['hand_gen', gen]]
   const unclaim = () => checked(() => admin.from('msg_tasks').update({ hand_push: to }).eq('id', id).is('hand_push', null).eq('assignee', to).eq('hand_by', t.data.hand_by).eq('hand_gen', gen), 'unclaim hand ' + id)
-  const active = new Set<string>((a.data || []).map((r: { user_id: string }) => r.user_id))
+  const active = a.set
   const items = handPlan({ ...claimed[0], to }, byName, s.data || [], active)
   const r = await deliver(admin, items)
   const { failedIds, ...cnt } = r

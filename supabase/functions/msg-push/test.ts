@@ -2,7 +2,7 @@
 // ① 받을 기기 고르기(plan) ② 이 런타임(Deno)에서 web-push 암호화가 되는지 — 가짜 구독 키로 만든 요청을
 //    그 기기의 비밀 키로 풀어 내용이 같은지 본다(네트워크 없음).
 import { plan, cut, handPlan } from './index.ts'
-import { workSet, workYmd, teacherKey } from '../_shared/push.ts'
+import { workSet, workYmd, teacherKey, mutedSet } from '../_shared/push.ts'
 import webpush from 'npm:web-push@3.6.7'
 import ece from 'npm:http_ece@1.2.0'
 import crypto from 'node:crypto'
@@ -132,7 +132,10 @@ Deno.test('오늘 근무 일정 — 근무표·기본 근무표·출근 기록·
     period: { book: '정규', overrides: {} },
     off: ['r004'],
   })
-  assertEquals([...set].sort(), ['as1', 'as3', 'as4', 'boss', 'ceo', 't1'])
+  assertEquals([...set].sort(), ['as1', 'as3', 'as4', 'boss', 'ceo', 't1', 't2', 't3', 't4', 't5', 't6'])   // 일요일 — 선생님은 모두 근무(2026-11-09)
+  // 월요일 — 선생님 기본 근무 요일이 아니면 시간표·근무표대로
+  const mon = workSet({ day: '2026-10-26', members, shifts: [], roster: [], presence: [], off: [], classes: [], period: null })
+  assertEquals([...mon].sort(), ['boss', 'ceo'])
   assertEquals(teacherKey('박언호대표님'), '언호')   // 2026-10-27 원장님 — 표시 이름 끝의 '대표님'은 떼고 담당T와 맞춘다
   assertEquals(teacherKey('이은지 선생님'), '은지')
   // 학년 예외 — 중2만 내신이면 내신 중2 반 담당이 들어온다
@@ -143,4 +146,23 @@ Deno.test('오늘 근무 일정 — 근무표·기본 근무표·출근 기록·
   // 근무일은 새벽 5시에 바뀐다
   assertEquals(workYmd(Date.parse('2026-10-26T02:00:00+09:00')), '2026-10-25')
   assertEquals(workYmd(Date.parse('2026-10-26T05:00:00+09:00')), '2026-10-26')
+})
+
+// 근무 요일·근무 시작 전 알림 끄기 (msg_alert_days — 2026-11-09 원장님 "이한슬 선생님 12/16부터 수목금토일, 근무 전 알람 끄기")
+Deno.test('알림 근무일 — 시작일부터 정한 요일 · 시작 전은 끔', () => {
+  const members = [{ user_id: 'hs', display_name: '이한슬', role: 'teacher', login_id: 'leehs' }]
+  const days = [{ user_id: 'hs', start_on: '2026-12-16', dows: [3, 4, 5, 6, 7] }]
+  const base = { members, shifts: [], roster: [], presence: [], classes: [], period: null, off: [], days }
+  assertEquals(workSet({ ...base, day: '2026-12-16' }).has('hs'), true)    // 수, 시작일
+  assertEquals(workSet({ ...base, day: '2026-12-20' }).has('hs'), true)    // 일
+  assertEquals(workSet({ ...base, day: '2026-12-21' }).has('hs'), false)   // 월
+  assertEquals(workSet({ ...base, day: '2026-12-11' }).has('hs'), false)   // 금이지만 시작 전
+  assertEquals([...mutedSet(days, '2026-12-15')], ['hs'])
+  assertEquals(mutedSet(days, '2026-12-16').size, 0)
+  // 근무 시작 전이면 @이름 할 일이 있어도 받지 않는다 — active 에서 빠지므로
+  const sub = { id: 1, user_id: 'hs', endpoint: 'e', p256dh: 'p', auth: 'a', mode: 'all', fail_count: 0 }
+  const msg = { id: 9, author: 'boss', author_name: '이수경', body: '@이한슬 확인', files: [], deleted_at: null, bot: null }
+  const task = [{ assignee: 'hs', text: '확인' }]
+  assertEquals(plan(msg, task, [sub], new Set(['boss'])).length, 0)
+  assertEquals(plan(msg, task, [sub], new Set(['boss', 'hs'])).length, 1)
 })
