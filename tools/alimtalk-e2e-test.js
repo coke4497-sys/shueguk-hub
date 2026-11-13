@@ -439,9 +439,9 @@ function applyFilter(rows, url){
   ok(/결석 안내/.test(lr) && lr.indexOf(mdOf(LAST_FRI) + ' (금) · 고1 가') > 0 && /4건/.test(lr), '발송 내역 줄 — 종류·수업일·반 (' + lr.slice(0, 60) + ')');
   await pg.click('#tabs [data-tab="send"]');
 
-  console.log('⑬-2 결석 예고 — 내일부터 · 알린 분·사유·보충 안내 · 예약 가능');
+  console.log('⑬-2 결석 예고 — 오늘부터(당일 가능) · 알린 분·사유·보충 안내 · 예약 가능');
   await pg.selectOption('#kindSel', 'preabsent');
-  ok(await pg.inputValue('#attDate') === KD(1) && (await pg.getAttribute('#attDate', 'min')) === KD(1) && await pg.isVisible('#when'), '날짜 기본 내일 · 내일부터 · 예약 줄 보임');
+  ok(await pg.inputValue('#attDate') === KD(1) && (await pg.getAttribute('#attDate', 'min')) === KD(0) && await pg.isVisible('#when'), '날짜 기본 내일 · 오늘부터 · 예약 줄 보임');
   ok((await pg.$$('#atStus button')).length === 0 && (await pg.$$eval('#atClsSel option', els => els.map(o => o.value))).includes('정규|r003'), '수업을 바꾸면 담은 학생은 비우고 내일 요일 반 목록');
   await pg.selectOption('#atClsSel', '정규|r003');
   await pg.click('#atStus [data-s="8"]');
