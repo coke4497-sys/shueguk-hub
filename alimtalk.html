@@ -636,7 +636,7 @@
   const ATT = { ymd: '', book: '정규', cls: null, stus: [], from: '', reason: '', mk: '', tel: '', hm: '' };
   const ATT_FROM_OPTS = ['학부모님께', '학생에게'], ATT_MK_OPTS = ['보충 일정은 별도 안내드립니다.', '당일 결석이므로 보충을 진행하지 않습니다.'];
   const ATT_CENTER_TEL = [['본원', '031-973-4497'], ['화정센터', '031-979-4497'], ['민트초코', '031-970-4497'], ['정리정독', '031-994-0624'], ['도래울', '031-969-4497']];
-  const ATT_FIXED = { absent: '오늘까지의 수업 — 지난 날짜 결석도 보낼 수 있어요', preabsent: '내일부터의 수업 — 미리 알린 결석', noshow: '오늘 수업만', arrived: '오늘 수업만' };
+  const ATT_FIXED = { absent: '오늘까지의 수업 — 지난 날짜 결석도 보낼 수 있어요', preabsent: '오늘부터의 수업 — 미리 알린 결석(오늘 수업은 시작 전에)', noshow: '오늘 수업만', arrived: '오늘 수업만' };
   function attOpts(tpl, key, dflt){ const o = tpl && tpl.options && tpl.options[key]; return (o && o.length) ? o : dflt; }
   function attDow(ymd){ return ymd ? DOW[new Date(ymd + 'T00:00:00Z').getUTCDay()] : ''; }
   function attWhen(c, ymd){ return ymd ? (+ymd.slice(5, 7)) + '/' + (+ymd.slice(8, 10)) + '(' + attDow(ymd) + ') ' + (c ? c.start : '') : ''; }
@@ -659,9 +659,11 @@
     if (att && k !== 'preabsent' && SCHED) setWhen(false);
     if (!att) return;
     const d = $('attDate'), today = kstYmd(), tomorrow = kstYmd(1);
-    d.min = k === 'preabsent' ? tomorrow : (k === 'absent' ? '' : today);
+    d.min = k === 'preabsent' ? today : (k === 'absent' ? '' : today);   // 결석 예고도 당일 가능(2026-11-13 원장님)
     d.max = k === 'preabsent' ? '' : today;
-    if (!d.value || (d.min && d.value < d.min) || (d.max && d.value > d.max)) d.value = k === 'preabsent' ? tomorrow : today;
+    // 결석 예고로 처음 바꿀 때는 내일을 기본으로 두고, 오늘(당일 수업 전 결석)은 날짜에서 고른다
+    if (!d.value || (d.min && d.value < d.min) || (d.max && d.value > d.max) || (k === 'preabsent' && ATT.kind !== 'preabsent')) d.value = k === 'preabsent' ? tomorrow : today;
+    ATT.kind = k;
     $('attDateNote').textContent = ATT_FIXED[k] || '';
     if (k === 'arrived' && !ATT.hm) ATT.hm = attNowHM();
     if (k === 'preabsent' && !ATT.mk) ATT.mk = attOpts(tplOf(k), '보충안내', ATT_MK_OPTS)[0];
