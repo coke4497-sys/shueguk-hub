@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script src="https://coke4497-sys.github.io/shueguk-hub/assets/teacher-gate.js"></script><!-- 교사 로그인 게이트 (허브 로그인 필요) -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>슈핏 문법</title>
+<title>Shuefit 문법</title>
 <link rel="icon" type="image/png" href="https://coke4497-sys.github.io/shueguk-h-work/icon-chulje.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,6 +25,7 @@
   .back{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;color:var(--g1);text-decoration:none;font-size:13px;background:#fff;border-radius:999px;padding:6px 14px}
   .hd{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px;padding:0 4px}
   .hd .k{font-size:12px;letter-spacing:3px;color:var(--g1)}
+  .hd .subt{margin-top:4px;font-size:14px;color:var(--ink2)}
   h1{margin:6px 0 0;font-family:'Gowun Batang',serif;font-weight:700;font-size:30px;color:var(--ink)}
   .hd .tot{font-size:14px;color:var(--ink2);white-space:nowrap}
   .hd .tot b,.num{font-family:'Do Hyeon';font-weight:400;font-size:18px;color:var(--ink)}
@@ -213,7 +214,7 @@
 <div class="wrap">
   <a class="back" href="study.html">← 학습 관리</a>
   <header class="hd">
-    <div><div class="k">슈국 티쳐스 페이지</div><h1>슈핏 문법</h1></div>
+    <div><div class="k">슈국 티쳐스 페이지</div><h1>Shuefit 문법</h1><div class="subt">너에게 꼭 맞춘 문법 학습</div></div>
     <span class="tot" id="tot"></span>
   </header>
   <div class="cols">
@@ -422,7 +423,7 @@ async function boot(){
     SCHOOLS=[...new Set(stu.filter(s=>!LEFT_RE.test(s.enrolled||'')).map(s=>(s.school||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
     $('tList').innerHTML=[...new Set(hws.map(h=>h.teacher).filter(Boolean))].map(t=>`<option value="${esc(t)}">`).join('');
     $('loadSel').innerHTML='<option value="">— 고르세요 —</option>'+HWS.map((h,i)=>`<option value="${i}">${esc(h.code)} · ${esc(h.teacher)} (${Object.keys(h.data.bank).length}문항)</option>`).join('');
-    if(!ITEMS.length){ $('list').innerHTML='<div class="empty">슈핏 문법 문항이 비어 있습니다. 문항을 올린 뒤 다시 열어 주세요.</div>'; return; }
+    if(!ITEMS.length){ $('list').innerHTML='<div class="empty">Shuefit 문법 문항이 비어 있습니다. 문항을 올린 뒤 다시 열어 주세요.</div>'; return; }
     $('tot').innerHTML=`문항 <b>${ITEMS.length}</b>개 · 지문 세트 <b>${new Set(ITEMS.map(x=>x.pid).filter(Boolean)).size}</b>개`;
     drawFilters(); drawList(); drawSel();
   }catch(e){
@@ -539,7 +540,7 @@ $('list').addEventListener('click', e=>{
 });
 /* 제목 자동 — 'shuefit 문법: 단원 난도 (문항 수)', 같은 제목 과제가 이미 있으면 뒤에 02·03…
    (원장님 2026-11-17). 선생님이 직접 고친 칸은 덮지 않는다(마지막 자동값과 같거나 비었을 때만). */
-const TITLE_PRE='shuefit 문법: ';
+const TITLE_PRE='Shuefit 문법: ';
 function autoTitle(){
   const ids=selIds(); if(!ids.length) return '';
   const uniq=k=>[...new Set(ids.map(id=>BYID[id][k]).filter(Boolean))];
@@ -642,7 +643,7 @@ $('saveBtn').onclick=async()=>{
     const h=HWS.find(x=>x.teacher===teacher && x.code===code); if(h) h.data=data; else HWS.push({ teacher, code, data });
     USED={}; HWS.forEach(x=>Object.values(x.data.bank).forEach(id=>{ (USED[id]=USED[id]||[]).push(x.code); }));
     setMsg('ok',`저장했습니다 — ${teacher} / ${code} (${ids.length}문항)\n이제 [H WORK 배정하기]에서 학생에게 배정해 주세요.`);
-    if(window.shuegukActivity) shuegukActivity('슈핏 문법', 'H WORK 출제', code, ids.length+'문항', false);
+    if(window.shuegukActivity) shuegukActivity('Shuefit 문법', 'H WORK 출제', code, ids.length+'문항', false);
     drawList();
   }catch(e){ setMsg('bad','저장하지 못했습니다. 인터넷 연결을 확인해 주세요. ('+e.message+')'); }
   finally{ btn.disabled=false; btn.textContent='H WORK 과제로 출제'; }
@@ -651,7 +652,7 @@ $('saveBtn').onclick=async()=>{
 /* ── 인쇄 ── 학생용 = 문항만, 교사용 = 정답 동그라미 + 문항 아래 해설 + 맨 위 빠른 정답 */
 function docParts(teacher){
   const ids=selIds();
-  const title=$('pTitle').value.trim() || $('hCode').value.trim().replace(/^\[[^\]]*\]\s*/,'') || '슈핏 문법';
+  const title=$('pTitle').value.trim() || $('hCode').value.trim().replace(/^\[[^\]]*\]\s*/,'') || 'Shuefit 문법';
   let n=0; const blocks=[];
   SEL.forEach(g=>{
     const first=BYID[g[0]];
@@ -677,7 +678,7 @@ const PAGE_A4='@page{size:A4;margin:14mm 13mm 14mm 13mm}', PAGE_BK='@page{size:A
 /* 'PDF로 저장' 파일 이름 = 시험지 제목 — 인쇄 창은 document.title 을 파일 이름으로 쓴다. 파일 이름에 못 쓰는 글자(: / \ 등)는 뺀다 */
 const PAGE_TITLE=document.title;
 function fileTitle(title, teacher, booklet){
-  const base=String(title||'슈핏 문법').replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim() || '슈핏 문법';
+  const base=String(title||'Shuefit 문법').replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim() || 'Shuefit 문법';
   return base + (booklet?' 중철 책자':'') + (teacher?' (교사용)':'');
 }
 window.addEventListener('afterprint', ()=>{ setPage(PAGE_A4); document.title=PAGE_TITLE; });
@@ -701,16 +702,16 @@ function coverInfo(d, teacher){
   const ys=uniq('year').map(Number).filter(Boolean).sort();
   const yr=ys.length ? (ys[0]===ys[ys.length-1] ? ys[0] : ys[0]+'~'+ys[ys.length-1])+' ' : '';
   const m=d.title.match(/^(.*?):\s*(.+)$/);
-  const t1=m?m[1]:'shuefit 문법', t2=m?m[2]:d.title;
+  const t1=m?m[1]:'Shuefit 문법', t2=m?m[2]:d.title;
   const sub=`${yr}${kinds.join('·')} 모의고사 · ${d.ids.length}문항 · ${lvls.join('·')} 단계${teacher?' · 정답과 해설':''}`;
   return { areas, t1, t2, sub, all:[...new Set(ITEMS.map(x=>x.area))] };
 }
 function coverPage(c, teacher){
   const p=document.createElement('div'); p.className='bpage cover';
-  p.innerHTML=`<div class="cv-top"><div class="cv-brand"><span>이수경국어 · 슈핏 문법</span>
+  p.innerHTML=`<div class="cv-top"><div class="cv-brand"><span>이수경국어 · Shuefit 문법</span>
       <div class="cv-logo"><b>Shueguk</b><span>${teacher?'교사용':'학생용'}</span></div></div>
     <div class="cv-tag">문법 · ${esc(c.areas.join(' · '))}</div>
-    <div class="cv-series">${esc(c.t1)} 시리즈 · 너에게 꼭 맞춘 슈국 문법 학습</div>
+    <div class="cv-series">${esc(c.t1)} 시리즈 · 너에게 꼭 맞춘 문법 학습</div>
     <div class="cv-title">${esc(c.t1)}<br>${esc(c.t2)}</div>
     <div class="cv-sub">${esc(c.sub)}</div>
     <img class="cv-sk" src="assets/sk-study.png" alt=""></div>

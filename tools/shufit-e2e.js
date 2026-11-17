@@ -153,7 +153,7 @@ function rpc(fn, p) {
     ok((await p.locator('#sel .sg .n').first().textContent()) === '1~2', '고른 목록 번호 1~2');
     ok(await p.locator('.it.on').count() === 1 && (await p.locator('.it.on .addb').textContent()) === '✓ 담음' && await p.locator('#selN.has').count() === 1 && !(await p.locator('#prS').isDisabled()), '담으면 카드 테두리·✓ 담음·수 배지·버튼 풀림');
     ok((await p.locator('#xHint').textContent()) === '고른 2문항으로 만듭니다', '내보내기 안내 — 고른 n문항');
-    ok((await p.locator('#pTitle').inputValue()) === 'shuefit 문법: 음운 심화 (2)' && (await p.locator('#hCode').inputValue()) === 'shuefit 문법: 음운 심화 (2)', '제목 자동: ' + await p.locator('#pTitle').inputValue());
+    ok((await p.locator('#pTitle').inputValue()) === 'Shuefit 문법: 음운 심화 (2)' && (await p.locator('#hCode').inputValue()) === 'Shuefit 문법: 음운 심화 (2)', '제목 자동: ' + await p.locator('#pTitle').inputValue());
     await p.click('[data-add="104"]');
     await p.click('#sel [data-mv="1"][data-d="-1"]');
     ok((await p.locator('#sel .sg .n').first().textContent()) === '1', '순서 바꾸기 — 세트가 통째로 내려감');
@@ -162,7 +162,7 @@ function rpc(fn, p) {
     await p.click('#allBtn'); ok((await p.locator('#selN').textContent()) === '4문항' && await p.locator('#allBtn').isHidden(), '한번에 담기 — 보이는 문항 모두·버튼 숨김');
     await p.evaluate(() => { SEL = SEL.slice(0, 1); drawSel(); drawList(); });
     await p.click('#autoBtn'); ok((await p.locator('#selN').textContent()) === '4문항', '10문항 채우기 — 남은 문항 다');
-    ok((await p.locator('#hCode').inputValue()) === 'shuefit 문법: 품사·음운 기본·실력·심화 (4)', '제목 자동 — 단원·난도 여럿(담은 순서): ' + await p.locator('#hCode').inputValue());
+    ok((await p.locator('#hCode').inputValue()) === 'Shuefit 문법: 품사·음운 기본·실력·심화 (4)', '제목 자동 — 단원·난도 여럿(담은 순서): ' + await p.locator('#hCode').inputValue());
     ok(await p.evaluate(() => { const base = autoTitle(); HWS.push({ code: base, data: { bank: {} } }); const a = autoTitle(); HWS.push({ code: a, data: { bank: {} } }); const b = autoTitle(); HWS.splice(-2); return a.endsWith(' 02') && b.endsWith(' 03'); }), '같은 제목이 있으면 02·03');
     // 인쇄
     await p.fill('#pTitle', '음운 연습');
@@ -184,8 +184,8 @@ function rpc(fn, p) {
     ok(await p.locator('#print .xbox').count() === 4 && await p.locator('#print .quick').count() === 1, '교사용 해설 4개 + 빠른 정답');
     ok(await p.locator('#print.teacher .cn.ok').count() === 4, '교사용 정답 동그라미');
     ok((await p.title()) === '음운 연습 (교사용)', '교사용 파일 이름: ' + await p.title());
-    ok(await p.evaluate(() => fileTitle('shuefit 문법: 음운 기본 (10)', false, true)) === 'shuefit 문법 음운 기본 (10) 중철 책자', '파일 이름에 못 쓰는 글자(:) 빼기·책자');
-    await p.evaluate(() => window.dispatchEvent(new Event('afterprint'))); ok((await p.title()) === '슈핏 문법', '인쇄 뒤 창 제목 되돌림');
+    ok(await p.evaluate(() => fileTitle('Shuefit 문법: 음운 기본 (10)', false, true)) === 'Shuefit 문법 음운 기본 (10) 중철 책자', '파일 이름에 못 쓰는 글자(:) 빼기·책자');
+    await p.evaluate(() => window.dispatchEvent(new Event('afterprint'))); ok((await p.title()) === 'Shuefit 문법', '인쇄 뒤 창 제목 되돌림');
     await p.emulateMedia({ media: 'print' });
     ok(await p.evaluate(() => getComputedStyle(document.querySelector('.wrap')).display) === 'none' && await p.evaluate(() => getComputedStyle(document.getElementById('print')).display) === 'block', '인쇄 때는 시험지만');
     if (SHOT) await p.screenshot({ path: path.join(SHOT, 'shufit-print-teacher.png'), fullPage: true });
@@ -204,7 +204,7 @@ function rpc(fn, p) {
     ok(DB.saved && DB.saved.data.bank['2'] === 101, '수파베이스 과제 표에도 저장');
     ok((await p.locator('.tg.used').count()) >= 1, '저장 뒤 낸 적 있음 표시');
     if (SHOT) await p.screenshot({ path: path.join(SHOT, 'shufit-make.png') });
-    ok((await p.textContent('h1')).includes('슈핏 문법') && !(await p.innerText('.wrap')).includes('문항 은행'), '이름 = 슈핏 문법 (문항 은행 글 없음)');
+    ok((await p.textContent('h1')) === 'Shuefit 문법' && (await p.textContent('.hd .subt')) === '너에게 꼭 맞춘 문법 학습' && !(await p.innerText('.wrap')).includes('문항 은행'), '이름 = Shuefit 문법 + 작은 제목 (문항 은행 글 없음)');
   } else {
     if (SHOT) { await p.check('#fAns'); await p.screenshot({ path: path.join(SHOT, 'shufit-make-real.png') });
       await p.click('#autoBtn'); await p.evaluate(() => { window.print = () => {}; }); await p.click('#xTabs [data-x=pr]'); await p.click('#prT');
@@ -238,7 +238,7 @@ function rpc(fn, p) {
   ok(await bk.evaluate(() => { const t = document.getElementById('pageStyle').textContent; return t.includes('size:A4') && t.includes('margin:0') && !t.includes('A3'); }), '인쇄 용지 A4 (여백 0)');
   const cv = await bk.evaluate(() => { const ps = [...document.querySelectorAll('#print .bpage')]; const sh = [...document.querySelectorAll('#print .sheet')]; return { cover: ps.filter(p => p.classList.contains('cover')).length, back: ps.filter(p => p.classList.contains('bkback')).length, first: sh[0].firstElementChild.classList.contains('cover'), last: sh[sh.length - 1].firstElementChild.classList.contains('bkback'), sk: !!document.querySelector('#print .cover img.cv-sk') && !!document.querySelector('#print .bkback img'), title: (document.querySelector('#print .cv-title') || {}).textContent || '', on: document.querySelectorAll('#print .cv-u.on').length, units: document.querySelectorAll('#print .cv-u').length }; });
   ok(cv.cover === 1 && cv.back === 1 && cv.first && cv.last, '앞표지 = 1쪽 · 뒤표지 = 마지막 쪽 ' + JSON.stringify(cv));
-  ok(cv.sk && cv.title.includes('shuefit 문법') && cv.on >= 1 && cv.units >= cv.on, '표지 — 슈콩이·제목·단원 칸 ' + JSON.stringify(cv));
+  ok(cv.sk && cv.title.includes('Shuefit 문법') && cv.on >= 1 && cv.units >= cv.on, '표지 — 슈콩이·제목·단원 칸 ' + JSON.stringify(cv));
   const nums = await bk.evaluate(() => [...document.querySelectorAll('#print .qn')].map(x => +x.textContent));
   const pagesSeq = await bk.evaluate(() => { const m = {}; document.querySelectorAll('#print .bpage').forEach(p => { const bn = p.querySelector('.bno'); const n = bn ? +(bn.textContent.replace(/\D/g, '')) || 0 : 0; m[n] = [...p.querySelectorAll('.qn')].map(x => +x.textContent); }); return Object.keys(m).filter(k => +k).sort((a, b) => a - b).flatMap(k => m[k]); });
   ok(pagesSeq.join() === Array.from({ length: nSel }, (_, i) => i + 1).join(), '쪽 순서대로 읽으면 문항 1~' + nSel + ' 차례대로');
