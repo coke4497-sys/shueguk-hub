@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <script src="https://coke4497-sys.github.io/shueguk-hub/assets/teacher-gate.js"></script><!-- 교사 로그인 게이트 (허브 로그인 필요) -->
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>슈핏 문법</title>
+<title>Shuefit 문법</title>
 <link rel="icon" type="image/png" href="https://coke4497-sys.github.io/shueguk-h-work/icon-chulje.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,6 +25,7 @@
   .back{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;color:var(--g1);text-decoration:none;font-size:13px;background:#fff;border-radius:999px;padding:6px 14px}
   .hd{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px;padding:0 4px}
   .hd .k{font-size:12px;letter-spacing:3px;color:var(--g1)}
+  .hd .subt{margin-top:4px;font-size:14px;color:var(--ink2)}
   h1{margin:6px 0 0;font-family:'Gowun Batang',serif;font-weight:700;font-size:30px;color:var(--ink)}
   .hd .tot{font-size:14px;color:var(--ink2);white-space:nowrap}
   .hd .tot b,.num{font-family:'Do Hyeon';font-weight:400;font-size:18px;color:var(--ink)}
@@ -65,6 +66,12 @@
   .rline #fInfo{font-size:14px;color:var(--ink2)}
   .rline .r{font-size:13px;color:var(--muted)}
   .rline .allb{padding:7px 14px;font-size:14px}
+  .psave{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 10px}
+  .psave .btn{flex:none;padding:10px 18px}
+  #paperMsg{font-size:13px;color:var(--muted)}
+  #paperMsg.ok{color:#3e7b63}
+  .autoN{grid-column:1/-1;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink2)}
+  .autoN input{width:64px;padding:6px 8px;border:1px solid #dfe5e1;border-radius:10px;font:inherit;text-align:center}
   input[type=text],select{font-size:14px;color:var(--ink);padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--s3);outline:none;width:100%}
   .info{font-size:12px;color:var(--muted)}
   .btn{border:0;border-radius:12px;padding:11px 8px;font-size:14px;text-align:center;background:var(--pu3);color:var(--pu)}
@@ -213,7 +220,7 @@
 <div class="wrap">
   <a class="back" href="study.html">← 학습 관리</a>
   <header class="hd">
-    <div><div class="k">슈국 티쳐스 페이지</div><h1>슈핏 문법</h1></div>
+    <div><div class="k">슈국 티쳐스 페이지</div><h1>Shuefit 문법</h1><div class="subt">너에게 꼭 맞춘 문법 학습</div></div>
     <span class="tot" id="tot"></span>
   </header>
   <div class="cols">
@@ -222,6 +229,7 @@
         <div class="sec">
           <h2><span class="n">1</span>단원</h2>
           <div class="lvbox setbox"><span class="lb">문항 묶음</span><span class="chips" id="fSet"></span></div>
+          <div class="lvbox setbox"><span class="lb">형태</span><span class="chips" id="fForm"></span></div>
           <div class="chips" id="fArea"></div>
           <div class="step" id="fStep"></div>
           <div class="lvbox" id="rLvl" hidden><span class="lb">난도</span><span class="chips" id="fLvl"></span></div>
@@ -232,7 +240,7 @@
           <div class="srch">
             <label class="sbox"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a978f" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
               <input type="text" id="fq" placeholder="문항 글 · 출처 (예: 반모음, 6월 평가원)"></label>
-            <label class="tog"><input type="checkbox" id="fUnused">아직 낸 적 없는 문항만</label>
+            <label class="tog"><input type="checkbox" id="fUnused"><span id="fUnusedLb">아직 낸 적 없는 문항만</span></label>
             <label class="tog"><input type="checkbox" id="fAns">정답·해설 보기</label>
           </div>
         </div>
@@ -245,15 +253,18 @@
         <div class="ch2"><h2><span class="n">3</span>고른 문항</h2><span class="cnt" id="selN"><b>0</b>문항</span></div>
         <div class="sel" id="sel"></div>
         <div class="fill">
-          <button class="btn" id="autoBtn" type="button">목록에 보이는 문항으로 10문항 채우기</button>
+          <label class="autoN">모두 <input type="number" id="autoN" value="10" min="1" max="80" inputmode="numeric"> 문항이 되게</label>
+          <button class="btn" id="autoBtn" type="button">목록에 보이는 문항으로 채우기</button>
           <button class="btn ghost" id="clearBtn" type="button">비우기</button>
         </div>
-        <label class="f"><span>저장된 과제 불러오기 <span class="dim">· 고치거나 다시 인쇄</span></span>
+        <label class="f"><span>저장된 시험지 · 과제 불러오기 <span class="dim">· 고치거나 다시 인쇄</span></span>
           <select id="loadSel"><option value="">— 고르세요 —</option></select></label>
       </section>
       <section class="card">
         <div class="xh"><h2><span class="n">4</span>내보내기</h2><span id="xHint">문항을 담으면 쓸 수 있어요</span></div>
+        <label class="f"><span>출제 선생님 <span class="dim">· 선생님마다 시험지를 따로 저장해요</span></span><input type="text" id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></label>
         <label class="f"><span>제목 <span class="dim">· 시험지·PDF 파일·H WORK 과제 이름</span></span><input type="text" id="pTitle" placeholder="문항을 담으면 자동으로 채워져요"></label>
+        <div class="psave"><button class="btn main" type="button" id="paperSave">시험지 저장</button><span id="paperMsg">저장해야 인쇄할 수 있어요</span></div>
         <div class="seg" id="xTabs"><button type="button" data-x="pr" class="on">인쇄</button><button type="button" data-x="bk">중철 책자</button><button type="button" data-x="hw">H WORK</button></div>
         <div class="pane" id="xp-pr">
           <div class="two"><button class="btn" type="button" id="prS">학생용 인쇄</button><button class="btn" type="button" id="prT">교사용 인쇄 (정답·해설)</button></div>
@@ -266,7 +277,6 @@
             중철로 만들 때는 복합기의 <b>소책자(책자) 인쇄</b>를 켜고 A3에 찍은 뒤 반으로 접어 가운데를 스테이플러로 찍어요. A4 양면으로 그대로 찍어도 됩니다.</div>
         </div>
         <div class="pane" id="xp-hw" hidden>
-          <label class="f">담당 강사<input type="text" id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></label>
           <input type="hidden" id="hCode"><!-- 과제 제목 = 위 '제목' 칸과 같은 값(따로 보이지 않음) -->
           <button class="btn main" type="button" id="saveBtn">H WORK 과제로 출제</button>
           <div class="msg" id="saveMsg"></div>
@@ -386,13 +396,53 @@ async function sbAll(path){
 }
 
 let ITEMS=[], BYID={}, PAS={}, USED={}, HWS=[], ALLHW=[], SCHOOLS=[];
+/* 시험지 저장(2026-11-17 원장님, 리포트 076 shufit_papers) — 출제 선생님 + 제목이 열쇠. 저장해야 인쇄할 수 있고,
+ * '낸 적 있음'·'안 낸 문항만'은 지금 출제 선생님의 시험지·H WORK 과제로 센다(선생님 칸이 비면 모두). */
+let PAPERS=[], PAPERS_OK=true, SAVED=null, LOADS=[];
+function curTeacher(){ return $('hTeacher').value.trim(); }
+function rebuildUsed(){
+  const t=curTeacher(); USED={};
+  const add=(id,lb)=>{ const a=(USED[id]=USED[id]||[]); if(!a.includes(lb)) a.push(lb); };
+  HWS.filter(h=>!t || h.teacher===t).forEach(h=>Object.values(h.data.bank).forEach(id=>add(Number(id), 'H WORK · '+h.code+(t?'':' ('+h.teacher+')'))));
+  PAPERS.filter(p=>!t || p.teacher===t).forEach(p=>(p.ids||[]).forEach(id=>add(Number(id), '시험지 · '+p.title+(t?'':' ('+p.teacher+')'))));
+  $('fUnusedLb').textContent = t ? t+' 선생님이 안 낸 문항만' : '아직 낸 적 없는 문항만';
+}
+function drawTeachers(){
+  $('tList').innerHTML=[...new Set(ALLHW.map(h=>h.teacher).concat(PAPERS.map(p=>p.teacher)).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko')).map(t=>`<option value="${esc(t)}">`).join('');
+}
+function drawLoad(){
+  const t=curTeacher();
+  const ps=PAPERS.filter(p=>!t || p.teacher===t).map(p=>({ kind:'paper', teacher:p.teacher, title:p.title, ids:(p.ids||[]).map(Number) }));
+  const hs=HWS.filter(h=>!t || h.teacher===t).map(h=>({ kind:'hw', teacher:h.teacher, title:h.code, ids:Object.keys(h.data.bank).sort((a,b)=>a-b).map(k=>Number(h.data.bank[k])) }));
+  LOADS=ps.concat(hs);
+  const opt=(x,i)=>`<option value="${i}">${esc(x.title)} · ${esc(x.teacher)} (${x.ids.length}문항)</option>`;
+  $('loadSel').innerHTML='<option value="">— 고르세요 —</option>'
+    +(ps.length?`<optgroup label="저장한 시험지">${ps.map((x,i)=>opt(x,i)).join('')}</optgroup>`:'')
+    +(hs.length?`<optgroup label="H WORK 과제">${hs.map((x,i)=>opt(x,ps.length+i)).join('')}</optgroup>`:'');
+}
+function selSig(){ return selIds().join(','); }
+function canPrint(){ return !!SAVED && SAVED.teacher===curTeacher() && SAVED.title===$('pTitle').value.trim() && SAVED.sig===selSig() && !!SAVED.sig; }
+function drawPrint(){
+  const n=selIds().length, ok=canPrint();
+  ['prS','prT','bkS','bkT'].forEach(id=>{ $(id).disabled = !n || !ok; });
+  $('paperSave').disabled = !n;
+  const m=$('paperMsg');
+  m.className = ok ? 'ok' : '';
+  m.textContent = !PAPERS_OK ? '시험지 저장 표가 아직 없습니다 (데이터베이스 076)' : !n ? '저장해야 인쇄할 수 있어요'
+    : ok ? '저장했습니다 · 인쇄할 수 있어요' : (SAVED && SAVED.teacher===curTeacher() && SAVED.title===$('pTitle').value.trim() ? '바뀐 내용을 저장하면 인쇄할 수 있어요' : '저장해야 인쇄할 수 있어요');
+}
 let SEL=[];   // [[id,…], …] — 묶음 순서 = 시험지 순서
-const F={ set:'', area:'', lvl:'', kind:'', q:'', unused:false, ans:false };
+const F={ set:'', form:'', area:'', lvl:'', kind:'', q:'', unused:false, ans:false };
 /* 문항 묶음(2026-11-17 원장님 "2025 문항만 골라 보는 칸") — 작업 폴더의 번호로 가른다: 0~456 = 처음 올린 2026 묶음,
  * 457부터 = 같은 날 더한 「SHUEGUK MOGO 2025」 검토본 1,110문항(번호 = 검토본 번호 + 457). 묶음을 더하면 SETS 에 한 줄. */
 const SETS=[{v:'2026', l:'2026 묶음', from:0, to:456}, {v:'2025', l:'2025 묶음', from:457, to:1e9}];
 function setOf(x){ const t=SETS.find(t=>x.id>=t.from && x.id<=t.to); return t?t.v:''; }
 function inSet(x){ return !F.set || setOf(x)===F.set; }
+/* 형태(2026-11-17 원장님) — 단독형 = 지문 없는 문항, 지문형 = 지문 세트에 딸린 문항 */
+const FORMS=[{v:'단독', l:'단독형'}, {v:'지문', l:'지문형'}];
+function formOf(x){ return x.pid ? '지문' : '단독'; }
+function inForm(x){ return !F.form || formOf(x)===F.form; }
+function inBase(x){ return inSet(x) && inForm(x); }
 let shown=40;
 
 function gkey(it){ return it.pid ? it.pid : 'i'+it.id; }
@@ -402,27 +452,27 @@ function isSel(id){ return selIds().includes(id); }
 
 async function boot(){
   try{
-    const [items, pas, hws, stu] = await Promise.all([
+    const [items, pas, hws, stu, papers] = await Promise.all([
       sbAll('/gbank_items?select=id,area,lvl,src,kind,year,pid,ord,html,ans,good,bad,plain&active=is.true&order=ord'),
       sbAll('/gbank_passages?select=pid,html'),
       sbAll('/hwork_homeworks?select=teacher,code,data'),
-      sbAll('/students?select=school,enrolled').catch(()=>[])
+      sbAll('/students?select=school,enrolled').catch(()=>[]),
+      sbAll('/shufit_papers?select=id,teacher,title,ids,updated_at&order=updated_at.desc').catch(()=>null)
     ]);
+    PAPERS = papers || []; PAPERS_OK = !!papers;
     ITEMS=items; ITEMS.forEach(x=>BYID[x.id]=x);
     pas.forEach(p=>PAS[p.pid]=p.html);
     ALLHW=hws;
     HWS=hws.filter(h=>h.data && h.data.bank && typeof h.data.bank==='object');
-    HWS.forEach(h=>Object.values(h.data.bank).forEach(id=>{ (USED[id]=USED[id]||[]).push(h.code); }));
     SCHOOLS=[...new Set(stu.filter(s=>!LEFT_RE.test(s.enrolled||'')).map(s=>(s.school||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
-    $('tList').innerHTML=[...new Set(hws.map(h=>h.teacher).filter(Boolean))].map(t=>`<option value="${esc(t)}">`).join('');
-    $('loadSel').innerHTML='<option value="">— 고르세요 —</option>'+HWS.map((h,i)=>`<option value="${i}">${esc(h.code)} · ${esc(h.teacher)} (${Object.keys(h.data.bank).length}문항)</option>`).join('');
-    if(!ITEMS.length){ $('list').innerHTML='<div class="empty">슈핏 문법 문항이 비어 있습니다. 문항을 올린 뒤 다시 열어 주세요.</div>'; return; }
+    drawTeachers(); rebuildUsed(); drawLoad();
+    if(!ITEMS.length){ $('list').innerHTML='<div class="empty">Shuefit 문법 문항이 비어 있습니다. 문항을 올린 뒤 다시 열어 주세요.</div>'; return; }
     $('tot').innerHTML=`문항 <b>${ITEMS.length}</b>개 · 지문 세트 <b>${new Set(ITEMS.map(x=>x.pid).filter(Boolean)).size}</b>개`;
     drawFilters(); drawList(); drawSel();
   }catch(e){
     $('list').innerHTML='<div class="empty">문항을 불러오지 못했습니다. ('+esc(e.message)+')<br>데이터베이스 067 적용 전이면 이 화면을 쓸 수 없어요.</div>';
   }
-  try{ if(window.shuegukTeacherName){ const n=await shuegukTeacherName(); if(n && !$('hTeacher').value) $('hTeacher').value=n; } }catch(e){}
+  try{ if(window.shuegukTeacherName){ const n=await shuegukTeacherName(); if(n && !$('hTeacher').value){ $('hTeacher').value=n; teacherChanged(); } } }catch(e){}
 }
 
 /* 단원 → 난도 → 출처 차례로 연다(2026-11-17 원장님 "메뉴가 모두 펼쳐져 있어 혼란"). 수는 앞에서 고른 조건 안에서 센다. */
@@ -436,7 +486,10 @@ function drawFilters(){
   const cnt={}; ITEMS.forEach(x=>{ const v=setOf(x); cnt[v]=(cnt[v]||0)+1; });
   $('fSet').innerHTML=[{v:'',l:'전체',n:ITEMS.length}].concat(SETS.map(t=>({v:t.v,l:t.l,n:cnt[t.v]||0})).filter(t=>t.n)).map(t=>
     `<button type="button" class="chip${F.set===t.v?' on':''}" data-k="set" data-v="${t.v}">${esc(t.l)}<small>${t.n}</small></button>`).join('');
-  const B=ITEMS.filter(inSet);
+  const S=ITEMS.filter(inSet), fc={}; S.forEach(x=>{ const v=formOf(x); fc[v]=(fc[v]||0)+1; });
+  $('fForm').innerHTML=[{v:'',l:'전체',n:S.length}].concat(FORMS.map(t=>({v:t.v,l:t.l,n:fc[t.v]||0}))).map(t=>
+    `<button type="button" class="chip${F.form===t.v?' on':''}" data-k="form" data-v="${t.v}"${t.n||!t.v?'':' disabled'}>${esc(t.l)}<small>${t.n}</small></button>`).join('');
+  const B=ITEMS.filter(inBase);
   chips('fArea','area',[...new Set(ITEMS.map(x=>x.area))], B);
   const inArea=B.filter(x=>x.area===F.area), inLvl=inArea.filter(x=>x.lvl===F.lvl);
   $('rLvl').hidden=!F.area; $('rKind').hidden=!(F.area && F.lvl);
@@ -450,8 +503,9 @@ document.addEventListener('click', e=>{
   const c=e.target.closest('.chip[data-k]'); if(!c) return;
   F[c.dataset.k]=c.dataset.v;
   if(c.dataset.k==='area'){ F.lvl=''; F.kind=''; }
-  if(c.dataset.k==='set'){   // 고른 단원·난도·출처가 그 묶음에 없으면 풀어 준다
-    const B=ITEMS.filter(inSet);
+  if(c.dataset.k==='set' || c.dataset.k==='form'){   // 고른 단원·난도·출처가 그 묶음·형태에 없으면 풀어 준다
+    if(c.dataset.k==='set' && F.form && !ITEMS.some(x=>inSet(x) && formOf(x)===F.form)) F.form='';
+    const B=ITEMS.filter(inBase);
     if(F.area && !B.some(x=>x.area===F.area)){ F.area=''; F.lvl=''; F.kind=''; }
     if(F.lvl && !B.some(x=>x.area===F.area && x.lvl===F.lvl)){ F.lvl=''; F.kind=''; }
     if(F.kind && !B.some(x=>x.area===F.area && x.lvl===F.lvl && x.kind===F.kind)) F.kind='';
@@ -464,7 +518,7 @@ $('fUnused').addEventListener('change', e=>{ F.unused=e.target.checked; shown=40
 $('fAns').addEventListener('change', e=>{ F.ans=e.target.checked; $('list').classList.toggle('showans',F.ans); $('list').classList.toggle('teacher',F.ans); });
 
 function match(x){
-  if(!inSet(x)) return false;
+  if(!inBase(x)) return false;
   if(F.area && x.area!==F.area) return false;
   if(F.lvl && x.lvl!==F.lvl) return false;
   if(F.kind && x.kind!==F.kind) return false;
@@ -503,7 +557,7 @@ function drawAllBtn(gs){
 function drawList(){
   const gs=filteredGroups();
   const nItems=gs.reduce((a,g)=>a+g.length,0);
-  const q=F.q?`‘${F.q}’ 검색 · `:'', where=[F.set?F.set+' 묶음':'', F.area||'전체', F.lvl, F.kind].filter(Boolean).join(' ');
+  const q=F.q?`‘${F.q}’ 검색 · `:'', where=[F.set?F.set+' 묶음':'', F.form?F.form+'형':'', F.area||'전체', F.lvl, F.kind].filter(Boolean).join(' ');
   $('fInfo').textContent=`${where} · ${q}문항 ${nItems}개 · 지문 세트 ${gs.filter(g=>BYID[g[0]].pid).length}개`;
   drawAllBtn(gs);
   if(!gs.length){ $('list').innerHTML='<div class="empty">조건에 맞는 문항이 없습니다.</div>'; return; }
@@ -529,15 +583,15 @@ $('list').addEventListener('click', e=>{
 });
 /* 제목 자동 — 'shuefit 문법: 단원 난도 (문항 수)', 같은 제목 과제가 이미 있으면 뒤에 02·03…
    (원장님 2026-11-17). 선생님이 직접 고친 칸은 덮지 않는다(마지막 자동값과 같거나 비었을 때만). */
-const TITLE_PRE='shuefit 문법: ';
+const TITLE_PRE='Shuefit 문법: ';
 function autoTitle(){
   const ids=selIds(); if(!ids.length) return '';
   const uniq=k=>[...new Set(ids.map(id=>BYID[id][k]).filter(Boolean))];
   const lv=['기본','실력','심화'], lvls=uniq('lvl').sort((a,b)=>lv.indexOf(a)-lv.indexOf(b));
   const base=`${TITLE_PRE}${uniq('area').join('·')} ${lvls.join('·')} (${ids.length})`.replace(/\s+/g,' ');
   let max=0;
-  HWS.concat(ALLHW).forEach(h=>{
-    const c=(h.code||'').trim();
+  HWS.concat(ALLHW).map(h=>h.code).concat(PAPERS.filter(p=>p.teacher===curTeacher()).map(p=>p.title)).forEach(code=>{
+    const c=(code||'').trim();
     if(c===base) max=Math.max(max,1);
     else if(c.startsWith(base+' ')){ const m=c.slice(base.length+1).match(/^(\d{1,3})$/); if(m) max=Math.max(max,Number(m[1])); }
   });
@@ -560,7 +614,7 @@ function drawSel(){
   const n=selIds().length;
   $('selN').innerHTML=`<b>${n}</b>문항`; $('selN').classList.toggle('has', n>0);
   $('xHint').textContent = n ? `고른 ${n}문항으로 만듭니다` : '문항을 담으면 쓸 수 있어요'; $('xHint').classList.toggle('has', n>0);
-  ['prS','prT','bkS','bkT','saveBtn'].forEach(id=>{ $(id).disabled = !n; });
+  $('saveBtn').disabled = !n; drawPrint();
   if(!SEL.length){ $('sel').innerHTML='<div class="empty"><img src="assets/sk-cheer.png" alt="">왼쪽에서 [담기]를 누르세요.</div>'; return; }
   let k=0;
   $('sel').innerHTML=SEL.map((g,gi)=>{
@@ -580,7 +634,7 @@ $('sel').addEventListener('click', e=>{
 $('clearBtn').onclick=()=>{ if(SEL.length && !confirm('고른 문항을 모두 뺄까요?')) return; SEL=[]; drawSel(); drawList(); };
 /* 10문항 채우기 — 지금 거른 묶음을 순서대로(아직 낸 적 없는 것 먼저), 세트가 넘치면 건너뛰고 다음 묶음 */
 $('autoBtn').onclick=()=>{
-  const want=10;
+  const want=Math.max(1, Math.min(80, Number($('autoN').value)||10));
   const gs=filteredGroups().filter(g=>!isSel(g[0]));
   const order=gs.filter(g=>!g.some(id=>USED[id])).concat(gs.filter(g=>g.some(id=>USED[id])));
   let n=selIds().length, added=0;
@@ -597,13 +651,40 @@ $('allBtn').onclick=()=>{
   drawSel(); drawList();
 };
 $('loadSel').onchange=()=>{
-  const h=HWS[Number($('loadSel').value)]; if(!h) return;
-  if(SEL.length && !confirm('지금 고른 문항을 비우고 이 과제의 문항을 불러올까요?')){ $('loadSel').value=''; return; }
-  const ids=Object.keys(h.data.bank).sort((a,b)=>a-b).map(k=>Number(h.data.bank[k])).filter(id=>BYID[id]);
+  const h=LOADS[Number($('loadSel').value)]; if(!h) return;
+  if(SEL.length && !confirm('지금 고른 문항을 비우고 이 '+(h.kind==='paper'?'시험지':'과제')+'의 문항을 불러올까요?')){ $('loadSel').value=''; return; }
+  const ids=h.ids.filter(id=>BYID[id]);
   SEL=[]; ids.forEach(id=>{ const last=SEL[SEL.length-1]; if(last && BYID[id].pid && BYID[last[0]].pid===BYID[id].pid) last.push(id); else SEL.push([id]); });
-  $('hTeacher').value=h.teacher; $('hCode').value=h.code; $('pTitle').value=h.code;
+  $('hTeacher').value=h.teacher; $('hCode').value=h.title; $('pTitle').value=h.title;
   $('hCode').dataset.auto=''; $('pTitle').dataset.auto='';
-  drawSel(); drawList(); toast('불러왔어요');
+  SAVED = h.kind==='paper' ? { teacher:h.teacher, title:h.title, sig:selSig() } : null;
+  rebuildUsed(); drawSel(); drawList(); toast('불러왔어요');
+};
+function teacherChanged(){ rebuildUsed(); drawLoad(); drawSel(); drawList(); }
+$('hTeacher').addEventListener('change', teacherChanged);
+$('hTeacher').addEventListener('input', ()=>{ clearTimeout($('hTeacher')._t); $('hTeacher')._t=setTimeout(teacherChanged, 400); });
+$('pTitle').addEventListener('input', drawPrint);
+/* 시험지 저장 — 출제 선생님 + 제목이 같으면 덮어쓴다(문항이 다르면 묻는다). 저장해야 인쇄 버튼이 열린다 */
+$('paperSave').onclick=async()=>{
+  const teacher=curTeacher(), title=$('pTitle').value.trim(), ids=selIds();
+  if(!ids.length){ toast('문항을 먼저 고르세요'); return; }
+  if(!teacher){ toast('출제 선생님을 적어 주세요'); $('hTeacher').focus(); return; }
+  if(!title){ toast('시험지 이름(제목)을 적어 주세요'); $('pTitle').focus(); return; }
+  if(title.length>120){ toast('제목은 120자까지예요'); return; }
+  const same=PAPERS.find(p=>p.teacher===teacher && p.title===title);
+  if(same && (same.ids||[]).join(',')!==ids.join(',') && !confirm(`${teacher} 선생님의 「${title}」 시험지가 이미 있습니다.\n지금 고른 문항으로 바꿔 저장할까요?`)) return;
+  const btn=$('paperSave'); btn.disabled=true; btn.textContent='저장 중…';
+  try{
+    const rows=await sb('/shufit_papers?on_conflict=teacher,title',{ method:'POST', headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=representation' },
+      body:JSON.stringify([{ teacher, title, ids, author:teacher }]) });
+    const row=(rows&&rows[0]) || { teacher, title, ids };
+    PAPERS=PAPERS.filter(p=>!(p.teacher===teacher && p.title===title)); PAPERS.unshift(row); PAPERS_OK=true;
+    SAVED={ teacher, title, sig:ids.join(',') };
+    drawTeachers(); rebuildUsed(); drawLoad(); drawList(); drawPrint();
+    toast('시험지를 저장했어요. 이제 인쇄할 수 있어요');
+    if(window.shuegukActivity) shuegukActivity('Shuefit 문법', '시험지 저장', title, teacher+' · '+ids.length+'문항', false);
+  }catch(e){ toast('저장하지 못했습니다. ('+e.message+')'); }
+  finally{ btn.textContent='시험지 저장'; drawPrint(); }
 };
 
 /* ── H WORK 과제로 저장 ── */
@@ -611,7 +692,7 @@ function setMsg(k,t){ const m=$('saveMsg'); m.className='msg '+(k||''); m.textCo
 $('saveBtn').onclick=async()=>{
   const teacher=$('hTeacher').value.trim(), code=$('hCode').value.trim(), ids=selIds();
   if(!ids.length){ toast('문항을 먼저 고르세요'); return; }
-  if(!teacher){ toast('담당 강사를 적어 주세요'); $('hTeacher').focus(); return; }
+  if(!teacher){ toast('출제 선생님을 적어 주세요'); $('hTeacher').focus(); return; }
   if(!code){ toast('제목을 적어 주세요'); $('pTitle').focus(); return; }
   const same=ALLHW.find(h=>h.teacher===teacher && h.code===code);
   if(same){
@@ -630,9 +711,9 @@ $('saveBtn').onclick=async()=>{
       body:JSON.stringify([{ teacher, code, data }]) });
     if(same) same.data=data; else ALLHW.push({ teacher, code, data });
     const h=HWS.find(x=>x.teacher===teacher && x.code===code); if(h) h.data=data; else HWS.push({ teacher, code, data });
-    USED={}; HWS.forEach(x=>Object.values(x.data.bank).forEach(id=>{ (USED[id]=USED[id]||[]).push(x.code); }));
+    drawTeachers(); rebuildUsed(); drawLoad();
     setMsg('ok',`저장했습니다 — ${teacher} / ${code} (${ids.length}문항)\n이제 [H WORK 배정하기]에서 학생에게 배정해 주세요.`);
-    if(window.shuegukActivity) shuegukActivity('슈핏 문법', 'H WORK 출제', code, ids.length+'문항', false);
+    if(window.shuegukActivity) shuegukActivity('Shuefit 문법', 'H WORK 출제', code, ids.length+'문항', false);
     drawList();
   }catch(e){ setMsg('bad','저장하지 못했습니다. 인터넷 연결을 확인해 주세요. ('+e.message+')'); }
   finally{ btn.disabled=false; btn.textContent='H WORK 과제로 출제'; }
@@ -641,7 +722,7 @@ $('saveBtn').onclick=async()=>{
 /* ── 인쇄 ── 학생용 = 문항만, 교사용 = 정답 동그라미 + 문항 아래 해설 + 맨 위 빠른 정답 */
 function docParts(teacher){
   const ids=selIds();
-  const title=$('pTitle').value.trim() || $('hCode').value.trim().replace(/^\[[^\]]*\]\s*/,'') || '슈핏 문법';
+  const title=$('pTitle').value.trim() || $('hCode').value.trim().replace(/^\[[^\]]*\]\s*/,'') || 'Shuefit 문법';
   let n=0; const blocks=[];
   SEL.forEach(g=>{
     const first=BYID[g[0]];
@@ -667,12 +748,13 @@ const PAGE_A4='@page{size:A4;margin:14mm 13mm 14mm 13mm}', PAGE_BK='@page{size:A
 /* 'PDF로 저장' 파일 이름 = 시험지 제목 — 인쇄 창은 document.title 을 파일 이름으로 쓴다. 파일 이름에 못 쓰는 글자(: / \ 등)는 뺀다 */
 const PAGE_TITLE=document.title;
 function fileTitle(title, teacher, booklet){
-  const base=String(title||'슈핏 문법').replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim() || '슈핏 문법';
+  const base=String(title||'Shuefit 문법').replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim() || 'Shuefit 문법';
   return base + (booklet?' 중철 책자':'') + (teacher?' (교사용)':'');
 }
 window.addEventListener('afterprint', ()=>{ setPage(PAGE_A4); document.title=PAGE_TITLE; });
 function printDoc(teacher){
   if(!selIds().length){ toast('문항을 먼저 고르세요'); return; }
+  if(!canPrint()){ toast('시험지를 먼저 저장해 주세요'); return; }
   const d=docParts(teacher);
   setPage(PAGE_A4);
   $('print').className = teacher ? 'teacher' : 'student';
@@ -691,16 +773,16 @@ function coverInfo(d, teacher){
   const ys=uniq('year').map(Number).filter(Boolean).sort();
   const yr=ys.length ? (ys[0]===ys[ys.length-1] ? ys[0] : ys[0]+'~'+ys[ys.length-1])+' ' : '';
   const m=d.title.match(/^(.*?):\s*(.+)$/);
-  const t1=m?m[1]:'shuefit 문법', t2=m?m[2]:d.title;
+  const t1=m?m[1]:'Shuefit 문법', t2=m?m[2]:d.title;
   const sub=`${yr}${kinds.join('·')} 모의고사 · ${d.ids.length}문항 · ${lvls.join('·')} 단계${teacher?' · 정답과 해설':''}`;
   return { areas, t1, t2, sub, all:[...new Set(ITEMS.map(x=>x.area))] };
 }
 function coverPage(c, teacher){
   const p=document.createElement('div'); p.className='bpage cover';
-  p.innerHTML=`<div class="cv-top"><div class="cv-brand"><span>이수경국어 · 슈핏 문법</span>
+  p.innerHTML=`<div class="cv-top"><div class="cv-brand"><span>이수경국어 · Shuefit 문법</span>
       <div class="cv-logo"><b>Shueguk</b><span>${teacher?'교사용':'학생용'}</span></div></div>
     <div class="cv-tag">문법 · ${esc(c.areas.join(' · '))}</div>
-    <div class="cv-series">${esc(c.t1)} 시리즈 · 너에게 꼭 맞춘 슈국 문법 학습</div>
+    <div class="cv-series">${esc(c.t1)} 시리즈 · 너에게 꼭 맞춘 문법 학습</div>
     <div class="cv-title">${esc(c.t1)}<br>${esc(c.t2)}</div>
     <div class="cv-sub">${esc(c.sub)}</div>
     <img class="cv-sk" src="assets/sk-study.png" alt=""></div>
@@ -717,6 +799,7 @@ function backPage(c){
 }
 async function bookletDoc(teacher){
   if(!selIds().length){ toast('문항을 먼저 고르세요'); return; }
+  if(!canPrint()){ toast('시험지를 먼저 저장해 주세요'); return; }
   const d=docParts(teacher), M=$('bkm'), c=coverInfo(d, teacher);
   M.className='bk '+(teacher?'teacher':'student'); M.innerHTML='';
   try{ if(document.fonts){ await Promise.all([document.fonts.load('30pt Sacramento','Shueguk'), document.fonts.load('10pt "Gowun Dodum"','가')]); await document.fonts.ready; } }catch(e){}
