@@ -12,68 +12,136 @@
 <link rel="stylesheet" href="https://coke4497-sys.github.io/shueguk-h-work/gbank.css">
 <script src="https://coke4497-sys.github.io/shueguk-report/teacher-name.js"></script>
 <style>
-  :root{ --ink:#2C2F2D; --muted:#6B746E; --line:#DCE4DF; --paper:#E4EFEA; --card:#fff;
-         --lav-bg:#E9EDF8; --lav-d:#4F5E86; --mint:#8db8ad; --mint-d:#3d675d; --mint-bg:#e3f0ec; }
+  /* 화면 = 2026-11-17 원장님 디자인 묶음 design_handoff_shufit_grammar (README 수치 그대로) */
+  :root{ --ink:#2b3a33; --ink2:#54655c; --muted:#8a978f; --line:#dde5e0; --paper:#e4efea; --card:#fff;
+         --g1:#4b6157; --g2:#7f9e8e; --s1:#f1f4f1; --s2:#f8faf8; --s3:#fafbf9; --s4:#f3eff8;
+         --pu:#4a3f63; --pu2:#ddd2ec; --pu3:#e6def0; --pu4:#ebe6f1; --pu5:#a99fbb;
+         --mint:#8db8ad; --mint-d:#3d675d; --mint-bg:#e3f0ec; }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--paper);font-family:'Gowun Dodum',sans-serif;color:var(--ink);font-size:15px;line-height:1.55}
-  button{font-family:inherit;cursor:pointer}
-  .wrap{max-width:1280px;margin:0 auto;padding:16px}
-  .back{display:inline-flex;align-items:center;gap:6px;color:var(--muted);text-decoration:none;font-size:14px;background:#fff;border-radius:999px;padding:6px 14px}
-  h1{font-family:'Gowun Batang',serif;font-size:26px;margin:14px 0 4px}
-  .lead{color:var(--muted);font-size:14px;margin:0 0 14px}
-  .cols{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:16px;align-items:start}
-  @media (max-width:980px){ .cols{grid-template-columns:1fr} }
-  .card{background:#fff;border-radius:18px;padding:16px;margin-bottom:14px}
-  .card h2{font-family:'Gowun Batang',serif;font-size:18px;margin:0 0 10px}
-  .row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0}
-  .row .lb{font-size:13px;color:var(--muted);min-width:40px}
-  .chip{border:0;background:#F2F5F3;color:#3F4A44;border-radius:999px;padding:5px 12px;font-size:13.5px}
-  .chip.on{background:var(--lav-bg);color:var(--lav-d);font-weight:700}
-  .chip small{color:var(--muted);margin-left:3px}
-  .step{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--lav-d);background:#F7F3FA;border-radius:12px;padding:6px 12px;margin:6px 0}
+  body{margin:0;background:var(--paper);font-family:'Gowun Dodum',sans-serif;color:#33443c;font-size:15px;line-height:1.55;word-break:keep-all}
+  button,input,select{font-family:inherit}
+  button{cursor:pointer}
+  .wrap{max-width:1240px;margin:0 auto;padding:24px 18px 64px;display:flex;flex-direction:column;gap:16px}
+  .back{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;color:var(--g1);text-decoration:none;font-size:13px;background:#fff;border-radius:999px;padding:6px 14px}
+  .hd{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px;padding:0 4px}
+  .hd .k{font-size:12px;letter-spacing:3px;color:var(--g1)}
+  h1{margin:6px 0 0;font-family:'Gowun Batang',serif;font-weight:700;font-size:30px;color:var(--ink)}
+  .hd .tot{font-size:14px;color:var(--ink2);white-space:nowrap}
+  .hd .tot b,.num{font-family:'Do Hyeon';font-weight:400;font-size:18px;color:var(--ink)}
+  .cols{display:flex;flex-wrap:wrap;align-items:flex-start;gap:16px}
+  .lcol{flex:1 1 560px;min-width:0;display:flex;flex-direction:column;gap:12px}
+  .side{flex:1 1 320px;max-width:400px;position:sticky;top:16px;display:flex;flex-direction:column;gap:12px}
+  @media (max-width:920px){ .side{position:static;max-width:none} }
+  .card{background:#fff;border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:14px}
+  .fcard{padding:22px;gap:16px}
+  .sec{display:flex;flex-direction:column;gap:10px}
+  h2{margin:0;display:flex;align-items:baseline;gap:10px;font-family:'Gowun Batang',serif;font-weight:700;font-size:18px;color:var(--ink)}
+  h2 .n{font-family:'Do Hyeon';font-weight:400;color:var(--g2)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{border:0;white-space:nowrap;display:inline-flex;align-items:baseline;gap:5px;padding:8px 12px;border-radius:12px;font-size:14px;background:var(--s1);color:var(--ink2)}
+  .chip small{font-family:'Do Hyeon';font-size:13px;color:var(--muted)}
+  .chip.on{background:var(--pu);color:#fff}
+  .chip.on small{color:var(--pu2)}
+  .lvbox{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:10px 12px;border-radius:14px;background:var(--s1)}
+  .lvbox .lb{font-size:13px;color:var(--ink2);padding-right:4px}
+  .lvbox .chips{gap:4px}
+  .lvbox .chip{padding:6px 11px;border-radius:10px;font-size:13px;background:transparent}
+  .lvbox .chip small{color:inherit}
+  .lvbox .chip.on{background:#fff;color:var(--pu)}
+  .step{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:14px;background:var(--s4);font-size:13px;color:var(--g1)}
+  .step b{color:var(--ink)}
   .step:empty,[hidden]{display:none!important}
-  .step img{width:34px;height:34px;flex:none}
-  input[type=text],input[type=date],select{border:1px solid var(--line);border-radius:10px;padding:8px 11px;font-family:inherit;font-size:14px;background:#fafbf9}
-  .info{font-size:13px;color:var(--muted)}
-  .btn{border:0;border-radius:999px;padding:8px 16px;font-size:14px;background:var(--lav-bg);color:var(--lav-d)}
-  .btn.main{background:#4F5E86;color:#fff}
-  .btn.ghost{background:#F2F5F3;color:#3F4A44}
-  .btn:disabled{opacity:.45;cursor:default}
-  /* 문항 카드 */
-  .it{border-top:1px solid #EEF2EF;padding:14px 2px}
-  .it:first-child{border-top:0}
-  .ith{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;margin-bottom:6px}
-  .tg{background:var(--mint-bg);color:#24443d;border-radius:6px;padding:1px 8px}
-  .tg.k{background:#F2F5F3;color:#555}
-  .tg.used{background:#FBEEEB;color:#8a3f35}
-  .ith .src{color:var(--muted)}
+  .step img{width:32px;height:32px;flex:none}
+  .srch{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+  .sbox{flex:1 1 280px;display:flex;align-items:center;gap:8px;padding:0 14px;border:1px solid var(--line);border-radius:14px;background:var(--s3)}
+  .sbox input[type=text]{flex:1;width:auto;min-width:0;font-size:15px;color:var(--ink);padding:12px 0;border:0;border-radius:0;background:transparent;outline:none}
+  .tog{cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;padding:10px 13px;border-radius:12px;font-size:14px;background:var(--s1);color:var(--ink2)}
+  .tog input{appearance:none;-webkit-appearance:none;margin:0;width:16px;height:16px;border-radius:5px;border:1px solid #cdd6d0;background:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+  .tog input:checked{background:var(--pu);border-color:var(--pu)}
+  .tog input:checked::after{content:'✓';color:#fff;font-size:11px;line-height:1}
+  .tog:has(input:checked){background:var(--pu3);color:var(--pu)}
+  .rline{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 8px;padding:4px 6px 0}
+  .rline #fInfo{font-size:14px;color:var(--ink2)}
+  .rline .r{font-size:13px;color:var(--muted)}
+  input[type=text],select{font-size:14px;color:var(--ink);padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--s3);outline:none;width:100%}
+  .info{font-size:12px;color:var(--muted)}
+  .btn{border:0;border-radius:12px;padding:11px 8px;font-size:14px;text-align:center;background:var(--pu3);color:var(--pu)}
+  .btn.ghost{background:var(--s1);color:var(--ink2);padding:10px 14px}
+  .btn.main{border-radius:999px;padding:13px 8px;font-size:15px;background:var(--pu);color:#fff}
+  .btn:disabled{background:#f4f6f4;color:#a9b3ad;cursor:not-allowed}
+  .btn.main:disabled{background:var(--pu4);color:var(--pu5)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  /* 문항 카드 — 묶음(지문 세트)마다 한 장 */
+  #list{display:flex;flex-direction:column;gap:12px}
+  .it{background:#fff;border-radius:24px;padding:20px 22px;display:flex;flex-direction:column;gap:12px;border:2px solid #fff}
+  .it.on{border-color:var(--pu2)}
+  .ith{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .ith .no{font-family:'Do Hyeon';font-size:16px;color:var(--g2);padding-right:4px}
+  .tg{white-space:nowrap;font-size:12px;padding:4px 9px;border-radius:8px;background:var(--s1);color:var(--g1)}
+  .tg.used{background:#fbeeeb;color:#8a3f35}
+  .ith .src{white-space:nowrap;font-size:13px;color:var(--muted);padding-left:4px}
   .ith .sp{flex:1}
-  .addb{border:0;border-radius:999px;padding:5px 14px;font-size:13px;background:#fff;color:#4F5E86;box-shadow:inset 0 0 0 1px #C9D1E8}
-  .addb.on{background:#4F5E86;color:#fff;box-shadow:none}
-  .pas{margin:4px 0 8px}
-  .pas summary{cursor:pointer;color:var(--mint-d);font-size:13.5px}
-  .pasb{background:#f4f9f7;border-radius:10px;padding:10px 12px;margin-top:6px;max-height:380px;overflow:auto}
+  .addb{white-space:nowrap;flex:none;margin-left:auto;padding:8px 14px;border-radius:999px;font-size:14px;background:#fff;color:var(--pu);border:1px solid var(--pu2)}
+  .addb.on{background:var(--pu);color:#fff;border-color:var(--pu)}
+  .pas summary{cursor:pointer;color:var(--g1);font-size:13.5px}
+  .pasb{background:var(--s3);border-radius:14px;padding:12px 14px;margin-top:6px;max-height:380px;overflow:auto}
+  /* 화면에서만 문항 모양을 시안 크기로(인쇄는 gbank.css 그대로) */
+  #list .gq{font-size:15px;line-height:1.75;color:var(--ink)}
+  #list .gq .stem{font-size:16px;line-height:1.6;-webkit-text-stroke:0}
+  #list .gq .box{border:1px solid #d5ddd8;background:#fff;border-radius:14px;padding:22px 18px 16px;margin:14px 0 10px}
+  #list .gq .bl{top:-10px}
+  #list .gq .bl span{font-size:12px;padding:1px 12px;border-radius:999px;border:1px solid #d5ddd8;color:var(--ink2)}
+  #list .gq .box .box,#list .gq table.ot{background:var(--s3)}
+  #list .gq .ch{gap:4px;margin-top:8px}
+  #list .gq .c{display:grid;grid-template-columns:24px minmax(0,1fr);gap:4px;padding:6px 10px;border-radius:10px;font-size:15px;line-height:1.6}
+  #list .gq .c:hover{background:var(--s2)}
+  #list .gq .cn{color:var(--g2)}
+  #list .gq .q{margin:0}
   .gq{font-size:14.5px}
-  .ans{font-size:13px;color:var(--mint-d);margin-top:6px}
-  .exb{font-size:13px;background:#f4f9f7;border-radius:10px;padding:8px 11px;margin-top:6px;display:none}
+  .exb{font-size:14px;line-height:1.6;color:var(--ink2);background:var(--s1);border-radius:14px;padding:12px 14px;display:none}
+  .exb b{display:block;font-size:12px;font-weight:400;color:var(--g1);padding-bottom:2px}
   .showans .exb{display:block}
-  .more{text-align:center;padding:10px}
-  /* 고른 문항 */
-  .side{position:sticky;top:12px}
-  .sel{max-height:46vh;overflow:auto;margin:8px 0}
-  .sg{display:flex;align-items:flex-start;gap:6px;padding:7px 4px;border-bottom:1px solid #EEF2EF;font-size:13px}
-  .sg .n{flex:none;min-width:44px;font-family:'Do Hyeon';color:#4F5E86}
-  .sg .t{flex:1;min-width:0;color:#3F4A44;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .sg .t small{color:var(--muted)}
-  .sg button{border:0;background:#F2F5F3;border-radius:8px;padding:2px 7px;font-size:12px}
-  .empty{color:var(--muted);font-size:13px;padding:14px 0;text-align:center}
-  .f{display:flex;flex-direction:column;gap:4px;margin:8px 0}
-  .f label{font-size:12.5px;color:var(--muted)}
-  .f input,.f select{width:100%}
-  .msg{font-size:13px;margin-top:8px;white-space:pre-line}
+  .empty{color:var(--muted);font-size:14px;padding:18px 14px;text-align:center}
+  #list .empty{background:#fff;border-radius:24px}
+  .more{text-align:center;padding:4px}
+  /* 3 고른 문항 */
+  .ch2{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .cnt{white-space:nowrap;flex:none;font-size:13px;padding:4px 11px;border-radius:999px;background:var(--s1);color:var(--muted)}
+  .cnt b{font-family:'Do Hyeon';font-weight:400;font-size:16px}
+  .cnt.has{background:var(--pu);color:#fff}
+  .sel{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto}
+  .sel .empty{border:1px dashed #cdd6d0;border-radius:14px;display:flex;flex-direction:column;align-items:center;gap:10px}
+  .sel .empty img{width:64px;height:64px}
+  .sg{display:grid;grid-template-columns:30px minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:var(--s2)}
+  .sg .n{font-family:'Do Hyeon';font-size:15px;color:var(--pu);white-space:nowrap}
+  .sg .t{display:flex;flex-direction:column;min-width:0}
+  .sg .t b{font-weight:400;font-size:13px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sg .t small{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sg .bt{display:flex;gap:2px}
+  .sg button{border:0;width:24px;height:24px;border-radius:999px;background:#fff;color:var(--muted);font-size:11px;padding:0}
+  .sg button[data-rm]{font-size:13px}
+  .sg button[data-rm]:hover{color:#a8434f}
+  .fill{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px}
+  .fill .btn{padding:10px 12px}
+  .f{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--ink2)}
+  .f .dim{color:var(--muted)}
+  /* 4 내보내기 */
+  .xh{display:flex;flex-direction:column;gap:2px}
+  #xHint{font-size:12px;color:var(--muted)}
+  #xHint.has{color:var(--g1)}
+  .seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;background:var(--s1);border-radius:999px;padding:4px}
+  .seg button{border:0;background:transparent;padding:8px 4px;border-radius:999px;font-size:13px;white-space:nowrap;color:var(--ink2)}
+  .seg button.on{background:#fff;color:var(--pu)}
+  .pane{display:flex;flex-direction:column;gap:10px}
+  .pane .tt{font-size:14px;color:var(--ink)}
+  .pane .tt span{color:var(--muted)}
+  .msg{font-size:13px;white-space:pre-line}
+  .msg:empty{display:none}
   .msg.ok{color:#2F7A57}.msg.bad{color:#B0525D}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2C2F2D;color:#fff;padding:9px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:50}
   .toast.show{opacity:1}
+  /* 고른 문항 */
+  .side{position:sticky;top:12px}
   /* ── 인쇄 ── */
   #print{display:none}
   @media print{
@@ -118,8 +186,8 @@
   .bk-in .nm{letter-spacing:5mm;margin:4mm 0 0 5mm;font-size:11pt;color:#24443d}
   .bk-in .sr{font-size:9pt;color:#3d675d;margin-top:6mm}
   .bk-in .pl{display:inline-block;background:#fff;border-radius:99px;padding:1.6mm 6mm;font-size:9pt;color:#3d675d;margin-top:7mm}
-  .bkinfo{font-size:12.5px;color:var(--muted);line-height:1.6;margin-top:6px}
-  .bkinfo b{color:var(--mint-d)}
+  .bkinfo{padding:12px 14px;border-radius:14px;background:#f1f4f1;font-size:12px;line-height:1.7;color:#54655c}
+  .bkinfo b{color:#2b3a33}
   #print .ph1, #bkm .ph1{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:.3mm solid #c3dcd5;padding-bottom:2mm;margin-bottom:4mm}
   #print .ph1 .logo, #bkm .ph1 .logo{font-family:Sacramento;font-size:20pt;color:#5f9488;line-height:1}
   #print .ph1 .tt, #bkm .ph1 .tt{font-family:'Gowun Batang',serif;font-size:14pt;font-weight:700;color:#24443d}
@@ -142,60 +210,67 @@
 <body>
 <div class="wrap">
   <a class="back" href="study.html">← 학습 관리</a>
-  <h1>슈핏 문법 <small style="font-family:'Gowun Dodum';font-size:15px;color:var(--muted);font-weight:400">너에게 꼭 맞춘 슈국 문법 학습 프로그램</small></h1>
-  <p class="lead">모의고사 문법 문항을 골라 시험지·중철 책자로 인쇄하거나 H WORK 과제로 출제합니다. 같은 지문의 문항은 늘 함께 담겨요.</p>
+  <header class="hd">
+    <div><div class="k">슈국 티쳐스 페이지</div><h1>슈핏 문법</h1></div>
+    <span class="tot" id="tot"></span>
+  </header>
   <div class="cols">
-    <div>
-      <div class="card">
-        <div class="row"><span class="lb">단원</span><span id="fArea"></span></div>
-        <div class="row" id="rLvl" hidden><span class="lb">난도</span><span id="fLvl"></span></div>
-        <div class="row" id="rKind" hidden><span class="lb">출처</span><span id="fKind"></span></div>
-        <div class="step" id="fStep"></div>
-        <div class="row"><span class="lb">찾기</span><input type="text" id="fq" placeholder="문항 글 · 출처 (예: 반모음, 6월 평가원)" style="flex:1;min-width:200px">
-          <label class="info"><input type="checkbox" id="fUnused"> 아직 낸 적 없는 문항만</label>
-          <label class="info"><input type="checkbox" id="fAns"> 정답·해설 보기</label></div>
-        <div class="info" id="fInfo"></div>
-      </div>
-      <div class="card" id="list"><div class="empty">문항을 불러오는 중입니다…</div></div>
-    </div>
-    <div class="side">
-      <div class="card">
-        <h2>고른 문항 <span class="info" id="selN"></span></h2>
-        <div class="row">
-          <button class="btn ghost" id="autoBtn" type="button">지금 거른 문항에서 10문항 채우기</button>
+    <main class="lcol">
+      <section class="card fcard">
+        <div class="sec">
+          <h2><span class="n">1</span>단원</h2>
+          <div class="chips" id="fArea"></div>
+          <div class="step" id="fStep"></div>
+          <div class="lvbox" id="rLvl" hidden><span class="lb">난도</span><span class="chips" id="fLvl"></span></div>
+          <div class="lvbox" id="rKind" hidden><span class="lb">출처</span><span class="chips" id="fKind"></span></div>
+        </div>
+        <div class="sec">
+          <h2><span class="n">2</span>찾기</h2>
+          <div class="srch">
+            <label class="sbox"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#8a978f" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+              <input type="text" id="fq" placeholder="문항 글 · 출처 (예: 반모음, 6월 평가원)"></label>
+            <label class="tog"><input type="checkbox" id="fUnused">아직 낸 적 없는 문항만</label>
+            <label class="tog"><input type="checkbox" id="fAns">정답·해설 보기</label>
+          </div>
+        </div>
+      </section>
+      <div class="rline"><span id="fInfo"></span><span class="r">담은 문항은 오른쪽에 모여요</span></div>
+      <div id="list"><div class="empty">문항을 불러오는 중입니다…</div></div>
+    </main>
+    <aside class="side">
+      <section class="card">
+        <div class="ch2"><h2><span class="n">3</span>고른 문항</h2><span class="cnt" id="selN"><b>0</b>문항</span></div>
+        <div class="sel" id="sel"></div>
+        <div class="fill">
+          <button class="btn" id="autoBtn" type="button">지금 거른 문항에서 10문항 채우기</button>
           <button class="btn ghost" id="clearBtn" type="button">비우기</button>
         </div>
-        <div class="sel" id="sel"></div>
-        <div class="f"><label for="loadSel">저장된 과제 불러오기 (고치거나 다시 인쇄)</label>
-          <select id="loadSel"><option value="">— 고르세요 —</option></select></div>
-      </div>
-      <div class="card">
-        <h2>인쇄</h2>
-        <div class="f"><label for="pTitle">시험지 제목</label><input type="text" id="pTitle" placeholder="문항을 담으면 자동으로 채워져요"></div>
-        <div class="row">
-          <button class="btn" type="button" id="prS">학생용 인쇄</button>
-          <button class="btn" type="button" id="prT">교사용 인쇄 (정답·해설)</button>
+        <label class="f"><span>저장된 과제 불러오기 <span class="dim">· 고치거나 다시 인쇄</span></span>
+          <select id="loadSel"><option value="">— 고르세요 —</option></select></label>
+      </section>
+      <section class="card">
+        <div class="xh"><h2><span class="n">4</span>내보내기</h2><span id="xHint">문항을 담으면 쓸 수 있어요</span></div>
+        <div class="seg" id="xTabs"><button type="button" data-x="pr" class="on">인쇄</button><button type="button" data-x="bk">중철 책자</button><button type="button" data-x="hw">H WORK</button></div>
+        <div class="pane" id="xp-pr">
+          <label class="f">시험지 제목<input type="text" id="pTitle" placeholder="문항을 담으면 자동으로 채워져요"></label>
+          <div class="two"><button class="btn" type="button" id="prS">학생용 인쇄</button><button class="btn" type="button" id="prT">교사용 인쇄 (정답·해설)</button></div>
+          <span class="info">인쇄 창에서 'PDF로 저장'을 고르면 파일로도 받을 수 있어요.</span>
         </div>
-        <div class="info">인쇄 창에서 'PDF로 저장'을 고르면 파일로도 받을 수 있어요.</div>
-      </div>
-      <div class="card">
-        <h2>중철 책자 (A3 → A4 책자)</h2>
-        <div class="row">
-          <button class="btn" type="button" id="bkS">학생용 책자 PDF</button>
-          <button class="btn" type="button" id="bkT">교사용 책자 PDF</button>
+        <div class="pane" id="xp-bk" hidden>
+          <span class="tt">중철 책자 <span>(A3 → A4 책자)</span></span>
+          <div class="two"><button class="btn" type="button" id="bkS">학생용 책자 PDF</button><button class="btn" type="button" id="bkT">교사용 책자 PDF</button></div>
+          <div class="bkinfo" id="bkInfo">A4 쪽을 책자 순서로 A3 가로 한 면에 두 쪽씩 놓습니다. 인쇄 창에서 <b>대상: PDF로 저장</b>을 고르면 파일로 내려받고,
+            인쇄할 때는 <b>A3 · 가로 · 양면(짧은 쪽으로 넘김) · 배율 100%</b>로 찍은 뒤 반으로 접어 가운데를 스테이플러로 찍어요. 앞표지·뒤표지가 함께 들어가고, 쪽 수는 4의 배수로 맞추며 남는 쪽은 뒤표지 앞에 비워 둡니다.</div>
         </div>
-        <div class="bkinfo" id="bkInfo">A4 쪽을 책자 순서로 A3 가로 한 면에 두 쪽씩 놓습니다. 인쇄 창에서 <b>대상: PDF로 저장</b>을 고르면 파일로 내려받고,
-          인쇄할 때는 <b>A3 · 가로 · 양면(짧은 쪽으로 넘김) · 배율 100%</b>로 찍은 뒤 반으로 접어 가운데를 스테이플러로 찍어요. 앞표지·뒤표지가 함께 들어가고, 쪽 수는 4의 배수로 맞추며 남는 쪽은 뒤표지 앞에 비워 둡니다.</div>
-      </div>
-      <div class="card">
-        <h2>H WORK 출제</h2>
-        <div class="f"><label for="hTeacher">담당 강사</label><input type="text" id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></div>
-        <div class="f"><label for="hCode">과제 제목 (학생에게 보이는 이름)</label><input type="text" id="hCode" placeholder="문항을 담으면 자동으로 채워져요"></div>
-        <button class="btn main" type="button" id="saveBtn" style="width:100%;margin-top:6px">H WORK 과제로 출제</button>
-        <div class="msg" id="saveMsg"></div>
-        <div class="info" style="margin-top:8px">저장한 뒤 학생 배정은 [H WORK 배정하기]에서 합니다. 학생은 휴대폰에서 문제를 보며 풀고, 틀린 문항은 오답하기와 질문으로 선생님과 이야기할 수 있어요.</div>
-      </div>
-    </div>
+        <div class="pane" id="xp-hw" hidden>
+          <label class="f">담당 강사<input type="text" id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></label>
+          <label class="f"><span>과제 제목 <span class="dim">· 학생에게 보이는 이름</span></span><input type="text" id="hCode" placeholder="문항을 담으면 자동으로 채워져요"></label>
+          <button class="btn main" type="button" id="saveBtn">H WORK 과제로 출제</button>
+          <div class="msg" id="saveMsg"></div>
+          <span class="info" style="line-height:1.7">저장한 뒤 학생 배정은 [H WORK 배정하기]에서 합니다. 학생은 휴대폰에서 문제를 보며 풀고, 틀린 문항은 오답하기와 질문으로 선생님과 이야기할 수 있어요.</span>
+        </div>
+      </section>
+    </aside>
   </div>
 </div>
 <div id="print"></div>
@@ -334,6 +409,7 @@ async function boot(){
     $('tList').innerHTML=[...new Set(hws.map(h=>h.teacher).filter(Boolean))].map(t=>`<option value="${esc(t)}">`).join('');
     $('loadSel').innerHTML='<option value="">— 고르세요 —</option>'+HWS.map((h,i)=>`<option value="${i}">${esc(h.code)} · ${esc(h.teacher)} (${Object.keys(h.data.bank).length}문항)</option>`).join('');
     if(!ITEMS.length){ $('list').innerHTML='<div class="empty">슈핏 문법 문항이 비어 있습니다. 문항을 올린 뒤 다시 열어 주세요.</div>'; return; }
+    $('tot').innerHTML=`문항 <b>${ITEMS.length}</b>개 · 지문 세트 <b>${new Set(ITEMS.map(x=>x.pid).filter(Boolean)).size}</b>개`;
     drawFilters(); drawList(); drawSel();
   }catch(e){
     $('list').innerHTML='<div class="empty">문항을 불러오지 못했습니다. ('+esc(e.message)+')<br>데이터베이스 067 적용 전이면 이 화면을 쓸 수 없어요.</div>';
@@ -389,25 +465,31 @@ function markAns(html, ans){
 }
 function exHtml(it){
   const bad=(it.bad||[]).map(b=>`<div>${b}</div>`).join('');
-  return `<div class="exb"><b>정답 ${CHS[it.ans-1]}</b> ${it.good||''}${bad}</div>`;
+  return `<div class="exb"><b>정답 · 해설</b>정답 ${CHS[it.ans-1]} ${it.good||''}${bad}</div>`;
 }
-function itemCard(id){
-  const it=BYID[id], used=USED[id];
-  return `<div class="ith"><span class="tg">${esc(it.area)}</span><span class="tg">${esc(it.lvl)}</span><span class="tg k">${esc(it.kind)}</span>
-    <span class="src">${esc(it.src)}</span>${used?`<span class="tg used" title="${esc(used.join(', '))}">낸 적 있음 ${used.length}</span>`:''}</div>
-    <div class="gq">${markAns(it.html, it.ans)}</div>${exHtml(it)}`;
+function tagsHtml(it){
+  const used=USED[it.id];
+  return `<span class="tg">${esc(it.area)}</span><span class="tg">${esc(it.lvl)}</span><span class="tg k">${esc(it.kind)}</span>
+    <span class="src">${esc(it.src)}</span>${used?`<span class="tg used" title="${esc(used.join(', '))}">낸 적 있음 ${used.length}</span>`:''}`;
 }
+function itemCard(id, head){
+  const it=BYID[id];
+  return `${head?'':`<div class="ith">${tagsHtml(it)}</div>`}<div class="gq">${markAns(it.html, it.ans)}</div>${exHtml(it)}`;
+}
+function addLabel(on, n){ return on ? '✓ 담음' : (n>1 ? `+ 세트 ${n}문항 담기` : '+ 담기'); }
 function drawList(){
   const gs=filteredGroups();
   const nItems=gs.reduce((a,g)=>a+g.length,0);
-  $('fInfo').textContent=`문항 ${nItems}개 · 지문 세트 ${gs.filter(g=>BYID[g[0]].pid).length}개`;
+  const q=F.q?`‘${F.q}’ 검색 · `:'', where=[F.area||'전체', F.lvl, F.kind].filter(Boolean).join(' ');
+  $('fInfo').textContent=`${where} · ${q}문항 ${nItems}개 · 지문 세트 ${gs.filter(g=>BYID[g[0]].pid).length}개`;
   if(!gs.length){ $('list').innerHTML='<div class="empty">조건에 맞는 문항이 없습니다.</div>'; return; }
-  $('list').innerHTML=gs.slice(0,shown).map(g=>{
-    const first=BYID[g[0]], on=isSel(g[0]);
+  $('list').innerHTML=gs.slice(0,shown).map((g,gi)=>{
+    const first=BYID[g[0]], on=isSel(g[0]), one=g.length===1;
     const pas = first.pid ? `<details class="pas"><summary>지문 보기 — 이 지문 문항 ${g.length}개가 함께 담겨요</summary><div class="pasb gq">${PAS[first.pid]||''}</div></details>` : '';
-    return `<div class="it" data-g="${g[0]}"><div class="ith" style="margin-bottom:2px"><span class="sp" style="flex:1"></span>
-      <button type="button" class="addb${on?' on':''}" data-add="${g[0]}">${on?'담김 ✓':(g.length>1?`세트 ${g.length}문항 담기`:'담기')}</button></div>
-      ${pas}${g.map(itemCard).join('<div style="height:10px"></div>')}</div>`;
+    return `<div class="it${on?' on':''}" data-g="${g[0]}"><div class="ith"><span class="no">${String(gi+1).padStart(2,'0')}</span>
+      ${one?tagsHtml(first):`<span class="tg">지문 세트 · ${g.length}문항</span>`}
+      <button type="button" class="addb${on?' on':''}" data-add="${g[0]}">${addLabel(on, g.length)}</button></div>
+      ${pas}${g.map(id=>itemCard(id, one)).join('')}</div>`;
   }).join('') + (gs.length>shown?`<div class="more"><button class="btn ghost" type="button" id="moreBtn">더 보기 (${gs.length-shown}묶음 남음)</button></div>`:'');
   const mb=$('moreBtn'); if(mb) mb.onclick=()=>{ shown+=40; drawList(); };
 }
@@ -416,7 +498,8 @@ $('list').addEventListener('click', e=>{
   const id=Number(b.dataset.add);
   if(isSel(id)) SEL=SEL.filter(g=>!g.includes(id)); else SEL.push(groupOf(id));
   b.classList.toggle('on',isSel(id)); const g=groupOf(id);
-  b.textContent=isSel(id)?'담김 ✓':(g.length>1?`세트 ${g.length}문항 담기`:'담기');
+  b.textContent=addLabel(isSel(id), g.length);
+  const card=b.closest('.it'); if(card) card.classList.toggle('on',isSel(id));
   drawSel();
 });
 /* 제목 자동 — 'shuefit 문법: 단원 난도 (문항 수)', 같은 제목 과제가 이미 있으면 뒤에 02·03…
@@ -435,6 +518,11 @@ function autoTitle(){
   });
   return max ? `${base} ${String(max+1).padStart(2,'0')}` : base;
 }
+/* 시험지 제목과 과제 제목은 같은 값을 쓴다(디자인 묶음) — 한쪽을 고치면 다른 쪽도 */
+['pTitle','hCode'].forEach(id=>$(id).addEventListener('input', e=>{ const o=$(id==='pTitle'?'hCode':'pTitle'); o.value=e.target.value; o.dataset.auto=e.target.dataset.auto||''; }));
+/* 내보내기 탭 — 인쇄 · 중철 책자 · H WORK */
+function xTab(k){ document.querySelectorAll('#xTabs [data-x]').forEach(b=>b.classList.toggle('on', b.dataset.x===k)); ['pr','bk','hw'].forEach(x=>{ $('xp-'+x).hidden = x!==k; }); }
+$('xTabs').addEventListener('click', e=>{ const b=e.target.closest('[data-x]'); if(b) xTab(b.dataset.x); });
 function applyAutoTitle(){
   const t=autoTitle();
   ['pTitle','hCode'].forEach(id=>{
@@ -445,16 +533,18 @@ function applyAutoTitle(){
 function drawSel(){
   applyAutoTitle();
   const n=selIds().length;
-  $('selN').textContent = n ? `${n}문항` : '';
-  if(!SEL.length){ $('sel').innerHTML='<div class="empty"><img src="assets/sk-cheer.png" alt="" style="width:64px;height:64px;display:block;margin:0 auto 4px">왼쪽에서 [담기]를 누르세요.</div>'; return; }
+  $('selN').innerHTML=`<b>${n}</b>문항`; $('selN').classList.toggle('has', n>0);
+  $('xHint').textContent = n ? `고른 ${n}문항으로 만듭니다` : '문항을 담으면 쓸 수 있어요'; $('xHint').classList.toggle('has', n>0);
+  ['prS','prT','bkS','bkT','saveBtn'].forEach(id=>{ $(id).disabled = !n; });
+  if(!SEL.length){ $('sel').innerHTML='<div class="empty"><img src="assets/sk-cheer.png" alt="">왼쪽에서 [담기]를 누르세요.</div>'; return; }
   let k=0;
   $('sel').innerHTML=SEL.map((g,gi)=>{
     const a=k+1, b=k+g.length; k=b; const it=BYID[g[0]];
     const txt=(it.plain||'').slice(0,60);
     return `<div class="sg"><span class="n">${g.length>1?`${a}~${b}`:a}</span>
-      <span class="t">${esc(txt)}<br><small>${esc(it.area)} · ${esc(it.lvl)} · ${esc(it.src)}${g.length>1?` · 지문 세트`:''}</small></span>
-      <button type="button" data-mv="${gi}" data-d="-1" title="위로">▲</button><button type="button" data-mv="${gi}" data-d="1" title="아래로">▼</button>
-      <button type="button" data-rm="${gi}" title="빼기">×</button></div>`;
+      <span class="t"><b>${esc(txt)}</b><small>${esc(it.area)} · ${esc(it.lvl)} · ${esc(it.src)}${g.length>1?` · 지문 세트`:''}</small></span>
+      <span class="bt"><button type="button" data-mv="${gi}" data-d="-1" title="위로">▲</button><button type="button" data-mv="${gi}" data-d="1" title="아래로">▼</button>
+      <button type="button" data-rm="${gi}" title="빼기">×</button></span></div>`;
   }).join('');
 }
 $('sel').addEventListener('click', e=>{
@@ -478,7 +568,7 @@ $('loadSel').onchange=()=>{
   if(SEL.length && !confirm('지금 고른 문항을 비우고 이 과제의 문항을 불러올까요?')){ $('loadSel').value=''; return; }
   const ids=Object.keys(h.data.bank).sort((a,b)=>a-b).map(k=>Number(h.data.bank[k])).filter(id=>BYID[id]);
   SEL=[]; ids.forEach(id=>{ const last=SEL[SEL.length-1]; if(last && BYID[id].pid && BYID[last[0]].pid===BYID[id].pid) last.push(id); else SEL.push([id]); });
-  $('hTeacher').value=h.teacher; $('hCode').value=h.code; $('pTitle').value=h.code.replace(/^\[[^\]]*\]\s*/,'');
+  $('hTeacher').value=h.teacher; $('hCode').value=h.code; $('pTitle').value=h.code;
   $('hCode').dataset.auto=''; $('pTitle').dataset.auto='';
   drawSel(); drawList(); toast('불러왔어요');
 };

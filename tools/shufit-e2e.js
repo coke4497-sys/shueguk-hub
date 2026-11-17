@@ -105,6 +105,9 @@ function rpc(fn, p) {
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.goto(U + 'shufit_grammar.html'); await p.waitForSelector('.it');
+  if (SHOT) await p.screenshot({ path: path.join(SHOT, 'shufit-first.png') });
+  if (SHOT) { await p.setViewportSize({ width: 390, height: 900 }); await p.screenshot({ path: path.join(SHOT, 'shufit-phone.png'), fullPage: true }); await p.setViewportSize({ width: 1300, height: 900 }); }
+  ok(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), '가로 넘침 없음');
   ok(await p.locator('#fArea .chip').count() >= 2, '영역 칩');
   if (!REAL) {
     ok((await p.locator('#fInfo').textContent()).includes('문항 4개 · 지문 세트 1개'), '문항·세트 수: ' + await p.locator('#fInfo').textContent());
@@ -112,6 +115,9 @@ function rpc(fn, p) {
     ok((await p.locator('.it').first().textContent()).includes('세트 2문항 담기'), '세트 담기 버튼');
     ok(await p.locator('.it').first().locator('.pas').count() === 1, '지문 보기');
     ok(await p.locator('#rLvl').isHidden() && await p.locator('#rKind').isHidden() && (await p.locator('#fStep').textContent()).includes('단원'), '처음엔 단원만 — 난도·출처 숨김');
+    ok(await p.locator('#prS').isDisabled() && await p.locator('#saveBtn').isDisabled() && (await p.locator('#xHint').textContent()).includes('담으면'), '문항이 없으면 내보내기 버튼 잠김');
+    ok(await p.locator('#xp-pr').isVisible() && await p.locator('#xp-bk').isHidden() && await p.locator('#xp-hw').isHidden(), '내보내기 탭 — 처음엔 인쇄');
+    ok((await p.locator('#tot').textContent()).includes('문항 4개') && (await p.locator('.it .no').first().textContent()) === '01', '머리 합계 · 카드 번호');
     await p.click('.chip[data-k=area][data-v="품사"]'); ok(await p.locator('.it').count() === 1, '단원 거르기');
     await p.click('.chip[data-k=area][data-v="음운"]');
     ok(await p.locator('#rLvl').isVisible() && await p.locator('#rKind').isHidden(), '단원을 고르면 난도가 나타남');
@@ -131,6 +137,8 @@ function rpc(fn, p) {
     await p.click('[data-add="101"]');
     ok((await p.locator('#selN').textContent()) === '2문항', '세트 담기 → 2문항');
     ok((await p.locator('#sel .sg .n').first().textContent()) === '1~2', '고른 목록 번호 1~2');
+    ok(await p.locator('.it.on').count() === 1 && (await p.locator('.it.on .addb').textContent()) === '✓ 담음' && await p.locator('#selN.has').count() === 1 && !(await p.locator('#prS').isDisabled()), '담으면 카드 테두리·✓ 담음·수 배지·버튼 풀림');
+    ok((await p.locator('#xHint').textContent()) === '고른 2문항으로 만듭니다', '내보내기 안내 — 고른 n문항');
     ok((await p.locator('#pTitle').inputValue()) === 'shuefit 문법: 음운 심화 (2)' && (await p.locator('#hCode').inputValue()) === 'shuefit 문법: 음운 심화 (2)', '제목 자동: ' + await p.locator('#pTitle').inputValue());
     await p.click('[data-add="104"]');
     await p.click('#sel [data-mv="1"][data-d="-1"]');
@@ -143,8 +151,10 @@ function rpc(fn, p) {
     await p.fill('#pTitle', '음운 연습');
     await p.click('[data-add="103"]'); await p.click('[data-add="103"]');
     ok((await p.locator('#pTitle').inputValue()) === '음운 연습', '직접 고친 제목은 덮지 않음');
+    ok((await p.locator('#hCode').inputValue()) === '음운 연습', '시험지 제목과 과제 제목은 같은 값');
+    await p.click('#xTabs [data-x=bk]'); ok(await p.locator('#xp-bk').isVisible() && await p.locator('#xp-pr').isHidden(), '탭 바꾸기 — 중철 책자');
     await p.evaluate(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
-    await p.click('#prS'); await p.waitForFunction(() => window.__printed === 1);
+    await p.click('#xTabs [data-x=pr]'); await p.click('#prS'); await p.waitForFunction(() => window.__printed === 1);
     const pr = await p.locator('#print').innerHTML();
     ok(pr.includes('음운 연습') && !pr.includes('교사용'), '학생용 제목');
     ok((await p.locator('#print .prng').first().textContent()) === '[02~03]', '지문 범위 [02~03] (품사 문항이 1번)');
@@ -160,6 +170,7 @@ function rpc(fn, p) {
     await p.emulateMedia({ media: 'screen' });
     // 저장
     ok((await p.locator('#hTeacher').inputValue()) === '이현지', '담당 강사 = 로그인 이름');
+    await p.click('#xTabs [data-x=hw]');
     await p.fill('#hCode', '일반 과제'); await p.click('#saveBtn');
     ok((await p.locator('#saveMsg').textContent()).includes('일반 H WORK 과제가 이미'), '같은 이름 일반 과제는 막음');
     await p.fill('#hCode', '[슈핏 문법] 음운 연습'); await p.click('#saveBtn');
@@ -174,7 +185,7 @@ function rpc(fn, p) {
     ok((await p.textContent('h1')).includes('슈핏 문법') && !(await p.innerText('.wrap')).includes('문항 은행'), '이름 = 슈핏 문법 (문항 은행 글 없음)');
   } else {
     if (SHOT) { await p.check('#fAns'); await p.screenshot({ path: path.join(SHOT, 'shufit-make-real.png') });
-      await p.click('#autoBtn'); await p.evaluate(() => { window.print = () => {}; }); await p.click('#prT');
+      await p.click('#autoBtn'); await p.evaluate(() => { window.print = () => {}; }); await p.click('#xTabs [data-x=pr]'); await p.click('#prT');
       await p.emulateMedia({ media: 'print' }); await p.screenshot({ path: path.join(SHOT, 'shufit-print-real.png'), fullPage: true }); }
     ok(true, '실제 문항 ' + ITEMS.length + '개 그림');
   }
@@ -192,7 +203,7 @@ function rpc(fn, p) {
   await bk.evaluate(() => document.querySelectorAll('[data-add]:not(.on)').forEach(b => b.click()));
   const nSel = Number((await bk.textContent('#selN')).replace(/\D/g, ''));
   ok(nSel >= 20, '책자용 문항 담기 ' + nSel);
-  await bk.click('#bkS'); await bk.waitForFunction(() => window.__printed === 1, null, { timeout: 15000 });
+  await bk.click('#xTabs [data-x=bk]'); await bk.click('#bkS'); await bk.waitForFunction(() => window.__printed === 1, null, { timeout: 15000 });
   const N = Number(await bk.getAttribute('#bkInfo', 'data-pages'));
   ok(N >= 4 && N % 4 === 0, '책자 쪽 수 4의 배수 — ' + N + '쪽');
   ok(await bk.locator('#print .sheet').count() === N / 2, 'A3 면 수 = 쪽 수 ÷ 2 (' + await bk.locator('#print .sheet').count() + ')');
