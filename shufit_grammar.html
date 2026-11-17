@@ -8,10 +8,12 @@
 <link rel="icon" type="image/png" href="https://coke4497-sys.github.io/shueguk-h-work/icon-chulje.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&family=Sacramento&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://coke4497-sys.github.io/shueguk-h-work/gbank.css">
 <script src="https://coke4497-sys.github.io/shueguk-report/teacher-name.js"></script>
 <style>
+  /* Sacramento — 구글 글꼴 대신 이 저장소(GitHub Pages)의 파일로(2026-11-17 원장님). OFL — assets/fonts/Sacramento-OFL.txt */
+  @font-face{font-family:'Sacramento';src:url('assets/fonts/Sacramento-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:block}
   /* 화면 = 2026-11-17 원장님 디자인 묶음 design_handoff_shufit_grammar (README 수치 그대로) */
   :root{ --ink:#2b3a33; --ink2:#54655c; --muted:#8a978f; --line:#dde5e0; --paper:#e4efea; --card:#fff;
          --g1:#4b6157; --g2:#7f9e8e; --s1:#f1f4f1; --s2:#f8faf8; --s3:#fafbf9; --s4:#f3eff8;
@@ -101,6 +103,8 @@
   #list .gq .bl{top:-10px}
   #list .gq .bl span{font-size:12px;padding:1px 12px;border-radius:999px;border:1px solid #d5ddd8;color:var(--ink2)}
   #list .gq .box .box,#list .gq table.ot{background:var(--s3)}
+  #list .gq table.ot{font-size:14.5px;line-height:1.6;margin:10px auto}
+  #list .gq table.ot td{padding:6px 12px}
   #list .gq .ch{gap:4px;margin-top:8px}
   #list .gq .c{display:grid;grid-template-columns:24px minmax(0,1fr);gap:4px;padding:6px 10px;border-radius:10px;font-size:15px;line-height:1.6}
   #list .gq .c:hover{background:var(--s2)}
@@ -173,7 +177,7 @@
   .cv-top{height:158mm;background:#e3efeb;padding:14mm 16mm 0;box-sizing:border-box;position:relative}
   .cv-brand{display:flex;justify-content:space-between;align-items:flex-start;font-size:9.5pt;color:#3d675d}
   .cv-logo{text-align:center}
-  .cv-logo b{display:block;font-family:Sacramento;font-weight:400;font-size:30pt;color:#5f9488;line-height:1}
+  .cv-logo b{display:block;font-family:'Sacramento',cursive;font-weight:400;font-size:30pt;color:#5f9488;line-height:1}
   .cv-logo span{display:inline-block;border:.3mm solid #8db8ad;border-radius:99px;padding:.3mm 3.4mm;font-size:8.5pt;color:#3d675d;margin-top:1mm}
   .cv-tag{display:inline-block;background:#8db8ad;color:#fff;border-radius:2mm;padding:1.4mm 4mm;font-size:10pt;margin-top:22mm}
   .cv-series{font-size:10.5pt;color:#3d675d;margin-top:4mm}
@@ -191,7 +195,7 @@
   .cv-name div{flex:1;border-bottom:.3mm solid #c3dcd5;padding-bottom:5mm}
   .bk .bpage.bkback{background:#e3efeb;display:flex;align-items:center;justify-content:center;text-align:center}
   .bk-in img{width:46mm;height:46mm;display:block;margin:0 auto 4mm}
-  .bk-in b{display:block;font-family:Sacramento;font-weight:400;font-size:44pt;color:#5f9488;line-height:1}
+  .bk-in b{display:block;font-family:'Sacramento',cursive;font-weight:400;font-size:44pt;color:#5f9488;line-height:1}
   .bk-in .nm{letter-spacing:5mm;margin:4mm 0 0 5mm;font-size:11pt;color:#24443d}
   .bk-in .sr{font-size:9pt;color:#3d675d;margin-top:6mm}
   .bk-in .pl{display:inline-block;background:#fff;border-radius:99px;padding:1.6mm 6mm;font-size:9pt;color:#3d675d;margin-top:7mm}
@@ -228,7 +232,7 @@
     background:linear-gradient(to bottom right,transparent calc(50% - .4pt),#000 calc(50% - .4pt),#000 calc(50% + .4pt),transparent calc(50% + .4pt))}
   .exd .frac .a{position:absolute;left:1mm;top:.5mm} .exd .frac .b{position:absolute;right:1mm;bottom:.4mm}
   .exd .brandf{position:absolute;left:14mm;bottom:12mm;font-size:7pt;color:#777;font-family:var(--sans)}
-  .exd .brandf b{font-family:Sacramento,cursive;font-weight:400;font-size:10pt;color:#555;margin-right:1.4mm}
+  .exd .brandf b{font-family:'Sacramento',cursive;font-weight:400;font-size:10pt;color:#555;margin-right:1.4mm}
   .exd .coverB{position:absolute;left:14mm;right:14mm;top:10mm}
   .exd .coverB table{width:100%;border-collapse:collapse;font-family:var(--sans);table-layout:fixed}
   .exd .coverB td{border:1pt solid #000;text-align:center;vertical-align:middle;height:7.4mm;padding:0 1mm;font-size:11pt;font-weight:700;white-space:nowrap;overflow:hidden}
@@ -294,7 +298,7 @@
   .exd .kgrid b{font-family:var(--num);min-width:6mm}
   .exd .kgrid em{font-style:normal;font-size:8pt;color:#555;margin-left:auto;font-family:var(--sans)}
   #print .ph1, #bkm .ph1{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:.3mm solid #c3dcd5;padding-bottom:2mm;margin-bottom:4mm}
-  #print .ph1 .logo, #bkm .ph1 .logo{font-family:Sacramento;font-size:20pt;color:#5f9488;line-height:1}
+  #print .ph1 .logo, #bkm .ph1 .logo{font-family:'Sacramento',cursive;font-size:20pt;color:#5f9488;line-height:1}
   #print .ph1 .tt, #bkm .ph1 .tt{font-family:'Gowun Batang',serif;font-size:14pt;font-weight:700;color:#24443d}
   #print .ph1 .nm, #bkm .ph1 .nm{font-size:9.5pt;color:#3d675d}
   #print .ph1 .nm span, #bkm .ph1 .nm span{display:inline-block;min-width:28mm;border-bottom:.25mm solid #9bb;margin-left:2mm}
@@ -960,7 +964,7 @@ $('bkT').onclick=()=>bookletDoc(true);
 /* A형 로고 — 2026-11-17 원장님이 보낸 슈국 로고(민트 원 · 아치 · Shueguk · '다르게 하기의 힘 이수경 국어')를 SVG 로 다시 그림 */
 const EX_LOGO='<svg class="logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="Shueguk 로고"><circle cx="100" cy="100" r="99" fill="#d8ece6"/>'
   +'<path d="M43 150V70a57 57 0 0 1 114 0v80Z" fill="none" stroke="#000" stroke-width=".9"/>'
-  +'<text x="100" y="104" text-anchor="middle" font-family="Sacramento,cursive" font-size="52" fill="#000">Shueguk</text>'
+  +'<text x="100" y="104" text-anchor="middle" font-family="Sacramento, cursive" font-size="64" fill="#000">Shueguk</text>'
   +'<text x="100" y="166" text-anchor="middle" font-family="Gowun Dodum,sans-serif" font-size="12.5" fill="#000" letter-spacing=".5">다르게 하기의 힘 이수경 국어</text></svg>';
 let EX_DES='A';
 function exVal(id){ return String(($(id)||{}).value||'').trim(); }
