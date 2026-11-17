@@ -111,7 +111,15 @@ function rpc(fn, p) {
     ok(await p.locator('.it').count() === 3, '묶음 3개(세트는 한 묶음)');
     ok((await p.locator('.it').first().textContent()).includes('세트 2문항 담기'), '세트 담기 버튼');
     ok(await p.locator('.it').first().locator('.pas').count() === 1, '지문 보기');
-    await p.click('.chip[data-k=area][data-v="품사"]'); ok(await p.locator('.it').count() === 1, '영역 거르기');
+    ok(await p.locator('#rLvl').isHidden() && await p.locator('#rKind').isHidden() && (await p.locator('#fStep').textContent()).includes('단원'), '처음엔 단원만 — 난도·출처 숨김');
+    await p.click('.chip[data-k=area][data-v="품사"]'); ok(await p.locator('.it').count() === 1, '단원 거르기');
+    await p.click('.chip[data-k=area][data-v="음운"]');
+    ok(await p.locator('#rLvl').isVisible() && await p.locator('#rKind').isHidden(), '단원을 고르면 난도가 나타남');
+    ok((await p.locator('#fLvl').textContent()) === '전체3기본1심화2', '난도 수 = 그 단원 안에서: ' + await p.locator('#fLvl').textContent());
+    await p.click('.chip[data-k=lvl][data-v="심화"]');
+    ok(await p.locator('#rKind').isVisible() && (await p.locator('#fKind').textContent()) === '전체2사설2', '난도를 고르면 출처가 나타남: ' + await p.locator('#fKind').textContent());
+    await p.click('.chip[data-k=area][data-v="품사"]');
+    ok(await p.locator('#rKind').isHidden() && await p.locator('.it').count() === 1, '단원을 바꾸면 난도·출처 풀림');
     await p.click('.chip[data-k=area][data-v=""]');
     await p.fill('#fq', '반모음'); await p.waitForTimeout(400);
     ok(await p.locator('.it').count() === 1 && (await p.locator('.it').textContent()).includes('둘째'), '찾기 — 세트 하나 걸려도 세트 전체');
@@ -191,13 +199,16 @@ function rpc(fn, p) {
   const order = await bk.evaluate(() => [...document.querySelectorAll('#print .sheet')].map(s => [...s.querySelectorAll('.bno')].map(x => x.textContent.replace(/\D/g, '') || '0').join('|')));
   const want = []; for (let s2 = 0; s2 < N / 4; s2++) { want.push([N - 2 * s2, 2 * s2 + 1]); want.push([2 * s2 + 2, N - 2 * s2 - 1]); }
   const real = await bk.evaluate(() => document.querySelectorAll('#print .bpage .bbody .blk').length);
-  ok(order[0].endsWith('|1') && order[1].startsWith('2|'), '첫 면 [마지막|1], 둘째 면 [2|…] — ' + order.slice(0, 2).join(' / '));
+  ok(order[0] === '' && order[1].startsWith('2|'), '첫 면 [뒤표지|앞표지], 둘째 면 [2|…] — ' + order.slice(0, 2).join(' / '));
   ok(real === nSel, '책자에 모든 문항 ' + real + ' / ' + nSel);
   const ov = await bk.evaluate(() => [...document.querySelectorAll('#print .bbody')].filter(b => b.scrollWidth > b.clientWidth + 2).length);
   ok(ov === 0, '어느 쪽도 넘치지 않음');
   ok(await bk.evaluate(() => document.getElementById('pageStyle').textContent.includes('A3 landscape')), '인쇄 용지 A3 가로');
+  const cv = await bk.evaluate(() => { const ps = [...document.querySelectorAll('#print .bpage')]; const sh = document.querySelector('#print .sheet'); return { cover: ps.filter(p => p.classList.contains('cover')).length, back: ps.filter(p => p.classList.contains('bkback')).length, first: sh.children[1].classList.contains('cover'), last: sh.children[0].classList.contains('bkback'), sk: !!document.querySelector('#print .cover img.cv-sk') && !!document.querySelector('#print .bkback img'), title: (document.querySelector('#print .cv-title') || {}).textContent || '', on: document.querySelectorAll('#print .cv-u.on').length, units: document.querySelectorAll('#print .cv-u').length }; });
+  ok(cv.cover === 1 && cv.back === 1 && cv.first && cv.last, '앞표지 = 1쪽 · 뒤표지 = 마지막 쪽 ' + JSON.stringify(cv));
+  ok(cv.sk && cv.title.includes('shuefit 문법') && cv.on >= 1 && cv.units >= cv.on, '표지 — 슈콩이·제목·단원 칸 ' + JSON.stringify(cv));
   const nums = await bk.evaluate(() => [...document.querySelectorAll('#print .qn')].map(x => +x.textContent));
-  const pagesSeq = await bk.evaluate(() => { const m = {}; document.querySelectorAll('#print .bpage').forEach(p => { const n = +(p.querySelector('.bno').textContent.replace(/\D/g, '')) || 0; m[n] = [...p.querySelectorAll('.qn')].map(x => +x.textContent); }); return Object.keys(m).filter(k => +k).sort((a, b) => a - b).flatMap(k => m[k]); });
+  const pagesSeq = await bk.evaluate(() => { const m = {}; document.querySelectorAll('#print .bpage').forEach(p => { const bn = p.querySelector('.bno'); const n = bn ? +(bn.textContent.replace(/\D/g, '')) || 0 : 0; m[n] = [...p.querySelectorAll('.qn')].map(x => +x.textContent); }); return Object.keys(m).filter(k => +k).sort((a, b) => a - b).flatMap(k => m[k]); });
   ok(pagesSeq.join() === Array.from({ length: nSel }, (_, i) => i + 1).join(), '쪽 순서대로 읽으면 문항 1~' + nSel + ' 차례대로');
   await bk.emulateMedia({ media: 'print' });
   if (SHOT) { await bk.setViewportSize({ width: 1588, height: 1123 }); await bk.screenshot({ path: path.join(SHOT, 'shufit-booklet.png'), fullPage: true }); await bk.pdf({ path: path.join(SHOT, 'shufit-booklet.pdf'), preferCSSPageSize: true, printBackground: true }); }

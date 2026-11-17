@@ -30,6 +30,9 @@
   .chip{border:0;background:#F2F5F3;color:#3F4A44;border-radius:999px;padding:5px 12px;font-size:13.5px}
   .chip.on{background:var(--lav-bg);color:var(--lav-d);font-weight:700}
   .chip small{color:var(--muted);margin-left:3px}
+  .step{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--lav-d);background:#F7F3FA;border-radius:12px;padding:6px 12px;margin:6px 0}
+  .step:empty,[hidden]{display:none!important}
+  .step img{width:34px;height:34px;flex:none}
   input[type=text],input[type=date],select{border:1px solid var(--line);border-radius:10px;padding:8px 11px;font-family:inherit;font-size:14px;background:#fafbf9}
   .info{font-size:13px;color:var(--muted)}
   .btn{border:0;border-radius:999px;padding:8px 16px;font-size:14px;background:var(--lav-bg);color:var(--lav-d)}
@@ -87,6 +90,34 @@
   .bk .sheet{width:420mm;height:297mm;display:flex;overflow:hidden;break-after:page;page-break-after:always}
   .bk .sheet:last-child{break-after:auto;page-break-after:auto}
   .bk .ph1,.bk .quick{column-span:all}
+  /* 앞표지·뒤표지 (2026-11-17 원장님 — SHUEGUK MOGO 책자 표지 모양 · 슈콩이) */
+  .bk .bpage.cover,.bk .bpage.bkback{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .bk .bpage.cover{padding:0;display:block;position:relative;font-family:'Gowun Dodum',sans-serif;color:#24443d}
+  .cv-top{height:158mm;background:#e3efeb;padding:14mm 16mm 0;box-sizing:border-box;position:relative}
+  .cv-brand{display:flex;justify-content:space-between;align-items:flex-start;font-size:9.5pt;color:#3d675d}
+  .cv-logo{text-align:center}
+  .cv-logo b{display:block;font-family:Sacramento;font-weight:400;font-size:30pt;color:#5f9488;line-height:1}
+  .cv-logo span{display:inline-block;border:.3mm solid #8db8ad;border-radius:99px;padding:.3mm 3.4mm;font-size:8.5pt;color:#3d675d;margin-top:1mm}
+  .cv-tag{display:inline-block;background:#8db8ad;color:#fff;border-radius:2mm;padding:1.4mm 4mm;font-size:10pt;margin-top:22mm}
+  .cv-series{font-size:10.5pt;color:#3d675d;margin-top:4mm}
+  .cv-title{font-size:28pt;line-height:1.3;margin-top:4mm;color:#1f2a27;max-width:120mm;word-break:keep-all}
+  .cv-sub{font-size:9pt;color:#4f6a63;margin-top:5mm}
+  .cv-sk{position:absolute;right:12mm;bottom:6mm;width:62mm;height:62mm}
+  .cv-bot{padding:12mm 16mm 0}
+  .cv-bot h4{margin:0 0 4mm;font-size:10.5pt;font-weight:700;color:#24443d}
+  .cv-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm}
+  .cv-u{display:flex;align-items:center;gap:3mm;border:.3mm solid #c3dcd5;border-radius:2.4mm;padding:2.6mm 3mm;font-size:9.5pt}
+  .cv-u i{font-style:normal;width:8mm;height:7mm;border-radius:1.6mm;background:#e3efeb;color:#3d675d;display:flex;align-items:center;justify-content:center;font-size:8.5pt}
+  .cv-u.on{border-color:#8db8ad}
+  .cv-u.on i{background:#8db8ad;color:#fff}
+  .cv-name{position:absolute;left:16mm;right:16mm;bottom:22mm;display:flex;gap:10mm;font-size:9pt;color:#5f7a73}
+  .cv-name div{flex:1;border-bottom:.3mm solid #c3dcd5;padding-bottom:5mm}
+  .bk .bpage.bkback{background:#e3efeb;display:flex;align-items:center;justify-content:center;text-align:center}
+  .bk-in img{width:46mm;height:46mm;display:block;margin:0 auto 4mm}
+  .bk-in b{display:block;font-family:Sacramento;font-weight:400;font-size:44pt;color:#5f9488;line-height:1}
+  .bk-in .nm{letter-spacing:5mm;margin:4mm 0 0 5mm;font-size:11pt;color:#24443d}
+  .bk-in .sr{font-size:9pt;color:#3d675d;margin-top:6mm}
+  .bk-in .pl{display:inline-block;background:#fff;border-radius:99px;padding:1.6mm 6mm;font-size:9pt;color:#3d675d;margin-top:7mm}
   .bkinfo{font-size:12.5px;color:var(--muted);line-height:1.6;margin-top:6px}
   .bkinfo b{color:var(--mint-d)}
   #print .ph1, #bkm .ph1{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:.3mm solid #c3dcd5;padding-bottom:2mm;margin-bottom:4mm}
@@ -116,9 +147,10 @@
   <div class="cols">
     <div>
       <div class="card">
-        <div class="row"><span class="lb">영역</span><span id="fArea"></span></div>
-        <div class="row"><span class="lb">난도</span><span id="fLvl"></span></div>
-        <div class="row"><span class="lb">출처</span><span id="fKind"></span></div>
+        <div class="row"><span class="lb">단원</span><span id="fArea"></span></div>
+        <div class="row" id="rLvl" hidden><span class="lb">난도</span><span id="fLvl"></span></div>
+        <div class="row" id="rKind" hidden><span class="lb">출처</span><span id="fKind"></span></div>
+        <div class="step" id="fStep"></div>
         <div class="row"><span class="lb">찾기</span><input type="text" id="fq" placeholder="문항 글 · 출처 (예: 반모음, 6월 평가원)" style="flex:1;min-width:200px">
           <label class="info"><input type="checkbox" id="fUnused"> 아직 낸 적 없는 문항만</label>
           <label class="info"><input type="checkbox" id="fAns"> 정답·해설 보기</label></div>
@@ -153,7 +185,7 @@
           <button class="btn" type="button" id="bkT">교사용 책자 PDF</button>
         </div>
         <div class="bkinfo" id="bkInfo">A4 쪽을 책자 순서로 A3 가로 한 면에 두 쪽씩 놓습니다. 인쇄 창에서 <b>대상: PDF로 저장</b>을 고르면 파일로 내려받고,
-          인쇄할 때는 <b>A3 · 가로 · 양면(짧은 쪽으로 넘김) · 배율 100%</b>로 찍은 뒤 반으로 접어 가운데를 스테이플러로 찍어요. 쪽 수는 4의 배수로 맞추고 남는 쪽은 비워 둡니다.</div>
+          인쇄할 때는 <b>A3 · 가로 · 양면(짧은 쪽으로 넘김) · 배율 100%</b>로 찍은 뒤 반으로 접어 가운데를 스테이플러로 찍어요. 앞표지·뒤표지가 함께 들어가고, 쪽 수는 4의 배수로 맞추며 남는 쪽은 뒤표지 앞에 비워 둡니다.</div>
       </div>
       <div class="card">
         <h2>H WORK 출제</h2>
@@ -309,19 +341,29 @@ async function boot(){
   try{ if(window.shuegukTeacherName){ const n=await shuegukTeacherName(); if(n && !$('hTeacher').value) $('hTeacher').value=n; } }catch(e){}
 }
 
-function chips(el, key, vals){
-  const counts={}; ITEMS.forEach(x=>{ counts[x[key]]=(counts[x[key]]||0)+1; });
-  $(el).innerHTML=[['','전체']].concat(vals.map(v=>[v,v])).map(([v,l])=>
-    `<button type="button" class="chip${F[key]===v?' on':''}" data-k="${key}" data-v="${esc(v)}">${esc(l)}${v?`<small>${counts[v]||0}</small>`:''}</button>`).join('');
+/* 단원 → 난도 → 출처 차례로 연다(2026-11-17 원장님 "메뉴가 모두 펼쳐져 있어 혼란"). 수는 앞에서 고른 조건 안에서 센다. */
+function chips(el, key, vals, base){
+  const counts={}; base.forEach(x=>{ counts[x[key]]=(counts[x[key]]||0)+1; });
+  vals=vals.filter(v=>counts[v]);
+  $(el).innerHTML=[['','전체',base.length]].concat(vals.map(v=>[v,v,counts[v]])).map(([v,l,n])=>
+    `<button type="button" class="chip${F[key]===v?' on':''}" data-k="${key}" data-v="${esc(v)}">${esc(l)}<small>${n}</small></button>`).join('');
 }
 function drawFilters(){
-  chips('fArea','area',[...new Set(ITEMS.map(x=>x.area))]);
-  chips('fLvl','lvl',['기본','실력','심화'].filter(v=>ITEMS.some(x=>x.lvl===v)));
-  chips('fKind','kind',['평가원','교육청','사설'].filter(v=>ITEMS.some(x=>x.kind===v)));
+  chips('fArea','area',[...new Set(ITEMS.map(x=>x.area))], ITEMS);
+  const inArea=ITEMS.filter(x=>x.area===F.area), inLvl=inArea.filter(x=>x.lvl===F.lvl);
+  $('rLvl').hidden=!F.area; $('rKind').hidden=!(F.area && F.lvl);
+  if(F.area) chips('fLvl','lvl',['기본','실력','심화'], inArea);
+  if(F.area && F.lvl) chips('fKind','kind',['평가원','교육청','사설'], inLvl);
+  const sk='<img src="assets/sk-study.png" alt="">';
+  $('fStep').innerHTML = !F.area ? sk+'<span>먼저 <b>단원</b>을 고르세요. 그 단원의 난도별 문항 수가 나타나요.</span>'
+    : !F.lvl ? sk+'<span><b>난도</b>를 고르면 출처(평가원·교육청·사설)가 나타나요.</span>' : '';
 }
 document.addEventListener('click', e=>{
   const c=e.target.closest('.chip[data-k]'); if(!c) return;
-  F[c.dataset.k]=c.dataset.v; shown=40; drawFilters(); drawList();
+  F[c.dataset.k]=c.dataset.v;
+  if(c.dataset.k==='area'){ F.lvl=''; F.kind=''; }
+  if(c.dataset.k==='lvl') F.kind='';
+  shown=40; drawFilters(); drawList();
 });
 $('fq').addEventListener('input', ()=>{ clearTimeout($('fq')._t); $('fq')._t=setTimeout(()=>{ F.q=$('fq').value.trim(); shown=40; drawList(); },250); });
 $('fUnused').addEventListener('change', e=>{ F.unused=e.target.checked; shown=40; drawList(); });
@@ -404,7 +446,7 @@ function drawSel(){
   applyAutoTitle();
   const n=selIds().length;
   $('selN').textContent = n ? `${n}문항` : '';
-  if(!SEL.length){ $('sel').innerHTML='<div class="empty">왼쪽에서 [담기]를 누르세요.</div>'; return; }
+  if(!SEL.length){ $('sel').innerHTML='<div class="empty"><img src="assets/sk-cheer.png" alt="" style="width:64px;height:64px;display:block;margin:0 auto 4px">왼쪽에서 [담기]를 누르세요.</div>'; return; }
   let k=0;
   $('sel').innerHTML=SEL.map((g,gi)=>{
     const a=k+1, b=k+g.length; k=b; const it=BYID[g[0]];
@@ -511,13 +553,47 @@ function printDoc(teacher){
 /* 중철 책자 — ① 보이지 않는 곳(#bkm)에 A4 쪽 상자를 만들고 블록을 하나씩 넣어 넘치면 다음 쪽(2단, column-fill:auto — 넘침은 옆으로 생긴다)
  * ② 쪽 수를 4의 배수로(빈 쪽) ③ A3 가로 한 장의 앞면 = [N−2s | 2s+1], 뒷면 = [2s+2 | N−2s−1] (1부터, s = 장 번호 0부터) */
 function bookletOrder(N){ const out=[]; for(let s=0;s<N/4;s++){ out.push([N-2*s, 2*s+1]); out.push([2*s+2, N-2*s-1]); } return out; }
+/* 표지에 쓸 정보 — 제목 'shuefit 문법: 국어사 기본 (32)'를 두 줄로, 고른 단원·난도·출처·해 */
+function coverInfo(d, teacher){
+  const its=d.ids.map(id=>BYID[id]);
+  const uniq=k=>[...new Set(its.map(x=>x[k]).filter(Boolean))];
+  const lv=['기본','실력','심화'], kd=['평가원','교육청','사설'];
+  const areas=uniq('area'), lvls=uniq('lvl').sort((a,b)=>lv.indexOf(a)-lv.indexOf(b)), kinds=uniq('kind').sort((a,b)=>kd.indexOf(a)-kd.indexOf(b));
+  const ys=uniq('year').map(Number).filter(Boolean).sort();
+  const yr=ys.length ? (ys[0]===ys[ys.length-1] ? ys[0] : ys[0]+'~'+ys[ys.length-1])+' ' : '';
+  const m=d.title.match(/^(.*?):\s*(.+)$/);
+  const t1=m?m[1]:'shuefit 문법', t2=m?m[2]:d.title;
+  const sub=`${yr}${kinds.join('·')} 모의고사 · ${d.ids.length}문항 · ${lvls.join('·')} 단계${teacher?' · 정답과 해설':''}`;
+  return { areas, t1, t2, sub, all:[...new Set(ITEMS.map(x=>x.area))] };
+}
+function coverPage(c, teacher){
+  const p=document.createElement('div'); p.className='bpage cover';
+  p.innerHTML=`<div class="cv-top"><div class="cv-brand"><span>이수경국어 · 슈핏 문법</span>
+      <div class="cv-logo"><b>Shueguk</b><span>${teacher?'교사용':'학생용'}</span></div></div>
+    <div class="cv-tag">문법 · ${esc(c.areas.join(' · '))}</div>
+    <div class="cv-series">${esc(c.t1)} 시리즈 · 너에게 꼭 맞춘 슈국 문법 학습</div>
+    <div class="cv-title">${esc(c.t1)}<br>${esc(c.t2)}</div>
+    <div class="cv-sub">${esc(c.sub)}</div>
+    <img class="cv-sk" src="assets/sk-study.png" alt=""></div>
+  <div class="cv-bot"><h4>${esc(c.t1)} 시리즈 ${c.all.length}단원</h4>
+    <div class="cv-grid">${c.all.map((a,i)=>`<div class="cv-u${c.areas.includes(a)?' on':''}"><i>${String(i+1).padStart(2,'0')}</i>${esc(a)}</div>`).join('')}</div></div>
+  <div class="cv-name"><div>학교</div><div>이름</div></div>`;
+  return p;
+}
+function backPage(c){
+  const p=document.createElement('div'); p.className='bpage bkback';
+  p.innerHTML=`<div class="bk-in"><img src="assets/sk-cheer.png" alt=""><b>Shueguk</b><div class="nm">이수경국어</div>
+    <div class="sr">${esc(c.t1)} · ${esc(c.areas.join(' · '))}</div><div class="pl">다르게 하기의 힘</div></div>`;
+  return p;
+}
 async function bookletDoc(teacher){
   if(!selIds().length){ toast('문항을 먼저 고르세요'); return; }
-  const d=docParts(teacher), M=$('bkm');
+  const d=docParts(teacher), M=$('bkm'), c=coverInfo(d, teacher);
   M.className='bk '+(teacher?'teacher':'student'); M.innerHTML='';
-  try{ if(document.fonts && document.fonts.ready) await document.fonts.ready; }catch(e){}
-  const pages=[];
-  const newPage=()=>{ const p=document.createElement('div'); p.className='bpage'; p.innerHTML='<div class="bbody"></div><div class="bno"></div>'; M.appendChild(p); pages.push(p); return p.firstChild; };
+  try{ if(document.fonts){ await Promise.all([document.fonts.load('30pt Sacramento','Shueguk'), document.fonts.load('10pt "Gowun Dodum"','가')]); await document.fonts.ready; } }catch(e){}
+  const pages=[coverPage(c, teacher)]; M.appendChild(pages[0]);
+  const content=[];
+  const newPage=()=>{ const p=document.createElement('div'); p.className='bpage'; p.innerHTML='<div class="bbody"></div><div class="bno"></div>'; M.appendChild(p); pages.push(p); content.push(p); return p.firstChild; };
   const over=b=>b.scrollWidth > b.clientWidth + 2;
   let body=newPage();
   body.insertAdjacentHTML('beforeend', d.head + d.quick);
@@ -526,16 +602,19 @@ async function bookletDoc(teacher){
   for(const h of d.blocks){
     tmp.innerHTML=h; const el=tmp.firstElementChild; body.appendChild(el);
     await waitImgs(el);
-    if(over(body) && body.children.length > (pages.length===1?fixed+1:1)){ el.remove(); body=newPage(); body.appendChild(el); }
+    if(over(body) && body.children.length > (content.length===1?fixed+1:1)){ el.remove(); body=newPage(); body.appendChild(el); }
   }
-  let N=pages.length; while(N%4) { newPage(); N++; }
-  pages.forEach((p,i)=>{ p.lastChild.textContent = p.firstChild.children.length ? '- '+(i+1)+' -' : ''; });
+  // 앞표지 + 본문 + 빈 쪽 + 뒤표지 = 4의 배수
+  while((pages.length+1)%4) newPage();
+  const back=backPage(c); M.appendChild(back); pages.push(back);
+  const N=pages.length;
+  pages.forEach((p,i)=>{ if(p.lastChild && p.lastChild.className==='bno') p.lastChild.textContent = p.firstChild.children.length ? '- '+(i+1)+' -' : ''; });
   const html=bookletOrder(N).map(([a,b])=>`<div class="sheet">${pages[a-1].outerHTML}${pages[b-1].outerHTML}</div>`).join('');
   M.innerHTML='';
   $('print').className='bk '+(teacher?'teacher':'student');
   $('print').innerHTML=html;
   $('bkInfo').dataset.pages=N;
-  toast(`A4 ${N}쪽 · A3 ${N/4}장(양면) 책자를 만들었어요`);
+  toast(`표지 포함 A4 ${N}쪽 · A3 ${N/4}장(양면) 책자를 만들었어요`);
   setPage(PAGE_A3);
   await waitImgs($('print'));
   setTimeout(()=>window.print(),80);
