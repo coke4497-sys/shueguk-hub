@@ -179,3 +179,7 @@
 - 2026-10-19 슈톡 머지(#179) 뒤 'pages build and deployment'가 queued에서 움직이지 않았다(문법 저장소 9/13과 같은 GitHub 쪽 문제). 기다리지 말고 **새 커밋을 main에 올려 배포를 새로 시작**한다. 상태는 `actions_list`(list_workflow_runs)로 본다 — 이 환경은 github.io 접속이 막혀 화면을 직접 열어 볼 수 없다.
 
 그 밖의 공통 지침(브랜드·폰트·색·데이터 원본·재배포 방법 등)은 `shueguk-report/CLAUDE.md`를 따른다.
+
+## H WORK 메뉴 — 문법 문항 은행 · 질문함 카드 (2026-11-17 원장님)
+- hwork.html 에 [문법 문항 은행 · 출제와 인쇄](H WORK `bank_make.html`)·[질문함](`hwork_qa.html`) 카드. 결정·구조는 H WORK 저장소 CLAUDE.md '모의고사 문법 문항 은행' 절.
+
