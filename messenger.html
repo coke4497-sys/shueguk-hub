@@ -526,6 +526,9 @@
   .step1{margin:0;font-size:14px;line-height:1.55;overflow-wrap:anywhere;}
   .links{display:flex;flex-wrap:wrap;gap:6px;}
   .lk{font-size:13px;background:var(--lav);color:var(--lavInk);border-radius:999px;padding:4px 11px;text-decoration:none;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  /* H WORK 학생 질문 할 일 — 그 학생 제출(채점 결과 화면)로 바로 (2026-11-17 원장님) */
+  .hwgo{display:inline-flex;align-items:center;gap:5px;margin-top:6px;font-size:13px;background:var(--lav);color:var(--lavInk);border-radius:999px;padding:6px 13px;text-decoration:none;font-weight:700;}
+  .hwgo:hover{filter:brightness(.97);}
   .gomsg{align-self:flex-start;border:0;background:transparent;padding:0;font-size:12.5px;color:var(--sageInk);text-decoration:underline;text-underline-offset:3px;}
   .meta{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;font-size:12px;color:var(--cap);margin:0;}
   .meta .age{background:var(--amber);color:var(--amberInk);border-radius:999px;padding:1px 8px;}
@@ -2656,6 +2659,9 @@
     return now - c > LATE_MS ? '<span class="age">' + Math.floor((now - c) / 3600e3) + '시간 지남</span>' : '';
   }
   // 대화로 가는 단추 — 내가 직접 추가한 업무(202610250002)는 메시지가 없어 가지 않는다
+  // H WORK 질문 할 일(리포트 072) — 글 끝 주소에서 그 학생 제출 화면 주소를 꺼낸다
+  function hwUrl(t){ var m = String(t.text || '').match(/https:\/\/coke4497-sys\.github\.io\/shueguk-h-work\/hwork_result\.html\?sid=\d+(?:&q=[^\s&]+)?/); return m ? m[0] : ''; }
+  function hwGo(t){ var u = hwUrl(t); return u ? '<a class="hwgo" href="' + esc(u) + '" target="_blank" rel="noopener" title="그 학생 채점 결과 화면에서 문제를 보고 바로 답장해요">제출 페이지 열기 <span aria-hidden="true">↗</span></a>' : ''; }
   function goAttr(t){ return t.message_id ? ' data-go="' + t.message_id + '" title="누르면 대화에서 이 메시지로"' : t.note ? ' title="DM"' : ' title="내가 직접 추가한 업무"'; }
   // 쪽지(202610290003)는 '쪽지 · 보낸 사람'으로 — 카드·기록 창 공용
   function byHtml(t){ return t.self_added ? '<span class="selfm">직접 추가</span>' : (t.note ? '<span class="notem">DM</span> ' : '') + esc(t.requester_name); }
@@ -2668,7 +2674,7 @@
       : '<button class="ctx" type="button"' + goAttr(t) + '>' + tag + esc(sp.title || '메시지 확인') + '</button>';
     var ack = t.assignee === ME.id && !seen && 'seen_at' in t ? '<button class="ack sm" type="button" data-ack="' + t.id + '">확인</button>' : '';
     return '<div class="ci' + (open ? ' open' : '') + '"><button class="bx" type="button" data-tk="' + t.id + '" aria-label="완료로 표시"' + (canCheck(t) ? '' : ' disabled title="맡은 사람·맡긴 사람만 체크할 수 있어요"') + '></button>'
-      + '<div class="cbody"><div class="ttl">' + title + '</div>' + (open ? detailHtml(sp, t) : '') + filesHtml(t.files)
+      + '<div class="cbody"><div class="ttl">' + title + '</div>' + hwGo(t) + (open ? detailHtml(sp, t) : '') + filesHtml(t.files)
       + '<div class="meta">' + byHtml(t) + ' · ' + hm(t.created_at) + ageHtml(t) + (seen ? '<span class="seen">✓ 확인함</span>' : '') + (isProg(t) ? '<span class="pg">진행 중</span>' : '') + dueHtml + histHtml(t) + '</div></div>'
       + '<div class="cact">' + ack + (canManage(t) ? '<button class="cxb" type="button" data-cx="' + t.id + '" aria-label="관리" title="완료 · 진행 중 · 미루기 · 넘기기 · 취소">' + DOTS + '</button>' : '') + '</div></div>';
   }
@@ -2678,7 +2684,7 @@
       + '<div class="cbody"><div class="ttl"><button class="ctx" type="button"' + goAttr(t) + '>' + tag + esc(sp.title) + '</button></div><div class="meta">' + byHtml(t) + ' · 취소 ' + hm(t.done_at) + (t.done_by_name ? ' (' + esc(t.done_by_name) + ')' : '') + '<span class="why">사유: ' + esc(t.cancel_reason || '') + '</span>' + histHtml(t) + '</div></div>'
       + '<div class="cact">' + (canCancel(t) && (!t.message_id || msgAlive(t.message_id)) ? '<button class="cxb txt" type="button" data-uncx="' + t.id + '" title="취소를 풀고 다시 할 일로">되돌리기</button>' : '') + '</div></div>';
     return '<div class="ci d"><button class="bx on" type="button" data-tk="' + t.id + '" data-done="1" aria-label="완료 취소"' + (canCheck(t) ? '' : ' disabled') + '>' + CHECK + '</button>'
-      + '<div class="cbody"><div class="ttl"><button class="ctx" type="button"' + goAttr(t) + '>' + tag + esc(sp.title) + '</button></div>' + filesHtml(t.files) + '<div class="meta">' + byHtml(t) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</div></div></div>';
+      + '<div class="cbody"><div class="ttl"><button class="ctx" type="button"' + goAttr(t) + '>' + tag + esc(sp.title) + '</button></div>' + hwGo(t) + filesHtml(t.files) + '<div class="meta">' + byHtml(t) + ' · 완료 ' + hm(t.done_at) + (t.done_by_name && t.done_by_name !== p.name ? ' (' + esc(t.done_by_name) + ')' : '') + '</div></div></div>';
   }
   function renderBoard(){
     var map = people(), list = Object.keys(map).map(function(k){ return map[k]; });
@@ -3007,7 +3013,8 @@
     var sp = splitTask(tagSplit(t.text).rest), tag = tagPill(tagSplit(t.text).tag), cx = t.status === '취소';
     var who = t.done_by_name && t.done_by_name !== ME.name ? ' (' + esc(t.done_by_name) + ')' : '';
     var meta = byHtml(t) + ' · ' + (cx ? '취소 ' + hm(t.done_at) + who + (t.cancel_reason ? ' · 사유: ' + esc(t.cancel_reason) : '') : '완료 ' + hm(t.done_at) + who)
-      + (t.message_id ? ' · <button class="hgo" type="button" data-go="' + t.message_id + '">대화에서 보기</button>' : '');
+      + (t.message_id ? ' · <button class="hgo" type="button" data-go="' + t.message_id + '">대화에서 보기</button>' : '')
+      + (hwUrl(t) ? ' · <a class="hgo" href="' + esc(hwUrl(t)) + '" target="_blank" rel="noopener">제출 페이지 열기</a>' : '');
     // 여러 줄 글·링크는 펼친 채로 — 쪽지는 메시지가 없어 다음 날엔 여기서만 다시 읽을 수 있다 (Codex 검토)
     var body = sp.steps.length ? stepsHtml(sp) : '';
     if (sp.urls.length) body += '<div class="links">' + sp.urls.map(function(u){ return '<a class="lk" href="' + esc(u) + '" target="_blank" rel="noopener" title="' + esc(u) + '"><span aria-hidden="true">↗</span> ' + esc(shortUrl(u)) + '</a>'; }).join('') + '</div>';
