@@ -215,6 +215,8 @@
   /* 시험지 인쇄 = exam-design 스킬 '디자인 B'(2026-11-17 원장님이 보낸 exam-design-skill — 행신고 표 형식 머리) 그대로.
    * 화면 밖 #exm 에서 쪽 상자(.page 210×297)를 만들어 블록을 흘려 넣고(문항은 단을 넘겨 나누지 않음) #print 로 옮긴다. 학습자료 인쇄(민트)는 그대로 */
   #exm{position:absolute;left:-99999px;top:0}
+  .pmeta{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  #print .ph1 .nm b, #bkm .ph1 .nm b{font-weight:400;color:#24443d;margin-left:1.5mm}
   .ldrow{display:flex;gap:8px;align-items:stretch} .ldrow select{flex:1;min-width:0} .ldrow .btn{flex:none;padding:0 16px}
   .exdes{display:flex;gap:6px;margin-bottom:8px}
   .exdes button{flex:1;border:0;border-radius:999px;padding:8px 10px;font:inherit;font-size:13px;background:#f2f5f3;color:#4F5C56;cursor:pointer}
@@ -374,6 +376,8 @@
         <div class="xh"><h2><span class="n">4</span>내보내기</h2><span id="xHint">문항을 담으면 쓸 수 있어요</span></div>
         <label class="f"><span>출제 선생님 <span class="dim">· 선생님마다 문제지를 따로 저장해요</span></span><input type="text" id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></label>
         <label class="f"><span>제목 <span class="dim">· 문제지·PDF 파일·H WORK 과제 이름</span></span><input type="text" id="pTitle" placeholder="문항을 담으면 자동으로 채워져요"></label>
+        <div class="pmeta"><label class="f"><span>날짜 <span class="dim">· 인쇄에 들어가요</span></span><input type="date" id="pDate"></label>
+          <label class="f"><span>학교 <span class="dim">· 비우면 빈칸</span></span><input type="text" id="pSchool" maxlength="30" placeholder="예: 행신고등학교"></label></div>
         <div class="psave"><button class="btn main" type="button" id="paperSave">문제지 저장</button><span id="paperMsg">저장해야 인쇄할 수 있어요</span></div>
         <div class="seg" id="xTabs"><button type="button" data-x="pr" class="on">학습자료 인쇄</button><button type="button" data-x="ex">시험지 인쇄</button><button type="button" data-x="hw">H WORK 출제</button></div>
         <div class="pane" id="xp-pr">
@@ -398,8 +402,6 @@
             <label class="f db">고사<input type="text" id="exType" maxlength="10" placeholder="예: 중간 · 기말"></label>
             <label class="f db">학년<input type="text" id="exGrade" maxlength="4" placeholder="예: 1"></label>
             <label class="f">과목명<input type="text" id="exSubj" maxlength="30" placeholder="비우면 '문법 · 단원'"></label>
-            <label class="f">학교<input type="text" id="exSchool" maxlength="30" placeholder="예: 행신고등학교"></label>
-            <label class="f db">고사일<input type="date" id="exDate"></label>
             <label class="f db">총점 (점)<input type="number" id="exPts" min="1" max="1000" inputmode="numeric" placeholder="예: 100"></label>
             <label class="f db">시험 시간 (분)<input type="number" id="exMin" min="1" max="300" inputmode="numeric" placeholder="비우면 안 넣음"></label>
           </div>
@@ -793,6 +795,7 @@ $('loadSel').onchange=()=>{
   SEL=[]; ids.forEach(id=>{ const last=SEL[SEL.length-1]; if(last && BYID[id].pid && BYID[last[0]].pid===BYID[id].pid) last.push(id); else SEL.push([id]); });
   $('hTeacher').value=h.teacher; $('hCode').value=h.title; $('pTitle').value=h.title;
   $('hCode').dataset.auto=''; $('pTitle').dataset.auto='';
+  $('pDate').value=''; $('pSchool').value=''; pmRestore(h.teacher, h.title);
   SAVED = h.kind==='paper' ? { teacher:h.teacher, title:h.title, sig:selSig() } : null;
   rebuildUsed(); drawSel(); drawList(); toast('불러왔어요');
 };
@@ -816,6 +819,7 @@ function teacherChanged(){ rebuildUsed(); drawLoad(); drawSel(); drawList(); }
 $('hTeacher').addEventListener('change', teacherChanged);
 $('hTeacher').addEventListener('input', ()=>{ clearTimeout($('hTeacher')._t); $('hTeacher')._t=setTimeout(teacherChanged, 400); });
 $('pTitle').addEventListener('input', drawPrint);
+['pDate','pSchool'].forEach(id=>$(id).addEventListener('change', ()=>{ if(SAVED) pmRemember(); }));
 /* 시험지 저장 — 출제 선생님 + 제목이 같으면 덮어쓴다(문항이 다르면 묻는다). 저장해야 인쇄 버튼이 열린다 */
 $('paperSave').onclick=async()=>{
   const teacher=curTeacher(), title=$('pTitle').value.trim(), ids=selIds();
@@ -831,7 +835,7 @@ $('paperSave').onclick=async()=>{
       body:JSON.stringify([{ teacher, title, ids, author:teacher }]) });
     const row=(rows&&rows[0]) || { teacher, title, ids };
     PAPERS=PAPERS.filter(p=>!(p.teacher===teacher && p.title===title)); PAPERS.unshift(row); PAPERS_OK=true;
-    SAVED={ teacher, title, sig:ids.join(',') };
+    SAVED={ teacher, title, sig:ids.join(',') }; pmRemember();
     drawTeachers(); rebuildUsed(); drawLoad(); drawList(); drawPrint();
     toast('문제지를 저장했어요. 이제 인쇄할 수 있어요');
     if(window.shuegukActivity) shuegukActivity('Shuefit 문법', '문제지 저장', title, teacher+' · '+ids.length+'문항', false);
@@ -890,10 +894,18 @@ function docParts(teacher){
     });
   });
   const quick = teacher ? `<div class="quick"><div class="qt">빠른 정답</div>${ids.map((id,i)=>`<span><b>${i+1}</b>${CHS[BYID[id].ans-1]}</span>`).join('')}</div>` : '';
+  const pm=pmVal();
   const head = `<div class="ph1"><div><div class="logo">Shueguk</div><div class="tt">${esc(title)}${teacher?' · 교사용':''}</div></div>
-    <div class="nm">${ids.length}문항 · 이름<span></span></div></div>`;
+    <div class="nm">${pm.dot?esc(pm.dot)+' · ':''}${ids.length}문항 · 학교<span>${pm.school?`<b>${esc(pm.school)}</b>`:''}</span> 이름<span></span></div></div>`;
   return { ids, title, blocks, quick, head };
 }
+/* 인쇄 날짜·학교(2026-11-17 원장님 "저장된 문제지에 날짜와 학교를 입력해서 인쇄") — 학습지·책자 표지·시험지·답안 기록표에 들어간다.
+ * 문제지마다 이 기기(localStorage sf_pmeta)에 기억해 두었다가 그 문제지를 불러오면 다시 채운다 */
+function pmVal(){ const d=($('pDate').value||'').match(/^(\d{4})-(\d{2})-(\d{2})$/); return { date:$('pDate').value||'', dot:d?`${d[1]}. ${Number(d[2])}. ${Number(d[3])}.`:'', kor:d?`${d[1]}년 ${Number(d[2])}월 ${Number(d[3])}일`:'', school:($('pSchool').value||'').trim() }; }
+function pmStore(){ try{ return JSON.parse(localStorage.getItem('sf_pmeta')||'{}'); }catch(e){ return {}; } }
+function pmKey(){ return curTeacher()+'|'+$('pTitle').value.trim(); }
+function pmRemember(){ const k=pmKey(); if(k==='|') return; const st=pmStore(), v=pmVal(); if(v.date||v.school) st[k]={ date:v.date, school:v.school }; else delete st[k]; try{ localStorage.setItem('sf_pmeta', JSON.stringify(st)); }catch(e){} }
+function pmRestore(teacher, title){ const m=pmStore()[teacher+'|'+title]; if(m){ $('pDate').value=m.date||''; $('pSchool').value=m.school||''; } }
 function waitImgs(el){ const imgs=[...el.querySelectorAll('img')].filter(i=>!i.complete); return Promise.all(imgs.map(i=>new Promise(r=>{ i.onload=i.onerror=r; }))); }
 function setPage(css){ $('pageStyle').textContent=css; }
 const PAGE_A4='@page{size:A4;margin:14mm 13mm 14mm 13mm}', PAGE_BK='@page{size:A4;margin:0}',
@@ -942,7 +954,7 @@ function coverPage(c, teacher){
     <img class="cv-sk" src="assets/sk-study.png" alt=""></div>
   <div class="cv-bot"><h4>${esc(c.t1)} 시리즈 ${c.all.length}단원</h4>
     <div class="cv-grid">${c.all.map((a,i)=>`<div class="cv-u${c.areas.includes(a)?' on':''}"><i>${String(i+1).padStart(2,'0')}</i>${esc(a)}</div>`).join('')}</div></div>
-  <div class="cv-name"><div>학교</div><div>이름</div></div>`;
+  <div class="cv-name">${pmVal().dot?`<div>날짜 ${esc(pmVal().dot)}</div>`:''}<div>학교 ${esc(pmVal().school)}</div><div>이름</div></div>`;
   return p;
 }
 function backPage(c){
@@ -1000,9 +1012,9 @@ let EX_DES='A';
 function exVal(id){ return String(($(id)||{}).value||'').trim(); }
 function examMeta(n){
   const ids=selIds(), areas=[...new Set(ids.map(id=>BYID[id].area))].join('·');
-  const dt=exVal('exDate').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const pm=pmVal();
   return { year:exVal('exYear')||String(new Date().getFullYear()), sem:exVal('exSem'), type:exVal('exType'), grade:exVal('exGrade'),
-    subject:exVal('exSubj')||('문법 · '+areas), date:dt?`${dt[1]}년 ${Number(dt[2])}월 ${Number(dt[3])}일`:'', school:exVal('exSchool'),
+    subject:exVal('exSubj')||('문법 · '+areas), date:pm.kor, school:pm.school,
     pts:exVal('exPts'), min:exVal('exMin'), title:exVal('exTitle'), design:EX_DES, n };
 }
 function exBlocks(){
@@ -1097,7 +1109,7 @@ function exLayout(host, M){
   // 마지막 장 — 답안 기록표
   const no=pages.length+1;
   const om=mk(`<section class="page omrpage ${no%2?'odd':'even'}"><div class="runhead"><div class="area">국어 영역</div><div class="pno">${no}</div></div>
-    <div class="omrbox"><h3>답안 기록표</h3><div class="sub"><span>학교</span><span>학년·반</span><span>이름</span></div>
+    <div class="omrbox"><h3>답안 기록표</h3><div class="sub">학교<span>${esc(M.school)}</span>학년·반<span></span>이름<span></span></div>
     <div class="omr">${selIds().map((id,i)=>`<div><b>${i+1}</b>${[...CHS].map(c=>`<i>${c}</i>`).join('')}</div>`).join('')}</div></div>
     <div class="foot"><div class="frac"><span class="a">${no}</span><span class="b">__T__</span></div></div><div class="brandf"><b>Shueguk</b>다르게 하기의 힘</div></section>`);
   host.appendChild(om); pages.push(om);
