@@ -124,6 +124,14 @@ function rpc(fn, p) {
     ok(await p.evaluate(() => { F.set = '2025'; const n = ITEMS.filter(match).length; F.set = ''; return n; }) === 0, '2025 묶음을 고르면 2026 문항은 빠짐');
     await p.click('.chip[data-k=set][data-v="2026"]'); ok(await p.locator('.it').count() === 3 && (await p.locator('#fInfo').textContent()).startsWith('2026 묶음'), '묶음 칩 누르기 — 안내 줄에 묶음');
     await p.click('.chip[data-k=set][data-v=""]');
+    // 형태(2026-11-17) — 단독형 = 지문 없는 문항(103·104), 지문형 = 지문 세트(101·102)
+    ok((await p.locator('#fForm').textContent()) === '전체4단독형2지문형2', '형태 칩 — 수: ' + await p.locator('#fForm').textContent());
+    await p.click('.chip[data-k=form][data-v="지문"]');
+    ok(await p.locator('.it').count() === 1 && (await p.locator('.it .tg').first().textContent()).includes('지문 세트') && (await p.locator('#fInfo').textContent()).startsWith('지문형'), '지문형 — 세트만: ' + await p.locator('#fInfo').textContent());
+    ok((await p.locator('#fArea').textContent()) === '전체2음운2', '지문형이면 단원 수도 그 안에서: ' + await p.locator('#fArea').textContent());
+    await p.click('.chip[data-k=area][data-v="음운"]'); await p.click('.chip[data-k=form][data-v="단독"]');
+    ok(await p.locator('.it').count() === 1 && (await p.locator('.it').first().textContent()).includes('혼자 문항 셋'), '단독형 + 음운 — 지문 없는 문항만');
+    await p.click('.chip[data-k=form][data-v=""]'); await p.click('.chip[data-k=area][data-v=""]');
     await p.click('.chip[data-k=area][data-v="품사"]'); ok(await p.locator('.it').count() === 1, '단원 거르기');
     await p.click('.chip[data-k=area][data-v="음운"]');
     ok(await p.locator('#rLvl').isVisible() && await p.locator('#rKind').isHidden(), '단원을 고르면 난도가 나타남');

@@ -222,6 +222,7 @@
         <div class="sec">
           <h2><span class="n">1</span>단원</h2>
           <div class="lvbox setbox"><span class="lb">문항 묶음</span><span class="chips" id="fSet"></span></div>
+          <div class="lvbox setbox"><span class="lb">형태</span><span class="chips" id="fForm"></span></div>
           <div class="chips" id="fArea"></div>
           <div class="step" id="fStep"></div>
           <div class="lvbox" id="rLvl" hidden><span class="lb">난도</span><span class="chips" id="fLvl"></span></div>
@@ -387,12 +388,17 @@ async function sbAll(path){
 
 let ITEMS=[], BYID={}, PAS={}, USED={}, HWS=[], ALLHW=[], SCHOOLS=[];
 let SEL=[];   // [[id,…], …] — 묶음 순서 = 시험지 순서
-const F={ set:'', area:'', lvl:'', kind:'', q:'', unused:false, ans:false };
+const F={ set:'', form:'', area:'', lvl:'', kind:'', q:'', unused:false, ans:false };
 /* 문항 묶음(2026-11-17 원장님 "2025 문항만 골라 보는 칸") — 작업 폴더의 번호로 가른다: 0~456 = 처음 올린 2026 묶음,
  * 457부터 = 같은 날 더한 「SHUEGUK MOGO 2025」 검토본 1,110문항(번호 = 검토본 번호 + 457). 묶음을 더하면 SETS 에 한 줄. */
 const SETS=[{v:'2026', l:'2026 묶음', from:0, to:456}, {v:'2025', l:'2025 묶음', from:457, to:1e9}];
 function setOf(x){ const t=SETS.find(t=>x.id>=t.from && x.id<=t.to); return t?t.v:''; }
 function inSet(x){ return !F.set || setOf(x)===F.set; }
+/* 형태(2026-11-17 원장님) — 단독형 = 지문 없는 문항, 지문형 = 지문 세트에 딸린 문항 */
+const FORMS=[{v:'단독', l:'단독형'}, {v:'지문', l:'지문형'}];
+function formOf(x){ return x.pid ? '지문' : '단독'; }
+function inForm(x){ return !F.form || formOf(x)===F.form; }
+function inBase(x){ return inSet(x) && inForm(x); }
 let shown=40;
 
 function gkey(it){ return it.pid ? it.pid : 'i'+it.id; }
@@ -436,7 +442,10 @@ function drawFilters(){
   const cnt={}; ITEMS.forEach(x=>{ const v=setOf(x); cnt[v]=(cnt[v]||0)+1; });
   $('fSet').innerHTML=[{v:'',l:'전체',n:ITEMS.length}].concat(SETS.map(t=>({v:t.v,l:t.l,n:cnt[t.v]||0})).filter(t=>t.n)).map(t=>
     `<button type="button" class="chip${F.set===t.v?' on':''}" data-k="set" data-v="${t.v}">${esc(t.l)}<small>${t.n}</small></button>`).join('');
-  const B=ITEMS.filter(inSet);
+  const S=ITEMS.filter(inSet), fc={}; S.forEach(x=>{ const v=formOf(x); fc[v]=(fc[v]||0)+1; });
+  $('fForm').innerHTML=[{v:'',l:'전체',n:S.length}].concat(FORMS.map(t=>({v:t.v,l:t.l,n:fc[t.v]||0}))).map(t=>
+    `<button type="button" class="chip${F.form===t.v?' on':''}" data-k="form" data-v="${t.v}"${t.n||!t.v?'':' disabled'}>${esc(t.l)}<small>${t.n}</small></button>`).join('');
+  const B=ITEMS.filter(inBase);
   chips('fArea','area',[...new Set(ITEMS.map(x=>x.area))], B);
   const inArea=B.filter(x=>x.area===F.area), inLvl=inArea.filter(x=>x.lvl===F.lvl);
   $('rLvl').hidden=!F.area; $('rKind').hidden=!(F.area && F.lvl);
@@ -450,8 +459,9 @@ document.addEventListener('click', e=>{
   const c=e.target.closest('.chip[data-k]'); if(!c) return;
   F[c.dataset.k]=c.dataset.v;
   if(c.dataset.k==='area'){ F.lvl=''; F.kind=''; }
-  if(c.dataset.k==='set'){   // 고른 단원·난도·출처가 그 묶음에 없으면 풀어 준다
-    const B=ITEMS.filter(inSet);
+  if(c.dataset.k==='set' || c.dataset.k==='form'){   // 고른 단원·난도·출처가 그 묶음·형태에 없으면 풀어 준다
+    if(c.dataset.k==='set' && F.form && !ITEMS.some(x=>inSet(x) && formOf(x)===F.form)) F.form='';
+    const B=ITEMS.filter(inBase);
     if(F.area && !B.some(x=>x.area===F.area)){ F.area=''; F.lvl=''; F.kind=''; }
     if(F.lvl && !B.some(x=>x.area===F.area && x.lvl===F.lvl)){ F.lvl=''; F.kind=''; }
     if(F.kind && !B.some(x=>x.area===F.area && x.lvl===F.lvl && x.kind===F.kind)) F.kind='';
@@ -464,7 +474,7 @@ $('fUnused').addEventListener('change', e=>{ F.unused=e.target.checked; shown=40
 $('fAns').addEventListener('change', e=>{ F.ans=e.target.checked; $('list').classList.toggle('showans',F.ans); $('list').classList.toggle('teacher',F.ans); });
 
 function match(x){
-  if(!inSet(x)) return false;
+  if(!inBase(x)) return false;
   if(F.area && x.area!==F.area) return false;
   if(F.lvl && x.lvl!==F.lvl) return false;
   if(F.kind && x.kind!==F.kind) return false;
@@ -503,7 +513,7 @@ function drawAllBtn(gs){
 function drawList(){
   const gs=filteredGroups();
   const nItems=gs.reduce((a,g)=>a+g.length,0);
-  const q=F.q?`‘${F.q}’ 검색 · `:'', where=[F.set?F.set+' 묶음':'', F.area||'전체', F.lvl, F.kind].filter(Boolean).join(' ');
+  const q=F.q?`‘${F.q}’ 검색 · `:'', where=[F.set?F.set+' 묶음':'', F.form?F.form+'형':'', F.area||'전체', F.lvl, F.kind].filter(Boolean).join(' ');
   $('fInfo').textContent=`${where} · ${q}문항 ${nItems}개 · 지문 세트 ${gs.filter(g=>BYID[g[0]].pid).length}개`;
   drawAllBtn(gs);
   if(!gs.length){ $('list').innerHTML='<div class="empty">조건에 맞는 문항이 없습니다.</div>'; return; }
