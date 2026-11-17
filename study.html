@@ -50,6 +50,9 @@
   .chev svg{width:15px;height:15px;transition:transform .15s ease;}
   .row:hover .chev svg{transform:translateX(3px);}
   /* 묶음 색 — 점과 아이콘 타일 */
+  /* 슈핏 (2026-11-17 원장님 — 문항 은행 이름을 슈핏 문법으로, 차차 슈핏 독서·문학) */
+  .g-shufit .gh i{background:#3d675d;} .g-shufit .icon{background:#e3f0ec;color:#3d675d;}
+  .row.soon{opacity:.5;cursor:default;} .row.soon:hover{background:transparent;}
   .g-test .gh i{background:#8A6A35;} .g-test .icon{background:#F7ECC4;color:#806423;}
   .g-work .gh i{background:#3d6870;} .g-work .icon{background:#DBEEF0;color:#3d6870;}
   .g-class .gh i{background:#4a4266;} .g-class .icon{background:#E6E2F2;color:#4a4266;}
@@ -100,6 +103,10 @@
   const REPORT = "https://coke4497-sys.github.io/shueguk-report/";
   // 묶음별 목록 (2026-10-21 원장님 시안) — 넓은 화면은 2열(테스트|과제·복습 / 수업·피드백|모의고사·리포트 / 클리닉), 휴대폰은 1열
   const groups = [
+    { key:"shufit", name:"슈핏 · 너에게 꼭 맞춘 슈국 학습 프로그램", items:[
+      { title:"슈핏 문법", icon:"pencil", url:"shufit_grammar.html", desc:"문항 골라 담기 · 중철 책자 인쇄 · H WORK 출제" },
+      { title:"슈핏 독서", icon:"book", url:"", soon:true, desc:"준비 중이에요" },
+      { title:"슈핏 문학", icon:"book", url:"", soon:true, desc:"준비 중이에요" } ]},
     { key:"test", name:"테스트", items:[
       { title:"어휘 테스트", icon:"book", url:"voca.html", desc:"링크 발송 · 결과 확인" },
       { title:"문법 테스트", icon:"pencil", url:"gramma.html", desc:"링크 발송 · 결과 확인" } ]},
@@ -120,7 +127,10 @@
   const CHEV = svg('<path d="M9 6l6 6-6 6"/>', 2);
   document.getElementById("list").innerHTML = groups.map(g =>
     `<section class="grp g-${g.key}" aria-label="${g.name}"><div class="gh"><i></i>${g.name}</div>` +
-    g.items.map(m => `<a class="row" href="${m.url}">
+    g.items.map(m => m.soon ? `<div class="row soon" aria-disabled="true">
+      <span class="icon">${svg(ICON[m.icon])}</span>
+      <span class="body"><h2>${m.title}</h2><p class="desc">${m.desc}</p></span>
+    </div>` : `<a class="row" href="${m.url}">
       <span class="icon">${svg(ICON[m.icon])}</span>
       <span class="body"><h2>${m.title}</h2><p class="desc" title="${m.desc}">${m.desc}</p></span>
       <span class="chev">${CHEV}</span>
