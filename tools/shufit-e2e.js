@@ -215,8 +215,12 @@ function rpc(fn, p) {
     ok(await p.locator('#print .qn').count() === 4, '문항 번호 4개');
     ok(await p.locator('#print .xbox').count() === 0 && !pr.includes('cn ok'), '학생용에 정답·해설 없음');
     ok(await p.evaluate(() => getComputedStyle(document.querySelector('.wrap')).display) !== 'none', '화면에서는 인쇄본 숨김');
+    await p.emulateMedia({ media: 'print' }); const posS = await p.evaluate(() => [...document.querySelectorAll('#print .pcols .blk, #print .pcols .pblk')].map(b => { const r = b.getBoundingClientRect(); return Math.round(r.left) + ',' + Math.round(r.top) + ',' + Math.round(r.height); }).join('|')); await p.emulateMedia({ media: 'screen' });
     await p.click('#prT'); await p.waitForFunction(() => window.__printed === 2);
-    ok(await p.locator('#print .xbox').count() === 4 && await p.locator('#print .quick').count() === 1, '교사용 해설 4개 + 빠른 정답');
+    await p.emulateMedia({ media: 'print' }); const posT = await p.evaluate(() => [...document.querySelectorAll('#print > .pcols .blk, #print > .pcols .pblk')].map(b => { const r = b.getBoundingClientRect(); return Math.round(r.left) + ',' + Math.round(r.top) + ',' + Math.round(r.height); }).join('|')); await p.emulateMedia({ media: 'screen' });
+    ok(posS && posS === posT, 'A4 학습지 — 교사용 문항 자리가 학생용과 똑같음');
+    ok(await p.locator('#print .anspage .xbox').count() === 4 && await p.locator('#print .anspage .quick').count() === 1 && await p.locator('#print .pcols .q .xbox').count() === 0, '교사용 — 문항 쪽엔 해설 없음 · 뒤 정답과 해설 쪽에 빠른 정답 + 해설 4개');
+    ok(await p.evaluate(() => getComputedStyle(document.querySelector('#print .anspage')).breakBefore) === 'page', '정답과 해설은 새 쪽부터');
     ok(await p.locator('#print.teacher .cn.ok').count() === 4, '교사용 정답 동그라미');
     ok((await p.title()) === '음운 연습 (교사용)', '교사용 파일 이름: ' + await p.title());
     ok(await p.evaluate(() => fileTitle('Shuefit 문법: 음운 기본 (10)', false, true)) === 'Shuefit 문법 음운 기본 (10) 중철 책자', '파일 이름에 못 쓰는 글자(:) 빼기·책자');
@@ -357,8 +361,14 @@ function rpc(fn, p) {
   ok(await bk.evaluate(() => Math.round(document.querySelector('#print .sheet').getBoundingClientRect().width / 96 * 25.4)) === 210, '한 장 폭 210mm');
   if (SHOT) { await bk.setViewportSize({ width: 794, height: 1123 }); await bk.screenshot({ path: path.join(SHOT, 'shufit-booklet.png'), fullPage: true }); await bk.pdf({ path: path.join(SHOT, 'shufit-booklet.pdf'), preferCSSPageSize: true, printBackground: true }); }
   await bk.emulateMedia({ media: 'screen' });
+  const pageOf = () => bk.evaluate(() => { const o = []; document.querySelectorAll('#print .bpage').forEach((p, i) => p.querySelectorAll('.qn').forEach(q => o.push(q.textContent + '@' + i))); return o.join(); });
+  const pgS = await pageOf();
   await bk.click('#bkT'); await bk.waitForFunction(() => window.__printed === 2, null, { timeout: 15000 });
-  ok(await bk.locator('#print .quick').count() === 1 && await bk.locator('#print .xbox').count() === nSel, '교사용 책자 — 빠른 정답 · 해설');
+  const pgT = await pageOf();
+  ok(pgS === pgT, '교사용 책자 — 문항마다 학생용과 같은 쪽');
+  if (SHOT) { await bk.emulateMedia({ media: 'print' }); await bk.pdf({ path: path.join(SHOT, 'shufit-booklet-teacher.pdf'), preferCSSPageSize: true, printBackground: true }); await bk.emulateMedia({ media: 'screen' }); }
+  ok(await bk.locator('#print .quick').count() === 1 && await bk.locator('#print .kblk .xbox').count() === nSel && await bk.locator('#print .bpage .q .xbox').count() === 0, '교사용 책자 — 문항 쪽엔 해설 없음 · 뒤쪽에 빠른 정답 · 해설');
+  ok(await bk.evaluate(() => { const ps = [...document.querySelectorAll('#print .bpage')]; const iq = ps.map(p => !!p.querySelector('.qn')).lastIndexOf(true); const ia = ps.findIndex(p => p.querySelector('.anshead')); return ia > iq && ps.length % 4 === 0 && ps[ps.length - 1].classList.contains('bkback'); }), '정답과 해설은 마지막 문항 다음 쪽부터 · 4의 배수 · 뒤표지 맨 끝');
   await bk.evaluate(() => window.dispatchEvent(new Event('afterprint')));
   ok(await bk.evaluate(() => document.getElementById('pageStyle').textContent.includes('size:A4')), '인쇄 뒤 A4 로 되돌림');
   ok(!bkerr.length, '책자 오류 없음 ' + bkerr.join(' | '));
