@@ -194,6 +194,7 @@
   var T_PW = 'shg_FCePWvnawH44SV8kYB9BHRKi6aag';
   var tok = null, until = 0, pending = null;
   var raw = window.fetch.bind(window);
+  window.__sbRawFetch = raw;   // 허브 로그인 이름(teacher-name.js)은 공용 계정 신분을 거치지 않고 묻는다 — 없으면 이름을 못 찾아 입력 창이 떴다(2026-11-17)
   var TOK_LS = 'sb_teacher_tok_v1';   // 받아 둔 신분증은 브라우저에 남겨 다음 페이지에서 다시 받지 않는다(1시간짜리)
 
   function cachedTok(){
