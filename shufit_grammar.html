@@ -773,7 +773,7 @@ function coverInfo(d, teacher){
   const ys=uniq('year').map(Number).filter(Boolean).sort();
   const yr=ys.length ? (ys[0]===ys[ys.length-1] ? ys[0] : ys[0]+'~'+ys[ys.length-1])+' ' : '';
   const m=d.title.match(/^(.*?):\s*(.+)$/);
-  const t1=m?m[1]:'Shuefit 문법', t2=m?m[2]:d.title;
+  const t1=(m?m[1]:'Shuefit 문법').replace(/^shuefit/i,'Shuefit'), t2=m?m[2]:d.title;   // 옛 제목 'shuefit 문법: …'도 표지는 대문자 S
   const sub=`${yr}${kinds.join('·')} 모의고사 · ${d.ids.length}문항 · ${lvls.join('·')} 단계${teacher?' · 정답과 해설':''}`;
   return { areas, t1, t2, sub, all:[...new Set(ITEMS.map(x=>x.area))] };
 }
