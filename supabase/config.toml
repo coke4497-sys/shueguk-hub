@@ -13,3 +13,6 @@ verify_jwt = false
 
 [functions.activity]
 verify_jwt = true
+
+[functions.hwork-ask]
+verify_jwt = false

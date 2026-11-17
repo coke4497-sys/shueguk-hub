@@ -55,6 +55,15 @@ Deno.test('쪽지(note, 202610290003)는 제목이 "→ 나에게 DM" · 메시�
   assertEquals(items[0].payload.tag, 'tk10')
 })
 
+Deno.test('H WORK 학생 질문(리포트 072) — 제목·본문·누르면 채점 결과 화면', () => {
+  const t = { id: 11, message_id: null, text: '[H WORK 질문] 김철수(화정고 고1) · 문장 1권 02 3번\n왜 틀렸는지 모르겠어요\nhttps://coke4497-sys.github.io/shueguk-h-work/hwork_result.html?sid=55&q=3', to: B, status: '대기', requester_name: 'H WORK 질문' }
+  const items = handPlan(t, '이수경', [sub(2, B)], new Set([A, B]))
+  assertEquals(items.length, 1)
+  assertEquals(items[0].payload.title, 'H WORK 학생 질문')
+  assertEquals(items[0].payload.body, '김철수(화정고 고1) · 문장 1권 02 3번 · 왜 틀렸는지 모르겠어요')
+  assertEquals(items[0].payload.url, 'https://coke4497-sys.github.io/shueguk-h-work/hwork_result.html?sid=55&q=3')
+})
+
 Deno.test('클로슈 메시지 — 받을 사람이 정해지면 그 사람 기기에만', () => {
   const bot = { id: 5, author: null, author_name: '클로슈', body: '@이은지 약속 시각이 지났어요', files: [], deleted_at: null, bot: { to: [B] } }
   assertEquals(plan(bot, [], [sub(1, A), sub(2, B), sub(3, C)], new Set([A, B, C])).map((i) => i.sub.id), [2])
