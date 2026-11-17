@@ -64,6 +64,7 @@
   .rline{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 8px;padding:4px 6px 0}
   .rline #fInfo{font-size:14px;color:var(--ink2)}
   .rline .r{font-size:13px;color:var(--muted)}
+  .rline .allb{padding:7px 14px;font-size:14px}
   input[type=text],select{font-size:14px;color:var(--ink);padding:11px 12px;border:1px solid var(--line);border-radius:12px;background:var(--s3);outline:none;width:100%}
   .info{font-size:12px;color:var(--muted)}
   .btn{border:0;border-radius:12px;padding:11px 8px;font-size:14px;text-align:center;background:var(--pu3);color:var(--pu)}
@@ -236,7 +237,7 @@
           </div>
         </div>
       </section>
-      <div class="rline"><span id="fInfo"></span><span class="r">담은 문항은 오른쪽에 모여요</span></div>
+      <div class="rline"><span id="fInfo"></span><button class="btn allb" id="allBtn" type="button" hidden>보이는 문항 모두 담기</button></div>
       <div id="list"><div class="empty">문항을 불러오는 중입니다…</div></div>
     </main>
     <aside class="side">
@@ -495,11 +496,16 @@ function itemCard(id, head){
   return `${head?'':`<div class="ith">${tagsHtml(it)}</div>`}<div class="gq">${markAns(it.html, it.ans)}</div>${exHtml(it)}`;
 }
 function addLabel(on, n){ return on ? '✓ 담음' : (n>1 ? `+ 세트 ${n}문항 담기` : '+ 담기'); }
+function drawAllBtn(gs){
+  const rest=(gs||filteredGroups()).filter(g=>!isSel(g[0])).reduce((a,g)=>a+g.length,0), ab=$('allBtn');
+  ab.hidden=!rest; ab.textContent=`보이는 ${rest}문항 한번에 담기`;
+}
 function drawList(){
   const gs=filteredGroups();
   const nItems=gs.reduce((a,g)=>a+g.length,0);
   const q=F.q?`‘${F.q}’ 검색 · `:'', where=[F.set?F.set+' 묶음':'', F.area||'전체', F.lvl, F.kind].filter(Boolean).join(' ');
   $('fInfo').textContent=`${where} · ${q}문항 ${nItems}개 · 지문 세트 ${gs.filter(g=>BYID[g[0]].pid).length}개`;
+  drawAllBtn(gs);
   if(!gs.length){ $('list').innerHTML='<div class="empty">조건에 맞는 문항이 없습니다.</div>'; return; }
   $('list').innerHTML=gs.slice(0,shown).map((g,gi)=>{
     const first=BYID[g[0]], on=isSel(g[0]), one=g.length===1;
@@ -518,6 +524,7 @@ $('list').addEventListener('click', e=>{
   b.classList.toggle('on',isSel(id)); const g=groupOf(id);
   b.textContent=addLabel(isSel(id), g.length);
   const card=b.closest('.it'); if(card) card.classList.toggle('on',isSel(id));
+  drawAllBtn();
   drawSel();
 });
 /* 제목 자동 — 'shuefit 문법: 단원 난도 (문항 수)', 같은 제목 과제가 이미 있으면 뒤에 02·03…
@@ -579,6 +586,14 @@ $('autoBtn').onclick=()=>{
   let n=selIds().length, added=0;
   for(const g of order){ if(n>=want) break; if(n>0 && n+g.length>want) continue; SEL.push(g); n+=g.length; added+=g.length; }
   if(!added) toast('더 담을 문항이 없습니다'); else toast(added+'문항을 담았어요');
+  drawSel(); drawList();
+};
+/* 한번에 담기 — 지금 거른 문항 전부(수 제한 없음, 이미 담은 묶음은 건너뜀, 세트는 통째로) */
+$('allBtn').onclick=()=>{
+  const gs=filteredGroups().filter(g=>!isSel(g[0])), n=gs.reduce((a,g)=>a+g.length,0);
+  if(!n){ toast('더 담을 문항이 없습니다'); return; }
+  if(n>50 && !confirm(n+'문항을 모두 담을까요?')) return;
+  gs.forEach(g=>SEL.push(g)); toast(n+'문항을 담았어요');
   drawSel(); drawList();
 };
 $('loadSel').onchange=()=>{

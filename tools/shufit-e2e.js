@@ -150,6 +150,9 @@ function rpc(fn, p) {
     await p.click('#sel [data-mv="1"][data-d="-1"]');
     ok((await p.locator('#sel .sg .n').first().textContent()) === '1', '순서 바꾸기 — 세트가 통째로 내려감');
     await p.click('[data-add="101"]'); ok((await p.locator('#selN').textContent()) === '1문항', '세트 빼기 — 두 문항 함께');
+    ok((await p.locator('#allBtn').textContent()) === '보이는 3문항 한번에 담기', '한번에 담기 — 남은 수: ' + await p.locator('#allBtn').textContent());
+    await p.click('#allBtn'); ok((await p.locator('#selN').textContent()) === '4문항' && await p.locator('#allBtn').isHidden(), '한번에 담기 — 보이는 문항 모두·버튼 숨김');
+    await p.evaluate(() => { SEL = SEL.slice(0, 1); drawSel(); drawList(); });
     await p.click('#autoBtn'); ok((await p.locator('#selN').textContent()) === '4문항', '10문항 채우기 — 남은 문항 다');
     ok((await p.locator('#hCode').inputValue()) === 'shuefit 문법: 품사·음운 기본·실력·심화 (4)', '제목 자동 — 단원·난도 여럿(담은 순서): ' + await p.locator('#hCode').inputValue());
     ok(await p.evaluate(() => { const base = autoTitle(); HWS.push({ code: base, data: { bank: {} } }); const a = autoTitle(); HWS.push({ code: a, data: { bank: {} } }); const b = autoTitle(); HWS.splice(-2); return a.endsWith(' 02') && b.endsWith(' 03'); }), '같은 제목이 있으면 02·03');
