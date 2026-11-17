@@ -257,6 +257,18 @@ function rpc(fn, p) {
     ok(!eb.cls.includes('design-a') && eb.cover === 0 && /2026학년도 \( 2 \)학기 \( 기말 \)고사/.test(eb.head) && eb.head.includes('( 1 )학년') && eb.head.includes('2026년 12월 1일') && eb.head.includes('행신고등학교') && eb.head.includes('총 ( 4 )문항') && eb.head.includes('문법 · 품사·음운'), 'B형 표 머리 ' + JSON.stringify(eb.head));
     ok(eb.notice.includes('( 4 )문항') && eb.notice.includes('( 100 )점') && eb.notice.includes('( 50 )분') && eb.instr.startsWith('[') && eb.psBorder === '0px', 'B형 안내 상자 · [범위] 안내문 · 지문 테두리 없음 ' + JSON.stringify(eb.notice));
     if (SHOT) { await p.emulateMedia({ media: 'print' }); await p.pdf({ path: path.join(SHOT, 'shufit-exam-B.pdf'), preferCSSPageSize: true, printBackground: true }); await p.emulateMedia({ media: 'screen' }); }
+    // 교사용 시험지(2026-11-17) — 학생용과 같은 쪽 + 정답 동그라미 + 뒤에 정답과 해설
+    const qpage = () => p.evaluate(() => { const o = []; document.querySelectorAll('#print .page').forEach((pg, i) => pg.querySelectorAll('.qn').forEach(q => o.push(q.textContent + '@' + i))); return o.join() + '|omr@' + [...document.querySelectorAll('#print .page')].findIndex(x => x.classList.contains('omrpage')); });
+    const qs = await qpage();
+    await p.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    np = await p.evaluate(() => window.__printed || 0); await p.click('#exQ'); await p.waitForFunction(n => window.__printed === n + 1, np);
+    const qt = await qpage();
+    const tq = await p.evaluate(() => ({ cls: document.getElementById('print').className, ok: document.querySelectorAll('#print .cn.ok').length, tm: (document.querySelector('#print .page .tmark') || {}).textContent || '', kq: document.querySelectorAll('#print .kq').length, quick: document.querySelectorAll('#print .kquick span').length, keyAfterOmr: (() => { const ps = [...document.querySelectorAll('#print .page')]; const io = ps.findIndex(x => x.classList.contains('omrpage')); const ik = ps.findIndex(x => x.querySelector('.kq')); return ik > io; })(), title: document.title, circ: getComputedStyle(document.querySelector('#print .cn.ok'), '::before').backgroundColor }));
+    ok(qs === qt, '교사용 시험지 — 문항 쪽·답안 기록표가 학생용과 같은 자리 ' + qs + ' / ' + qt);
+    ok(tq.cls.includes('teacher') && tq.ok === 4 && tq.circ === 'rgb(0, 0, 0)' && tq.tm.includes('교사용'), '교사용 시험지 — 정답 번호 검은 동그라미 4개 · 교사용 표시 ' + JSON.stringify(tq));
+    ok(tq.kq === 4 && tq.quick === 4 && tq.keyAfterOmr, '교사용 시험지 — 답안 기록표 뒤 정답과 해설(빠른 정답 + 문항 4개)');
+    ok(tq.title === '음운 연습 시험지 (교사용)', '교사용 시험지 파일 이름: ' + tq.title);
+    if (SHOT) { await p.emulateMedia({ media: 'print' }); await p.pdf({ path: path.join(SHOT, 'shufit-exam-T.pdf'), preferCSSPageSize: true, printBackground: true }); await p.emulateMedia({ media: 'screen' }); }
     // 인쇄 날짜·학교(2026-11-17) — 학습지 머리·답안 기록표
     ok(await p.evaluate(() => document.querySelector('#print .omrpage .sub').textContent.includes('행신고등학교')), '답안 기록표 학교 칸');
     await p.evaluate(() => window.dispatchEvent(new Event('afterprint')));

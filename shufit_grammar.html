@@ -91,6 +91,7 @@
   .btn:disabled{background:#f4f6f4;color:#a9b3ad;cursor:not-allowed}
   .btn.main:disabled{background:var(--pu4);color:var(--pu5)}
   .two{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
   /* 문항 카드 — 묶음(지문 세트)마다 한 장 */
   #list{display:flex;flex-direction:column;gap:12px}
   .it{background:#fff;border-radius:24px;padding:20px 22px;display:flex;flex-direction:column;gap:12px;border:2px solid #fff}
@@ -295,6 +296,16 @@
   .exd.design-a .xb.passage.cont-top{border-top:none;padding-top:0}
   .exd.design-a .xb.passage.cont-bottom{border-bottom:none;padding-bottom:0}
   .exd.design-a .xb.passage.pend:not(.cont-bottom){border-bottom:.8pt solid #000}
+  .exd .gq .cn{position:relative;display:inline-block}
+  .exd.teacher .gq .cn.ok:before{content:attr(data-d);position:absolute;left:50%;top:50%;width:1.12em;height:1.12em;margin:-.58em 0 0 -.56em;border-radius:50%;background:#000;color:#fff!important;font-size:.95em;line-height:1.12em;text-align:center;font-family:var(--sans)}
+  .exd .tmark{position:absolute;right:14mm;top:3mm;font-family:var(--sans);font-size:8pt;font-weight:700;border:.8pt solid #000;padding:.2mm 2mm}
+  .exd .kquick{display:grid;grid-template-columns:repeat(5,1fr);gap:1mm 2mm;border:.8pt solid #000;padding:2mm 2.4mm;font-family:var(--sans);font-size:9.4pt}
+  .exd .kquick b{font-family:var(--num);margin-right:1mm}
+  .exd .kq{font-size:8.8pt;line-height:1.6;margin-bottom:4mm}
+  .exd .kq .kh{font-family:var(--sans);font-weight:700;font-size:9.6pt;margin-bottom:.8mm}
+  .exd .kq .kh b{font-family:var(--num);font-size:11pt}
+  .exd .kq .kh span{font-weight:400;font-size:8pt;color:#555;margin-left:2mm}
+  .exd .kq .kx div{margin-top:.6mm}
   .exd .omrpage .omrbox{position:absolute;left:14mm;right:14mm;top:30mm}
   .exd .omrpage h3{font-family:var(--sans);font-size:14pt;text-align:center;margin:0 0 4mm}
   .exd .omrpage .sub{font-family:var(--sans);font-size:10pt;margin-bottom:5mm;display:flex;gap:8mm;justify-content:center}
@@ -415,7 +426,7 @@
             <label class="f db">총점 (점)<input type="number" id="exPts" min="1" max="1000" inputmode="numeric" placeholder="예: 100"></label>
             <label class="f db">시험 시간 (분)<input type="number" id="exMin" min="1" max="300" inputmode="numeric" placeholder="비우면 안 넣음"></label>
           </div>
-          <div class="two"><button class="btn" type="button" id="exS">시험지 인쇄</button><button class="btn" type="button" id="exT">정답표 인쇄</button></div>
+          <div class="three"><button class="btn" type="button" id="exS">시험지 인쇄</button><button class="btn" type="button" id="exQ">교사용 시험지</button><button class="btn" type="button" id="exT">정답표 인쇄</button></div>
           <div class="bkinfo">시험지 = 학교 지필고사 양식(디자인 B) — 머리 표 · 안내 상자 · 2단 · 2쪽부터 '국어 영역' 머리말 · 쪽 번호, 문항은 단을 넘겨 나뉘지 않아요. 마지막 장은 <b>답안 기록표</b>(이름 칸 포함). 정답·해설은 들어가지 않아요.<br>정답표 = 채점용 정답만 모은 <b>한 장</b>입니다.</div>
         </div>
         <div class="pane" id="xp-hw" hidden>
@@ -570,7 +581,7 @@ function selSig(){ return selIds().join(','); }
 function canPrint(){ return !!SAVED && SAVED.teacher===curTeacher() && SAVED.title===$('pTitle').value.trim() && SAVED.sig===selSig() && !!SAVED.sig; }
 function drawPrint(){
   const n=selIds().length, ok=canPrint();
-  ['prS','prT','bkS','bkT','exS','exT'].forEach(id=>{ $(id).disabled = !n || !ok; });
+  ['prS','prT','bkS','bkT','exS','exQ','exT'].forEach(id=>{ $(id).disabled = !n || !ok; });
   $('paperSave').disabled = !n;
   const m=$('paperMsg');
   m.className = ok ? 'ok' : '';
@@ -1052,7 +1063,7 @@ function examMeta(n){
     subject:exVal('exSubj')||('문법 · '+areas), date:pm.kor, school:pm.school,
     pts:exVal('exPts'), min:exVal('exMin'), title:exVal('exTitle'), design:EX_DES, n };
 }
-function exBlocks(){
+function exBlocks(teacher){
   const out=[], mk=h=>{ const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild; };
   let n=0;
   SEL.forEach(g=>{
@@ -1066,12 +1077,13 @@ function exBlocks(){
       out.push(ps);
     }
     g.forEach(id=>{ n++; const it=BYID[id];
-      out.push(mk(`<div class="xb q gq" data-split="none">${it.html.replace('<div class="qh">','<div class="qh"><span class="qn">'+n+'.</span>')}</div>`)); });
+      let h=it.html.replace('<div class="qh">','<div class="qh"><span class="qn">'+n+'.</span>'); if(teacher) h=markAns(h,it.ans);
+      out.push(mk(`<div class="xb q gq" data-split="none">${h}</div>`)); });
   });
   out.forEach((el,i)=>{ if(el.classList.contains('passage')){ const nx=out[i+1]; if(!nx || !nx.classList.contains('passage')) el.classList.add('pend'); } });
   return out;
 }
-function exLayout(host, M){
+function exLayout(host, M, teacher){
   const mk=h=>{ const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild; };
   const v=x=>`( ${x?esc(x):'&emsp;'} )`;
   host.innerHTML=''; const pages=[]; let cur=null;
@@ -1130,7 +1142,8 @@ function exLayout(host, M){
     nextCol(); place(el);
   };
   newPage();
-  exBlocks().forEach(place);
+  exBlocks(teacher).forEach(place);
+  if(teacher) pages[0].insertAdjacentHTML('beforeend','<div class="tmark">교사용 · 정답 표시</div>');
   // 단 아래 빈 공간 고르게(마지막 단 제외)
   const last=col(), MAXGAP=30*96/25.4;
   host.querySelectorAll('.col').forEach(c=>{
@@ -1148,14 +1161,23 @@ function exLayout(host, M){
     <div class="omr">${selIds().map((id,i)=>`<div><b>${i+1}</b>${[...CHS].map(c=>`<i>${c}</i>`).join('')}</div>`).join('')}</div></div>
     <div class="foot"><div class="frac"><span class="a">${no}</span><span class="b">__T__</span></div></div><div class="brandf"><b>Shueguk</b>다르게 하기의 힘</div></section>`);
   host.appendChild(om); pages.push(om);
+  // 교사용 시험지(2026-11-17 원장님) — 문항 쪽·답안 기록표는 학생용과 똑같고(정답 번호만 검은 동그라미), 그 뒤 새 쪽에 정답과 해설
+  if(teacher){
+    newPage();
+    const ids=selIds();
+    place(mk(`<div class="xb instr" data-keepnext="1">정답과 해설</div>`));
+    place(mk(`<div class="xb kquick" data-split="none">${ids.map((id,i)=>`<span><b>${i+1}</b>${CHS[BYID[id].ans-1]||''}</span>`).join('')}</div>`));
+    ids.forEach((id,i)=>{ const it=BYID[id];
+      place(mk(`<div class="xb kq" data-split="none"><div class="kh"><b>${i+1}.</b> 정답 ${CHS[it.ans-1]||''}<span>${esc(it.area)} · ${esc(it.lvl)}</span></div><div class="kx">${it.good||''}${(it.bad||[]).map(b=>`<div>${b}</div>`).join('')}</div></div>`)); });
+  }
   host.querySelectorAll('.frac .b').forEach(b=>b.textContent=pages.length);
   return pages.length;
 }
-async function examDoc(key){
+async function examDoc(key, teacher){
   if(!selIds().length){ toast('문항을 먼저 고르세요'); return; }
   if(!canPrint()){ toast('문제지를 먼저 저장해 주세요'); return; }
   const n=selIds().length, M=examMeta(n), title=$('pTitle').value.trim()||'Shuefit 문법';
-  const host=$('exm'); host.className='exd'+(EX_DES==='A'?' design-a':'');
+  const host=$('exm'); host.className='exd'+(EX_DES==='A'?' design-a':'')+(teacher?' teacher':'');
   try{ if(document.fonts){ await Promise.all([document.fonts.load('10pt "Gowun Batang"','가'), document.fonts.load('10pt "Gowun Dodum"','가'), document.fonts.load('10pt Sacramento','S')]); await document.fonts.ready; } }catch(e){}
   if(key){
     host.innerHTML=`<section class="page"><div class="coverB"><table><colgroup><col style="width:69%"><col style="width:31%"></colgroup>
@@ -1164,13 +1186,13 @@ async function examDoc(key){
       <div class="keybox" style="top:32mm"><div class="kgrid">${selIds().map((id,i)=>{ const it=BYID[id]; return `<div><b>${i+1}</b>${CHS[it.ans-1]||''}<em>${esc(it.area)}</em></div>`; }).join('')}</div></div>
       <div class="brandf"><b>Shueguk</b>다르게 하기의 힘</div></section>`;
   }else{
-    exLayout(host, M);
+    exLayout(host, M, teacher);
   }
   await waitImgs(host);
-  $('print').className='exd exam'+(EX_DES==='A'&&!key?' design-a':'');
+  $('print').className='exd exam'+(EX_DES==='A'&&!key?' design-a':'')+(teacher?' teacher':'');
   $('print').innerHTML=host.innerHTML; host.innerHTML='';
   setPage('@page{size:A4;margin:0}');
-  document.title=fileTitle(title, false, false, key?'정답표':'시험지');
+  document.title=fileTitle(title, !!teacher, false, key?'정답표':'시험지');
   await waitImgs($('print'));
   setTimeout(()=>window.print(),50);
 }
@@ -1187,6 +1209,7 @@ document.querySelectorAll('#exDes button').forEach(b=>b.onclick=()=>exDesSet(b.d
 try{ exDesSet(localStorage.getItem('sf_exdes')||'A'); }catch(e){ exDesSet('A'); }
 $('exS').onclick=()=>examDoc(false);
 $('exT').onclick=()=>examDoc(true);
+$('exQ').onclick=()=>examDoc(false, true);
 $('prS').onclick=()=>printDoc(false);
 $('prT').onclick=()=>printDoc(true);
 boot();
