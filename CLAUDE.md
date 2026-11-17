@@ -183,3 +183,7 @@
 ## H WORK 메뉴 — 문법 문항 은행 · 질문함 카드 (2026-11-17 원장님)
 - hwork.html 에 [문법 문항 은행 · 출제와 인쇄](H WORK `bank_make.html`)·[질문함](`hwork_qa.html`) 카드. 결정·구조는 H WORK 저장소 CLAUDE.md '모의고사 문법 문항 은행' 절.
 
+
+## H WORK 질문 → 슈톡 업무 카드 (2026-11-17 원장님 "질문함은 없애고 새 질문이 도착하면 슈톡에서 알려줘 업무진행에도 추가", 리포트 072)
+- 학생이 H WORK 채점 결과 화면 문항 카드에서 질문하면 리포트 072 트리거(`hwork_qa_to_task`)가 **과제 강사와 표시 이름이 같은 활성 교사**(없으면 원장님) 업무 카드에 메시지 없는 할 일(requester_name 'H WORK 질문', 글 끝에 `hwork_result.html?sid=&q=` 링크, `hw_ref` 'hw:제출:문항' — 같은 문항은 한 줄)을 올리고 hand_push 를 채운다. 학생 화면이 엣지 함수 **`hwork-ask`**(verify_jwt 끔, requester_name 이 'H WORK 질문'이고 hand_push 가 남았을 때만 → `pushHand`)를 부르고, 못 보내면 closhu 순찰이 2분 뒤 다시. `_shared/push.ts handPlan`은 이 할 일이면 제목 'H WORK 학생 질문', 알림을 누르면 그 결과 화면. 선생님이 결과 화면에서 답장하면 트리거가 할 일을 '완료'로.
+- 허브 H WORK 메뉴의 [질문함] 카드는 뺐다(답장은 H WORK `hwork_result.html`). **적용 상태: 2026-11-17 072 적용, hwork-ask·msg-push·closhu 배포 완료.** 검증: `deno test -A supabase/functions/msg-push/test.ts`.

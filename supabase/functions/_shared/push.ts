@@ -155,12 +155,14 @@ export async function activeUsers(admin: any, now = Date.now()) {
 }
 
 // 넘겨받은 사람에게 보낼 내용 — 순수 함수(시험용). 쪽지(note — 202610290003)도 같은 길로 가고 제목만 '○○ → 나에게 쪽지'.
-export type Hand = { id: number; message_id: number | null; text: string; to: string; status: string; note?: boolean }
+export type Hand = { id: number; message_id: number | null; text: string; to: string; status: string; note?: boolean; requester_name?: string }
 export function handPlan(t: Hand, byName: string, subs: Sub[], active: Set<string>) {
   if (t.status !== '대기' || !active.has(t.to)) return []
   return subs.filter((s) => s.user_id === t.to).map((s) => ({
     sub: s,
-    payload: { title: byName + (t.note ? ' → 나에게 DM' : ' → 나에게 넘긴 일'), body: cut(t.text, 140), url: t.message_id ? PAGE + '#m' + t.message_id : PAGE, tag: 'tk' + t.id, task: true },   // 내가 직접 추가한 업무(202610250002)·쪽지는 메시지가 없다
+    payload: t.requester_name === 'H WORK 질문'   // H WORK 학생 질문(리포트 072) — 누르면 그 학생의 채점 결과 화면
+      ? { title: 'H WORK 학생 질문', body: cut(t.text.split('\n').filter((x) => !/^https?:/.test(x)).join(' · ').replace(/^\[H WORK 질문\]\s*/, ''), 140), url: (t.text.match(/https:\/\/\S+/) || [PAGE])[0], tag: 'tk' + t.id, task: true }
+      : { title: byName + (t.note ? ' → 나에게 DM' : ' → 나에게 넘긴 일'), body: cut(t.text, 140), url: t.message_id ? PAGE + '#m' + t.message_id : PAGE, tag: 'tk' + t.id, task: true },   // 내가 직접 추가한 업무(202610250002)·쪽지는 메시지가 없다
   }))
 }
 
