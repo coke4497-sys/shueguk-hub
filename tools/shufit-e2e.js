@@ -120,8 +120,13 @@ function rpc(fn, p) {
     const r = await p.evaluate(() => ({ ls: document.getElementById('list').scrollTop, wy: scrollY }));
     ok(r.ls > 0 && r.wy === y0, '목록 위에서 굴리면 목록만 움직임 ' + JSON.stringify(r) + ' ' + y0);
     await p.evaluate(() => { document.getElementById('tallT').remove(); document.getElementById('list').scrollTop = 0; scrollTo(0, 0); });
+    const sd = await p.evaluate(() => { const e = document.querySelector('.side'), c = getComputedStyle(e); return { oy: c.overflowY, mh: parseFloat(c.maxHeight), pos: c.position }; });
+    ok(sd.oy === 'auto' && Math.abs(sd.mh - 868) < 2 && sd.pos === 'sticky', '고른 문항·내보내기 칸도 따로 스크롤 ' + JSON.stringify(sd));
+    await p.evaluate(() => { const s = document.querySelector('.side'); s.scrollTop = s.scrollHeight; });
+    ok(await p.evaluate(() => { const r = document.getElementById('xTabs').getBoundingClientRect(); return r.bottom <= innerHeight && r.top >= 0; }), '내보내기 탭이 화면 안으로 들어옴');
+    await p.evaluate(() => { document.querySelector('.side').scrollTop = 0; });
     await p.setViewportSize({ width: 390, height: 900 });
-    ok(await p.evaluate(() => getComputedStyle(document.getElementById('list')).overflowY) === 'visible', '휴대폰은 화면 스크롤 그대로');
+    ok(await p.evaluate(() => getComputedStyle(document.getElementById('list')).overflowY === 'visible' && getComputedStyle(document.querySelector('.side')).overflowY === 'visible'), '휴대폰은 화면 스크롤 그대로');
     await p.setViewportSize({ width: 1300, height: 900 });
   }
   if (SHOT) { await p.setViewportSize({ width: 390, height: 900 }); await p.screenshot({ path: path.join(SHOT, 'shufit-phone.png'), fullPage: true }); await p.setViewportSize({ width: 1300, height: 900 }); }

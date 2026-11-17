@@ -39,6 +39,10 @@
   @media (min-width:921px){
     #list{max-height:calc(100vh - 32px);min-height:420px;overflow-y:auto;overscroll-behavior:contain;padding:2px 6px 2px 2px;border-radius:16px;scrollbar-gutter:stable}
     #list::-webkit-scrollbar{width:8px} #list::-webkit-scrollbar-thumb{background:#c9d6d1;border-radius:8px}
+    /* 오른쪽 '고른 문항 · 내보내기'도 화면 높이 안에서 따로 스크롤(같은 날 원장님 "4 내보내기를 하려고 할 때 스크롤이 불편") —
+     * 화면보다 긴 sticky 칸은 아래쪽이 페이지 끝까지 가야 보여서 */
+    .side{max-height:calc(100vh - 32px);overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;border-radius:24px}
+    .side::-webkit-scrollbar{width:8px} .side::-webkit-scrollbar-thumb{background:#c9d6d1;border-radius:8px}
   }
   .card{background:#fff;border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:14px}
   .fcard{padding:22px;gap:16px}
