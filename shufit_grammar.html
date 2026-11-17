@@ -78,6 +78,8 @@
   .rline #fInfo{font-size:14px;color:var(--ink2)}
   .rline .r{font-size:13px;color:var(--muted)}
   .rline .allb{padding:7px 14px;font-size:14px}
+  .newbtn{width:100%;margin-top:14px;border-radius:999px;padding:12px 14px}
+  .newbtn span{font-size:12px;color:var(--muted)}
   .psave{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:2px 0 10px}
   .psave .btn{flex:none;padding:10px 18px}
   #paperMsg{font-size:13px;color:var(--muted)}
@@ -446,6 +448,7 @@
           </div>
           <span class="info" style="line-height:1.7">아직 출제하지 않은 문항이면 [이 학생들에게 배정]이 먼저 H WORK 과제로 출제한 뒤 배정합니다. 배정 내역 확인·취소는 [H WORK 배정하기]에서 해요. 학생은 휴대폰에서 문제를 보며 풀고, 틀린 문항은 오답하기와 질문으로 선생님과 이야기할 수 있어요.</span>
         </div>
+              <button class="btn ghost newbtn" type="button" id="newBtn">새 문제지 만들기 <span>· 고른 문항·제목·날짜·학교를 비워요</span></button>
       </section>
     </aside>
   </div>
@@ -802,6 +805,18 @@ $('sel').addEventListener('click', e=>{
   if(r){ SEL.splice(Number(r.dataset.rm),1); drawSel(); drawList(); }
 });
 $('clearBtn').onclick=()=>{ if(SEL.length && !confirm('고른 문항을 모두 뺄까요?')) return; SEL=[]; drawSel(); drawList(); };
+/* 새 문제지 만들기 — 저장·출제·배정을 마친 뒤 다음 문제지를 처음부터(2026-11-17 원장님). 출제 선생님은 그대로, 저장한 문제지·H WORK 과제는 지우지 않는다 */
+$('newBtn').onclick=()=>{
+  const busy=SEL.length || $('pTitle').value.trim() || $('pDate').value || $('pSchool').value.trim();
+  if(busy && !confirm('고른 문항과 제목·날짜·학교를 비우고 새로 시작할까요?\n저장한 문제지와 H WORK 과제는 그대로 남아요.')) return;
+  SEL=[]; SAVED=null;
+  ['pTitle','hCode'].forEach(id=>{ $(id).value=''; $(id).dataset.auto=''; });
+  $('pDate').value=''; $('pSchool').value=''; $('loadSel').value=''; drawDel();
+  ['saveMsg','hwAssignMsg'].forEach(id=>{ $(id).className='msg'; $(id).textContent=''; });
+  $('hwDue').value=''; $('hwMemo').value=''; if(typeof HWP!=='undefined' && HWP){ HWP.reset(); HWP_SEL=null; }
+  drawSel(); drawList(true);
+  window.scrollTo({ top:0, behavior:'smooth' }); toast('새 문제지를 시작합니다');
+};
 /* 10문항 채우기 — 지금 거른 묶음을 순서대로(아직 낸 적 없는 것 먼저), 세트가 넘치면 건너뛰고 다음 묶음 */
 $('autoBtn').onclick=()=>{
   const want=Math.max(1, Math.min(80, Number($('autoN').value)||10));

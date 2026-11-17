@@ -337,6 +337,14 @@ function rpc(fn, p) {
     const seq = DB.posts.slice(nPost).map(x => x.action);
     ok(seq.join() === 'saveHomework,addAssignment' && DB.posts[DB.posts.length - 1].item === '이현지 / [슈핏 문법] 음운 연습 2', '출제 전 문항은 출제한 뒤 배정 ' + seq.join());
     if (SHOT) await p.locator('#xp-hw').screenshot({ path: path.join(SHOT, 'shufit-assign.png') });
+    // 새 문제지 만들기(2026-11-17)
+    await p.fill('#pSchool', '행신고'); await p.fill('#hwMemo', '2회차');
+    await p.evaluate(() => { window.__c = window.confirm; window.confirm = () => false; }); await p.click('#newBtn'); await p.evaluate(() => { window.confirm = window.__c; });
+    ok((await p.locator('#selN').textContent()).includes('4'), '새 문제지 — 확인 창에서 취소하면 그대로');
+    await p.click('#newBtn');
+    ok((await p.locator('#selN').textContent()) === '0문항' && (await p.locator('#pTitle').inputValue()) === '' && (await p.locator('#hCode').inputValue()) === '' && (await p.locator('#pSchool').inputValue()) === '' && (await p.locator('#pDate').inputValue()) === '', '새 문제지 — 고른 문항·제목·날짜·학교 비움');
+    ok((await p.locator('#hTeacher').inputValue()) === '이현지' && (await p.locator('#hwMemo').inputValue()) === '' && (await p.locator('#hwAssignMsg').textContent()) === '' && (await p.locator('#saveMsg').textContent()) === '', '새 문제지 — 출제 선생님은 그대로, 배정 칸·안내 비움');
+    ok(await p.locator('#prS').isDisabled() && await p.locator('#saveBtn').isDisabled(), '새 문제지 — 인쇄·출제 다시 잠김');
     // 저장한 문제지 지우기(2026-11-17)
     await p.selectOption('#loadSel', '');
     ok(await p.locator('#paperDel').isDisabled(), '문제지를 고르기 전엔 삭제 잠김');
