@@ -664,13 +664,20 @@ function docParts(teacher){
 function waitImgs(el){ const imgs=[...el.querySelectorAll('img')].filter(i=>!i.complete); return Promise.all(imgs.map(i=>new Promise(r=>{ i.onload=i.onerror=r; }))); }
 function setPage(css){ $('pageStyle').textContent=css; }
 const PAGE_A4='@page{size:A4;margin:14mm 13mm 14mm 13mm}', PAGE_A3='@page{size:A3 landscape;margin:0}';
-window.addEventListener('afterprint', ()=>setPage(PAGE_A4));
+/* 'PDF로 저장' 파일 이름 = 시험지 제목 — 인쇄 창은 document.title 을 파일 이름으로 쓴다. 파일 이름에 못 쓰는 글자(: / \ 등)는 뺀다 */
+const PAGE_TITLE=document.title;
+function fileTitle(title, teacher, booklet){
+  const base=String(title||'슈핏 문법').replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim() || '슈핏 문법';
+  return base + (booklet?' 중철 책자':'') + (teacher?' (교사용)':'');
+}
+window.addEventListener('afterprint', ()=>{ setPage(PAGE_A4); document.title=PAGE_TITLE; });
 function printDoc(teacher){
   if(!selIds().length){ toast('문항을 먼저 고르세요'); return; }
   const d=docParts(teacher);
   setPage(PAGE_A4);
   $('print').className = teacher ? 'teacher' : 'student';
   $('print').innerHTML = d.head + d.quick + `<div class="pcols">${d.blocks.join('')}</div>`;
+  document.title=fileTitle(d.title, teacher, false);
   waitImgs($('print')).then(()=>setTimeout(()=>window.print(),50));
 }
 /* 중철 책자 — ① 보이지 않는 곳(#bkm)에 A4 쪽 상자를 만들고 블록을 하나씩 넣어 넘치면 다음 쪽(2단, column-fill:auto — 넘침은 옆으로 생긴다)
@@ -739,6 +746,7 @@ async function bookletDoc(teacher){
   $('bkInfo').dataset.pages=N;
   toast(`표지 포함 A4 ${N}쪽 · A3 ${N/4}장(양면) 책자를 만들었어요`);
   setPage(PAGE_A3);
+  document.title=fileTitle(d.title, teacher, true);
   await waitImgs($('print'));
   setTimeout(()=>window.print(),80);
 }

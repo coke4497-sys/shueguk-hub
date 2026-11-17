@@ -166,6 +166,7 @@ function rpc(fn, p) {
     await p.click('#xTabs [data-x=pr]'); await p.click('#prS'); await p.waitForFunction(() => window.__printed === 1);
     const pr = await p.locator('#print').innerHTML();
     ok(pr.includes('음운 연습') && !pr.includes('교사용'), '학생용 제목');
+    ok((await p.title()) === '음운 연습', 'PDF 파일 이름 = 시험지 제목: ' + await p.title());
     ok((await p.locator('#print .prng').first().textContent()) === '[02~03]', '지문 범위 [02~03] (품사 문항이 1번)');
     ok(await p.locator('#print .qn').count() === 4, '문항 번호 4개');
     ok(await p.locator('#print .xbox').count() === 0 && !pr.includes('cn ok'), '학생용에 정답·해설 없음');
@@ -173,6 +174,9 @@ function rpc(fn, p) {
     await p.click('#prT'); await p.waitForFunction(() => window.__printed === 2);
     ok(await p.locator('#print .xbox').count() === 4 && await p.locator('#print .quick').count() === 1, '교사용 해설 4개 + 빠른 정답');
     ok(await p.locator('#print.teacher .cn.ok').count() === 4, '교사용 정답 동그라미');
+    ok((await p.title()) === '음운 연습 (교사용)', '교사용 파일 이름: ' + await p.title());
+    ok(await p.evaluate(() => fileTitle('shuefit 문법: 음운 기본 (10)', false, true)) === 'shuefit 문법 음운 기본 (10) 중철 책자', '파일 이름에 못 쓰는 글자(:) 빼기·책자');
+    await p.evaluate(() => window.dispatchEvent(new Event('afterprint'))); ok((await p.title()) === '슈핏 문법', '인쇄 뒤 창 제목 되돌림');
     await p.emulateMedia({ media: 'print' });
     ok(await p.evaluate(() => getComputedStyle(document.querySelector('.wrap')).display) === 'none' && await p.evaluate(() => getComputedStyle(document.getElementById('print')).display) === 'block', '인쇄 때는 시험지만');
     if (SHOT) await p.screenshot({ path: path.join(SHOT, 'shufit-print-teacher.png'), fullPage: true });
