@@ -215,6 +215,7 @@
   /* 시험지 인쇄 = exam-design 스킬 '디자인 B'(2026-11-17 원장님이 보낸 exam-design-skill — 행신고 표 형식 머리) 그대로.
    * 화면 밖 #exm 에서 쪽 상자(.page 210×297)를 만들어 블록을 흘려 넣고(문항은 단을 넘겨 나누지 않음) #print 로 옮긴다. 학습자료 인쇄(민트)는 그대로 */
   #exm{position:absolute;left:-99999px;top:0}
+  .ldrow{display:flex;gap:8px;align-items:stretch} .ldrow select{flex:1;min-width:0} .ldrow .btn{flex:none;padding:0 16px}
   .exdes{display:flex;gap:6px;margin-bottom:8px}
   .exdes button{flex:1;border:0;border-radius:999px;padding:8px 10px;font:inherit;font-size:13px;background:#f2f5f3;color:#4F5C56;cursor:pointer}
   .exdes button.on{background:#EDE4F4;color:#5A4A6A;font-weight:700}
@@ -367,7 +368,7 @@
           <button class="btn ghost" id="clearBtn" type="button">비우기</button>
         </div>
         <label class="f"><span>저장된 문제지 · 과제 불러오기 <span class="dim">· 고치거나 다시 인쇄</span></span>
-          <select id="loadSel"><option value="">— 고르세요 —</option></select></label>
+          <span class="ldrow"><select id="loadSel"><option value="">— 고르세요 —</option></select><button class="btn ghost" id="paperDel" type="button" disabled title="저장한 문제지를 고르면 지울 수 있어요">삭제</button></span></label>
       </section>
       <section class="card">
         <div class="xh"><h2><span class="n">4</span>내보내기</h2><span id="xHint">문항을 담으면 쓸 수 있어요</span></div>
@@ -549,7 +550,10 @@ function drawLoad(){
   $('loadSel').innerHTML='<option value="">— 고르세요 —</option>'
     +(ps.length?`<optgroup label="저장한 문제지">${ps.map((x,i)=>opt(x,i)).join('')}</optgroup>`:'')
     +(hs.length?`<optgroup label="H WORK 과제">${hs.map((x,i)=>opt(x,ps.length+i)).join('')}</optgroup>`:'');
+  drawDel();
 }
+function loadPick(){ const v=$('loadSel').value; return v==='' ? null : LOADS[Number(v)]; }
+function drawDel(){ const h=loadPick(); $('paperDel').disabled=!(h && h.kind==='paper'); }
 function selSig(){ return selIds().join(','); }
 function canPrint(){ return !!SAVED && SAVED.teacher===curTeacher() && SAVED.title===$('pTitle').value.trim() && SAVED.sig===selSig() && !!SAVED.sig; }
 function drawPrint(){
@@ -782,7 +786,8 @@ $('allBtn').onclick=()=>{
   drawSel(); drawList();
 };
 $('loadSel').onchange=()=>{
-  const h=LOADS[Number($('loadSel').value)]; if(!h) return;
+  drawDel();
+  const h=loadPick(); if(!h) return;
   if(SEL.length && !confirm('지금 고른 문항을 비우고 이 '+(h.kind==='paper'?'문제지':'과제')+'의 문항을 불러올까요?')){ $('loadSel').value=''; return; }
   const ids=h.ids.filter(id=>BYID[id]);
   SEL=[]; ids.forEach(id=>{ const last=SEL[SEL.length-1]; if(last && BYID[id].pid && BYID[last[0]].pid===BYID[id].pid) last.push(id); else SEL.push([id]); });
@@ -790,6 +795,22 @@ $('loadSel').onchange=()=>{
   $('hCode').dataset.auto=''; $('pTitle').dataset.auto='';
   SAVED = h.kind==='paper' ? { teacher:h.teacher, title:h.title, sig:selSig() } : null;
   rebuildUsed(); drawSel(); drawList(); toast('불러왔어요');
+};
+/* 저장한 문제지 지우기(2026-11-17 원장님) — 불러오기에서 고른 문제지 한 개. 지금 고른 문항은 그대로 두고, 그 문제지로 열려 있던 인쇄만 다시 잠근다.
+ * H WORK 과제는 여기서 지우지 않는다(H WORK 배정 화면에서) */
+$('paperDel').onclick=async()=>{
+  const h=loadPick(); if(!h || h.kind!=='paper') return;
+  if(!confirm(`${h.teacher} 선생님의 「${h.title}」 문제지를 지울까요?\n지운 문제지는 되살릴 수 없습니다. 이 문제지에 담았던 문항은 '낸 적 있음'에서도 빠져요.`)) return;
+  const btn=$('paperDel'); btn.disabled=true; btn.textContent='지우는 중…';
+  try{
+    await sb('/shufit_papers?teacher=eq.'+encodeURIComponent(h.teacher)+'&title=eq.'+encodeURIComponent(h.title),{ method:'DELETE', headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, Prefer:'return=minimal' } });
+    PAPERS=PAPERS.filter(p=>!(p.teacher===h.teacher && p.title===h.title));
+    if(SAVED && SAVED.teacher===h.teacher && SAVED.title===h.title) SAVED=null;
+    drawTeachers(); rebuildUsed(); drawLoad(); drawList(); drawPrint();
+    toast('문제지를 지웠어요');
+    if(window.shuegukActivity) shuegukActivity('Shuefit 문법', '문제지 삭제', h.title, h.teacher+' · '+h.ids.length+'문항', false);
+  }catch(e){ toast('지우지 못했습니다. ('+e.message+')'); }
+  finally{ btn.textContent='삭제'; drawDel(); }
 };
 function teacherChanged(){ rebuildUsed(); drawLoad(); drawSel(); drawList(); }
 $('hTeacher').addEventListener('change', teacherChanged);

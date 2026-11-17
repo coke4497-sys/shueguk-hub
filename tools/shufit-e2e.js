@@ -55,6 +55,7 @@ function fake(rt, u, method, body) {
     return rt.fulfill({ json: rest.includes('offset=0') ? DB.hws : [] });
   }
   if (rest.startsWith('/shufit_papers')) {
+    if (method === 'DELETE') { DB.paperDels = (DB.paperDels || []).concat([rest]); const q = new URLSearchParams(rest.split('?')[1]); const t = q.get('teacher').replace(/^eq\./, ''), ti = q.get('title').replace(/^eq\./, ''); DB.papers = DB.papers.filter(p => !(p.teacher === t && p.title === ti)); return rt.fulfill({ status: 204, body: '' }); }
     if (method === 'POST') { const r = JSON.parse(body)[0]; DB.paperPosts.push({ rest, r }); DB.papers = DB.papers.filter(p => !(p.teacher === r.teacher && p.title === r.title)); const row = Object.assign({ id: 50 + DB.paperPosts.length, updated_at: '2026-11-17' }, r); DB.papers.unshift(row); return rt.fulfill({ status: 201, json: [row] }); }
     return rt.fulfill({ json: rest.includes('offset=0') ? DB.papers : [] });
   }
@@ -283,6 +284,21 @@ function rpc(fn, p) {
     ok(DB.saved && DB.saved.data.bank['2'] === 101, '수파베이스 과제 표에도 저장');
     ok((await p.locator('.tg.used').count()) >= 1, '저장 뒤 낸 적 있음 표시');
     if (SHOT) await p.screenshot({ path: path.join(SHOT, 'shufit-make.png') });
+    // 저장한 문제지 지우기(2026-11-17)
+    await p.selectOption('#loadSel', '');
+    ok(await p.locator('#paperDel').isDisabled(), '문제지를 고르기 전엔 삭제 잠김');
+    await p.selectOption('#loadSel', { label: '[슈핏 문법] 음운 연습 · 이현지 (4문항)' }).catch(() => {});
+    ok(await p.locator('#paperDel').isDisabled(), 'H WORK 과제는 여기서 못 지움');
+    await p.selectOption('#loadSel', { label: '음운 연습 · 이현지 (4문항)' });
+    ok(!(await p.locator('#paperDel').isDisabled()) && !(await p.locator('#prS').isDisabled()), '문제지를 고르면 삭제 열림');
+    await p.evaluate(() => { window.__c = window.confirm; window.confirm = () => false; }); await p.click('#paperDel'); await p.evaluate(() => { window.confirm = window.__c; });
+    ok(!(DB.paperDels || []).length, '확인 창에서 취소하면 안 지움');
+    await p.click('#paperDel');
+    await p.waitForFunction(() => !PAPERS.some(x => x.title === '음운 연습'));
+    const dl = (DB.paperDels || [])[0] || '';
+    ok(dl.includes('teacher=eq.' + encodeURIComponent('이현지')) && dl.includes('title=eq.' + encodeURIComponent('음운 연습')), '삭제 요청 = 선생님 + 제목 ' + dl);
+    ok((await p.locator('#loadSel optgroup[label="저장한 문제지"] option').count()) === 0 && (await p.locator('#paperDel').isDisabled()) && (await p.locator('#prS').isDisabled()), '지우면 목록에서 빠지고 인쇄 다시 잠김');
+    ok((await p.locator('#selN').textContent()) === '4문항' && await p.evaluate(() => !JSON.stringify(USED[101] || '').includes('문제지 · 음운 연습')), '고른 문항은 그대로 · 낸 적 있음에서 이 문제지가 빠짐');
     ok((await p.textContent('h1')) === 'Shuefit 문법' && (await p.textContent('.hd .subt')) === '너에게 꼭 맞춘 문법 학습' && !(await p.innerText('.wrap')).includes('문항 은행'), '이름 = Shuefit 문법 + 작은 제목 (문항 은행 글 없음)');
   } else {
     if (SHOT) { await p.check('#fAns'); await p.screenshot({ path: path.join(SHOT, 'shufit-make-real.png') });
