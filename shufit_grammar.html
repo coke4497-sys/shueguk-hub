@@ -35,6 +35,11 @@
   .lcol{flex:1 1 560px;min-width:0;display:flex;flex-direction:column;gap:12px}
   .side{flex:1 1 320px;max-width:400px;position:sticky;top:16px;display:flex;flex-direction:column;gap:12px}
   @media (max-width:920px){ .side{position:static;max-width:none} }
+  /* 문항 목록은 따로 스크롤(2026-11-17 원장님 "문항 스크롤과 전체 화면 스크롤이 같아서 혼란") — 넓은 화면만, 휴대폰은 화면 스크롤 그대로 */
+  @media (min-width:921px){
+    #list{max-height:calc(100vh - 32px);min-height:420px;overflow-y:auto;overscroll-behavior:contain;padding:2px 6px 2px 2px;border-radius:16px;scrollbar-gutter:stable}
+    #list::-webkit-scrollbar{width:8px} #list::-webkit-scrollbar-thumb{background:#c9d6d1;border-radius:8px}
+  }
   .card{background:#fff;border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:14px}
   .fcard{padding:22px;gap:16px}
   .sec{display:flex;flex-direction:column;gap:10px}
@@ -632,10 +637,10 @@ document.addEventListener('click', e=>{
     if(F.kind && !B.some(x=>x.area===F.area && x.lvl===F.lvl && x.kind===F.kind)) F.kind='';
   }
   if(c.dataset.k==='lvl') F.kind='';
-  shown=40; drawFilters(); drawList();
+  shown=40; drawFilters(); drawList(true);
 });
-$('fq').addEventListener('input', ()=>{ clearTimeout($('fq')._t); $('fq')._t=setTimeout(()=>{ F.q=$('fq').value.trim(); shown=40; drawList(); },250); });
-$('fUnused').addEventListener('change', e=>{ F.unused=e.target.checked; shown=40; drawList(); });
+$('fq').addEventListener('input', ()=>{ clearTimeout($('fq')._t); $('fq')._t=setTimeout(()=>{ F.q=$('fq').value.trim(); shown=40; drawList(true); },250); });
+$('fUnused').addEventListener('change', e=>{ F.unused=e.target.checked; shown=40; drawList(true); });
 $('fAns').addEventListener('change', e=>{ F.ans=e.target.checked; $('list').classList.toggle('showans',F.ans); $('list').classList.toggle('teacher',F.ans); });
 
 function match(x){
@@ -675,7 +680,7 @@ function drawAllBtn(gs){
   const rest=(gs||filteredGroups()).filter(g=>!isSel(g[0])).reduce((a,g)=>a+g.length,0), ab=$('allBtn');
   ab.hidden=!rest; ab.textContent=`보이는 ${rest}문항 한번에 담기`;
 }
-function drawList(){
+function drawList(top){
   const gs=filteredGroups();
   const nItems=gs.reduce((a,g)=>a+g.length,0);
   const q=F.q?`‘${F.q}’ 검색 · `:'', where=[F.set?F.set+' 묶음':'', F.form?F.form+'형':'', F.area||'전체', F.lvl, F.kind].filter(Boolean).join(' ');
@@ -690,6 +695,7 @@ function drawList(){
       <button type="button" class="addb${on?' on':''}" data-add="${g[0]}">${addLabel(on, g.length)}</button></div>
       ${pas}${g.map(id=>itemCard(id, one)).join('')}</div>`;
   }).join('') + (gs.length>shown?`<div class="more"><button class="btn ghost" type="button" id="moreBtn">더 보기 (${gs.length-shown}묶음 남음)</button></div>`:'');
+  if(top) $('list').scrollTop=0;   // 거르기를 바꾸면 목록 맨 위로(담기·빼기·더 보기는 자리 그대로)
   const mb=$('moreBtn'); if(mb) mb.onclick=()=>{ shown+=40; drawList(); };
 }
 $('list').addEventListener('click', e=>{
