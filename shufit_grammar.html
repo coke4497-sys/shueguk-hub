@@ -139,7 +139,7 @@
       </div>
       <div class="card">
         <h2>인쇄</h2>
-        <div class="f"><label for="pTitle">시험지 제목</label><input type="text" id="pTitle" placeholder="예: 음운 · 심화 1회"></div>
+        <div class="f"><label for="pTitle">시험지 제목</label><input type="text" id="pTitle" placeholder="문항을 담으면 자동으로 채워져요"></div>
         <div class="row">
           <button class="btn" type="button" id="prS">학생용 인쇄</button>
           <button class="btn" type="button" id="prT">교사용 인쇄 (정답·해설)</button>
@@ -158,7 +158,7 @@
       <div class="card">
         <h2>H WORK 출제</h2>
         <div class="f"><label for="hTeacher">담당 강사</label><input type="text" id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></div>
-        <div class="f"><label for="hCode">과제 제목 (학생에게 보이는 이름)</label><input type="text" id="hCode" placeholder="[슈핏 문법] 음운 · 심화 1회"></div>
+        <div class="f"><label for="hCode">과제 제목 (학생에게 보이는 이름)</label><input type="text" id="hCode" placeholder="문항을 담으면 자동으로 채워져요"></div>
         <button class="btn main" type="button" id="saveBtn" style="width:100%;margin-top:6px">H WORK 과제로 출제</button>
         <div class="msg" id="saveMsg"></div>
         <div class="info" style="margin-top:8px">저장한 뒤 학생 배정은 [H WORK 배정하기]에서 합니다. 학생은 휴대폰에서 문제를 보며 풀고, 틀린 문항은 오답하기와 질문으로 선생님과 이야기할 수 있어요.</div>
@@ -377,7 +377,31 @@ $('list').addEventListener('click', e=>{
   b.textContent=isSel(id)?'담김 ✓':(g.length>1?`세트 ${g.length}문항 담기`:'담기');
   drawSel();
 });
+/* 제목 자동 — 'shuefit 문법: 단원 난도 (문항 수)', 같은 제목 과제가 이미 있으면 뒤에 02·03…
+   (원장님 2026-11-17). 선생님이 직접 고친 칸은 덮지 않는다(마지막 자동값과 같거나 비었을 때만). */
+const TITLE_PRE='shuefit 문법: ';
+function autoTitle(){
+  const ids=selIds(); if(!ids.length) return '';
+  const uniq=k=>[...new Set(ids.map(id=>BYID[id][k]).filter(Boolean))];
+  const lv=['기본','실력','심화'], lvls=uniq('lvl').sort((a,b)=>lv.indexOf(a)-lv.indexOf(b));
+  const base=`${TITLE_PRE}${uniq('area').join('·')} ${lvls.join('·')} (${ids.length})`.replace(/\s+/g,' ');
+  let max=0;
+  HWS.concat(ALLHW).forEach(h=>{
+    const c=(h.code||'').trim();
+    if(c===base) max=Math.max(max,1);
+    else if(c.startsWith(base+' ')){ const m=c.slice(base.length+1).match(/^(\d{1,3})$/); if(m) max=Math.max(max,Number(m[1])); }
+  });
+  return max ? `${base} ${String(max+1).padStart(2,'0')}` : base;
+}
+function applyAutoTitle(){
+  const t=autoTitle();
+  ['pTitle','hCode'].forEach(id=>{
+    const el=$(id), last=el.dataset.auto||'';
+    if(!el.value.trim() || el.value===last){ el.value=t; el.dataset.auto=t; }
+  });
+}
 function drawSel(){
+  applyAutoTitle();
   const n=selIds().length;
   $('selN').textContent = n ? `${n}문항` : '';
   if(!SEL.length){ $('sel').innerHTML='<div class="empty">왼쪽에서 [담기]를 누르세요.</div>'; return; }
@@ -406,7 +430,6 @@ $('autoBtn').onclick=()=>{
   for(const g of order){ if(n>=want) break; if(n>0 && n+g.length>want) continue; SEL.push(g); n+=g.length; added+=g.length; }
   if(!added) toast('더 담을 문항이 없습니다'); else toast(added+'문항을 담았어요');
   drawSel(); drawList();
-  if(!$('pTitle').value && F.area) $('pTitle').value=`${F.area}${F.lvl?' · '+F.lvl:''}`;
 };
 $('loadSel').onchange=()=>{
   const h=HWS[Number($('loadSel').value)]; if(!h) return;
@@ -414,6 +437,7 @@ $('loadSel').onchange=()=>{
   const ids=Object.keys(h.data.bank).sort((a,b)=>a-b).map(k=>Number(h.data.bank[k])).filter(id=>BYID[id]);
   SEL=[]; ids.forEach(id=>{ const last=SEL[SEL.length-1]; if(last && BYID[id].pid && BYID[last[0]].pid===BYID[id].pid) last.push(id); else SEL.push([id]); });
   $('hTeacher').value=h.teacher; $('hCode').value=h.code; $('pTitle').value=h.code.replace(/^\[[^\]]*\]\s*/,'');
+  $('hCode').dataset.auto=''; $('pTitle').dataset.auto='';
   drawSel(); drawList(); toast('불러왔어요');
 };
 
