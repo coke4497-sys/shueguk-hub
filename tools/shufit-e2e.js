@@ -120,7 +120,7 @@ function rpc(fn, p) {
     ok(await p.locator('.it').first().locator('.pas').count() === 1, '지문 보기');
     ok(await p.locator('#rLvl').isHidden() && await p.locator('#rKind').isHidden() && (await p.locator('#fStep').textContent()).includes('단원'), '처음엔 단원만 — 난도·출처 숨김');
     ok(await p.locator('#prS').isDisabled() && await p.locator('#saveBtn').isDisabled() && (await p.locator('#xHint').textContent()).includes('담으면'), '문항이 없으면 내보내기 버튼 잠김');
-    ok(await p.locator('#xp-pr').isVisible() && await p.locator('#xp-bk').isHidden() && await p.locator('#xp-hw').isHidden(), '내보내기 탭 — 처음엔 인쇄');
+    ok(await p.locator('#xp-pr').isVisible() && await p.locator('#xp-ex').isHidden() && await p.locator('#xp-hw').isHidden() && (await p.locator('#xTabs').innerText()).replace(/\s+/g, '') === '학습자료인쇄시험지인쇄H WORK출제'.replace(/\s+/g, ''), '내보내기 탭 — 학습자료 인쇄 · 시험지 인쇄 · H WORK 출제, 처음엔 학습자료');
     ok((await p.locator('#tot').textContent()).includes('문항 4개') && (await p.locator('.it .no').first().textContent()) === '01', '머리 합계 · 카드 번호');
     // 문항 묶음(2026-11-17) — 0~456 = 2026 묶음, 457부터 = 2025 묶음. 가짜 문항은 모두 2026 묶음이라 2025 칩은 없다
     ok((await p.locator('#fSet').textContent()) === '전체42026 묶음4', '묶음 칩 — 있는 묶음만: ' + await p.locator('#fSet').textContent());
@@ -173,7 +173,8 @@ function rpc(fn, p) {
     await p.click('[data-add="103"]'); await p.click('[data-add="103"]');
     ok((await p.locator('#pTitle').inputValue()) === '음운 연습', '직접 고친 제목은 덮지 않음');
     ok((await p.locator('#hCode').inputValue()) === '음운 연습', '시험지 제목과 과제 제목은 같은 값');
-    await p.click('#xTabs [data-x=bk]'); ok(await p.locator('#xp-bk').isVisible() && await p.locator('#xp-pr').isHidden(), '탭 바꾸기 — 중철 책자');
+    ok(await p.locator('#bkS').isVisible() && await p.locator('#prS').isVisible(), '학습자료 탭 = A4 학습지 + 중철 책자');
+    await p.click('#xTabs [data-x=ex]'); ok(await p.locator('#xp-ex').isVisible() && await p.locator('#xp-pr').isHidden(), '탭 바꾸기 — 시험지 인쇄');
     ok(await p.locator('#pTitle').isVisible(), '제목 칸은 책자 탭에서도 보임');
     await p.evaluate(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
     // 시험지 저장(2026-11-17) — 출제 선생님별, 저장해야 인쇄
@@ -204,6 +205,22 @@ function rpc(fn, p) {
     if (SHOT) await p.screenshot({ path: path.join(SHOT, 'shufit-print-teacher.png'), fullPage: true });
     await p.emulateMedia({ media: 'screen' });
     // 저장
+    // 시험지 인쇄(2026-11-17) — 머리 칸·답안 기록표·정답표
+    await p.click('#xTabs [data-x=ex]'); await p.fill('#exMin', '50'); await p.fill('#exBand', '2026학년도 2학기 기말고사 대비'); await p.fill('#exGrade', '1'); await p.fill('#exSchool', '행신고등학교'); await p.fill('#exDate', '2026-12-01'); await p.fill('#exPts', '100');
+    const np = await p.evaluate(() => window.__printed || 0);
+    await p.click('#exS'); await p.waitForFunction(n => window.__printed === n + 1, np);
+    const ex = await p.evaluate(() => ({ th: [...document.querySelectorAll('#print .exs th')].map(x => x.textContent).join(), meta: document.querySelector('#print .exs').innerText + ' ' + document.querySelector('#print .exnote').innerText, omr: document.querySelectorAll('#print .omr > div').length, circ: document.querySelectorAll('#print .omr i').length, xbox: document.querySelectorAll('#print .xbox').length, ok: document.querySelectorAll('#print .cn.ok').length, qn: document.querySelectorAll('#print .qn').length, title: document.title }));
+    ok(ex.th === '학 년,과 목 명,시험 시간,학 교,이 름,점 수' && ex.meta.includes('2026학년도 2학기 기말고사 대비') && ex.meta.includes('( 1 )학년') && ex.meta.includes('50분') && ex.meta.includes('행신고등학교') && ex.meta.includes('2026년 12월 1일') && ex.meta.includes('( 4 )문항') && ex.meta.includes('( 100 )점') && ex.meta.includes('문법 · 품사·음운'), '시험지 머리 칸(입력값) ' + JSON.stringify(ex));
+    ok(await p.evaluate(() => { const t = document.getElementById('pageStyle').textContent; return t.includes('counter(pages)') && t.includes('@bottom-left') && t.includes('다르게 하기의 힘'); }), '시험지 쪽 번호 · 왼쪽 아래 Shueguk 다르게 하기의 힘');
+    if (SHOT) { await p.emulateMedia({ media: 'print' }); await p.pdf({ path: path.join(SHOT, 'shufit-exam.pdf'), preferCSSPageSize: true, printBackground: true }); await p.emulateMedia({ media: 'screen' }); }
+    ok(ex.qn === 4 && ex.xbox === 0 && ex.ok === 0, '시험지 = 문항만(정답·해설 없음)');
+    ok(ex.omr === 4 && ex.circ === 20, '답안 기록표 4문항 × ①~⑤');
+    ok(ex.title === '음운 연습 시험지', '시험지 파일 이름: ' + ex.title);
+    await p.click('#exT'); await p.waitForFunction(n => window.__printed === n + 2, np);
+    const ky = await p.evaluate(() => ({ cells: [...document.querySelectorAll('#print .kgrid > div')].map(x => x.querySelector('b').textContent + x.textContent.replace(/^\d+/, '').slice(0, 1)).join(), q: document.querySelectorAll('#print .qn').length, title: document.title }));
+    ok(ky.cells === '1⑤,2②,3④,4①' && ky.q === 0 && ky.title === '음운 연습 정답표', '정답표 한 장 ' + JSON.stringify(ky));
+    await p.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    await p.click('#xTabs [data-x=pr]');
     // 선생님별 '낸 적 있음' — 이현지: 방금 저장한 시험지(104·101·102·103), 김지원: 시험지 103 + H WORK 104
     ok(await p.evaluate(() => Object.keys(USED).map(Number).sort().join()) === '101,102,103,104', '이현지 선생님 낸 문항 = 저장한 시험지');
     await p.fill('#hTeacher', '김지원'); await p.locator('#hTeacher').dispatchEvent('change');
@@ -253,7 +270,7 @@ function rpc(fn, p) {
   const nSel = Number((await bk.textContent('#selN')).replace(/\D/g, ''));
   ok(nSel >= 20, '책자용 문항 담기 ' + nSel);
   await bk.click('#paperSave'); await bk.waitForFunction(() => !document.getElementById('bkS').disabled);
-  await bk.click('#xTabs [data-x=bk]'); await bk.click('#bkS'); await bk.waitForFunction(() => window.__printed === 1, null, { timeout: 15000 });
+  await bk.click('#xTabs [data-x=pr]'); await bk.click('#bkS'); await bk.waitForFunction(() => window.__printed === 1, null, { timeout: 15000 });
   const N = Number(await bk.getAttribute('#bkInfo', 'data-pages'));
   ok(N >= 4 && N % 4 === 0, '책자 쪽 수 4의 배수 — ' + N + '쪽');
   ok(await bk.locator('#print .sheet').count() === N, 'A4 장 수 = 쪽 수 (' + await bk.locator('#print .sheet').count() + ')');
