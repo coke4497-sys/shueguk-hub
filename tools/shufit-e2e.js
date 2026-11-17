@@ -206,17 +206,33 @@ function rpc(fn, p) {
     await p.emulateMedia({ media: 'screen' });
     // 저장
     // 시험지 인쇄(2026-11-17) — 머리 칸·답안 기록표·정답표
-    await p.click('#xTabs [data-x=ex]'); await p.fill('#exMin', '50'); await p.fill('#exBand', '2026학년도 2학기 기말고사 대비'); await p.fill('#exGrade', '1'); await p.fill('#exSchool', '행신고등학교'); await p.fill('#exDate', '2026-12-01'); await p.fill('#exPts', '100');
-    const np = await p.evaluate(() => window.__printed || 0);
+    await p.click('#xTabs [data-x=ex]');
+    // A형(기본) — 시험명·큰 과목명·둥근 학교명·로고·성명/수험 번호 칸, 지문 테두리 상자
+    ok(await p.evaluate(() => EX_DES === 'A' && document.querySelector('#exDes .on').dataset.d === 'A' && getComputedStyle(document.getElementById('exYear').parentNode).display === 'none' && getComputedStyle(document.getElementById('exTitle').parentNode).display !== 'none'), 'A형 기본 · A형 칸만 보임');
+    await p.fill('#exTitle', '2026년 2학기 모의 기말고사'); await p.fill('#exSubj', '문법 8'); await p.fill('#exSchool', '행신고3');
+    let np = await p.evaluate(() => window.__printed || 0);
     await p.click('#exS'); await p.waitForFunction(n => window.__printed === n + 1, np);
-    const ex = await p.evaluate(() => ({ th: [...document.querySelectorAll('#print .exs th')].map(x => x.textContent).join(), meta: document.querySelector('#print .exs').innerText + ' ' + document.querySelector('#print .exnote').innerText, omr: document.querySelectorAll('#print .omr > div').length, circ: document.querySelectorAll('#print .omr i').length, xbox: document.querySelectorAll('#print .xbox').length, ok: document.querySelectorAll('#print .cn.ok').length, qn: document.querySelectorAll('#print .qn').length, title: document.title }));
-    ok(ex.th === '학 년,과 목 명,시험 시간,학 교,이 름,점 수' && ex.meta.includes('2026학년도 2학기 기말고사 대비') && ex.meta.includes('( 1 )학년') && ex.meta.includes('50분') && ex.meta.includes('행신고등학교') && ex.meta.includes('2026년 12월 1일') && ex.meta.includes('( 4 )문항') && ex.meta.includes('( 100 )점') && ex.meta.includes('문법 · 품사·음운'), '시험지 머리 칸(입력값) ' + JSON.stringify(ex));
-    ok(await p.evaluate(() => { const t = document.getElementById('pageStyle').textContent; return t.includes('counter(pages)') && t.includes('@bottom-left') && t.includes('다르게 하기의 힘'); }), '시험지 쪽 번호 · 왼쪽 아래 Shueguk 다르게 하기의 힘');
-    if (SHOT) { await p.emulateMedia({ media: 'print' }); await p.pdf({ path: path.join(SHOT, 'shufit-exam.pdf'), preferCSSPageSize: true, printBackground: true }); await p.emulateMedia({ media: 'screen' }); }
-    ok(ex.qn === 4 && ex.xbox === 0 && ex.ok === 0, '시험지 = 문항만(정답·해설 없음)');
-    ok(ex.omr === 4 && ex.circ === 20, '답안 기록표 4문항 × ①~⑤');
-    ok(ex.title === '음운 연습 시험지', '시험지 파일 이름: ' + ex.title);
-    await p.click('#exT'); await p.waitForFunction(n => window.__printed === n + 2, np);
+    const ea = await p.evaluate(() => ({ cls: document.getElementById('print').className, cover: (document.querySelector('#print .cover') || {}).innerText || '', logo: !!document.querySelector('#print .cover svg.logo text'), id: document.querySelectorAll('#print .cover .digits span').length, pages: document.querySelectorAll('#print .page').length, run: document.querySelectorAll('#print .runhead').length, frac: [...document.querySelectorAll('#print .frac .b')].map(x => x.textContent).join(), qn: [...document.querySelectorAll('#print .qn')].map(x => x.textContent).join(''), instr: (document.querySelector('#print .xb.instr') || {}).textContent || '', psBorder: getComputedStyle(document.querySelector('#print .xb.passage') || document.body).borderTopWidth, notice: document.querySelectorAll('#print .notice').length, omr: document.querySelectorAll('#print .omr > div').length, circ: document.querySelectorAll('#print .omr i').length, ok: document.querySelectorAll('#print .cn.ok').length, xbox: document.querySelectorAll('#print .xbox').length, brand: (document.querySelector('#print .brandf') || {}).textContent || '', title: document.title, page: document.getElementById('pageStyle').textContent }));
+    ok(ea.cls.includes('design-a') && ea.cover.includes('2026년 2학기 모의 기말고사') && ea.cover.includes('문법 8') && ea.cover.includes('행신고3') && ea.cover.includes('성명') && ea.cover.includes('수험 번호') && ea.logo && ea.id === 10, 'A형 머리(시험명·과목명·학교·로고·성명/수험 번호) ' + JSON.stringify(ea).slice(0, 300));
+    ok(ea.notice === 0 && ea.instr.startsWith('※ [') && ea.psBorder !== '0px', 'A형 — 안내 상자 없음 · ※ 안내문 · 지문 테두리');
+    ok(ea.pages >= 2 && ea.run === ea.pages - 1 && ea.frac.split(',').every(x => x === String(ea.pages)), 'A형 쪽 상자·2쪽부터 국어 영역 머리말·분수 쪽 번호 ' + ea.pages + '쪽');
+    ok(ea.qn === '1.2.3.4.' && ea.ok === 0 && ea.xbox === 0, 'A형 = 문항만(정답·해설 없음) ' + ea.qn);
+    ok(ea.omr === 4 && ea.circ === 20, '답안 기록표 4문항 × ①~⑤');
+    ok(ea.brand.includes('Shueguk') && ea.brand.includes('다르게 하기의 힘') && ea.page.includes('margin:0'), '왼쪽 아래 Shueguk 다르게 하기의 힘 · 여백 0 쪽');
+    ok(ea.title === '음운 연습 시험지', '시험지 파일 이름: ' + ea.title);
+    if (SHOT) { await p.emulateMedia({ media: 'print' }); await p.pdf({ path: path.join(SHOT, 'shufit-exam-A.pdf'), preferCSSPageSize: true, printBackground: true }); await p.emulateMedia({ media: 'screen' }); }
+    await p.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    // B형 — 표 머리 + 안내 상자
+    await p.click('#exDes [data-d=B]');
+    ok(await p.evaluate(() => EX_DES === 'B' && getComputedStyle(document.getElementById('exTitle').parentNode).display === 'none' && getComputedStyle(document.getElementById('exYear').parentNode).display !== 'none' && localStorage.getItem('sf_exdes') === 'B'), 'B형으로 바꾸면 B형 칸 · 기억');
+    await p.fill('#exYear', '2026'); await p.selectOption('#exSem', '2'); await p.fill('#exType', '기말'); await p.fill('#exGrade', '1'); await p.fill('#exSubj', ''); await p.fill('#exSchool', '행신고등학교'); await p.fill('#exDate', '2026-12-01'); await p.fill('#exPts', '100'); await p.fill('#exMin', '50');
+    np = await p.evaluate(() => window.__printed || 0);
+    await p.click('#exS'); await p.waitForFunction(n => window.__printed === n + 1, np);
+    const eb = await p.evaluate(() => ({ cls: document.getElementById('print').className, head: (document.querySelector('#print .coverB') || {}).innerText || '', notice: (document.querySelector('#print .notice') || {}).innerText || '', cover: document.querySelectorAll('#print .cover').length, instr: (document.querySelector('#print .xb.instr') || {}).textContent || '', psBorder: getComputedStyle(document.querySelector('#print .xb.passage') || document.body).borderTopWidth }));
+    ok(!eb.cls.includes('design-a') && eb.cover === 0 && /2026학년도 \( 2 \)학기 \( 기말 \)고사/.test(eb.head) && eb.head.includes('( 1 )학년') && eb.head.includes('2026년 12월 1일') && eb.head.includes('행신고등학교') && eb.head.includes('총 ( 4 )문항') && eb.head.includes('문법 · 품사·음운'), 'B형 표 머리 ' + JSON.stringify(eb.head));
+    ok(eb.notice.includes('( 4 )문항') && eb.notice.includes('( 100 )점') && eb.notice.includes('( 50 )분') && eb.instr.startsWith('[') && eb.psBorder === '0px', 'B형 안내 상자 · [범위] 안내문 · 지문 테두리 없음 ' + JSON.stringify(eb.notice));
+    if (SHOT) { await p.emulateMedia({ media: 'print' }); await p.pdf({ path: path.join(SHOT, 'shufit-exam-B.pdf'), preferCSSPageSize: true, printBackground: true }); await p.emulateMedia({ media: 'screen' }); }
+    await p.click('#exT'); await p.waitForFunction(n => window.__printed === n + 1, np + 1);
     const ky = await p.evaluate(() => ({ cells: [...document.querySelectorAll('#print .kgrid > div')].map(x => x.querySelector('b').textContent + x.textContent.replace(/^\d+/, '').slice(0, 1)).join(), q: document.querySelectorAll('#print .qn').length, title: document.title }));
     ok(ky.cells === '1⑤,2②,3④,4①' && ky.q === 0 && ky.title === '음운 연습 정답표', '정답표 한 장 ' + JSON.stringify(ky));
     await p.evaluate(() => window.dispatchEvent(new Event('afterprint')));
