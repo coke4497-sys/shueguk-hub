@@ -162,6 +162,7 @@ function rpc(fn, p) {
     ok((await p.locator('#pTitle').inputValue()) === '음운 연습', '직접 고친 제목은 덮지 않음');
     ok((await p.locator('#hCode').inputValue()) === '음운 연습', '시험지 제목과 과제 제목은 같은 값');
     await p.click('#xTabs [data-x=bk]'); ok(await p.locator('#xp-bk').isVisible() && await p.locator('#xp-pr').isHidden(), '탭 바꾸기 — 중철 책자');
+    ok(await p.locator('#pTitle').isVisible(), '제목 칸은 책자 탭에서도 보임');
     await p.evaluate(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
     await p.click('#xTabs [data-x=pr]'); await p.click('#prS'); await p.waitForFunction(() => window.__printed === 1);
     const pr = await p.locator('#print').innerHTML();
@@ -184,9 +185,9 @@ function rpc(fn, p) {
     // 저장
     ok((await p.locator('#hTeacher').inputValue()) === '이현지', '담당 강사 = 로그인 이름');
     await p.click('#xTabs [data-x=hw]');
-    await p.fill('#hCode', '일반 과제'); await p.click('#saveBtn');
+    await p.fill('#pTitle', '일반 과제'); await p.click('#saveBtn');
     ok((await p.locator('#saveMsg').textContent()).includes('일반 H WORK 과제가 이미'), '같은 이름 일반 과제는 막음');
-    await p.fill('#hCode', '[슈핏 문법] 음운 연습'); await p.click('#saveBtn');
+    await p.fill('#pTitle', '[슈핏 문법] 음운 연습'); await p.click('#saveBtn');
     await p.waitForFunction(() => document.getElementById('saveMsg').textContent.includes('저장했습니다'));
     const post = DB.posts.find(x => x.action === 'saveHomework');
     ok(post && post.data.count === 4 && post.data.items['1'].type === 'choice5' && post.data.items['1'].ans === 5, '시트 저장 — 5지선다 정답');

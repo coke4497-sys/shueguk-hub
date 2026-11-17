@@ -253,9 +253,9 @@
       </section>
       <section class="card">
         <div class="xh"><h2><span class="n">4</span>내보내기</h2><span id="xHint">문항을 담으면 쓸 수 있어요</span></div>
+        <label class="f"><span>제목 <span class="dim">· 시험지·PDF 파일·H WORK 과제 이름</span></span><input type="text" id="pTitle" placeholder="문항을 담으면 자동으로 채워져요"></label>
         <div class="seg" id="xTabs"><button type="button" data-x="pr" class="on">인쇄</button><button type="button" data-x="bk">중철 책자</button><button type="button" data-x="hw">H WORK</button></div>
         <div class="pane" id="xp-pr">
-          <label class="f">시험지 제목<input type="text" id="pTitle" placeholder="문항을 담으면 자동으로 채워져요"></label>
           <div class="two"><button class="btn" type="button" id="prS">학생용 인쇄</button><button class="btn" type="button" id="prT">교사용 인쇄 (정답·해설)</button></div>
           <span class="info">인쇄 창에서 'PDF로 저장'을 고르면 파일로도 받을 수 있어요.</span>
         </div>
@@ -267,7 +267,7 @@
         </div>
         <div class="pane" id="xp-hw" hidden>
           <label class="f">담당 강사<input type="text" id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></label>
-          <label class="f"><span>과제 제목 <span class="dim">· 학생에게 보이는 이름</span></span><input type="text" id="hCode" placeholder="문항을 담으면 자동으로 채워져요"></label>
+          <input type="hidden" id="hCode"><!-- 과제 제목 = 위 '제목' 칸과 같은 값(따로 보이지 않음) -->
           <button class="btn main" type="button" id="saveBtn">H WORK 과제로 출제</button>
           <div class="msg" id="saveMsg"></div>
           <span class="info" style="line-height:1.7">저장한 뒤 학생 배정은 [H WORK 배정하기]에서 합니다. 학생은 휴대폰에서 문제를 보며 풀고, 틀린 문항은 오답하기와 질문으로 선생님과 이야기할 수 있어요.</span>
@@ -612,7 +612,7 @@ $('saveBtn').onclick=async()=>{
   const teacher=$('hTeacher').value.trim(), code=$('hCode').value.trim(), ids=selIds();
   if(!ids.length){ toast('문항을 먼저 고르세요'); return; }
   if(!teacher){ toast('담당 강사를 적어 주세요'); $('hTeacher').focus(); return; }
-  if(!code){ toast('과제 제목을 적어 주세요'); $('hCode').focus(); return; }
+  if(!code){ toast('제목을 적어 주세요'); $('pTitle').focus(); return; }
   const same=ALLHW.find(h=>h.teacher===teacher && h.code===code);
   if(same){
     if(!(same.data && same.data.bank)){ setMsg('bad','같은 강사·제목의 일반 H WORK 과제가 이미 있습니다. 제목을 바꿔 주세요.'); return; }
