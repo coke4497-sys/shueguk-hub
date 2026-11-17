@@ -120,7 +120,7 @@ function rpc(fn, p) {
     ok(await p.locator('.it').first().locator('.pas').count() === 1, '지문 보기');
     ok(await p.locator('#rLvl').isHidden() && await p.locator('#rKind').isHidden() && (await p.locator('#fStep').textContent()).includes('단원'), '처음엔 단원만 — 난도·출처 숨김');
     ok(await p.locator('#prS').isDisabled() && await p.locator('#saveBtn').isDisabled() && (await p.locator('#xHint').textContent()).includes('담으면'), '문항이 없으면 내보내기 버튼 잠김');
-    ok(await p.locator('#xp-pr').isVisible() && await p.locator('#xp-bk').isHidden() && await p.locator('#xp-hw').isHidden(), '내보내기 탭 — 처음엔 인쇄');
+    ok(await p.locator('#xp-pr').isVisible() && await p.locator('#xp-ex').isHidden() && await p.locator('#xp-hw').isHidden() && (await p.locator('#xTabs').innerText()).replace(/\s+/g, '') === '학습자료인쇄시험지인쇄H WORK출제'.replace(/\s+/g, ''), '내보내기 탭 — 학습자료 인쇄 · 시험지 인쇄 · H WORK 출제, 처음엔 학습자료');
     ok((await p.locator('#tot').textContent()).includes('문항 4개') && (await p.locator('.it .no').first().textContent()) === '01', '머리 합계 · 카드 번호');
     // 문항 묶음(2026-11-17) — 0~456 = 2026 묶음, 457부터 = 2025 묶음. 가짜 문항은 모두 2026 묶음이라 2025 칩은 없다
     ok((await p.locator('#fSet').textContent()) === '전체42026 묶음4', '묶음 칩 — 있는 묶음만: ' + await p.locator('#fSet').textContent());
@@ -173,7 +173,8 @@ function rpc(fn, p) {
     await p.click('[data-add="103"]'); await p.click('[data-add="103"]');
     ok((await p.locator('#pTitle').inputValue()) === '음운 연습', '직접 고친 제목은 덮지 않음');
     ok((await p.locator('#hCode').inputValue()) === '음운 연습', '시험지 제목과 과제 제목은 같은 값');
-    await p.click('#xTabs [data-x=bk]'); ok(await p.locator('#xp-bk').isVisible() && await p.locator('#xp-pr').isHidden(), '탭 바꾸기 — 중철 책자');
+    ok(await p.locator('#bkS').isVisible() && await p.locator('#prS').isVisible(), '학습자료 탭 = A4 학습지 + 중철 책자');
+    await p.click('#xTabs [data-x=ex]'); ok(await p.locator('#xp-ex').isVisible() && await p.locator('#xp-pr').isHidden(), '탭 바꾸기 — 시험지 인쇄');
     ok(await p.locator('#pTitle').isVisible(), '제목 칸은 책자 탭에서도 보임');
     await p.evaluate(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
     // 시험지 저장(2026-11-17) — 출제 선생님별, 저장해야 인쇄
@@ -204,6 +205,38 @@ function rpc(fn, p) {
     if (SHOT) await p.screenshot({ path: path.join(SHOT, 'shufit-print-teacher.png'), fullPage: true });
     await p.emulateMedia({ media: 'screen' });
     // 저장
+    // 시험지 인쇄(2026-11-17) — 머리 칸·답안 기록표·정답표
+    await p.click('#xTabs [data-x=ex]');
+    // A형(기본) — 시험명·큰 과목명·둥근 학교명·로고·성명/수험 번호 칸, 지문 테두리 상자
+    ok(await p.evaluate(() => EX_DES === 'A' && document.querySelector('#exDes .on').dataset.d === 'A' && getComputedStyle(document.getElementById('exYear').parentNode).display === 'none' && getComputedStyle(document.getElementById('exTitle').parentNode).display !== 'none'), 'A형 기본 · A형 칸만 보임');
+    await p.fill('#exTitle', '2026년 2학기 모의 기말고사'); await p.fill('#exSubj', '문법 8'); await p.fill('#exSchool', '행신고3');
+    let np = await p.evaluate(() => window.__printed || 0);
+    await p.click('#exS'); await p.waitForFunction(n => window.__printed === n + 1, np);
+    const ea = await p.evaluate(() => ({ cls: document.getElementById('print').className, cover: (document.querySelector('#print .cover') || {}).innerText || '', logo: !!document.querySelector('#print .cover svg.logo text'), id: document.querySelectorAll('#print .cover .digits span').length, pages: document.querySelectorAll('#print .page').length, run: document.querySelectorAll('#print .runhead').length, frac: [...document.querySelectorAll('#print .frac .b')].map(x => x.textContent).join(), qn: [...document.querySelectorAll('#print .qn')].map(x => x.textContent).join(''), instr: (document.querySelector('#print .xb.instr') || {}).textContent || '', psBorder: getComputedStyle(document.querySelector('#print .xb.passage') || document.body).borderTopWidth, notice: document.querySelectorAll('#print .notice').length, omr: document.querySelectorAll('#print .omr > div').length, circ: document.querySelectorAll('#print .omr i').length, ok: document.querySelectorAll('#print .cn.ok').length, xbox: document.querySelectorAll('#print .xbox').length, brand: (document.querySelector('#print .brandf') || {}).textContent || '', title: document.title, page: document.getElementById('pageStyle').textContent }));
+    ok(ea.cls.includes('design-a') && ea.cover.includes('2026년 2학기 모의 기말고사') && ea.cover.includes('문법 8') && ea.cover.includes('행신고3') && ea.cover.includes('성명') && ea.cover.includes('수험 번호') && ea.logo && ea.id === 10, 'A형 머리(시험명·과목명·학교·로고·성명/수험 번호) ' + JSON.stringify(ea).slice(0, 300));
+    ok(ea.notice === 0 && ea.instr.startsWith('※ [') && ea.psBorder !== '0px', 'A형 — 안내 상자 없음 · ※ 안내문 · 지문 테두리');
+    ok(ea.pages >= 2 && ea.run === ea.pages - 1 && ea.frac.split(',').every(x => x === String(ea.pages)), 'A형 쪽 상자·2쪽부터 국어 영역 머리말·분수 쪽 번호 ' + ea.pages + '쪽');
+    ok(ea.qn === '1.2.3.4.' && ea.ok === 0 && ea.xbox === 0, 'A형 = 문항만(정답·해설 없음) ' + ea.qn);
+    ok(ea.omr === 4 && ea.circ === 20, '답안 기록표 4문항 × ①~⑤');
+    ok(ea.brand.includes('Shueguk') && ea.brand.includes('다르게 하기의 힘') && ea.page.includes('margin:0'), '왼쪽 아래 Shueguk 다르게 하기의 힘 · 여백 0 쪽');
+    ok(ea.title === '음운 연습 시험지', '시험지 파일 이름: ' + ea.title);
+    if (SHOT) { await p.emulateMedia({ media: 'print' }); await p.pdf({ path: path.join(SHOT, 'shufit-exam-A.pdf'), preferCSSPageSize: true, printBackground: true }); await p.emulateMedia({ media: 'screen' }); }
+    await p.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    // B형 — 표 머리 + 안내 상자
+    await p.click('#exDes [data-d=B]');
+    ok(await p.evaluate(() => EX_DES === 'B' && getComputedStyle(document.getElementById('exTitle').parentNode).display === 'none' && getComputedStyle(document.getElementById('exYear').parentNode).display !== 'none' && localStorage.getItem('sf_exdes') === 'B'), 'B형으로 바꾸면 B형 칸 · 기억');
+    await p.fill('#exYear', '2026'); await p.selectOption('#exSem', '2'); await p.fill('#exType', '기말'); await p.fill('#exGrade', '1'); await p.fill('#exSubj', ''); await p.fill('#exSchool', '행신고등학교'); await p.fill('#exDate', '2026-12-01'); await p.fill('#exPts', '100'); await p.fill('#exMin', '50');
+    np = await p.evaluate(() => window.__printed || 0);
+    await p.click('#exS'); await p.waitForFunction(n => window.__printed === n + 1, np);
+    const eb = await p.evaluate(() => ({ cls: document.getElementById('print').className, head: (document.querySelector('#print .coverB') || {}).innerText || '', notice: (document.querySelector('#print .notice') || {}).innerText || '', cover: document.querySelectorAll('#print .cover').length, instr: (document.querySelector('#print .xb.instr') || {}).textContent || '', psBorder: getComputedStyle(document.querySelector('#print .xb.passage') || document.body).borderTopWidth }));
+    ok(!eb.cls.includes('design-a') && eb.cover === 0 && /2026학년도 \( 2 \)학기 \( 기말 \)고사/.test(eb.head) && eb.head.includes('( 1 )학년') && eb.head.includes('2026년 12월 1일') && eb.head.includes('행신고등학교') && eb.head.includes('총 ( 4 )문항') && eb.head.includes('문법 · 품사·음운'), 'B형 표 머리 ' + JSON.stringify(eb.head));
+    ok(eb.notice.includes('( 4 )문항') && eb.notice.includes('( 100 )점') && eb.notice.includes('( 50 )분') && eb.instr.startsWith('[') && eb.psBorder === '0px', 'B형 안내 상자 · [범위] 안내문 · 지문 테두리 없음 ' + JSON.stringify(eb.notice));
+    if (SHOT) { await p.emulateMedia({ media: 'print' }); await p.pdf({ path: path.join(SHOT, 'shufit-exam-B.pdf'), preferCSSPageSize: true, printBackground: true }); await p.emulateMedia({ media: 'screen' }); }
+    await p.click('#exT'); await p.waitForFunction(n => window.__printed === n + 1, np + 1);
+    const ky = await p.evaluate(() => ({ cells: [...document.querySelectorAll('#print .kgrid > div')].map(x => x.querySelector('b').textContent + x.textContent.replace(/^\d+/, '').slice(0, 1)).join(), q: document.querySelectorAll('#print .qn').length, title: document.title }));
+    ok(ky.cells === '1⑤,2②,3④,4①' && ky.q === 0 && ky.title === '음운 연습 정답표', '정답표 한 장 ' + JSON.stringify(ky));
+    await p.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    await p.click('#xTabs [data-x=pr]');
     // 선생님별 '낸 적 있음' — 이현지: 방금 저장한 시험지(104·101·102·103), 김지원: 시험지 103 + H WORK 104
     ok(await p.evaluate(() => Object.keys(USED).map(Number).sort().join()) === '101,102,103,104', '이현지 선생님 낸 문항 = 저장한 시험지');
     await p.fill('#hTeacher', '김지원'); await p.locator('#hTeacher').dispatchEvent('change');
@@ -253,7 +286,7 @@ function rpc(fn, p) {
   const nSel = Number((await bk.textContent('#selN')).replace(/\D/g, ''));
   ok(nSel >= 20, '책자용 문항 담기 ' + nSel);
   await bk.click('#paperSave'); await bk.waitForFunction(() => !document.getElementById('bkS').disabled);
-  await bk.click('#xTabs [data-x=bk]'); await bk.click('#bkS'); await bk.waitForFunction(() => window.__printed === 1, null, { timeout: 15000 });
+  await bk.click('#xTabs [data-x=pr]'); await bk.click('#bkS'); await bk.waitForFunction(() => window.__printed === 1, null, { timeout: 15000 });
   const N = Number(await bk.getAttribute('#bkInfo', 'data-pages'));
   ok(N >= 4 && N % 4 === 0, '책자 쪽 수 4의 배수 — ' + N + '쪽');
   ok(await bk.locator('#print .sheet').count() === N, 'A4 장 수 = 쪽 수 (' + await bk.locator('#print .sheet').count() + ')');
@@ -267,6 +300,7 @@ function rpc(fn, p) {
   const cv = await bk.evaluate(() => { const ps = [...document.querySelectorAll('#print .bpage')]; const sh = [...document.querySelectorAll('#print .sheet')]; return { cover: ps.filter(p => p.classList.contains('cover')).length, back: ps.filter(p => p.classList.contains('bkback')).length, first: sh[0].firstElementChild.classList.contains('cover'), last: sh[sh.length - 1].firstElementChild.classList.contains('bkback'), sk: !!document.querySelector('#print .cover img.cv-sk') && !!document.querySelector('#print .bkback img'), title: (document.querySelector('#print .cv-title') || {}).textContent || '', on: document.querySelectorAll('#print .cv-u.on').length, units: document.querySelectorAll('#print .cv-u').length }; });
   ok(cv.cover === 1 && cv.back === 1 && cv.first && cv.last, '앞표지 = 1쪽 · 뒤표지 = 마지막 쪽 ' + JSON.stringify(cv));
   ok(cv.sk && cv.title.includes('Shuefit 문법') && cv.on >= 1 && cv.units >= cv.on, '표지 — 슈콩이·제목·단원 칸 ' + JSON.stringify(cv));
+  ok(await bk.evaluate(() => coverInfo(Object.assign(docParts(false), { title: 'shuefit 문법: 음운 기본 (3)' }), false).t1) === 'Shuefit 문법', '옛 소문자 제목도 표지는 Shuefit');
   const nums = await bk.evaluate(() => [...document.querySelectorAll('#print .qn')].map(x => +x.textContent));
   const pagesSeq = await bk.evaluate(() => { const m = {}; document.querySelectorAll('#print .bpage').forEach(p => { const bn = p.querySelector('.bno'); const n = bn ? +(bn.textContent.replace(/\D/g, '')) || 0 : 0; m[n] = [...p.querySelectorAll('.qn')].map(x => +x.textContent); }); return Object.keys(m).filter(k => +k).sort((a, b) => a - b).flatMap(k => m[k]); });
   ok(pagesSeq.join() === Array.from({ length: nSel }, (_, i) => i + 1).join(), '쪽 순서대로 읽으면 문항 1~' + nSel + ' 차례대로');

@@ -197,6 +197,102 @@
   .bk-in .pl{display:inline-block;background:#fff;border-radius:99px;padding:1.6mm 6mm;font-size:9pt;color:#3d675d;margin-top:7mm}
   .bkinfo{padding:12px 14px;border-radius:14px;background:#f1f4f1;font-size:12px;line-height:1.7;color:#54655c}
   .bkinfo b{color:#2b3a33}
+  .exgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+  /* 시험지 인쇄(2026-11-17) — 머리 칸·답안 기록표·정답표 */
+  /* 시험지 인쇄 = exam-design 스킬 '디자인 B'(2026-11-17 원장님이 보낸 exam-design-skill — 행신고 표 형식 머리) 그대로.
+   * 화면 밖 #exm 에서 쪽 상자(.page 210×297)를 만들어 블록을 흘려 넣고(문항은 단을 넘겨 나누지 않음) #print 로 옮긴다. 학습자료 인쇄(민트)는 그대로 */
+  #exm{position:absolute;left:-99999px;top:0}
+  .exdes{display:flex;gap:6px;margin-bottom:8px}
+  .exdes button{flex:1;border:0;border-radius:999px;padding:8px 10px;font:inherit;font-size:13px;background:#f2f5f3;color:#4F5C56;cursor:pointer}
+  .exdes button.on{background:#EDE4F4;color:#5A4A6A;font-weight:700}
+  #xp-ex[data-d="A"] .db, #xp-ex[data-d="B"] .da{display:none}
+  @media print{ #exm{display:none!important} }
+  .exd{--serif:"HCR Batang","함초롬바탕","HY신명조","Batang","바탕","Noto Serif CJK KR","Noto Serif KR","Gowun Batang",serif;
+    --sans:"HCR Dotum","함초롬돋움","Malgun Gothic","맑은 고딕","Noto Sans CJK KR","Noto Sans KR","Gowun Dodum",sans-serif;
+    --num:"Times New Roman","Nimbus Roman","Liberation Serif","DejaVu Serif",serif;
+    font-family:var(--serif);font-size:9.4pt;line-height:1.62;color:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .exd *{box-sizing:border-box}
+  .exd .page{width:210mm;height:297mm;position:relative;background:#fff;overflow:hidden;break-after:page;page-break-after:always}
+  .exd .page:last-child{break-after:auto;page-break-after:auto}
+  .exd .runhead{position:absolute;left:14mm;right:14mm;top:9mm;height:16mm;border-bottom:1.6pt solid #000}
+  .exd .runhead .area{position:absolute;left:0;right:0;bottom:1.2mm;text-align:center;font-family:var(--sans);font-weight:700;font-size:17pt;letter-spacing:.06em}
+  .exd .runhead .pno{position:absolute;bottom:.6mm;font-family:var(--num);font-weight:700;font-size:25pt;line-height:1}
+  .exd .page.even .runhead .pno{left:0} .exd .page.odd .runhead .pno{right:0}
+  .exd .cols{position:absolute;left:14mm;right:14mm;top:27mm;bottom:24mm;display:flex}
+  .exd .page.first .cols{top:36mm}
+  .exd .col{flex:1;height:100%;overflow:hidden;padding-top:1.6mm}
+  .exd .col.L{padding-right:3.2mm} .exd .col.R{padding-left:3.2mm}
+  .exd .vrule{width:0;border-left:.8pt solid #000;height:100%}
+  .exd .foot{position:absolute;left:0;right:0;bottom:11mm;display:flex;justify-content:center}
+  .exd .frac{width:14.5mm;height:6.6mm;border:.8pt solid #000;position:relative;font-family:var(--num);font-size:9pt;line-height:1;
+    background:linear-gradient(to bottom right,transparent calc(50% - .4pt),#000 calc(50% - .4pt),#000 calc(50% + .4pt),transparent calc(50% + .4pt))}
+  .exd .frac .a{position:absolute;left:1mm;top:.5mm} .exd .frac .b{position:absolute;right:1mm;bottom:.4mm}
+  .exd .brandf{position:absolute;left:14mm;bottom:12mm;font-size:7pt;color:#777;font-family:var(--sans)}
+  .exd .brandf b{font-family:Sacramento,cursive;font-weight:400;font-size:10pt;color:#555;margin-right:1.4mm}
+  .exd .coverB{position:absolute;left:14mm;right:14mm;top:10mm}
+  .exd .coverB table{width:100%;border-collapse:collapse;font-family:var(--sans);table-layout:fixed}
+  .exd .coverB td{border:1pt solid #000;text-align:center;vertical-align:middle;height:7.4mm;padding:0 1mm;font-size:11pt;font-weight:700;white-space:nowrap;overflow:hidden}
+  .exd .coverB .g{background:#d9d9d9}
+  .exd .coverB .ttl{font-size:13pt;letter-spacing:.02em}
+  .exd .coverB .lab{letter-spacing:.35em}
+  .exd .coverB .school{font-size:15pt;letter-spacing:.12em}
+  .exd .coverB .tot{font-size:11pt;font-weight:400}
+  .exd .notice{border:.8pt solid #000;padding:1.4mm 3mm;font-family:var(--sans);font-size:8.8pt;line-height:1.7;margin-bottom:3.2mm}
+  .exd .notice ul{margin:0;padding-left:4mm} .exd .notice li{list-style:disc}
+  .exd .xb{margin-bottom:6.4mm}
+  .exd .xb.instr{font-family:var(--sans);font-weight:700;font-size:10.4pt;border-bottom:.8pt solid #000;padding-bottom:1.4mm;margin-bottom:2.6mm}
+  .exd .xb.passage{font-size:9.6pt;line-height:1.75}
+  .exd .xb.passage.pend:not(.cont-bottom){border-bottom:.8pt solid #000;padding-bottom:2.2mm}
+  .exd .xb.cont-bottom{margin-bottom:0}
+  .exd .gq,.exd .gq *{font-family:var(--serif);color:#000!important}
+  .exd .gq .pp{font-family:var(--serif);text-indent:1em;line-height:1.75}
+  .exd .gq .q{margin:0}
+  .exd .gq .qh{display:block;margin-bottom:1.6mm;padding-left:1.55em;text-indent:-1.55em}
+  .exd .gq .qh .qn{display:inline;background:none!important;border-radius:0;min-width:0;height:auto;line-height:inherit;margin:0 .3em 0 0;padding:0;font-family:var(--num);font-weight:700;font-size:11.5pt}
+  .exd .gq .stem{display:inline;font-family:var(--sans);font-weight:700;font-size:10.1pt;line-height:1.85;-webkit-text-stroke:0}
+  .exd .gq .stem *{font-family:var(--sans)}
+  .exd .gq .pt{font-weight:700}
+  .exd .gq .box,.exd .gq .note,.exd .gq .cl-w,.exd .gq .tree .tn,.exd .gq .fb,.exd .gq .abox{background:#fff!important;border-color:#000!important;border-radius:0!important}
+  .exd .gq .bl span,.exd .gq .alab{border-color:#000!important;border-radius:0!important;background:#fff!important}
+  .exd .gq table.ot td{border-color:#000!important}
+  .exd .gq .src,.exd .psrc{display:none}
+  /* 디자인 A — 과목명 크게·둥근 학교명·로고·성명/수험 번호 칸, 지문은 테두리 상자 */
+  .exd.design-a .page.first .cols{top:48mm}
+  .exd.design-a .vrule{border-left-width:1.3pt}
+  .exd .cover{position:absolute;left:14mm;right:14mm;top:8mm;height:39mm}
+  .exd .cover .exam{text-align:center;font-family:var(--sans);font-size:15.5pt;letter-spacing:.02em;margin-top:1mm}
+  .exd .cover .subject{text-align:center;font-family:"H2mjrE","HY신명조",var(--serif);font-weight:700;font-size:30pt;letter-spacing:.14em;line-height:1.25;margin-top:.5mm;white-space:nowrap;overflow:hidden}
+  .exd .cover .school{position:absolute;left:3mm;top:16mm;border:1.1pt solid #000;border-radius:5mm;padding:.6mm 4.5mm;font-family:var(--sans);font-size:13pt;font-weight:700}
+  .exd .cover .logo{position:absolute;right:3mm;top:2mm;width:25mm;height:25mm}
+  .exd .cover .idrow{white-space:nowrap;position:absolute;top:28.5mm;left:50%;transform:translateX(-46%);display:flex;gap:5mm;font-family:var(--sans);font-size:12pt}
+  .exd .cover .idrow .cell{display:flex;border:1pt solid #000;height:7.6mm}
+  .exd .cover .idrow .lab{padding:0 2mm;display:flex;align-items:center;border-right:1pt solid #000;letter-spacing:.1em}
+  .exd .cover .idrow .name{width:29mm}
+  .exd .cover .idrow .digits{display:flex}
+  .exd .cover .idrow .digits span{width:6mm;border-right:.8pt dotted #000}
+  .exd .cover .idrow .digits span.dash{border-right:.8pt solid #000;position:relative}
+  .exd .cover .idrow .digits span.dash::after{content:"";position:absolute;left:.8mm;right:.8mm;top:50%;border-top:1pt solid #000}
+  .exd .cover .idrow .digits span:last-child{border-right:0}
+  .exd.design-a .xb.instr{font-family:var(--serif);font-weight:400;font-size:9.2pt;border-bottom:0;padding-bottom:0;margin-bottom:1.2mm}
+  .exd.design-a .xb.passage{border:.8pt solid #000;padding:1.6mm 2.4mm 1.8mm;font-size:9.1pt;line-height:1.62;text-align:justify}
+  .exd.design-a .xb.passage .pp{text-indent:.75em;line-height:1.62}
+  .exd.design-a .xb.passage.cont-top{border-top:none;padding-top:0}
+  .exd.design-a .xb.passage.cont-bottom{border-bottom:none;padding-bottom:0}
+  .exd.design-a .xb.passage.pend:not(.cont-bottom){border-bottom:.8pt solid #000}
+  .exd .omrpage .omrbox{position:absolute;left:14mm;right:14mm;top:30mm}
+  .exd .omrpage h3{font-family:var(--sans);font-size:14pt;text-align:center;margin:0 0 4mm}
+  .exd .omrpage .sub{font-family:var(--sans);font-size:10pt;margin-bottom:5mm;display:flex;gap:8mm;justify-content:center}
+  .exd .omrpage .sub span{display:inline-block;min-width:34mm;border-bottom:.8pt solid #000;margin-left:2mm}
+  .exd .omr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 5mm}
+  .exd .omr div{display:flex;align-items:center;gap:1.1mm;min-width:0;padding:1.8mm 0;border-bottom:.6pt solid #999;font-size:10pt}
+  .exd .omr b{width:6mm;flex:none;font-family:var(--num);text-align:right}
+  .exd .omr i{font-style:normal;width:5mm;height:5mm;border:.8pt solid #000;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:7.5pt}
+  .exd .keybox{position:absolute;left:14mm;right:14mm;top:30mm}
+  .exd .keybox h3{font-family:var(--sans);font-size:13pt;text-align:center;margin:0 0 4mm}
+  .exd .kgrid{display:grid;grid-template-columns:repeat(5,1fr);border-top:.8pt solid #000;border-left:.8pt solid #000}
+  .exd .kgrid div{display:flex;align-items:center;gap:2mm;padding:2mm 2.4mm;border-right:.8pt solid #000;border-bottom:.8pt solid #000;font-size:11pt}
+  .exd .kgrid b{font-family:var(--num);min-width:6mm}
+  .exd .kgrid em{font-style:normal;font-size:8pt;color:#555;margin-left:auto;font-family:var(--sans)}
   #print .ph1, #bkm .ph1{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:.3mm solid #c3dcd5;padding-bottom:2mm;margin-bottom:4mm}
   #print .ph1 .logo, #bkm .ph1 .logo{font-family:Sacramento;font-size:20pt;color:#5f9488;line-height:1}
   #print .ph1 .tt, #bkm .ph1 .tt{font-family:'Gowun Batang',serif;font-size:14pt;font-weight:700;color:#24443d}
@@ -265,16 +361,36 @@
         <label class="f"><span>출제 선생님 <span class="dim">· 선생님마다 시험지를 따로 저장해요</span></span><input type="text" id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></label>
         <label class="f"><span>제목 <span class="dim">· 시험지·PDF 파일·H WORK 과제 이름</span></span><input type="text" id="pTitle" placeholder="문항을 담으면 자동으로 채워져요"></label>
         <div class="psave"><button class="btn main" type="button" id="paperSave">시험지 저장</button><span id="paperMsg">저장해야 인쇄할 수 있어요</span></div>
-        <div class="seg" id="xTabs"><button type="button" data-x="pr" class="on">인쇄</button><button type="button" data-x="bk">중철 책자</button><button type="button" data-x="hw">H WORK</button></div>
+        <div class="seg" id="xTabs"><button type="button" data-x="pr" class="on">학습자료 인쇄</button><button type="button" data-x="ex">시험지 인쇄</button><button type="button" data-x="hw">H WORK 출제</button></div>
         <div class="pane" id="xp-pr">
+          <span class="tt">A4 학습지 <span>(2단)</span></span>
           <div class="two"><button class="btn" type="button" id="prS">학생용 인쇄</button><button class="btn" type="button" id="prT">교사용 인쇄 (정답·해설)</button></div>
-          <span class="info">인쇄 창에서 'PDF로 저장'을 고르면 파일로도 받을 수 있어요.</span>
-        </div>
-        <div class="pane" id="xp-bk" hidden>
           <span class="tt">중철 책자 <span>(A4 · 표지 포함)</span></span>
           <div class="two"><button class="btn" type="button" id="bkS">학생용 책자 PDF</button><button class="btn" type="button" id="bkT">교사용 책자 PDF</button></div>
           <div class="bkinfo" id="bkInfo">앞표지·본문·뒤표지를 <b>A4 한 장에 한 쪽씩, 차례대로</b> 담습니다. 쪽 수는 4의 배수로 맞추고 남는 쪽은 뒤표지 앞에 비워 둬요. 인쇄 창에서 <b>대상: PDF로 저장</b>을 고르면 파일로 내려받습니다.
             중철로 만들 때는 복합기의 <b>소책자(책자) 인쇄</b>를 켜고 A3에 찍은 뒤 반으로 접어 가운데를 스테이플러로 찍어요. A4 양면으로 그대로 찍어도 됩니다.</div>
+          <span class="info">인쇄 창에서 'PDF로 저장'을 고르면 파일로도 받을 수 있어요.</span>
+        </div>
+        <div class="pane" id="xp-ex" hidden>
+          <div class="exdes" id="exDes" role="tablist" aria-label="시험지 양식">
+            <button type="button" data-d="A" class="on">A형 · 과목명 크게 + 로고</button>
+            <button type="button" data-d="B">B형 · 표 형식 머리</button>
+          </div>
+          <span class="info" id="exDesInfo">비운 칸은 시험지에 빈칸으로 나가요.</span>
+          <div class="exgrid">
+            <label class="f da">시험명<input type="text" id="exTitle" maxlength="40" placeholder="예: 2026년 1학기 모의 기말고사"></label>
+            <label class="f db">학년도<input type="number" id="exYear" min="2020" max="2100" inputmode="numeric"></label>
+            <label class="f db">학기<select id="exSem"><option value="">비움</option><option>1</option><option>2</option></select></label>
+            <label class="f db">고사<input type="text" id="exType" maxlength="10" placeholder="예: 중간 · 기말"></label>
+            <label class="f db">학년<input type="text" id="exGrade" maxlength="4" placeholder="예: 1"></label>
+            <label class="f">과목명<input type="text" id="exSubj" maxlength="30" placeholder="비우면 '문법 · 단원'"></label>
+            <label class="f">학교<input type="text" id="exSchool" maxlength="30" placeholder="예: 행신고등학교"></label>
+            <label class="f db">고사일<input type="date" id="exDate"></label>
+            <label class="f db">총점 (점)<input type="number" id="exPts" min="1" max="1000" inputmode="numeric" placeholder="예: 100"></label>
+            <label class="f db">시험 시간 (분)<input type="number" id="exMin" min="1" max="300" inputmode="numeric" placeholder="비우면 안 넣음"></label>
+          </div>
+          <div class="two"><button class="btn" type="button" id="exS">시험지 인쇄</button><button class="btn" type="button" id="exT">정답표 인쇄</button></div>
+          <div class="bkinfo">시험지 = 학교 지필고사 양식(디자인 B) — 머리 표 · 안내 상자 · 2단 · 2쪽부터 '국어 영역' 머리말 · 쪽 번호, 문항은 단을 넘겨 나뉘지 않아요. 마지막 장은 <b>답안 기록표</b>(이름 칸 포함). 정답·해설은 들어가지 않아요.<br>정답표 = 채점용 정답만 모은 <b>한 장</b>입니다.</div>
         </div>
         <div class="pane" id="xp-hw" hidden>
           <input type="hidden" id="hCode"><!-- 과제 제목 = 위 '제목' 칸과 같은 값(따로 보이지 않음) -->
@@ -288,6 +404,7 @@
 </div>
 <div id="print"></div>
 <div id="bkm" class="bk" aria-hidden="true"></div>
+<div id="exm" class="exd" aria-hidden="true"></div>
 <style id="pageStyle">@page{size:A4;margin:14mm 13mm 14mm 13mm}</style>
 <div class="toast" id="toast"></div>
 <script>
@@ -424,7 +541,7 @@ function selSig(){ return selIds().join(','); }
 function canPrint(){ return !!SAVED && SAVED.teacher===curTeacher() && SAVED.title===$('pTitle').value.trim() && SAVED.sig===selSig() && !!SAVED.sig; }
 function drawPrint(){
   const n=selIds().length, ok=canPrint();
-  ['prS','prT','bkS','bkT'].forEach(id=>{ $(id).disabled = !n || !ok; });
+  ['prS','prT','bkS','bkT','exS','exT'].forEach(id=>{ $(id).disabled = !n || !ok; });
   $('paperSave').disabled = !n;
   const m=$('paperMsg');
   m.className = ok ? 'ok' : '';
@@ -600,7 +717,7 @@ function autoTitle(){
 /* 시험지 제목과 과제 제목은 같은 값을 쓴다(디자인 묶음) — 한쪽을 고치면 다른 쪽도 */
 ['pTitle','hCode'].forEach(id=>$(id).addEventListener('input', e=>{ const o=$(id==='pTitle'?'hCode':'pTitle'); o.value=e.target.value; o.dataset.auto=e.target.dataset.auto||''; }));
 /* 내보내기 탭 — 인쇄 · 중철 책자 · H WORK */
-function xTab(k){ document.querySelectorAll('#xTabs [data-x]').forEach(b=>b.classList.toggle('on', b.dataset.x===k)); ['pr','bk','hw'].forEach(x=>{ $('xp-'+x).hidden = x!==k; }); }
+function xTab(k){ document.querySelectorAll('#xTabs [data-x]').forEach(b=>b.classList.toggle('on', b.dataset.x===k)); ['pr','ex','hw'].forEach(x=>{ $('xp-'+x).hidden = x!==k; }); }
 $('xTabs').addEventListener('click', e=>{ const b=e.target.closest('[data-x]'); if(b) xTab(b.dataset.x); });
 function applyAutoTitle(){
   const t=autoTitle();
@@ -744,12 +861,14 @@ function docParts(teacher){
 }
 function waitImgs(el){ const imgs=[...el.querySelectorAll('img')].filter(i=>!i.complete); return Promise.all(imgs.map(i=>new Promise(r=>{ i.onload=i.onerror=r; }))); }
 function setPage(css){ $('pageStyle').textContent=css; }
-const PAGE_A4='@page{size:A4;margin:14mm 13mm 14mm 13mm}', PAGE_BK='@page{size:A4;margin:0}';
+const PAGE_A4='@page{size:A4;margin:14mm 13mm 14mm 13mm}', PAGE_BK='@page{size:A4;margin:0}',
+  PAGE_EX='@page{size:A4;margin:14mm 13mm 16mm 13mm;@bottom-center{content:counter(page) " / " counter(pages);font-size:9pt;color:#000}'
+    +'@bottom-left{content:"Shueguk  다르게 하기의 힘";font-size:7.5pt;color:#777}}';
 /* 'PDF로 저장' 파일 이름 = 시험지 제목 — 인쇄 창은 document.title 을 파일 이름으로 쓴다. 파일 이름에 못 쓰는 글자(: / \ 등)는 뺀다 */
 const PAGE_TITLE=document.title;
-function fileTitle(title, teacher, booklet){
+function fileTitle(title, teacher, booklet, extra){
   const base=String(title||'Shuefit 문법').replace(/[\\/:*?"<>|]+/g,' ').replace(/\s+/g,' ').trim() || 'Shuefit 문법';
-  return base + (booklet?' 중철 책자':'') + (teacher?' (교사용)':'');
+  return base + (booklet?' 중철 책자':'') + (extra?' '+extra:'') + (teacher?' (교사용)':'');
 }
 window.addEventListener('afterprint', ()=>{ setPage(PAGE_A4); document.title=PAGE_TITLE; });
 function printDoc(teacher){
@@ -773,7 +892,7 @@ function coverInfo(d, teacher){
   const ys=uniq('year').map(Number).filter(Boolean).sort();
   const yr=ys.length ? (ys[0]===ys[ys.length-1] ? ys[0] : ys[0]+'~'+ys[ys.length-1])+' ' : '';
   const m=d.title.match(/^(.*?):\s*(.+)$/);
-  const t1=m?m[1]:'Shuefit 문법', t2=m?m[2]:d.title;
+  const t1=(m?m[1]:'Shuefit 문법').replace(/^shuefit/i,'Shuefit'), t2=m?m[2]:d.title;   // 옛 제목 'shuefit 문법: …'도 표지는 대문자 S
   const sub=`${yr}${kinds.join('·')} 모의고사 · ${d.ids.length}문항 · ${lvls.join('·')} 단계${teacher?' · 정답과 해설':''}`;
   return { areas, t1, t2, sub, all:[...new Set(ITEMS.map(x=>x.area))] };
 }
@@ -835,6 +954,158 @@ async function bookletDoc(teacher){
 }
 $('bkS').onclick=()=>bookletDoc(false);
 $('bkT').onclick=()=>bookletDoc(true);
+/* 시험지 인쇄 — exam-design 스킬 디자인 B(2026-11-17 원장님 선택). 배치 규칙: 문항은 단·쪽 사이에서 나누지 않고 통째로 다음 단으로,
+ * 빈 단에도 안 들어가는 문항은 글자를 최대 12% 줄여 한 단에, 지문은 문단 단위로 단을 넘어 이어짐, 안내문이 단 끝에 혼자 남지 않게,
+ * 단 아래 남는 공간은 블록 사이에 고르게(간격 하나당 30mm까지, 마지막 단 제외). 2쪽부터 '국어 영역' 머리말 + 짝수 왼쪽·홀수 오른쪽 쪽 번호. */
+/* A형 로고 — 2026-11-17 원장님이 보낸 슈국 로고(민트 원 · 아치 · Shueguk · '다르게 하기의 힘 이수경 국어')를 SVG 로 다시 그림 */
+const EX_LOGO='<svg class="logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="Shueguk 로고"><circle cx="100" cy="100" r="99" fill="#d8ece6"/>'
+  +'<path d="M43 150V70a57 57 0 0 1 114 0v80Z" fill="none" stroke="#000" stroke-width=".9"/>'
+  +'<text x="100" y="104" text-anchor="middle" font-family="Sacramento,cursive" font-size="52" fill="#000">Shueguk</text>'
+  +'<text x="100" y="166" text-anchor="middle" font-family="Gowun Dodum,sans-serif" font-size="12.5" fill="#000" letter-spacing=".5">다르게 하기의 힘 이수경 국어</text></svg>';
+let EX_DES='A';
+function exVal(id){ return String(($(id)||{}).value||'').trim(); }
+function examMeta(n){
+  const ids=selIds(), areas=[...new Set(ids.map(id=>BYID[id].area))].join('·');
+  const dt=exVal('exDate').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return { year:exVal('exYear')||String(new Date().getFullYear()), sem:exVal('exSem'), type:exVal('exType'), grade:exVal('exGrade'),
+    subject:exVal('exSubj')||('문법 · '+areas), date:dt?`${dt[1]}년 ${Number(dt[2])}월 ${Number(dt[3])}일`:'', school:exVal('exSchool'),
+    pts:exVal('exPts'), min:exVal('exMin'), title:exVal('exTitle'), design:EX_DES, n };
+}
+function exBlocks(){
+  const out=[], mk=h=>{ const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild; };
+  let n=0;
+  SEL.forEach(g=>{
+    const first=BYID[g[0]];
+    if(first.pid){
+      const a=n+1, b=n+g.length;
+      out.push(mk(`<div class="xb instr" data-keepnext="1">${EX_DES==='A'?'※ ':''}[${g.length>1?a+'~'+b:a}] 다음 글을 읽고 물음에 답하시오.</div>`));
+      const ps=mk(`<div class="xb passage gq" data-split="kids">${PAS[first.pid]||''}</div>`);
+      // 겉 상자 하나뿐이면 벗겨 문단을 직접 자식으로(단을 넘을 때 문단 단위로 나누려고)
+      while(ps.children.length===1 && ps.firstElementChild.children.length>1 && !/^(TABLE|P)$/.test(ps.firstElementChild.tagName)){ const w=ps.firstElementChild; ps.replaceChildren(...w.childNodes); }
+      out.push(ps);
+    }
+    g.forEach(id=>{ n++; const it=BYID[id];
+      out.push(mk(`<div class="xb q gq" data-split="none">${it.html.replace('<div class="qh">','<div class="qh"><span class="qn">'+n+'.</span>')}</div>`)); });
+  });
+  out.forEach((el,i)=>{ if(el.classList.contains('passage')){ const nx=out[i+1]; if(!nx || !nx.classList.contains('passage')) el.classList.add('pend'); } });
+  return out;
+}
+function exLayout(host, M){
+  const mk=h=>{ const t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild; };
+  const v=x=>`( ${x?esc(x):'&emsp;'} )`;
+  host.innerHTML=''; const pages=[]; let cur=null;
+  const newPage=()=>{
+    const no=pages.length+1, first=no===1;
+    const pg=mk(`<section class="page ${first?'first':''} ${no%2?'odd':'even'}"></section>`);
+    if(first && M.design==='A'){
+      pg.appendChild(mk(`<div class="cover"><div class="exam">${M.title?esc(M.title):'&emsp;'}</div><div class="subject">${esc(M.subject)}</div>${M.school?`<div class="school">${esc(M.school)}</div>`:''}${EX_LOGO}<div class="idrow"><div class="cell"><div class="lab">성명</div><div class="name"></div></div><div class="cell"><div class="lab">수험 번호</div><div class="digits">${'xxxxx-xxxx'.split('').map(c=>c==='-'?'<span class="dash"></span>':'<span></span>').join('')}</div></div></div></div>`));
+    } else if(first){
+      pg.appendChild(mk(`<div class="coverB"><table><colgroup><col style="width:15%"><col style="width:27%"><col style="width:27%"><col style="width:31%"></colgroup>
+        <tr><td class="g ttl" colspan="3">${esc(M.year)}학년도 ${v(M.sem)}학기 ${v(M.type)}고사</td><td class="school" rowspan="2">${esc(M.school)}</td></tr>
+        <tr><td class="g lab">학년</td><td class="g lab">과목명</td><td class="g lab">고사일</td></tr>
+        <tr><td>${v(M.grade)}학년</td><td>${esc(M.subject)}</td><td>${M.date||'&emsp;년&emsp;&emsp;월&emsp;&emsp;일'}</td><td class="tot">총 ${v(M.n)}문항</td></tr></table></div>`));
+    } else pg.appendChild(mk(`<div class="runhead"><div class="area">국어 영역</div><div class="pno">${no}</div></div>`));
+    pg.appendChild(mk(`<div class="cols"><div class="col L"></div><div class="vrule"></div><div class="col R"></div></div>`));
+    pg.appendChild(mk(`<div class="foot"><div class="frac"><span class="a">${no}</span><span class="b">__T__</span></div></div>`));
+    pg.appendChild(mk(`<div class="brandf"><b>Shueguk</b>다르게 하기의 힘</div>`));
+    host.appendChild(pg); pages.push(pg);
+    cur={ cols:[...pg.querySelectorAll('.col')], i:0 };
+    if(first && M.design!=='A'){
+      const li=[`선택형 ${v(M.n)}문항 ${v(M.pts)}점`].concat(M.min?[`시험 시간 ( ${esc(M.min)} )분`]:[]).concat(['선택형 답을 마지막 장 답안 기록표에 표기하시오.']);
+      cur.cols[0].appendChild(mk(`<div class="notice"><ul>${li.map(x=>`<li>${x}</li>`).join('')}</ul></div>`));
+    }
+  };
+  const col=()=>cur.cols[cur.i];
+  const nextCol=()=>{ if(cur.i===0) cur.i=1; else newPage(); };
+  const isEmpty=c=>!c.querySelector('.xb');
+  const fits=c=>{ const last=c.lastElementChild; return !last || last.getBoundingClientRect().bottom <= c.getBoundingClientRect().bottom-0.5; };
+  const place=el=>{
+    const c=col(); c.appendChild(el);
+    if(fits(c)) return;
+    c.removeChild(el);
+    const mode=el.dataset.split;
+    if(mode==='none'){
+      if(!isEmpty(c)){ const prev=c.lastElementChild; if(prev && prev.dataset.keepnext && c.querySelectorAll('.xb').length>1){ c.removeChild(prev); nextCol(); place(prev); place(el); return; } nextCol(); place(el); return; }
+      c.appendChild(el);
+      for(const z of [0.97,0.94,0.91,0.88]){ el.style.zoom=z; if(fits(c)) return; }
+      return;   // 그래도 넘치면 그대로(잘림은 검수에서)
+    }
+    if(mode==='kids'){
+      const kids=[...el.children], shell=el.cloneNode(false); shell.classList.add('cont-bottom'); shell.classList.remove('pend');
+      c.appendChild(shell); let k=0;
+      for(; k<kids.length; k++){ shell.appendChild(kids[k]); if(!fits(c)){ shell.removeChild(kids[k]); break; } }
+      const tooShort=shell.getBoundingClientRect().height<80;
+      if(k===0 || tooShort || k===kids.length){
+        c.removeChild(shell); kids.forEach(x=>el.appendChild(x));
+        if(isEmpty(c)){ c.appendChild(el); return; }
+        const prev=c.lastElementChild; if(prev && prev.dataset.keepnext && c.querySelectorAll('.xb').length>1){ c.removeChild(prev); nextCol(); place(prev); place(el); return; }
+        nextCol(); place(el); return;
+      }
+      const rest=el.cloneNode(false); rest.classList.add('cont-top');
+      for(; k<kids.length; k++) rest.appendChild(kids[k]);
+      nextCol(); place(rest); return;
+    }
+    if(isEmpty(c)){ c.appendChild(el); return; }
+    nextCol(); place(el);
+  };
+  newPage();
+  exBlocks().forEach(place);
+  // 단 아래 빈 공간 고르게(마지막 단 제외)
+  const last=col(), MAXGAP=30*96/25.4;
+  host.querySelectorAll('.col').forEach(c=>{
+    if(c===last) return;
+    const kids=[...c.children]; if(kids.length<2) return;
+    const free=c.getBoundingClientRect().bottom - kids[kids.length-1].getBoundingClientRect().bottom - 4; if(free<6) return;
+    const gaps=kids.slice(0,-1).filter(k=>!k.dataset.keepnext && !k.classList.contains('notice')); if(!gaps.length) return;
+    const add=Math.min(free/gaps.length, MAXGAP);
+    gaps.forEach(k=>{ const mb=parseFloat(getComputedStyle(k).marginBottom)||0; k.style.marginBottom=(mb+add)+'px'; });
+  });
+  // 마지막 장 — 답안 기록표
+  const no=pages.length+1;
+  const om=mk(`<section class="page omrpage ${no%2?'odd':'even'}"><div class="runhead"><div class="area">국어 영역</div><div class="pno">${no}</div></div>
+    <div class="omrbox"><h3>답안 기록표</h3><div class="sub"><span>학교</span><span>학년·반</span><span>이름</span></div>
+    <div class="omr">${selIds().map((id,i)=>`<div><b>${i+1}</b>${[...CHS].map(c=>`<i>${c}</i>`).join('')}</div>`).join('')}</div></div>
+    <div class="foot"><div class="frac"><span class="a">${no}</span><span class="b">__T__</span></div></div><div class="brandf"><b>Shueguk</b>다르게 하기의 힘</div></section>`);
+  host.appendChild(om); pages.push(om);
+  host.querySelectorAll('.frac .b').forEach(b=>b.textContent=pages.length);
+  return pages.length;
+}
+async function examDoc(key){
+  if(!selIds().length){ toast('문항을 먼저 고르세요'); return; }
+  if(!canPrint()){ toast('시험지를 먼저 저장해 주세요'); return; }
+  const n=selIds().length, M=examMeta(n), title=$('pTitle').value.trim()||'Shuefit 문법';
+  const host=$('exm'); host.className='exd'+(EX_DES==='A'?' design-a':'');
+  try{ if(document.fonts){ await Promise.all([document.fonts.load('10pt "Gowun Batang"','가'), document.fonts.load('10pt "Gowun Dodum"','가'), document.fonts.load('10pt Sacramento','S')]); await document.fonts.ready; } }catch(e){}
+  if(key){
+    host.innerHTML=`<section class="page"><div class="coverB"><table><colgroup><col style="width:69%"><col style="width:31%"></colgroup>
+      <tr><td class="g ttl">${esc(M.year)}학년도 ( ${M.sem?esc(M.sem):'&emsp;'} )학기 ( ${M.type?esc(M.type):'&emsp;'} )고사 · 정답표</td><td class="school">${esc(M.school)}</td></tr>
+      <tr><td>${esc(M.subject)} · ${esc(title)}</td><td class="tot">총 ( ${n} )문항</td></tr></table></div>
+      <div class="keybox" style="top:32mm"><div class="kgrid">${selIds().map((id,i)=>{ const it=BYID[id]; return `<div><b>${i+1}</b>${CHS[it.ans-1]||''}<em>${esc(it.area)}</em></div>`; }).join('')}</div></div>
+      <div class="brandf"><b>Shueguk</b>다르게 하기의 힘</div></section>`;
+  }else{
+    exLayout(host, M);
+  }
+  await waitImgs(host);
+  $('print').className='exd exam'+(EX_DES==='A'&&!key?' design-a':'');
+  $('print').innerHTML=host.innerHTML; host.innerHTML='';
+  setPage('@page{size:A4;margin:0}');
+  document.title=fileTitle(title, false, false, key?'정답표':'시험지');
+  await waitImgs($('print'));
+  setTimeout(()=>window.print(),50);
+}
+$('exYear').value=String(new Date().getFullYear());
+function exDesSet(d){
+  EX_DES=d==='B'?'B':'A'; $('xp-ex').dataset.d=EX_DES;
+  document.querySelectorAll('#exDes button').forEach(b=>b.classList.toggle('on', b.dataset.d===EX_DES));
+  $('exDesInfo').textContent=EX_DES==='A'
+    ? 'A형 — 시험명·큰 과목명·둥근 학교명·슈국 로고·성명/수험 번호 칸, 지문은 테두리 상자. 비운 칸은 빈칸으로 나가요.'
+    : 'B형 — 학년도·학기·고사·학년·과목명·고사일·학교·총 문항이 든 표 머리 + 안내 상자. 비운 칸은 빈칸으로 나가요.';
+  try{ localStorage.setItem('sf_exdes', EX_DES); }catch(e){}
+}
+document.querySelectorAll('#exDes button').forEach(b=>b.onclick=()=>exDesSet(b.dataset.d));
+try{ exDesSet(localStorage.getItem('sf_exdes')||'A'); }catch(e){ exDesSet('A'); }
+$('exS').onclick=()=>examDoc(false);
+$('exT').onclick=()=>examDoc(true);
 $('prS').onclick=()=>printDoc(false);
 $('prT').onclick=()=>printDoc(true);
 boot();
