@@ -179,14 +179,14 @@
   .bk .bno{flex:none;text-align:center;font-size:8pt;color:#8a9a97;padding-top:2mm;height:6mm}
   .bk .sheet{width:210mm;height:297mm;display:flex;overflow:hidden;break-after:page;page-break-after:always}
   .bk .sheet:last-child{break-after:auto;page-break-after:auto}
-  .bk .ph1,.bk .quick{column-span:all}
+  .bk .ph1,.bk .quick,.bk .anshead{column-span:all}
   /* 앞표지·뒤표지 (2026-11-17 원장님 — SHUEGUK MOGO 책자 표지 모양 · 슈콩이) */
   .bk .bpage.cover,.bk .bpage.bkback{-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .bk .bpage.cover{padding:0;display:block;position:relative;font-family:'Gowun Dodum',sans-serif;color:#24443d}
   .cv-top{height:158mm;background:#e3efeb;padding:14mm 16mm 0;box-sizing:border-box;position:relative}
   .cv-brand{display:flex;justify-content:space-between;align-items:flex-start;font-size:9.5pt;color:#3d675d}
   .cv-logo{text-align:center}
-  .cv-logo b{display:block;font-family:'Sacramento',cursive;font-weight:400;font-size:30pt;color:#5f9488;line-height:1}
+  .cv-logo b{display:block;font-family:'Sacramento',cursive;font-weight:400;font-size:30pt;color:#5f9488;line-height:1.4}
   .cv-logo span{display:inline-block;border:.3mm solid #8db8ad;border-radius:99px;padding:.3mm 3.4mm;font-size:8.5pt;color:#3d675d;margin-top:1mm}
   .cv-tag{display:inline-block;background:#8db8ad;color:#fff;border-radius:2mm;padding:1.4mm 4mm;font-size:10pt;margin-top:22mm}
   .cv-series{font-size:10.5pt;color:#3d675d;margin-top:4mm}
@@ -204,7 +204,7 @@
   .cv-name div{flex:1;border-bottom:.3mm solid #c3dcd5;padding-bottom:5mm}
   .bk .bpage.bkback{background:#e3efeb;display:flex;align-items:center;justify-content:center;text-align:center}
   .bk-in img{width:46mm;height:46mm;display:block;margin:0 auto 4mm}
-  .bk-in b{display:block;font-family:'Sacramento',cursive;font-weight:400;font-size:44pt;color:#5f9488;line-height:1}
+  .bk-in b{display:block;font-family:'Sacramento',cursive;font-weight:400;font-size:44pt;color:#5f9488;line-height:1.4}
   .bk-in .nm{letter-spacing:5mm;margin:4mm 0 0 5mm;font-size:11pt;color:#24443d}
   .bk-in .sr{font-size:9pt;color:#3d675d;margin-top:6mm}
   .bk-in .pl{display:inline-block;background:#fff;border-radius:99px;padding:1.6mm 6mm;font-size:9pt;color:#3d675d;margin-top:7mm}
@@ -310,7 +310,7 @@
   .exd .kgrid b{font-family:var(--num);min-width:6mm}
   .exd .kgrid em{font-style:normal;font-size:8pt;color:#555;margin-left:auto;font-family:var(--sans)}
   #print .ph1, #bkm .ph1{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:.3mm solid #c3dcd5;padding-bottom:2mm;margin-bottom:4mm}
-  #print .ph1 .logo, #bkm .ph1 .logo{font-family:'Sacramento',cursive;font-size:20pt;color:#5f9488;line-height:1}
+  #print .ph1 .logo, #bkm .ph1 .logo{font-family:'Sacramento',cursive;font-size:20pt;color:#5f9488;line-height:1.5;padding-top:1.5mm}
   #print .ph1 .tt, #bkm .ph1 .tt{font-family:'Gowun Batang',serif;font-size:14pt;font-weight:700;color:#24443d}
   #print .ph1 .nm, #bkm .ph1 .nm{font-size:9.5pt;color:#3d675d}
   #print .ph1 .nm span, #bkm .ph1 .nm span{display:inline-block;min-width:28mm;border-bottom:.25mm solid #9bb;margin-left:2mm}
@@ -321,6 +321,16 @@
   #print .quick, #bkm .quick{border:.3mm solid #c3dcd5;border-radius:2mm;padding:2.6mm 3mm;margin:0 0 5mm;display:grid;grid-template-columns:repeat(5,1fr);gap:1mm 2mm;font-size:9pt;background:#f4f9f7}
   #print .quick .qt, #bkm .quick .qt{grid-column:1/-1;color:#3d675d;margin-bottom:.6mm}
   #print .quick b, #bkm .quick b{color:#3d675d;font-weight:normal;margin-right:1mm}
+  #print .gq .cn, #bkm .gq .cn{position:relative;display:inline-block}   /* 학생용·교사용 같은 모양 — 동그라미가 줄바꿈을 바꾸지 않게 */
+  #print .anspage{break-before:page;page-break-before:always}
+  #print .anshead, #bkm .anshead{column-span:all}
+  #print .anshead .at, #bkm .anshead .at{font-family:'Gowun Batang',serif;font-size:13pt;font-weight:700;color:#24443d;border-bottom:.3mm solid #c3dcd5;padding-bottom:2mm;margin-bottom:3mm}
+  #print .kblk, #bkm .kblk{break-inside:avoid;margin:0 0 3.4mm;font-size:8.6pt}
+  #print .kh, #bkm .kh{display:flex;align-items:center;gap:2mm;margin-bottom:.8mm}
+  #print .kh b, #bkm .kh b{font-family:'Do Hyeon';font-weight:400;font-size:11pt;color:#3d675d}
+  #print .kh .a, #bkm .kh .a{background:#8db8ad;color:#fff;border-radius:1mm;padding:0 1.6mm}
+  #print .kh .ks, #bkm .kh .ks{color:#7a8f88;font-size:8pt}
+  #print .kblk .xbox, #bkm .kblk .xbox{margin-top:0}
   #print .xbox, #bkm .xbox{margin-top:1.6mm;background:#eef6f3;border-radius:1mm;padding:1.6mm 2.2mm;font-size:8.3pt;line-height:1.55;color:#24443d}
   #print .xbox .a, #bkm .xbox .a{display:inline-block;background:#8db8ad;color:#fff;border-radius:1mm;padding:0 1.6mm;margin-right:1.6mm}
   #print .xbox div, #bkm .xbox div{margin-top:.6mm}
@@ -903,15 +913,19 @@ function docParts(teacher){
     g.forEach(id=>{ n++; const it=BYID[id];
       let h=it.html.replace('<div class="qh">','<div class="qh"><span class="qn">'+String(n).padStart(2,'0')+'</span>');
       if(teacher) h=markAns(h,it.ans);
-      const x = teacher ? `<div class="xbox"><span class="a">정답 ${CHS[it.ans-1]}</span>${it.good||''}${(it.bad||[]).map(b=>`<div>${b}</div>`).join('')}</div>` : '';
-      blocks.push(`<div class="blk gq"><div class="q">${h}<div class="psrc">${esc(it.src)}</div>${x}</div></div>`);
+      blocks.push(`<div class="blk gq"><div class="q">${h}<div class="psrc">${esc(it.src)}</div></div></div>`);
     });
   });
-  const quick = teacher ? `<div class="quick"><div class="qt">빠른 정답</div>${ids.map((id,i)=>`<span><b>${i+1}</b>${CHS[BYID[id].ans-1]}</span>`).join('')}</div>` : '';
+  /* 교사용 = 학생용과 같은 쪽 구성(2026-11-17 원장님 "페이지가 달라지면 채점할 때 오류") — 문항 쪽에는 정답 번호 동그라미만,
+   * 빠른 정답과 문항별 정답·해설은 문항 뒤 새 쪽(.anshead + 블록)에 */
+  const quick = '';
+  const keyHead = `<div class="anshead"><div class="at">정답과 해설</div><div class="quick"><div class="qt">빠른 정답</div>${ids.map((id,i)=>`<span><b>${i+1}</b>${CHS[BYID[id].ans-1]}</span>`).join('')}</div></div>`;
+  const keyBlocks = ids.map((id,i)=>{ const it=BYID[id];
+    return `<div class="kblk"><div class="kh"><b>${String(i+1).padStart(2,'0')}</b><span class="a">정답 ${CHS[it.ans-1]}</span><span class="ks">${esc(it.area)} · ${esc(it.lvl)}</span></div><div class="xbox">${it.good||''}${(it.bad||[]).map(b=>`<div>${b}</div>`).join('')}</div></div>`; });
   const pm=pmVal();
   const head = `<div class="ph1"><div><div class="logo">Shueguk</div><div class="tt">${esc(title)}${teacher?' · 교사용':''}</div></div>
     <div class="nm">${pm.dot?esc(pm.dot)+' · ':''}${ids.length}문항 · 학교<span>${pm.school?`<b>${esc(pm.school)}</b>`:''}</span> 이름<span></span></div></div>`;
-  return { ids, title, blocks, quick, head };
+  return { ids, title, blocks, quick, head, keyHead, keyBlocks };
 }
 /* 인쇄 날짜·학교(2026-11-17 원장님 "저장된 문제지에 날짜와 학교를 입력해서 인쇄") — 학습지·책자 표지·시험지·답안 기록표에 들어간다.
  * 문제지마다 이 기기(localStorage sf_pmeta)에 기억해 두었다가 그 문제지를 불러오면 다시 채운다 */
@@ -938,7 +952,8 @@ function printDoc(teacher){
   const d=docParts(teacher);
   setPage(PAGE_A4);
   $('print').className = teacher ? 'teacher' : 'student';
-  $('print').innerHTML = d.head + d.quick + `<div class="pcols">${d.blocks.join('')}</div>`;
+  $('print').innerHTML = d.head + `<div class="pcols">${d.blocks.join('')}</div>`
+    + (teacher ? `<div class="anspage">${d.keyHead}<div class="pcols">${d.keyBlocks.join('')}</div></div>` : '');
   document.title=fileTitle(d.title, teacher, false);
   waitImgs($('print')).then(()=>setTimeout(()=>window.print(),50));
 }
@@ -988,13 +1003,19 @@ async function bookletDoc(teacher){
   const newPage=()=>{ const p=document.createElement('div'); p.className='bpage'; p.innerHTML='<div class="bbody"></div><div class="bno"></div>'; M.appendChild(p); pages.push(p); content.push(p); return p.firstChild; };
   const over=b=>b.scrollWidth > b.clientWidth + 2;
   let body=newPage();
-  body.insertAdjacentHTML('beforeend', d.head + d.quick);
-  const fixed=body.children.length;
+  body.insertAdjacentHTML('beforeend', d.head);
   const tmp=document.createElement('div');
-  for(const h of d.blocks){
-    tmp.innerHTML=h; const el=tmp.firstElementChild; body.appendChild(el);
-    await waitImgs(el);
-    if(over(body) && body.children.length > (content.length===1?fixed+1:1)){ el.remove(); body=newPage(); body.appendChild(el); }
+  const flow=async(list, fixed, start)=>{
+    for(const h of list){
+      tmp.innerHTML=h; const el=tmp.firstElementChild; body.appendChild(el);
+      await waitImgs(el);
+      if(over(body) && body.children.length > (content.length===start?fixed+1:1)){ el.remove(); body=newPage(); body.appendChild(el); }
+    }
+  };
+  await flow(d.blocks, body.children.length, 1);
+  if(teacher){   // 문항 쪽은 학생용과 같고, 정답과 해설은 그 뒤 새 쪽부터
+    body=newPage(); body.insertAdjacentHTML('beforeend', d.keyHead);
+    await flow(d.keyBlocks, body.children.length, content.length);
   }
   // 앞표지 + 본문 + 빈 쪽 + 뒤표지 = 4의 배수
   while((pages.length+1)%4) newPage();
