@@ -157,7 +157,7 @@
   .bk .bpage{width:210mm;height:297mm;padding:13mm 12mm 9mm;box-sizing:border-box;display:flex;flex-direction:column;background:#fff;overflow:hidden}
   .bk .bbody{flex:1;min-height:0;column-count:2;column-gap:7mm;column-rule:.25mm solid #e1ece9;column-fill:auto;overflow:hidden;font-size:9.3pt}
   .bk .bno{flex:none;text-align:center;font-size:8pt;color:#8a9a97;padding-top:2mm;height:6mm}
-  .bk .sheet{width:420mm;height:297mm;display:flex;overflow:hidden;break-after:page;page-break-after:always}
+  .bk .sheet{width:210mm;height:297mm;display:flex;overflow:hidden;break-after:page;page-break-after:always}
   .bk .sheet:last-child{break-after:auto;page-break-after:auto}
   .bk .ph1,.bk .quick{column-span:all}
   /* 앞표지·뒤표지 (2026-11-17 원장님 — SHUEGUK MOGO 책자 표지 모양 · 슈콩이) */
@@ -260,10 +260,10 @@
           <span class="info">인쇄 창에서 'PDF로 저장'을 고르면 파일로도 받을 수 있어요.</span>
         </div>
         <div class="pane" id="xp-bk" hidden>
-          <span class="tt">중철 책자 <span>(A3 → A4 책자)</span></span>
+          <span class="tt">중철 책자 <span>(A4 · 표지 포함)</span></span>
           <div class="two"><button class="btn" type="button" id="bkS">학생용 책자 PDF</button><button class="btn" type="button" id="bkT">교사용 책자 PDF</button></div>
-          <div class="bkinfo" id="bkInfo">A4 쪽을 책자 순서로 A3 가로 한 면에 두 쪽씩 놓습니다. 인쇄 창에서 <b>대상: PDF로 저장</b>을 고르면 파일로 내려받고,
-            인쇄할 때는 <b>A3 · 가로 · 양면(짧은 쪽으로 넘김) · 배율 100%</b>로 찍은 뒤 반으로 접어 가운데를 스테이플러로 찍어요. 앞표지·뒤표지가 함께 들어가고, 쪽 수는 4의 배수로 맞추며 남는 쪽은 뒤표지 앞에 비워 둡니다.</div>
+          <div class="bkinfo" id="bkInfo">앞표지·본문·뒤표지를 <b>A4 한 장에 한 쪽씩, 차례대로</b> 담습니다. 쪽 수는 4의 배수로 맞추고 남는 쪽은 뒤표지 앞에 비워 둬요. 인쇄 창에서 <b>대상: PDF로 저장</b>을 고르면 파일로 내려받습니다.
+            중철로 만들 때는 복합기의 <b>소책자(책자) 인쇄</b>를 켜고 A3에 찍은 뒤 반으로 접어 가운데를 스테이플러로 찍어요. A4 양면으로 그대로 찍어도 됩니다.</div>
         </div>
         <div class="pane" id="xp-hw" hidden>
           <label class="f">담당 강사<input type="text" id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></label>
@@ -663,7 +663,7 @@ function docParts(teacher){
 }
 function waitImgs(el){ const imgs=[...el.querySelectorAll('img')].filter(i=>!i.complete); return Promise.all(imgs.map(i=>new Promise(r=>{ i.onload=i.onerror=r; }))); }
 function setPage(css){ $('pageStyle').textContent=css; }
-const PAGE_A4='@page{size:A4;margin:14mm 13mm 14mm 13mm}', PAGE_A3='@page{size:A3 landscape;margin:0}';
+const PAGE_A4='@page{size:A4;margin:14mm 13mm 14mm 13mm}', PAGE_BK='@page{size:A4;margin:0}';
 /* 'PDF로 저장' 파일 이름 = 시험지 제목 — 인쇄 창은 document.title 을 파일 이름으로 쓴다. 파일 이름에 못 쓰는 글자(: / \ 등)는 뺀다 */
 const PAGE_TITLE=document.title;
 function fileTitle(title, teacher, booklet){
@@ -680,9 +680,8 @@ function printDoc(teacher){
   document.title=fileTitle(d.title, teacher, false);
   waitImgs($('print')).then(()=>setTimeout(()=>window.print(),50));
 }
-/* 중철 책자 — ① 보이지 않는 곳(#bkm)에 A4 쪽 상자를 만들고 블록을 하나씩 넣어 넘치면 다음 쪽(2단, column-fill:auto — 넘침은 옆으로 생긴다)
- * ② 쪽 수를 4의 배수로(빈 쪽) ③ A3 가로 한 장의 앞면 = [N−2s | 2s+1], 뒷면 = [2s+2 | N−2s−1] (1부터, s = 장 번호 0부터) */
-function bookletOrder(N){ const out=[]; for(let s=0;s<N/4;s++){ out.push([N-2*s, 2*s+1]); out.push([2*s+2, N-2*s-1]); } return out; }
+/* 중철 책자 — 보이지 않는 곳(#bkm)에 A4 쪽 상자를 만들고 블록을 하나씩 넣어 넘치면 다음 쪽(2단, column-fill:auto — 넘침은 옆으로 생긴다).
+ * 쪽 수는 4의 배수(빈 쪽)로 맞추고 A4 한 장에 한 쪽씩 차례대로 — 중철 배치는 복합기 '소책자 인쇄'가 한다 */
 /* 표지에 쓸 정보 — 제목 'shuefit 문법: 국어사 기본 (32)'를 두 줄로, 고른 단원·난도·출처·해 */
 function coverInfo(d, teacher){
   const its=d.ids.map(id=>BYID[id]);
@@ -739,13 +738,14 @@ async function bookletDoc(teacher){
   const back=backPage(c); M.appendChild(back); pages.push(back);
   const N=pages.length;
   pages.forEach((p,i)=>{ if(p.lastChild && p.lastChild.className==='bno') p.lastChild.textContent = p.firstChild.children.length ? '- '+(i+1)+' -' : ''; });
-  const html=bookletOrder(N).map(([a,b])=>`<div class="sheet">${pages[a-1].outerHTML}${pages[b-1].outerHTML}</div>`).join('');
+  // A4 한 장에 한 쪽, 1쪽부터 차례대로 — A4 양면으로 그대로 찍거나 복합기 '소책자 인쇄'로 중철
+  const html=pages.map(p=>`<div class="sheet">${p.outerHTML}</div>`).join('');
   M.innerHTML='';
   $('print').className='bk '+(teacher?'teacher':'student');
   $('print').innerHTML=html;
   $('bkInfo').dataset.pages=N;
-  toast(`표지 포함 A4 ${N}쪽 · A3 ${N/4}장(양면) 책자를 만들었어요`);
-  setPage(PAGE_A3);
+  toast(`표지 포함 A4 ${N}쪽 책자를 만들었어요`);
+  setPage(PAGE_BK);
   document.title=fileTitle(d.title, teacher, true);
   await waitImgs($('print'));
   setTimeout(()=>window.print(),80);

@@ -220,23 +220,23 @@ function rpc(fn, p) {
   await bk.click('#xTabs [data-x=bk]'); await bk.click('#bkS'); await bk.waitForFunction(() => window.__printed === 1, null, { timeout: 15000 });
   const N = Number(await bk.getAttribute('#bkInfo', 'data-pages'));
   ok(N >= 4 && N % 4 === 0, '책자 쪽 수 4의 배수 — ' + N + '쪽');
-  ok(await bk.locator('#print .sheet').count() === N / 2, 'A3 면 수 = 쪽 수 ÷ 2 (' + await bk.locator('#print .sheet').count() + ')');
-  const order = await bk.evaluate(() => [...document.querySelectorAll('#print .sheet')].map(s => [...s.querySelectorAll('.bno')].map(x => x.textContent.replace(/\D/g, '') || '0').join('|')));
-  const want = []; for (let s2 = 0; s2 < N / 4; s2++) { want.push([N - 2 * s2, 2 * s2 + 1]); want.push([2 * s2 + 2, N - 2 * s2 - 1]); }
+  ok(await bk.locator('#print .sheet').count() === N, 'A4 장 수 = 쪽 수 (' + await bk.locator('#print .sheet').count() + ')');
+  const order = await bk.evaluate(() => [...document.querySelectorAll('#print .sheet')].map(s => (s.querySelector('.bno') || { textContent: '' }).textContent.replace(/\D/g, '')));
   const real = await bk.evaluate(() => document.querySelectorAll('#print .bpage .bbody .blk').length);
-  ok(order[0] === '' && order[1].startsWith('2|'), '첫 면 [뒤표지|앞표지], 둘째 면 [2|…] — ' + order.slice(0, 2).join(' / '));
+  ok(order[0] === '' && order[1] === '2' && order[2] === '3', '1쪽 앞표지 → 2쪽 → 3쪽 차례대로 — ' + order.slice(0, 4).join(' / '));
   ok(real === nSel, '책자에 모든 문항 ' + real + ' / ' + nSel);
   const ov = await bk.evaluate(() => [...document.querySelectorAll('#print .bbody')].filter(b => b.scrollWidth > b.clientWidth + 2).length);
   ok(ov === 0, '어느 쪽도 넘치지 않음');
-  ok(await bk.evaluate(() => document.getElementById('pageStyle').textContent.includes('A3 landscape')), '인쇄 용지 A3 가로');
-  const cv = await bk.evaluate(() => { const ps = [...document.querySelectorAll('#print .bpage')]; const sh = document.querySelector('#print .sheet'); return { cover: ps.filter(p => p.classList.contains('cover')).length, back: ps.filter(p => p.classList.contains('bkback')).length, first: sh.children[1].classList.contains('cover'), last: sh.children[0].classList.contains('bkback'), sk: !!document.querySelector('#print .cover img.cv-sk') && !!document.querySelector('#print .bkback img'), title: (document.querySelector('#print .cv-title') || {}).textContent || '', on: document.querySelectorAll('#print .cv-u.on').length, units: document.querySelectorAll('#print .cv-u').length }; });
+  ok(await bk.evaluate(() => { const t = document.getElementById('pageStyle').textContent; return t.includes('size:A4') && t.includes('margin:0') && !t.includes('A3'); }), '인쇄 용지 A4 (여백 0)');
+  const cv = await bk.evaluate(() => { const ps = [...document.querySelectorAll('#print .bpage')]; const sh = [...document.querySelectorAll('#print .sheet')]; return { cover: ps.filter(p => p.classList.contains('cover')).length, back: ps.filter(p => p.classList.contains('bkback')).length, first: sh[0].firstElementChild.classList.contains('cover'), last: sh[sh.length - 1].firstElementChild.classList.contains('bkback'), sk: !!document.querySelector('#print .cover img.cv-sk') && !!document.querySelector('#print .bkback img'), title: (document.querySelector('#print .cv-title') || {}).textContent || '', on: document.querySelectorAll('#print .cv-u.on').length, units: document.querySelectorAll('#print .cv-u').length }; });
   ok(cv.cover === 1 && cv.back === 1 && cv.first && cv.last, '앞표지 = 1쪽 · 뒤표지 = 마지막 쪽 ' + JSON.stringify(cv));
   ok(cv.sk && cv.title.includes('shuefit 문법') && cv.on >= 1 && cv.units >= cv.on, '표지 — 슈콩이·제목·단원 칸 ' + JSON.stringify(cv));
   const nums = await bk.evaluate(() => [...document.querySelectorAll('#print .qn')].map(x => +x.textContent));
   const pagesSeq = await bk.evaluate(() => { const m = {}; document.querySelectorAll('#print .bpage').forEach(p => { const bn = p.querySelector('.bno'); const n = bn ? +(bn.textContent.replace(/\D/g, '')) || 0 : 0; m[n] = [...p.querySelectorAll('.qn')].map(x => +x.textContent); }); return Object.keys(m).filter(k => +k).sort((a, b) => a - b).flatMap(k => m[k]); });
   ok(pagesSeq.join() === Array.from({ length: nSel }, (_, i) => i + 1).join(), '쪽 순서대로 읽으면 문항 1~' + nSel + ' 차례대로');
   await bk.emulateMedia({ media: 'print' });
-  if (SHOT) { await bk.setViewportSize({ width: 1588, height: 1123 }); await bk.screenshot({ path: path.join(SHOT, 'shufit-booklet.png'), fullPage: true }); await bk.pdf({ path: path.join(SHOT, 'shufit-booklet.pdf'), preferCSSPageSize: true, printBackground: true }); }
+  ok(await bk.evaluate(() => Math.round(document.querySelector('#print .sheet').getBoundingClientRect().width / 96 * 25.4)) === 210, '한 장 폭 210mm');
+  if (SHOT) { await bk.setViewportSize({ width: 794, height: 1123 }); await bk.screenshot({ path: path.join(SHOT, 'shufit-booklet.png'), fullPage: true }); await bk.pdf({ path: path.join(SHOT, 'shufit-booklet.pdf'), preferCSSPageSize: true, printBackground: true }); }
   await bk.emulateMedia({ media: 'screen' });
   await bk.click('#bkT'); await bk.waitForFunction(() => window.__printed === 2, null, { timeout: 15000 });
   ok(await bk.locator('#print .quick').count() === 1 && await bk.locator('#print .xbox').count() === nSel, '교사용 책자 — 빠른 정답 · 해설');
