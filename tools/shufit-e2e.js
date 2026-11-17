@@ -39,7 +39,10 @@ function fake(rt, u, method, body) {
   if (u.includes('teacher-name.js')) return rt.fulfill({ body: 'window.shuegukTeacherName=()=>Promise.resolve("이현지");', contentType: 'text/javascript' });
   if (u.includes('/auth/v1/token')) return rt.fulfill({ json: { access_token: 'T', expires_in: 3600 } });
   if (u.includes('fonts.g')) return rt.fulfill({ body: '' });
-  if (u.includes('script.google.com')) { DB.posts.push(JSON.parse(body || '{}')); return rt.fulfill({ json: { ok: true, msg: '저장되었습니다' } }); }
+  if (u.includes('student-picker.js')) return rt.fulfill({ contentType: 'text/javascript', body: 'window.StudentPicker={create:function(el,o){el.innerHTML=\'<button type="button" id="spPick">고1 고르기</button>\';var sel=null;el.querySelector("#spPick").onclick=function(){sel={type:"학년",target:"고1",summary:"고1 전체"};o.onChange(sel);};return {getSelection:function(){return sel;},reset:function(){sel=null;window.__spReset=(window.__spReset||0)+1;}};}};' });
+  if (u.includes('student-picker.css')) return rt.fulfill({ contentType: 'text/css', body: '' });
+  if (u.includes('script.google.com') && u.includes('assignList')) { DB.assignLists = (DB.assignLists || 0) + 1; return rt.fulfill({ json: { result: 'success', assignments: [{ rowIndex: 2, date: '2026-11-17', tool: 'H WORK', item: '이현지 / x', type: '학년', target: '고1', due: '', memo: '' }] } }); }
+  if (u.includes('script.google.com')) { const b = JSON.parse(body || '{}'); DB.posts.push(b); return rt.fulfill({ json: b.action === 'addAssignment' ? { result: 'success' } : { ok: true, msg: '저장되었습니다' } }); }
   const rest = u.split('/rest/v1')[1] || '';
   if (rest.startsWith('/gbank_items')) {
     const m = rest.match(/id=eq\.(\d+)/), mi = rest.match(/id=in\.\(([\d,]+)\)/);
@@ -48,6 +51,7 @@ function fake(rt, u, method, body) {
   }
   if (rest.startsWith('/gbank_passages') && rest.includes('pid=in.')) return rt.fulfill({ json: PAS });
   if (rest.startsWith('/gbank_passages')) { const m = rest.match(/pid=eq\.([^&]+)/); return rt.fulfill({ json: m ? PAS.filter(p => p.pid === decodeURIComponent(m[1])) : (rest.includes('offset=0') ? PAS : []) }); }
+  if (rest.startsWith('/assignments')) { DB.asg = (DB.asg || []).concat([method + ' ' + rest + ' ' + (body || '')]); return rt.fulfill({ status: method === 'POST' ? 201 : 204, body: '' }); }
   if (rest.startsWith('/hwork_homeworks')) {
     if (method === 'POST') { DB.saved = JSON.parse(body)[0]; return rt.fulfill({ status: 201, body: '' }); }
     if (rest.includes('teacher=eq') && RS_MODE) return rt.fulfill({ json: [{ data: { count: 3 } }] });
@@ -314,6 +318,25 @@ function rpc(fn, p) {
     ok(DB.saved && DB.saved.data.bank['2'] === 101, '수파베이스 과제 표에도 저장');
     ok((await p.locator('.tg.used').count()) >= 1, '저장 뒤 낸 적 있음 표시');
     if (SHOT) await p.screenshot({ path: path.join(SHOT, 'shufit-make.png') });
+    // H WORK 바로 배정(2026-11-17)
+    ok(await p.locator('#hwAssign').isVisible() && await p.locator('#spPick').count() === 1, 'H WORK 탭에 학생 배정 칸(학생 고르기 위젯)');
+    await p.click('#hwAssignBtn');
+    ok((await p.locator('#hwAssignMsg').textContent()).includes('먼저 골라'), '학생을 안 고르면 배정 안 함');
+    await p.click('#spPick'); await p.fill('#hwDue', '2026-11-30'); await p.fill('#hwMemo', '1회차');
+    let nPost = DB.posts.length; await p.click('#hwAssignBtn');
+    await p.waitForFunction(() => document.getElementById('hwAssignMsg').textContent.includes('배정했습니다'));
+    let asg = DB.posts.slice(nPost).filter(x => x.action === 'addAssignment');
+    ok(asg.length === 1 && asg[0].tool === 'H WORK' && asg[0].item === '이현지 / [슈핏 문법] 음운 연습' && asg[0].type === '학년' && asg[0].target === '고1' && asg[0].due === '2026-11-30' && asg[0].memo === '1회차' && asg[0].pw === 'sh', '배정 요청 = 강사 / 과제 · 대상 · 마감 · 비고 ' + JSON.stringify(asg[0]));
+    ok(!DB.posts.slice(nPost).some(x => x.action === 'saveHomework'), '이미 출제한 과제는 다시 출제하지 않음');
+    await p.waitForFunction(() => true); await new Promise(r => setTimeout(r, 400));
+    ok((DB.asg || []).some(x => x.startsWith('DELETE /assignments?tool=eq.')) && (DB.asg || []).some(x => x.startsWith('POST /assignments')), '배정 뒤 배정 미러를 다시 맞춤');
+    ok(await p.evaluate(() => window.__spReset === 1) && (await p.locator('#hwMemo').inputValue()) === '', '배정 뒤 학생 고르기·비고 비움');
+    await p.fill('#pTitle', '[슈핏 문법] 음운 연습 2'); await p.click('#spPick');
+    nPost = DB.posts.length; await p.click('#hwAssignBtn');
+    await p.waitForFunction(() => document.getElementById('hwAssignMsg').textContent.includes('배정했습니다'));
+    const seq = DB.posts.slice(nPost).map(x => x.action);
+    ok(seq.join() === 'saveHomework,addAssignment' && DB.posts[DB.posts.length - 1].item === '이현지 / [슈핏 문법] 음운 연습 2', '출제 전 문항은 출제한 뒤 배정 ' + seq.join());
+    if (SHOT) await p.locator('#xp-hw').screenshot({ path: path.join(SHOT, 'shufit-assign.png') });
     // 저장한 문제지 지우기(2026-11-17)
     await p.selectOption('#loadSel', '');
     ok(await p.locator('#paperDel').isDisabled(), '문제지를 고르기 전엔 삭제 잠김');

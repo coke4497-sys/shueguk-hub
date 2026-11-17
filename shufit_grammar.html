@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://coke4497-sys.github.io/shueguk-h-work/gbank.css">
+<link rel="stylesheet" href="https://coke4497-sys.github.io/shueguk-report/student-picker.css">
 <script src="https://coke4497-sys.github.io/shueguk-report/teacher-name.js"></script>
 <style>
   /* Sacramento — 구글 글꼴 대신 이 저장소(GitHub Pages)의 파일로(2026-11-17 원장님). OFL — assets/fonts/Sacramento-OFL.txt */
@@ -159,6 +160,9 @@
   .pane .tt{font-size:14px;color:var(--ink)}
   .pane .tt span{color:var(--muted)}
   .msg{font-size:13px;white-space:pre-line}
+  .hwas{display:flex;flex-direction:column;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid #E5EDE8}
+  .hwas-h{font-family:'Do Hyeon',sans-serif;font-size:17px;color:var(--ink)}
+  .hwas input[type=date],.hwas input[type=text]{border:1px solid #dfe5e1;border-radius:10px;padding:9px 10px;font-family:inherit;font-size:14px;background:#fafbf9;min-width:0}
   .msg:empty{display:none}
   .msg.ok{color:#2F7A57}.msg.bad{color:#B0525D}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2C2F2D;color:#fff;padding:9px 18px;border-radius:999px;font-size:14px;opacity:0;transition:.2s;pointer-events:none;z-index:50}
@@ -433,7 +437,14 @@
           <input type="hidden" id="hCode"><!-- 과제 제목 = 위 '제목' 칸과 같은 값(따로 보이지 않음) -->
           <button class="btn main" type="button" id="saveBtn">H WORK 과제로 출제</button>
           <div class="msg" id="saveMsg"></div>
-          <span class="info" style="line-height:1.7">저장한 뒤 학생 배정은 [H WORK 배정하기]에서 합니다. 학생은 휴대폰에서 문제를 보며 풀고, 틀린 문항은 오답하기와 질문으로 선생님과 이야기할 수 있어요.</span>
+          <div class="hwas" id="hwAssign">
+            <div class="hwas-h">학생에게 바로 배정</div>
+            <div id="hwPicker"><span class="info">학생 명단을 불러오는 중…</span></div>
+            <div class="two"><label class="f">마감 <span class="dim">(선택)</span><input type="date" id="hwDue"></label><label class="f">비고 <span class="dim">(선택)</span><input type="text" id="hwMemo" maxlength="60" placeholder="예: 1회차"></label></div>
+            <button class="btn main" type="button" id="hwAssignBtn">이 학생들에게 배정</button>
+            <div class="msg" id="hwAssignMsg"></div>
+          </div>
+          <span class="info" style="line-height:1.7">아직 출제하지 않은 문항이면 [이 학생들에게 배정]이 먼저 H WORK 과제로 출제한 뒤 배정합니다. 배정 내역 확인·취소는 [H WORK 배정하기]에서 해요. 학생은 휴대폰에서 문제를 보며 풀고, 틀린 문항은 오답하기와 질문으로 선생님과 이야기할 수 있어요.</span>
         </div>
       </section>
     </aside>
@@ -759,7 +770,7 @@ function autoTitle(){
 /* 시험지 제목과 과제 제목은 같은 값을 쓴다(디자인 묶음) — 한쪽을 고치면 다른 쪽도 */
 ['pTitle','hCode'].forEach(id=>$(id).addEventListener('input', e=>{ const o=$(id==='pTitle'?'hCode':'pTitle'); o.value=e.target.value; o.dataset.auto=e.target.dataset.auto||''; }));
 /* 내보내기 탭 — 인쇄 · 중철 책자 · H WORK */
-function xTab(k){ document.querySelectorAll('#xTabs [data-x]').forEach(b=>b.classList.toggle('on', b.dataset.x===k)); ['pr','ex','hw'].forEach(x=>{ $('xp-'+x).hidden = x!==k; }); }
+function xTab(k){ document.querySelectorAll('#xTabs [data-x]').forEach(b=>b.classList.toggle('on', b.dataset.x===k)); ['pr','ex','hw'].forEach(x=>{ $('xp-'+x).hidden = x!==k; }); if(k==='hw') hwPickerInit(); }
 $('xTabs').addEventListener('click', e=>{ const b=e.target.closest('[data-x]'); if(b) xTab(b.dataset.x); });
 function applyAutoTitle(){
   const t=autoTitle();
@@ -880,16 +891,16 @@ $('paperSave').onclick=async()=>{
 
 /* ── H WORK 과제로 저장 ── */
 function setMsg(k,t){ const m=$('saveMsg'); m.className='msg '+(k||''); m.textContent=t||''; }
-$('saveBtn').onclick=async()=>{
+async function saveHw(){
   const teacher=$('hTeacher').value.trim(), code=$('hCode').value.trim(), ids=selIds();
-  if(!ids.length){ toast('문항을 먼저 고르세요'); return; }
-  if(!teacher){ toast('출제 선생님을 적어 주세요'); $('hTeacher').focus(); return; }
-  if(!code){ toast('제목을 적어 주세요'); $('pTitle').focus(); return; }
+  if(!ids.length){ toast('문항을 먼저 고르세요'); return false; }
+  if(!teacher){ toast('출제 선생님을 적어 주세요'); $('hTeacher').focus(); return false; }
+  if(!code){ toast('제목을 적어 주세요'); $('pTitle').focus(); return false; }
   const same=ALLHW.find(h=>h.teacher===teacher && h.code===code);
   if(same){
-    if(!(same.data && same.data.bank)){ setMsg('bad','같은 강사·제목의 일반 H WORK 과제가 이미 있습니다. 제목을 바꿔 주세요.'); return; }
+    if(!(same.data && same.data.bank)){ setMsg('bad','같은 강사·제목의 일반 H WORK 과제가 이미 있습니다. 제목을 바꿔 주세요.'); return false; }
     let nsub=0; try{ nsub=(await sb('/hwork_submissions?select=id&teacher=eq.'+encodeURIComponent(teacher)+'&code=eq.'+encodeURIComponent(code)+'&limit=1000')).length; }catch(e){}
-    if(!confirm(nsub ? `이미 학생 ${nsub}명이 제출한 과제입니다. 문항을 바꾸면 지난 제출과 번호가 어긋납니다.\n그래도 덮어쓸까요?` : '같은 제목의 과제를 이 문항으로 바꿀까요?')) return;
+    if(!confirm(nsub ? `이미 학생 ${nsub}명이 제출한 과제입니다. 문항을 바꾸면 지난 제출과 번호가 어긋납니다.\n그래도 덮어쓸까요?` : '같은 제목의 과제를 이 문항으로 바꿀까요?')) return false;
   }
   const data={ teacher, code, count:ids.length, schools:SCHOOLS, items:{}, bank:{} };
   ids.forEach((id,i)=>{ data.items[i+1]={ type:'choice5', ans:BYID[id].ans }; data.bank[i+1]=id; });
@@ -897,17 +908,78 @@ $('saveBtn').onclick=async()=>{
   try{
     const res=await fetch(API_URL,{ method:'POST', body:JSON.stringify({ action:'saveHomework', data }) });
     const j=await res.json();
-    if(!j.ok){ setMsg('bad','저장하지 못했습니다: '+(j.error||'')); return; }
+    if(!j.ok){ setMsg('bad','저장하지 못했습니다: '+(j.error||'')); return false; }
     await sb('/hwork_homeworks?on_conflict=teacher,code',{ method:'POST', headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=minimal' },
       body:JSON.stringify([{ teacher, code, data }]) });
     if(same) same.data=data; else ALLHW.push({ teacher, code, data });
     const h=HWS.find(x=>x.teacher===teacher && x.code===code); if(h) h.data=data; else HWS.push({ teacher, code, data });
     drawTeachers(); rebuildUsed(); drawLoad();
-    setMsg('ok',`저장했습니다 — ${teacher} / ${code} (${ids.length}문항)\n이제 [H WORK 배정하기]에서 학생에게 배정해 주세요.`);
+    setMsg('ok',`저장했습니다 — ${teacher} / ${code} (${ids.length}문항)\n아래에서 바로 학생에게 배정할 수 있어요.`);
     if(window.shuegukActivity) shuegukActivity('Shuefit 문법', 'H WORK 출제', code, ids.length+'문항', false);
     drawList();
-  }catch(e){ setMsg('bad','저장하지 못했습니다. 인터넷 연결을 확인해 주세요. ('+e.message+')'); }
+    return true;
+  }catch(e){ setMsg('bad','저장하지 못했습니다. 인터넷 연결을 확인해 주세요. ('+e.message+')'); return false; }
   finally{ btn.disabled=false; btn.textContent='H WORK 과제로 출제'; }
+};
+$('saveBtn').onclick=()=>saveHw();
+
+/* ── H WORK 학생 배정 — H WORK 배정하기(hwork_assign.html)와 같은 경로: 리포트 백엔드 addAssignment(시트 원본) → assignments 미러를 통째로 다시 맞춤.
+ * 학생 고르기 = 같은 공용 위젯(student-picker.js). 아직 출제하지 않은 문항이면 먼저 출제한다(2026-11-17 원장님 "슈핏에서 h work 바로 배정"). */
+const REPORT_API = "https://script.google.com/macros/s/AKfycbzhCncBwn-JlqXARC3wfrWUCuNHzlNK2df0bdhx-w78Xr8mzYUcIYZOJdRi9N4bHtsb/exec";
+let HWP=null, HWP_SEL=null, HWP_LOADING=false;
+function hwPickerInit(){
+  if(HWP || HWP_LOADING) return; HWP_LOADING=true;
+  const go=()=>{ $('hwPicker').innerHTML=''; HWP=StudentPicker.create($('hwPicker'), { endpoint: REPORT_API, onChange: sel=>{ HWP_SEL=sel; } }); };
+  if(window.StudentPicker) return go();
+  const sc=document.createElement('script'); sc.src='https://coke4497-sys.github.io/shueguk-report/student-picker.js';
+  sc.onload=go; sc.onerror=()=>{ HWP_LOADING=false; $('hwPicker').innerHTML='<span class="info">학생 고르기를 불러오지 못했습니다. 새로고침해 주세요.</span>'; };
+  document.head.appendChild(sc);
+}
+function hwaMsg(k,t){ const m=$('hwAssignMsg'); m.className='msg '+(k||''); m.textContent=t||''; }
+function hwSavedSame(teacher, code, ids){
+  const h=ALLHW.find(x=>x.teacher===teacher && x.code===code);
+  if(!h || !h.data || !h.data.bank) return false;
+  const b=h.data.bank;
+  return Object.keys(b).length===ids.length && ids.every((id,i)=>Number(b[i+1])===Number(id));
+}
+async function hwResyncAssign(){
+  try{
+    const d=await (await fetch(REPORT_API+'?action=assignList&pw=sh&tool='+encodeURIComponent('H WORK')+'&t='+Date.now(), {cache:'no-store'})).json();
+    if(!d || d.result!=='success') return;
+    const ymd=v=>{ const s=String(v==null?'':v).trim(); if(!s || /^\d{4}-\d{2}-\d{2}$/.test(s)) return s; const t=Date.parse(s); if(isNaN(t)) return s; const x=new Date(t+9*3600000); return x.getUTCFullYear()+'-'+String(x.getUTCMonth()+1).padStart(2,'0')+'-'+String(x.getUTCDate()).padStart(2,'0'); };
+    const rows=(d.assignments||[]).map(a=>({ seq:a.rowIndex||0, date:ymd(a.date), tool:String(a.tool||'H WORK'), item:String(a.item||''), type:String(a.type||''), target:String(a.target||''), due:ymd(a.due), memo:String(a.memo||'') }));
+    const H={ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json', Prefer:'return=minimal' };
+    await sb('/assignments?tool=eq.'+encodeURIComponent('H WORK'), { method:'DELETE', headers:H });
+    if(rows.length) await sb('/assignments', { method:'POST', headers:H, body:JSON.stringify(rows) });
+  }catch(e){ console.warn('배정 미러 재동기화 실패 — 일일 점검이 복구', e); }
+}
+$('hwAssignBtn').onclick=async()=>{
+  const teacher=$('hTeacher').value.trim(), code=$('hCode').value.trim(), ids=selIds();
+  if(!ids.length){ toast('문항을 먼저 고르세요'); return; }
+  if(!teacher){ toast('출제 선생님을 적어 주세요'); $('hTeacher').focus(); return; }
+  if(!code){ toast('제목을 적어 주세요'); $('pTitle').focus(); return; }
+  const sel=HWP_SEL || (HWP && HWP.getSelection());
+  if(!sel){ hwaMsg('bad','배정할 학생을 먼저 골라 주세요.'); return; }
+  const who=sel.summary||'고른 학생', btn=$('hwAssignBtn'); hwaMsg('','');
+  if(!hwSavedSame(teacher, code, ids)){
+    if(!confirm(`아직 이 문항으로 출제하지 않았습니다.\nH WORK 과제로 출제한 뒤 ${who}에게 배정할까요?`)) return;
+    btn.disabled=true; btn.textContent='출제 중…';
+    const ok=await saveHw();
+    btn.disabled=false; btn.textContent='이 학생들에게 배정';
+    if(!ok){ hwaMsg('bad','출제하지 못해 배정하지 않았습니다. 위 안내를 확인해 주세요.'); return; }
+  } else if(!confirm(`「${code}」을(를) ${who}에게 배정할까요?`)) return;
+  btn.disabled=true; btn.textContent='배정 중…'; hwaMsg('','');
+  try{
+    const r=await fetch(REPORT_API, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({ action:'addAssignment', pw:'sh', tool:'H WORK', item:teacher+' / '+code, type:sel.type, target:sel.target, due:$('hwDue').value, memo:$('hwMemo').value.trim() }) });
+    const j=await r.json();
+    if(j.result!=='success'){ hwaMsg('bad','배정하지 못했습니다: '+(j.message==='unauthorized'?'권한 없음':(j.message||'오류'))); return; }
+    hwaMsg('ok','✓ 배정했습니다 — '+code+' · '+who+'\n학생 페이지 H WORK 목록에 바로 보여요.');
+    if(window.shuegukActivity) shuegukActivity('Shuefit 문법', 'H WORK 배정', code, who, false);
+    if(HWP) HWP.reset(); HWP_SEL=null; $('hwMemo').value='';
+    hwResyncAssign();
+  }catch(e){ hwaMsg('bad','배정하지 못했습니다. 인터넷 연결을 확인해 주세요.'); }
+  finally{ btn.disabled=false; btn.textContent='이 학생들에게 배정'; }
 };
 
 /* ── 인쇄 ── 학생용 = 문항만, 교사용 = 정답 동그라미 + 문항 아래 해설 + 맨 위 빠른 정답 */
