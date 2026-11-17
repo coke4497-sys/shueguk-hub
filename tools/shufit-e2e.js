@@ -244,7 +244,7 @@ function rpc(fn, p) {
     ok(await p.locator('#prS').isDisabled(), '선생님이 바뀌면 인쇄 다시 잠김');
     await p.check('#fUnused'); ok(await p.evaluate(() => ITEMS.filter(match).map(x => x.id).sort().join()) === '101,102', '김지원 선생님이 안 낸 문항만: ' + await p.evaluate(() => ITEMS.filter(match).map(x => x.id).join()));
     await p.uncheck('#fUnused');
-    ok(await p.locator('#loadSel optgroup[label="저장한 시험지"] option').count() === 1 && (await p.locator('#loadSel').textContent()).includes('지원 모의 1') && !(await p.locator('#loadSel').textContent()).includes('음운 연습'), '불러오기 = 그 선생님 시험지만');
+    ok(await p.locator('#loadSel optgroup[label="저장한 문제지"] option').count() === 1 && (await p.locator('#loadSel').textContent()).includes('지원 모의 1') && !(await p.locator('#loadSel').textContent()).includes('음운 연습'), '불러오기 = 그 선생님 시험지만');
     await p.selectOption('#loadSel', { label: '지원 모의 1 · 김지원 (1문항)' });
     ok((await p.locator('#selN').textContent()) === '1문항' && (await p.locator('#pTitle').inputValue()) === '지원 모의 1' && !(await p.locator('#prS').isDisabled()), '저장한 시험지 불러오면 바로 인쇄 가능');
     await p.fill('#autoN', '3'); await p.click('#autoBtn'); ok((await p.locator('#selN').textContent()) === '3문항', '채울 문항 수 바꾸기(3)');

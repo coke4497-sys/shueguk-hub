@@ -357,14 +357,14 @@
           <button class="btn" id="autoBtn" type="button">목록에 보이는 문항으로 채우기</button>
           <button class="btn ghost" id="clearBtn" type="button">비우기</button>
         </div>
-        <label class="f"><span>저장된 시험지 · 과제 불러오기 <span class="dim">· 고치거나 다시 인쇄</span></span>
+        <label class="f"><span>저장된 문제지 · 과제 불러오기 <span class="dim">· 고치거나 다시 인쇄</span></span>
           <select id="loadSel"><option value="">— 고르세요 —</option></select></label>
       </section>
       <section class="card">
         <div class="xh"><h2><span class="n">4</span>내보내기</h2><span id="xHint">문항을 담으면 쓸 수 있어요</span></div>
-        <label class="f"><span>출제 선생님 <span class="dim">· 선생님마다 시험지를 따로 저장해요</span></span><input type="text" id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></label>
-        <label class="f"><span>제목 <span class="dim">· 시험지·PDF 파일·H WORK 과제 이름</span></span><input type="text" id="pTitle" placeholder="문항을 담으면 자동으로 채워져요"></label>
-        <div class="psave"><button class="btn main" type="button" id="paperSave">시험지 저장</button><span id="paperMsg">저장해야 인쇄할 수 있어요</span></div>
+        <label class="f"><span>출제 선생님 <span class="dim">· 선생님마다 문제지를 따로 저장해요</span></span><input type="text" id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></label>
+        <label class="f"><span>제목 <span class="dim">· 문제지·PDF 파일·H WORK 과제 이름</span></span><input type="text" id="pTitle" placeholder="문항을 담으면 자동으로 채워져요"></label>
+        <div class="psave"><button class="btn main" type="button" id="paperSave">문제지 저장</button><span id="paperMsg">저장해야 인쇄할 수 있어요</span></div>
         <div class="seg" id="xTabs"><button type="button" data-x="pr" class="on">학습자료 인쇄</button><button type="button" data-x="ex">시험지 인쇄</button><button type="button" data-x="hw">H WORK 출제</button></div>
         <div class="pane" id="xp-pr">
           <span class="tt">A4 학습지 <span>(2단)</span></span>
@@ -525,7 +525,7 @@ function rebuildUsed(){
   const t=curTeacher(); USED={};
   const add=(id,lb)=>{ const a=(USED[id]=USED[id]||[]); if(!a.includes(lb)) a.push(lb); };
   HWS.filter(h=>!t || h.teacher===t).forEach(h=>Object.values(h.data.bank).forEach(id=>add(Number(id), 'H WORK · '+h.code+(t?'':' ('+h.teacher+')'))));
-  PAPERS.filter(p=>!t || p.teacher===t).forEach(p=>(p.ids||[]).forEach(id=>add(Number(id), '시험지 · '+p.title+(t?'':' ('+p.teacher+')'))));
+  PAPERS.filter(p=>!t || p.teacher===t).forEach(p=>(p.ids||[]).forEach(id=>add(Number(id), '문제지 · '+p.title+(t?'':' ('+p.teacher+')'))));
   $('fUnusedLb').textContent = t ? t+' 선생님이 안 낸 문항만' : '아직 낸 적 없는 문항만';
 }
 function drawTeachers(){
@@ -538,7 +538,7 @@ function drawLoad(){
   LOADS=ps.concat(hs);
   const opt=(x,i)=>`<option value="${i}">${esc(x.title)} · ${esc(x.teacher)} (${x.ids.length}문항)</option>`;
   $('loadSel').innerHTML='<option value="">— 고르세요 —</option>'
-    +(ps.length?`<optgroup label="저장한 시험지">${ps.map((x,i)=>opt(x,i)).join('')}</optgroup>`:'')
+    +(ps.length?`<optgroup label="저장한 문제지">${ps.map((x,i)=>opt(x,i)).join('')}</optgroup>`:'')
     +(hs.length?`<optgroup label="H WORK 과제">${hs.map((x,i)=>opt(x,ps.length+i)).join('')}</optgroup>`:'');
 }
 function selSig(){ return selIds().join(','); }
@@ -549,7 +549,7 @@ function drawPrint(){
   $('paperSave').disabled = !n;
   const m=$('paperMsg');
   m.className = ok ? 'ok' : '';
-  m.textContent = !PAPERS_OK ? '시험지 저장 표가 아직 없습니다 (데이터베이스 076)' : !n ? '저장해야 인쇄할 수 있어요'
+  m.textContent = !PAPERS_OK ? '문제지 저장 표가 아직 없습니다 (데이터베이스 076)' : !n ? '저장해야 인쇄할 수 있어요'
     : ok ? '저장했습니다 · 인쇄할 수 있어요' : (SAVED && SAVED.teacher===curTeacher() && SAVED.title===$('pTitle').value.trim() ? '바뀐 내용을 저장하면 인쇄할 수 있어요' : '저장해야 인쇄할 수 있어요');
 }
 let SEL=[];   // [[id,…], …] — 묶음 순서 = 시험지 순서
@@ -773,7 +773,7 @@ $('allBtn').onclick=()=>{
 };
 $('loadSel').onchange=()=>{
   const h=LOADS[Number($('loadSel').value)]; if(!h) return;
-  if(SEL.length && !confirm('지금 고른 문항을 비우고 이 '+(h.kind==='paper'?'시험지':'과제')+'의 문항을 불러올까요?')){ $('loadSel').value=''; return; }
+  if(SEL.length && !confirm('지금 고른 문항을 비우고 이 '+(h.kind==='paper'?'문제지':'과제')+'의 문항을 불러올까요?')){ $('loadSel').value=''; return; }
   const ids=h.ids.filter(id=>BYID[id]);
   SEL=[]; ids.forEach(id=>{ const last=SEL[SEL.length-1]; if(last && BYID[id].pid && BYID[last[0]].pid===BYID[id].pid) last.push(id); else SEL.push([id]); });
   $('hTeacher').value=h.teacher; $('hCode').value=h.title; $('pTitle').value=h.title;
@@ -790,10 +790,10 @@ $('paperSave').onclick=async()=>{
   const teacher=curTeacher(), title=$('pTitle').value.trim(), ids=selIds();
   if(!ids.length){ toast('문항을 먼저 고르세요'); return; }
   if(!teacher){ toast('출제 선생님을 적어 주세요'); $('hTeacher').focus(); return; }
-  if(!title){ toast('시험지 이름(제목)을 적어 주세요'); $('pTitle').focus(); return; }
+  if(!title){ toast('문제지 이름(제목)을 적어 주세요'); $('pTitle').focus(); return; }
   if(title.length>120){ toast('제목은 120자까지예요'); return; }
   const same=PAPERS.find(p=>p.teacher===teacher && p.title===title);
-  if(same && (same.ids||[]).join(',')!==ids.join(',') && !confirm(`${teacher} 선생님의 「${title}」 시험지가 이미 있습니다.\n지금 고른 문항으로 바꿔 저장할까요?`)) return;
+  if(same && (same.ids||[]).join(',')!==ids.join(',') && !confirm(`${teacher} 선생님의 「${title}」 문제지가 이미 있습니다.\n지금 고른 문항으로 바꿔 저장할까요?`)) return;
   const btn=$('paperSave'); btn.disabled=true; btn.textContent='저장 중…';
   try{
     const rows=await sb('/shufit_papers?on_conflict=teacher,title',{ method:'POST', headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=representation' },
@@ -802,10 +802,10 @@ $('paperSave').onclick=async()=>{
     PAPERS=PAPERS.filter(p=>!(p.teacher===teacher && p.title===title)); PAPERS.unshift(row); PAPERS_OK=true;
     SAVED={ teacher, title, sig:ids.join(',') };
     drawTeachers(); rebuildUsed(); drawLoad(); drawList(); drawPrint();
-    toast('시험지를 저장했어요. 이제 인쇄할 수 있어요');
-    if(window.shuegukActivity) shuegukActivity('Shuefit 문법', '시험지 저장', title, teacher+' · '+ids.length+'문항', false);
+    toast('문제지를 저장했어요. 이제 인쇄할 수 있어요');
+    if(window.shuegukActivity) shuegukActivity('Shuefit 문법', '문제지 저장', title, teacher+' · '+ids.length+'문항', false);
   }catch(e){ toast('저장하지 못했습니다. ('+e.message+')'); }
-  finally{ btn.textContent='시험지 저장'; drawPrint(); }
+  finally{ btn.textContent='문제지 저장'; drawPrint(); }
 };
 
 /* ── H WORK 과제로 저장 ── */
@@ -877,7 +877,7 @@ function fileTitle(title, teacher, booklet, extra){
 window.addEventListener('afterprint', ()=>{ setPage(PAGE_A4); document.title=PAGE_TITLE; });
 function printDoc(teacher){
   if(!selIds().length){ toast('문항을 먼저 고르세요'); return; }
-  if(!canPrint()){ toast('시험지를 먼저 저장해 주세요'); return; }
+  if(!canPrint()){ toast('문제지를 먼저 저장해 주세요'); return; }
   const d=docParts(teacher);
   setPage(PAGE_A4);
   $('print').className = teacher ? 'teacher' : 'student';
@@ -922,7 +922,7 @@ function backPage(c){
 }
 async function bookletDoc(teacher){
   if(!selIds().length){ toast('문항을 먼저 고르세요'); return; }
-  if(!canPrint()){ toast('시험지를 먼저 저장해 주세요'); return; }
+  if(!canPrint()){ toast('문제지를 먼저 저장해 주세요'); return; }
   const d=docParts(teacher), M=$('bkm'), c=coverInfo(d, teacher);
   M.className='bk '+(teacher?'teacher':'student'); M.innerHTML='';
   try{ if(document.fonts){ await Promise.all([document.fonts.load('30pt Sacramento','Shueguk'), document.fonts.load('10pt "Gowun Dodum"','가')]); await document.fonts.ready; } }catch(e){}
@@ -1076,7 +1076,7 @@ function exLayout(host, M){
 }
 async function examDoc(key){
   if(!selIds().length){ toast('문항을 먼저 고르세요'); return; }
-  if(!canPrint()){ toast('시험지를 먼저 저장해 주세요'); return; }
+  if(!canPrint()){ toast('문제지를 먼저 저장해 주세요'); return; }
   const n=selIds().length, M=examMeta(n), title=$('pTitle').value.trim()||'Shuefit 문법';
   const host=$('exm'); host.className='exd'+(EX_DES==='A'?' design-a':'');
   try{ if(document.fonts){ await Promise.all([document.fonts.load('10pt "Gowun Batang"','가'), document.fonts.load('10pt "Gowun Dodum"','가'), document.fonts.load('10pt Sacramento','S')]); await document.fonts.ready; } }catch(e){}
