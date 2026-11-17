@@ -110,6 +110,25 @@ function rpc(fn, p) {
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.goto(U + 'shufit_grammar.html'); await p.waitForSelector('.it');
   if (SHOT) await p.screenshot({ path: path.join(SHOT, 'shufit-first.png') });
+  // 문항 목록은 따로 스크롤(2026-11-17) — 넓은 화면
+  {
+    const st = await p.evaluate(() => { const l = document.getElementById('list'), c = getComputedStyle(l); return { oy: c.overflowY, mh: parseFloat(c.maxHeight) }; });
+    ok(st.oy === 'auto' && Math.abs(st.mh - (900 - 32)) < 2, '문항 목록 따로 스크롤 ' + JSON.stringify(st));
+    await p.evaluate(() => { const d = document.createElement('div'); d.id = 'tallT'; d.style.height = '3000px'; document.getElementById('list').appendChild(d); document.getElementById('list').scrollIntoView(); });
+    const y0 = await p.evaluate(() => scrollY); const bx = await p.locator('#list').boundingBox();
+    await p.mouse.move(bx.x + 50, bx.y + 100); await p.mouse.wheel(0, 600); await p.waitForTimeout(300);
+    const r = await p.evaluate(() => ({ ls: document.getElementById('list').scrollTop, wy: scrollY }));
+    ok(r.ls > 0 && r.wy === y0, '목록 위에서 굴리면 목록만 움직임 ' + JSON.stringify(r) + ' ' + y0);
+    await p.evaluate(() => { document.getElementById('tallT').remove(); document.getElementById('list').scrollTop = 0; scrollTo(0, 0); });
+    const sd = await p.evaluate(() => { const e = document.querySelector('.side'), c = getComputedStyle(e); return { oy: c.overflowY, mh: parseFloat(c.maxHeight), pos: c.position }; });
+    ok(sd.oy === 'auto' && Math.abs(sd.mh - 868) < 2 && sd.pos === 'sticky', '고른 문항·내보내기 칸도 따로 스크롤 ' + JSON.stringify(sd));
+    await p.evaluate(() => { const s = document.querySelector('.side'); s.scrollTop = s.scrollHeight; });
+    ok(await p.evaluate(() => { const r = document.getElementById('xTabs').getBoundingClientRect(); return r.bottom <= innerHeight && r.top >= 0; }), '내보내기 탭이 화면 안으로 들어옴');
+    await p.evaluate(() => { document.querySelector('.side').scrollTop = 0; });
+    await p.setViewportSize({ width: 390, height: 900 });
+    ok(await p.evaluate(() => getComputedStyle(document.getElementById('list')).overflowY === 'visible' && getComputedStyle(document.querySelector('.side')).overflowY === 'visible'), '휴대폰은 화면 스크롤 그대로');
+    await p.setViewportSize({ width: 1300, height: 900 });
+  }
   if (SHOT) { await p.setViewportSize({ width: 390, height: 900 }); await p.screenshot({ path: path.join(SHOT, 'shufit-phone.png'), fullPage: true }); await p.setViewportSize({ width: 1300, height: 900 }); }
   ok(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), '가로 넘침 없음');
   ok(await p.locator('#fArea .chip').count() >= 2, '영역 칩');

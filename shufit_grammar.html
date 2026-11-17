@@ -35,6 +35,15 @@
   .lcol{flex:1 1 560px;min-width:0;display:flex;flex-direction:column;gap:12px}
   .side{flex:1 1 320px;max-width:400px;position:sticky;top:16px;display:flex;flex-direction:column;gap:12px}
   @media (max-width:920px){ .side{position:static;max-width:none} }
+  /* 문항 목록은 따로 스크롤(2026-11-17 원장님 "문항 스크롤과 전체 화면 스크롤이 같아서 혼란") — 넓은 화면만, 휴대폰은 화면 스크롤 그대로 */
+  @media (min-width:921px){
+    #list{max-height:calc(100vh - 32px);min-height:420px;overflow-y:auto;overscroll-behavior:contain;padding:2px 6px 2px 2px;border-radius:16px;scrollbar-gutter:stable}
+    #list::-webkit-scrollbar{width:8px} #list::-webkit-scrollbar-thumb{background:#c9d6d1;border-radius:8px}
+    /* 오른쪽 '고른 문항 · 내보내기'도 화면 높이 안에서 따로 스크롤(같은 날 원장님 "4 내보내기를 하려고 할 때 스크롤이 불편") —
+     * 화면보다 긴 sticky 칸은 아래쪽이 페이지 끝까지 가야 보여서 */
+    .side{max-height:calc(100vh - 32px);overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;border-radius:24px}
+    .side::-webkit-scrollbar{width:8px} .side::-webkit-scrollbar-thumb{background:#c9d6d1;border-radius:8px}
+  }
   .card{background:#fff;border-radius:24px;padding:20px;display:flex;flex-direction:column;gap:14px}
   .fcard{padding:22px;gap:16px}
   .sec{display:flex;flex-direction:column;gap:10px}
@@ -632,10 +641,10 @@ document.addEventListener('click', e=>{
     if(F.kind && !B.some(x=>x.area===F.area && x.lvl===F.lvl && x.kind===F.kind)) F.kind='';
   }
   if(c.dataset.k==='lvl') F.kind='';
-  shown=40; drawFilters(); drawList();
+  shown=40; drawFilters(); drawList(true);
 });
-$('fq').addEventListener('input', ()=>{ clearTimeout($('fq')._t); $('fq')._t=setTimeout(()=>{ F.q=$('fq').value.trim(); shown=40; drawList(); },250); });
-$('fUnused').addEventListener('change', e=>{ F.unused=e.target.checked; shown=40; drawList(); });
+$('fq').addEventListener('input', ()=>{ clearTimeout($('fq')._t); $('fq')._t=setTimeout(()=>{ F.q=$('fq').value.trim(); shown=40; drawList(true); },250); });
+$('fUnused').addEventListener('change', e=>{ F.unused=e.target.checked; shown=40; drawList(true); });
 $('fAns').addEventListener('change', e=>{ F.ans=e.target.checked; $('list').classList.toggle('showans',F.ans); $('list').classList.toggle('teacher',F.ans); });
 
 function match(x){
@@ -675,7 +684,7 @@ function drawAllBtn(gs){
   const rest=(gs||filteredGroups()).filter(g=>!isSel(g[0])).reduce((a,g)=>a+g.length,0), ab=$('allBtn');
   ab.hidden=!rest; ab.textContent=`보이는 ${rest}문항 한번에 담기`;
 }
-function drawList(){
+function drawList(top){
   const gs=filteredGroups();
   const nItems=gs.reduce((a,g)=>a+g.length,0);
   const q=F.q?`‘${F.q}’ 검색 · `:'', where=[F.set?F.set+' 묶음':'', F.form?F.form+'형':'', F.area||'전체', F.lvl, F.kind].filter(Boolean).join(' ');
@@ -690,6 +699,7 @@ function drawList(){
       <button type="button" class="addb${on?' on':''}" data-add="${g[0]}">${addLabel(on, g.length)}</button></div>
       ${pas}${g.map(id=>itemCard(id, one)).join('')}</div>`;
   }).join('') + (gs.length>shown?`<div class="more"><button class="btn ghost" type="button" id="moreBtn">더 보기 (${gs.length-shown}묶음 남음)</button></div>`:'');
+  if(top) $('list').scrollTop=0;   // 거르기를 바꾸면 목록 맨 위로(담기·빼기·더 보기는 자리 그대로)
   const mb=$('moreBtn'); if(mb) mb.onclick=()=>{ shown+=40; drawList(); };
 }
 $('list').addEventListener('click', e=>{
@@ -964,8 +974,7 @@ $('bkT').onclick=()=>bookletDoc(true);
 /* A형 로고 — 2026-11-17 원장님이 보낸 슈국 로고(민트 원 · 아치 · Shueguk · '다르게 하기의 힘 이수경 국어')를 SVG 로 다시 그림 */
 const EX_LOGO='<svg class="logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="Shueguk 로고"><circle cx="100" cy="100" r="99" fill="#d8ece6"/>'
   +'<path d="M43 150V70a57 57 0 0 1 114 0v80Z" fill="none" stroke="#000" stroke-width=".9"/>'
-  +'<text x="100" y="104" text-anchor="middle" font-family="Sacramento, cursive" font-size="64" fill="#000">Shueguk</text>'
-  +'<text x="100" y="166" text-anchor="middle" font-family="Gowun Dodum,sans-serif" font-size="12.5" fill="#000" letter-spacing=".5">다르게 하기의 힘 이수경 국어</text></svg>';
+  +'<text x="100" y="104" text-anchor="middle" font-family="Sacramento, cursive" font-size="64" fill="#000">Shueguk</text>'+'</svg>';
 let EX_DES='A';
 function exVal(id){ return String(($(id)||{}).value||'').trim(); }
 function examMeta(n){
