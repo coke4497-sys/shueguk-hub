@@ -55,6 +55,7 @@ function fake(rt, u, method, body) {
     return rt.fulfill({ json: rest.includes('offset=0') ? DB.hws : [] });
   }
   if (rest.startsWith('/shufit_papers')) {
+    if (method === 'PATCH') { const q = new URLSearchParams(rest.split('?')[1]); const t = q.get('teacher').replace(/^eq\./, ''), ti = q.get('title').replace(/^eq\./, ''); const b = JSON.parse(body); DB.paperPatches = (DB.paperPatches || []).concat([{ t, ti, b }]); DB.papers.filter(p => p.teacher === t && p.title === ti).forEach(p => Object.assign(p, b)); return rt.fulfill({ status: 204, body: '' }); }
     if (method === 'DELETE') { DB.paperDels = (DB.paperDels || []).concat([rest]); const q = new URLSearchParams(rest.split('?')[1]); const t = q.get('teacher').replace(/^eq\./, ''), ti = q.get('title').replace(/^eq\./, ''); DB.papers = DB.papers.filter(p => !(p.teacher === t && p.title === ti)); return rt.fulfill({ status: 204, body: '' }); }
     if (method === 'POST') { const r = JSON.parse(body)[0]; DB.paperPosts.push({ rest, r }); DB.papers = DB.papers.filter(p => !(p.teacher === r.teacher && p.title === r.title)); const row = Object.assign({ id: 50 + DB.paperPosts.length, updated_at: '2026-11-17' }, r); DB.papers.unshift(row); return rt.fulfill({ status: 201, json: [row] }); }
     return rt.fulfill({ json: rest.includes('offset=0') ? DB.papers : [] });
@@ -259,6 +260,8 @@ function rpc(fn, p) {
     const ph = await p.evaluate(() => document.querySelector('#print .ph1 .nm').textContent);
     ok(ph.includes('2026. 12. 1.') && ph.includes('행신고등학교') && ph.includes('이름'), '학습지 머리 날짜·학교 ' + ph);
     ok(await p.evaluate(() => (JSON.parse(localStorage.getItem('sf_pmeta') || '{}')['이현지|음운 연습'] || {}).school === '행신고등학교'), '문제지마다 날짜·학교 기억');
+    const pt = (DB.paperPatches || []).slice(-1)[0];
+    ok(pt && pt.t === '이현지' && pt.ti === '음운 연습' && pt.b.school === '행신고등학교' && pt.b.print_date === '2026-12-01', '날짜·학교를 문제지(데이터베이스)에 저장 ' + JSON.stringify(pt));
     await p.evaluate(() => window.dispatchEvent(new Event('afterprint')));
     await p.click('#xTabs [data-x=ex]'); np = await p.evaluate(() => window.__printed || 0) - 1;
     await p.click('#exT'); await p.waitForFunction(n => window.__printed === n + 1, np + 1);
@@ -278,9 +281,10 @@ function rpc(fn, p) {
     ok((await p.locator('#selN').textContent()) === '1문항' && (await p.locator('#pTitle').inputValue()) === '지원 모의 1' && !(await p.locator('#prS').isDisabled()), '저장한 시험지 불러오면 바로 인쇄 가능');
     await p.fill('#autoN', '3'); await p.click('#autoBtn'); ok((await p.locator('#selN').textContent()) === '3문항', '채울 문항 수 바꾸기(3)');
     await p.fill('#hTeacher', '이현지'); await p.locator('#hTeacher').dispatchEvent('change');
+    await p.evaluate(() => localStorage.removeItem('sf_pmeta'));   // 다른 기기처럼 — 이 기기 기억 없이
     await p.selectOption('#loadSel', { label: '음운 연습 · 이현지 (4문항)' });
     ok((await p.locator('#selN').textContent()) === '4문항' && !(await p.locator('#prS').isDisabled()), '내 시험지 다시 불러오기');
-    ok((await p.locator('#pSchool').inputValue()) === '행신고등학교' && (await p.locator('#pDate').inputValue()) === '2026-12-01', '문제지를 불러오면 날짜·학교도 다시 채움');
+    ok((await p.locator('#pSchool').inputValue()) === '행신고등학교' && (await p.locator('#pDate').inputValue()) === '2026-12-01', '다른 기기에서도 문제지를 불러오면 날짜·학교 채움(데이터베이스)');
     ok((await p.locator('#hTeacher').inputValue()) === '이현지', '담당 강사 = 로그인 이름');
     await p.click('#xTabs [data-x=hw]');
     await p.fill('#pTitle', '일반 과제'); await p.click('#saveBtn');

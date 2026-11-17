@@ -531,7 +531,7 @@ async function sbAll(path){
 let ITEMS=[], BYID={}, PAS={}, USED={}, HWS=[], ALLHW=[], SCHOOLS=[];
 /* 시험지 저장(2026-11-17 원장님, 리포트 076 shufit_papers) — 출제 선생님 + 제목이 열쇠. 저장해야 인쇄할 수 있고,
  * '낸 적 있음'·'안 낸 문항만'은 지금 출제 선생님의 시험지·H WORK 과제로 센다(선생님 칸이 비면 모두). */
-let PAPERS=[], PAPERS_OK=true, SAVED=null, LOADS=[];
+let PAPERS=[], PAPERS_OK=true, SAVED=null, LOADS=[], PM_COL=true;   // PM_COL = 077(print_date·school 열) 적용됨
 function curTeacher(){ return $('hTeacher').value.trim(); }
 function rebuildUsed(){
   const t=curTeacher(); USED={};
@@ -593,7 +593,8 @@ async function boot(){
       sbAll('/gbank_passages?select=pid,html'),
       sbAll('/hwork_homeworks?select=teacher,code,data'),
       sbAll('/students?select=school,enrolled').catch(()=>[]),
-      sbAll('/shufit_papers?select=id,teacher,title,ids,updated_at&order=updated_at.desc').catch(()=>null)
+      sbAll('/shufit_papers?select=id,teacher,title,ids,print_date,school,updated_at&order=updated_at.desc')
+        .catch(()=>sbAll('/shufit_papers?select=id,teacher,title,ids,updated_at&order=updated_at.desc').then(r=>{ PM_COL=false; return r; })).catch(()=>null)
     ]);
     PAPERS = papers || []; PAPERS_OK = !!papers;
     ITEMS=items; ITEMS.forEach(x=>BYID[x.id]=x);
@@ -795,7 +796,9 @@ $('loadSel').onchange=()=>{
   SEL=[]; ids.forEach(id=>{ const last=SEL[SEL.length-1]; if(last && BYID[id].pid && BYID[last[0]].pid===BYID[id].pid) last.push(id); else SEL.push([id]); });
   $('hTeacher').value=h.teacher; $('hCode').value=h.title; $('pTitle').value=h.title;
   $('hCode').dataset.auto=''; $('pTitle').dataset.auto='';
-  $('pDate').value=''; $('pSchool').value=''; pmRestore(h.teacher, h.title);
+  $('pDate').value=''; $('pSchool').value='';
+  const row=h.kind==='paper' ? PAPERS.find(p=>p.teacher===h.teacher && p.title===h.title) : null;
+  if(row && (row.print_date || row.school)){ $('pDate').value=row.print_date||''; $('pSchool').value=row.school||''; } else pmRestore(h.teacher, h.title);
   SAVED = h.kind==='paper' ? { teacher:h.teacher, title:h.title, sig:selSig() } : null;
   rebuildUsed(); drawSel(); drawList(); toast('불러왔어요');
 };
@@ -819,7 +822,18 @@ function teacherChanged(){ rebuildUsed(); drawLoad(); drawSel(); drawList(); }
 $('hTeacher').addEventListener('change', teacherChanged);
 $('hTeacher').addEventListener('input', ()=>{ clearTimeout($('hTeacher')._t); $('hTeacher')._t=setTimeout(teacherChanged, 400); });
 $('pTitle').addEventListener('input', drawPrint);
-['pDate','pSchool'].forEach(id=>$(id).addEventListener('change', ()=>{ if(SAVED) pmRemember(); }));
+/* 저장한 문제지를 연 채 날짜·학교를 바꾸면 그 문제지에 바로 저장(077) — 다른 기기에서도 보인다 */
+async function pmSaveRow(){
+  if(!SAVED) return; pmRemember();
+  if(!PM_COL) return;
+  const v=pmVal(), t=SAVED.teacher, ti=SAVED.title;
+  try{
+    await sb('/shufit_papers?teacher=eq.'+encodeURIComponent(t)+'&title=eq.'+encodeURIComponent(ti),{ method:'PATCH', headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json', Prefer:'return=minimal' }, body:JSON.stringify({ print_date:v.date||null, school:v.school }) });
+    const row=PAPERS.find(p=>p.teacher===t && p.title===ti); if(row){ row.print_date=v.date||null; row.school=v.school; }
+    $('paperMsg').textContent='날짜·학교를 이 문제지에 저장했어요';
+  }catch(e){ toast('날짜·학교를 저장하지 못했습니다. ('+e.message+')'); }
+}
+['pDate','pSchool'].forEach(id=>$(id).addEventListener('change', pmSaveRow));
 /* 시험지 저장 — 출제 선생님 + 제목이 같으면 덮어쓴다(문항이 다르면 묻는다). 저장해야 인쇄 버튼이 열린다 */
 $('paperSave').onclick=async()=>{
   const teacher=curTeacher(), title=$('pTitle').value.trim(), ids=selIds();
@@ -832,7 +846,7 @@ $('paperSave').onclick=async()=>{
   const btn=$('paperSave'); btn.disabled=true; btn.textContent='저장 중…';
   try{
     const rows=await sb('/shufit_papers?on_conflict=teacher,title',{ method:'POST', headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=representation' },
-      body:JSON.stringify([{ teacher, title, ids, author:teacher }]) });
+      body:JSON.stringify([Object.assign({ teacher, title, ids, author:teacher }, PM_COL?{ print_date:pmVal().date||null, school:pmVal().school }:{})]) });
     const row=(rows&&rows[0]) || { teacher, title, ids };
     PAPERS=PAPERS.filter(p=>!(p.teacher===teacher && p.title===title)); PAPERS.unshift(row); PAPERS_OK=true;
     SAVED={ teacher, title, sig:ids.join(',') }; pmRemember();
