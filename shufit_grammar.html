@@ -8,10 +8,12 @@
 <link rel="icon" type="image/png" href="https://coke4497-sys.github.io/shueguk-h-work/icon-chulje.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&family=Sacramento&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://coke4497-sys.github.io/shueguk-h-work/gbank.css">
 <script src="https://coke4497-sys.github.io/shueguk-report/teacher-name.js"></script>
 <style>
+  /* Sacramento — 구글 글꼴 대신 이 저장소(GitHub Pages)의 파일로(2026-11-17 원장님). OFL — assets/fonts/Sacramento-OFL.txt */
+  @font-face{font-family:'Sacramento';src:url('assets/fonts/Sacramento-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:block}
   /* 화면 = 2026-11-17 원장님 디자인 묶음 design_handoff_shufit_grammar (README 수치 그대로) */
   :root{ --ink:#2b3a33; --ink2:#54655c; --muted:#8a978f; --line:#dde5e0; --paper:#e4efea; --card:#fff;
          --g1:#4b6157; --g2:#7f9e8e; --s1:#f1f4f1; --s2:#f8faf8; --s3:#fafbf9; --s4:#f3eff8;
@@ -101,6 +103,8 @@
   #list .gq .bl{top:-10px}
   #list .gq .bl span{font-size:12px;padding:1px 12px;border-radius:999px;border:1px solid #d5ddd8;color:var(--ink2)}
   #list .gq .box .box,#list .gq table.ot{background:var(--s3)}
+  #list .gq table.ot{font-size:14.5px;line-height:1.6;margin:10px auto}
+  #list .gq table.ot td{padding:6px 12px}
   #list .gq .ch{gap:4px;margin-top:8px}
   #list .gq .c{display:grid;grid-template-columns:24px minmax(0,1fr);gap:4px;padding:6px 10px;border-radius:10px;font-size:15px;line-height:1.6}
   #list .gq .c:hover{background:var(--s2)}
@@ -173,7 +177,7 @@
   .cv-top{height:158mm;background:#e3efeb;padding:14mm 16mm 0;box-sizing:border-box;position:relative}
   .cv-brand{display:flex;justify-content:space-between;align-items:flex-start;font-size:9.5pt;color:#3d675d}
   .cv-logo{text-align:center}
-  .cv-logo b{display:block;font-family:Sacramento;font-weight:400;font-size:30pt;color:#5f9488;line-height:1}
+  .cv-logo b{display:block;font-family:'Sacramento',cursive;font-weight:400;font-size:30pt;color:#5f9488;line-height:1}
   .cv-logo span{display:inline-block;border:.3mm solid #8db8ad;border-radius:99px;padding:.3mm 3.4mm;font-size:8.5pt;color:#3d675d;margin-top:1mm}
   .cv-tag{display:inline-block;background:#8db8ad;color:#fff;border-radius:2mm;padding:1.4mm 4mm;font-size:10pt;margin-top:22mm}
   .cv-series{font-size:10.5pt;color:#3d675d;margin-top:4mm}
@@ -191,7 +195,7 @@
   .cv-name div{flex:1;border-bottom:.3mm solid #c3dcd5;padding-bottom:5mm}
   .bk .bpage.bkback{background:#e3efeb;display:flex;align-items:center;justify-content:center;text-align:center}
   .bk-in img{width:46mm;height:46mm;display:block;margin:0 auto 4mm}
-  .bk-in b{display:block;font-family:Sacramento;font-weight:400;font-size:44pt;color:#5f9488;line-height:1}
+  .bk-in b{display:block;font-family:'Sacramento',cursive;font-weight:400;font-size:44pt;color:#5f9488;line-height:1}
   .bk-in .nm{letter-spacing:5mm;margin:4mm 0 0 5mm;font-size:11pt;color:#24443d}
   .bk-in .sr{font-size:9pt;color:#3d675d;margin-top:6mm}
   .bk-in .pl{display:inline-block;background:#fff;border-radius:99px;padding:1.6mm 6mm;font-size:9pt;color:#3d675d;margin-top:7mm}
@@ -228,7 +232,7 @@
     background:linear-gradient(to bottom right,transparent calc(50% - .4pt),#000 calc(50% - .4pt),#000 calc(50% + .4pt),transparent calc(50% + .4pt))}
   .exd .frac .a{position:absolute;left:1mm;top:.5mm} .exd .frac .b{position:absolute;right:1mm;bottom:.4mm}
   .exd .brandf{position:absolute;left:14mm;bottom:12mm;font-size:7pt;color:#777;font-family:var(--sans)}
-  .exd .brandf b{font-family:Sacramento,cursive;font-weight:400;font-size:10pt;color:#555;margin-right:1.4mm}
+  .exd .brandf b{font-family:'Sacramento',cursive;font-weight:400;font-size:10pt;color:#555;margin-right:1.4mm}
   .exd .coverB{position:absolute;left:14mm;right:14mm;top:10mm}
   .exd .coverB table{width:100%;border-collapse:collapse;font-family:var(--sans);table-layout:fixed}
   .exd .coverB td{border:1pt solid #000;text-align:center;vertical-align:middle;height:7.4mm;padding:0 1mm;font-size:11pt;font-weight:700;white-space:nowrap;overflow:hidden}
@@ -294,7 +298,7 @@
   .exd .kgrid b{font-family:var(--num);min-width:6mm}
   .exd .kgrid em{font-style:normal;font-size:8pt;color:#555;margin-left:auto;font-family:var(--sans)}
   #print .ph1, #bkm .ph1{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:.3mm solid #c3dcd5;padding-bottom:2mm;margin-bottom:4mm}
-  #print .ph1 .logo, #bkm .ph1 .logo{font-family:Sacramento;font-size:20pt;color:#5f9488;line-height:1}
+  #print .ph1 .logo, #bkm .ph1 .logo{font-family:'Sacramento',cursive;font-size:20pt;color:#5f9488;line-height:1}
   #print .ph1 .tt, #bkm .ph1 .tt{font-family:'Gowun Batang',serif;font-size:14pt;font-weight:700;color:#24443d}
   #print .ph1 .nm, #bkm .ph1 .nm{font-size:9.5pt;color:#3d675d}
   #print .ph1 .nm span, #bkm .ph1 .nm span{display:inline-block;min-width:28mm;border-bottom:.25mm solid #9bb;margin-left:2mm}
@@ -353,14 +357,14 @@
           <button class="btn" id="autoBtn" type="button">목록에 보이는 문항으로 채우기</button>
           <button class="btn ghost" id="clearBtn" type="button">비우기</button>
         </div>
-        <label class="f"><span>저장된 시험지 · 과제 불러오기 <span class="dim">· 고치거나 다시 인쇄</span></span>
+        <label class="f"><span>저장된 문제지 · 과제 불러오기 <span class="dim">· 고치거나 다시 인쇄</span></span>
           <select id="loadSel"><option value="">— 고르세요 —</option></select></label>
       </section>
       <section class="card">
         <div class="xh"><h2><span class="n">4</span>내보내기</h2><span id="xHint">문항을 담으면 쓸 수 있어요</span></div>
-        <label class="f"><span>출제 선생님 <span class="dim">· 선생님마다 시험지를 따로 저장해요</span></span><input type="text" id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></label>
-        <label class="f"><span>제목 <span class="dim">· 시험지·PDF 파일·H WORK 과제 이름</span></span><input type="text" id="pTitle" placeholder="문항을 담으면 자동으로 채워져요"></label>
-        <div class="psave"><button class="btn main" type="button" id="paperSave">시험지 저장</button><span id="paperMsg">저장해야 인쇄할 수 있어요</span></div>
+        <label class="f"><span>출제 선생님 <span class="dim">· 선생님마다 문제지를 따로 저장해요</span></span><input type="text" id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></label>
+        <label class="f"><span>제목 <span class="dim">· 문제지·PDF 파일·H WORK 과제 이름</span></span><input type="text" id="pTitle" placeholder="문항을 담으면 자동으로 채워져요"></label>
+        <div class="psave"><button class="btn main" type="button" id="paperSave">문제지 저장</button><span id="paperMsg">저장해야 인쇄할 수 있어요</span></div>
         <div class="seg" id="xTabs"><button type="button" data-x="pr" class="on">학습자료 인쇄</button><button type="button" data-x="ex">시험지 인쇄</button><button type="button" data-x="hw">H WORK 출제</button></div>
         <div class="pane" id="xp-pr">
           <span class="tt">A4 학습지 <span>(2단)</span></span>
@@ -521,7 +525,7 @@ function rebuildUsed(){
   const t=curTeacher(); USED={};
   const add=(id,lb)=>{ const a=(USED[id]=USED[id]||[]); if(!a.includes(lb)) a.push(lb); };
   HWS.filter(h=>!t || h.teacher===t).forEach(h=>Object.values(h.data.bank).forEach(id=>add(Number(id), 'H WORK · '+h.code+(t?'':' ('+h.teacher+')'))));
-  PAPERS.filter(p=>!t || p.teacher===t).forEach(p=>(p.ids||[]).forEach(id=>add(Number(id), '시험지 · '+p.title+(t?'':' ('+p.teacher+')'))));
+  PAPERS.filter(p=>!t || p.teacher===t).forEach(p=>(p.ids||[]).forEach(id=>add(Number(id), '문제지 · '+p.title+(t?'':' ('+p.teacher+')'))));
   $('fUnusedLb').textContent = t ? t+' 선생님이 안 낸 문항만' : '아직 낸 적 없는 문항만';
 }
 function drawTeachers(){
@@ -534,7 +538,7 @@ function drawLoad(){
   LOADS=ps.concat(hs);
   const opt=(x,i)=>`<option value="${i}">${esc(x.title)} · ${esc(x.teacher)} (${x.ids.length}문항)</option>`;
   $('loadSel').innerHTML='<option value="">— 고르세요 —</option>'
-    +(ps.length?`<optgroup label="저장한 시험지">${ps.map((x,i)=>opt(x,i)).join('')}</optgroup>`:'')
+    +(ps.length?`<optgroup label="저장한 문제지">${ps.map((x,i)=>opt(x,i)).join('')}</optgroup>`:'')
     +(hs.length?`<optgroup label="H WORK 과제">${hs.map((x,i)=>opt(x,ps.length+i)).join('')}</optgroup>`:'');
 }
 function selSig(){ return selIds().join(','); }
@@ -545,7 +549,7 @@ function drawPrint(){
   $('paperSave').disabled = !n;
   const m=$('paperMsg');
   m.className = ok ? 'ok' : '';
-  m.textContent = !PAPERS_OK ? '시험지 저장 표가 아직 없습니다 (데이터베이스 076)' : !n ? '저장해야 인쇄할 수 있어요'
+  m.textContent = !PAPERS_OK ? '문제지 저장 표가 아직 없습니다 (데이터베이스 076)' : !n ? '저장해야 인쇄할 수 있어요'
     : ok ? '저장했습니다 · 인쇄할 수 있어요' : (SAVED && SAVED.teacher===curTeacher() && SAVED.title===$('pTitle').value.trim() ? '바뀐 내용을 저장하면 인쇄할 수 있어요' : '저장해야 인쇄할 수 있어요');
 }
 let SEL=[];   // [[id,…], …] — 묶음 순서 = 시험지 순서
@@ -769,7 +773,7 @@ $('allBtn').onclick=()=>{
 };
 $('loadSel').onchange=()=>{
   const h=LOADS[Number($('loadSel').value)]; if(!h) return;
-  if(SEL.length && !confirm('지금 고른 문항을 비우고 이 '+(h.kind==='paper'?'시험지':'과제')+'의 문항을 불러올까요?')){ $('loadSel').value=''; return; }
+  if(SEL.length && !confirm('지금 고른 문항을 비우고 이 '+(h.kind==='paper'?'문제지':'과제')+'의 문항을 불러올까요?')){ $('loadSel').value=''; return; }
   const ids=h.ids.filter(id=>BYID[id]);
   SEL=[]; ids.forEach(id=>{ const last=SEL[SEL.length-1]; if(last && BYID[id].pid && BYID[last[0]].pid===BYID[id].pid) last.push(id); else SEL.push([id]); });
   $('hTeacher').value=h.teacher; $('hCode').value=h.title; $('pTitle').value=h.title;
@@ -786,10 +790,10 @@ $('paperSave').onclick=async()=>{
   const teacher=curTeacher(), title=$('pTitle').value.trim(), ids=selIds();
   if(!ids.length){ toast('문항을 먼저 고르세요'); return; }
   if(!teacher){ toast('출제 선생님을 적어 주세요'); $('hTeacher').focus(); return; }
-  if(!title){ toast('시험지 이름(제목)을 적어 주세요'); $('pTitle').focus(); return; }
+  if(!title){ toast('문제지 이름(제목)을 적어 주세요'); $('pTitle').focus(); return; }
   if(title.length>120){ toast('제목은 120자까지예요'); return; }
   const same=PAPERS.find(p=>p.teacher===teacher && p.title===title);
-  if(same && (same.ids||[]).join(',')!==ids.join(',') && !confirm(`${teacher} 선생님의 「${title}」 시험지가 이미 있습니다.\n지금 고른 문항으로 바꿔 저장할까요?`)) return;
+  if(same && (same.ids||[]).join(',')!==ids.join(',') && !confirm(`${teacher} 선생님의 「${title}」 문제지가 이미 있습니다.\n지금 고른 문항으로 바꿔 저장할까요?`)) return;
   const btn=$('paperSave'); btn.disabled=true; btn.textContent='저장 중…';
   try{
     const rows=await sb('/shufit_papers?on_conflict=teacher,title',{ method:'POST', headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=representation' },
@@ -798,10 +802,10 @@ $('paperSave').onclick=async()=>{
     PAPERS=PAPERS.filter(p=>!(p.teacher===teacher && p.title===title)); PAPERS.unshift(row); PAPERS_OK=true;
     SAVED={ teacher, title, sig:ids.join(',') };
     drawTeachers(); rebuildUsed(); drawLoad(); drawList(); drawPrint();
-    toast('시험지를 저장했어요. 이제 인쇄할 수 있어요');
-    if(window.shuegukActivity) shuegukActivity('Shuefit 문법', '시험지 저장', title, teacher+' · '+ids.length+'문항', false);
+    toast('문제지를 저장했어요. 이제 인쇄할 수 있어요');
+    if(window.shuegukActivity) shuegukActivity('Shuefit 문법', '문제지 저장', title, teacher+' · '+ids.length+'문항', false);
   }catch(e){ toast('저장하지 못했습니다. ('+e.message+')'); }
-  finally{ btn.textContent='시험지 저장'; drawPrint(); }
+  finally{ btn.textContent='문제지 저장'; drawPrint(); }
 };
 
 /* ── H WORK 과제로 저장 ── */
@@ -873,7 +877,7 @@ function fileTitle(title, teacher, booklet, extra){
 window.addEventListener('afterprint', ()=>{ setPage(PAGE_A4); document.title=PAGE_TITLE; });
 function printDoc(teacher){
   if(!selIds().length){ toast('문항을 먼저 고르세요'); return; }
-  if(!canPrint()){ toast('시험지를 먼저 저장해 주세요'); return; }
+  if(!canPrint()){ toast('문제지를 먼저 저장해 주세요'); return; }
   const d=docParts(teacher);
   setPage(PAGE_A4);
   $('print').className = teacher ? 'teacher' : 'student';
@@ -918,7 +922,7 @@ function backPage(c){
 }
 async function bookletDoc(teacher){
   if(!selIds().length){ toast('문항을 먼저 고르세요'); return; }
-  if(!canPrint()){ toast('시험지를 먼저 저장해 주세요'); return; }
+  if(!canPrint()){ toast('문제지를 먼저 저장해 주세요'); return; }
   const d=docParts(teacher), M=$('bkm'), c=coverInfo(d, teacher);
   M.className='bk '+(teacher?'teacher':'student'); M.innerHTML='';
   try{ if(document.fonts){ await Promise.all([document.fonts.load('30pt Sacramento','Shueguk'), document.fonts.load('10pt "Gowun Dodum"','가')]); await document.fonts.ready; } }catch(e){}
@@ -960,7 +964,7 @@ $('bkT').onclick=()=>bookletDoc(true);
 /* A형 로고 — 2026-11-17 원장님이 보낸 슈국 로고(민트 원 · 아치 · Shueguk · '다르게 하기의 힘 이수경 국어')를 SVG 로 다시 그림 */
 const EX_LOGO='<svg class="logo" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="Shueguk 로고"><circle cx="100" cy="100" r="99" fill="#d8ece6"/>'
   +'<path d="M43 150V70a57 57 0 0 1 114 0v80Z" fill="none" stroke="#000" stroke-width=".9"/>'
-  +'<text x="100" y="104" text-anchor="middle" font-family="Sacramento,cursive" font-size="52" fill="#000">Shueguk</text>'
+  +'<text x="100" y="104" text-anchor="middle" font-family="Sacramento, cursive" font-size="64" fill="#000">Shueguk</text>'
   +'<text x="100" y="166" text-anchor="middle" font-family="Gowun Dodum,sans-serif" font-size="12.5" fill="#000" letter-spacing=".5">다르게 하기의 힘 이수경 국어</text></svg>';
 let EX_DES='A';
 function exVal(id){ return String(($(id)||{}).value||'').trim(); }
@@ -1072,7 +1076,7 @@ function exLayout(host, M){
 }
 async function examDoc(key){
   if(!selIds().length){ toast('문항을 먼저 고르세요'); return; }
-  if(!canPrint()){ toast('시험지를 먼저 저장해 주세요'); return; }
+  if(!canPrint()){ toast('문제지를 먼저 저장해 주세요'); return; }
   const n=selIds().length, M=examMeta(n), title=$('pTitle').value.trim()||'Shuefit 문법';
   const host=$('exm'); host.className='exd'+(EX_DES==='A'?' design-a':'');
   try{ if(document.fonts){ await Promise.all([document.fonts.load('10pt "Gowun Batang"','가'), document.fonts.load('10pt "Gowun Dodum"','가'), document.fonts.load('10pt Sacramento','S')]); await document.fonts.ready; } }catch(e){}
