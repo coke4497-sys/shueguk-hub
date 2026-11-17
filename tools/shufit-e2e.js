@@ -313,7 +313,7 @@ function rpc(fn, p) {
     ok(dl.includes('teacher=eq.' + encodeURIComponent('이현지')) && dl.includes('title=eq.' + encodeURIComponent('음운 연습')), '삭제 요청 = 선생님 + 제목 ' + dl);
     ok((await p.locator('#loadSel optgroup[label="저장한 문제지"] option').count()) === 0 && (await p.locator('#paperDel').isDisabled()) && (await p.locator('#prS').isDisabled()), '지우면 목록에서 빠지고 인쇄 다시 잠김');
     ok((await p.locator('#selN').textContent()) === '4문항' && await p.evaluate(() => !JSON.stringify(USED[101] || '').includes('문제지 · 음운 연습')), '고른 문항은 그대로 · 낸 적 있음에서 이 문제지가 빠짐');
-    ok((await p.textContent('h1')) === 'Shuefit 문법' && (await p.textContent('.hd .subt')) === '너에게 꼭 맞춘 문법 학습' && !(await p.innerText('.wrap')).includes('문항 은행'), '이름 = Shuefit 문법 + 작은 제목 (문항 은행 글 없음)');
+    ok((await p.textContent('h1')) === 'Shuefit 문법' && (await p.textContent('.hd .subt')).startsWith('너에게 꼭 맞춘 문법 학습') && (await p.getAttribute('.hd .subt a', 'href')) === 'shufit_guide.html' && !(await p.innerText('.wrap')).includes('문항 은행'), '이름 = Shuefit 문법 + 작은 제목 (문항 은행 글 없음)');
   } else {
     if (SHOT) { await p.check('#fAns'); await p.screenshot({ path: path.join(SHOT, 'shufit-make-real.png') });
       await p.click('#autoBtn'); await p.evaluate(() => { window.print = () => {}; }); await p.click('#paperSave'); await p.waitForFunction(() => !document.getElementById('prT').disabled); await p.click('#xTabs [data-x=pr]'); await p.click('#prT');
