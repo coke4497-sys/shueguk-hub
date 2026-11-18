@@ -1033,6 +1033,9 @@ function pmStore(){ try{ return JSON.parse(localStorage.getItem('sf_pmeta')||'{}
 function pmKey(){ return curTeacher()+'|'+$('pTitle').value.trim(); }
 function pmRemember(){ const k=pmKey(); if(k==='|') return; const st=pmStore(), v=pmVal(); if(v.date||v.school) st[k]={ date:v.date, school:v.school }; else delete st[k]; try{ localStorage.setItem('sf_pmeta', JSON.stringify(st)); }catch(e){} }
 function pmRestore(teacher, title){ const m=pmStore()[teacher+'|'+title]; if(m){ $('pDate').value=m.date||''; $('pSchool').value=m.school||''; } }
+/* 인쇄 전에 글꼴을 다 받아 둔다 — Sacramento 는 font-display:block 이라 받기 전에 인쇄하면 로고 글자가 빈칸으로 찍혔다(2026-11-18 원장님 "인쇄하면 왼쪽 상단 로고가 안나와요") */
+function waitFonts(){ try{ if(!document.fonts) return Promise.resolve(); return Promise.race([Promise.all([document.fonts.load('20pt Sacramento','Shueguk'), document.fonts.load('10pt "Gowun Batang"','가'), document.fonts.load('10pt "Gowun Dodum"','가')]).then(()=>document.fonts.ready), new Promise(r=>setTimeout(r,4000))]).catch(()=>{}); }catch(e){ return Promise.resolve(); } }
+waitFonts();
 function waitImgs(el){ const imgs=[...el.querySelectorAll('img')].filter(i=>!i.complete); return Promise.all(imgs.map(i=>new Promise(r=>{ i.onload=i.onerror=r; }))); }
 function setPage(css){ $('pageStyle').textContent=css; }
 const PAGE_A4='@page{size:A4;margin:14mm 13mm 14mm 13mm}', PAGE_BK='@page{size:A4;margin:0}',
@@ -1054,7 +1057,7 @@ function printDoc(teacher){
   $('print').innerHTML = d.head + `<div class="pcols">${d.blocks.join('')}</div>`
     + (teacher ? `<div class="anspage">${d.keyHead}<div class="pcols">${d.keyBlocks.join('')}</div></div>` : '');
   document.title=fileTitle(d.title, teacher, false);
-  waitImgs($('print')).then(()=>setTimeout(()=>window.print(),50));
+  Promise.all([waitImgs($('print')), waitFonts()]).then(()=>setTimeout(()=>window.print(),50));
 }
 /* 중철 책자 — 보이지 않는 곳(#bkm)에 A4 쪽 상자를 만들고 블록을 하나씩 넣어 넘치면 다음 쪽(2단, column-fill:auto — 넘침은 옆으로 생긴다).
  * 쪽 수는 4의 배수(빈 쪽)로 맞추고 A4 한 장에 한 쪽씩 차례대로 — 중철 배치는 복합기 '소책자 인쇄'가 한다 */

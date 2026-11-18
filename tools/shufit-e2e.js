@@ -201,7 +201,7 @@ function rpc(fn, p) {
     ok(await p.locator('#bkS').isVisible() && await p.locator('#prS').isVisible(), '학습자료 탭 = A4 학습지 + 중철 책자');
     await p.click('#xTabs [data-x=ex]'); ok(await p.locator('#xp-ex').isVisible() && await p.locator('#xp-pr').isHidden(), '탭 바꾸기 — 시험지 인쇄');
     ok(await p.locator('#pTitle').isVisible(), '제목 칸은 책자 탭에서도 보임');
-    await p.evaluate(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
+    await p.evaluate(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; window.__fontAtPrint = document.fonts.check('20pt Sacramento', 'Shueguk'); }; });
     // 시험지 저장(2026-11-17) — 출제 선생님별, 저장해야 인쇄
     ok((await p.locator('#hTeacher').inputValue()) === '이현지' && await p.locator('#hTeacher').isVisible(), '출제 선생님 = 로그인 이름, 탭 위에 보임');
     ok(await p.locator('#prS').isDisabled() && await p.locator('#bkS').isDisabled() && (await p.locator('#paperMsg').textContent()).includes('저장해야'), '저장 전에는 인쇄·책자 잠김');
@@ -212,6 +212,7 @@ function rpc(fn, p) {
     await p.fill('#pTitle', '음운 연습 2'); ok(await p.locator('#prS').isDisabled(), '제목을 바꾸면 다시 저장해야 인쇄');
     await p.fill('#pTitle', '음운 연습'); await p.locator('#pTitle').dispatchEvent('input'); ok(!(await p.locator('#prS').isDisabled()), '저장한 제목으로 돌리면 다시 열림');
     await p.click('#xTabs [data-x=pr]'); await p.click('#prS'); await p.waitForFunction(() => window.__printed === 1);
+    ok(await p.evaluate(() => window.__fontAtPrint === true), '학습지 인쇄 — 로고 글꼴(Sacramento)을 받은 뒤 인쇄');
     const pr = await p.locator('#print').innerHTML();
     ok(pr.includes('음운 연습') && !pr.includes('교사용'), '학생용 제목');
     ok((await p.title()) === '음운 연습', 'PDF 파일 이름 = 시험지 제목: ' + await p.title());
