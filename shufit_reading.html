@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<script src="https://coke4497-sys.github.io/shueguk-hub/assets/teacher-gate.js"></script><!-- 교사 로그인 게이트 (허브 로그인 필요) -->
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shuefit 독서</title>
+<link rel="icon" type="image/png" href="https://coke4497-sys.github.io/shueguk-h-work/icon-chulje.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=Do+Hyeon&display=swap" rel="stylesheet">
+<style>
+/* 화면·인쇄 = 2026-11-18 미리보기(원장님 확인) 그대로. Sacramento 는 이 저장소 파일(OFL) */
+@font-face{font-family:'Sacramento';src:url('assets/fonts/Sacramento-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:block}
+:root{ --ink:#2b3a33; --ink2:#54655c; --muted:#8a978f; --line:#dde5e0; --paper:#e4efea; --card:#fff;
+  --s1:#f1f4f1; --s3:#fafbf9; --pu:#4a3f63; --pu2:#ddd2ec; --lav:#EDE4F4; --lav-ink:#5A4A6A;
+  --mint:#8db8ad; --mint-d:#3d675d; --mint-bg:#e3f0ec; }
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:'Gowun Dodum',sans-serif}
+.wrap{max-width:1240px;margin:0 auto;padding:24px 16px 60px}
+.hd{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+.hd .brand{font-size:11px;letter-spacing:.24em;color:#6f8079}
+.hd h1{margin:4px 0 2px;font-family:'Gowun Batang',serif;font-size:30px}
+.hd .subt{font-size:13px;color:var(--ink2)}
+.hd .tot{font-size:13px;color:var(--ink2);text-align:right}
+.hd .tot b{font-family:'Do Hyeon';font-size:22px;color:var(--ink);font-weight:400}
+.card{background:var(--card);border-radius:20px;padding:18px 20px;margin-bottom:14px}
+.ct{font-family:'Gowun Batang',serif;font-weight:700;font-size:16px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.ct i{font-style:normal;width:22px;height:22px;border-radius:50%;background:var(--mint-bg);color:var(--mint-d);font-size:12px;display:inline-flex;align-items:center;justify-content:center;font-family:'Gowun Dodum'}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:0;border-radius:999px;padding:8px 14px;font:inherit;font-size:13px;background:var(--s1);color:#4F5C56;cursor:pointer}
+.chip.on{background:#4a3f63;color:#fff}
+.chip small{opacity:.7;margin-left:4px}
+.pmeta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;font-size:13px;color:var(--ink2)}
+.tag{display:inline-block;border-radius:999px;padding:3px 10px;font-size:12px;background:var(--mint-bg);color:var(--mint-d)}
+.tag.lav{background:var(--lav);color:var(--lav-ink)}
+.seg{display:inline-flex;background:var(--s1);border-radius:999px;padding:3px}
+.seg button{border:0;background:none;border-radius:999px;padding:6px 14px;font:inherit;font-size:13px;color:#4F5C56;cursor:pointer}
+.seg button.on{background:var(--lav);color:var(--lav-ink);font-weight:700}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
+.pas-col{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;overscroll-behavior:contain}
+@media(max-width:920px){.cols{grid-template-columns:1fr}.pas-col{position:static;max-height:none}}
+.acts{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:0;border-radius:12px;padding:10px 14px;font:inherit;font-size:13px;background:var(--lav);color:var(--lav-ink);cursor:pointer}
+.btn.ghost{background:var(--s1);color:#4F5C56}
+/* 지문·문항 공통 — 화면 */
+.pas{font-family:'Gowun Batang',serif;font-size:15px;line-height:1.85}
+.pas .lab{font-weight:700;margin:10px 0 2px}
+.pas p{margin:0 0 6px;text-indent:1em;text-align:justify;word-break:keep-all}
+.pas .brk{position:relative;border-left:1.5px solid #333;border-top:1.5px solid #333;border-bottom:1.5px solid #333;width:8px;position:absolute;left:-16px;top:3px;bottom:3px}
+.pas .bwrap{position:relative;margin-left:34px}
+.pas .bwrap .bm{position:absolute;left:-34px;top:50%;transform:translateY(-50%);font-size:12px;font-weight:700}
+.pas .voc{font-size:12.5px;color:var(--ink2);border-top:1px dashed #ccd6d0;margin-top:8px;padding-top:6px}
+.pas u{text-underline-offset:3px}
+.q{background:var(--s3);border-radius:16px;padding:14px 16px;margin-bottom:10px;font-family:'Gowun Batang',serif;font-size:14.5px;line-height:1.75}
+.q .qh{display:flex;gap:6px;align-items:center;margin-bottom:6px;font-family:'Gowun Dodum';font-size:12px;color:var(--ink2)}
+.q .stem{font-weight:700;margin-bottom:6px;word-break:keep-all}
+.q .stem .no{font-family:'Do Hyeon';font-weight:400;color:var(--pu);margin-right:6px;font-size:16px}
+.box{border:1px solid #555;padding:10px 12px;margin:8px 0;position:relative;background:#fff}
+.box .bl{position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:inherit;padding:0 8px;font-size:12px;font-weight:700}
+.box p{margin:0 0 4px} .box img{max-width:min(100%,380px);display:block;margin:6px auto}
+.cond{border:1px dashed #888;padding:8px 10px;margin:6px 0;font-size:13.5px;background:#fff}
+.cond b.cl{display:block;font-size:12px;margin-bottom:2px}
+.opts{list-style:none;margin:6px 0 0;padding:0}
+.opts li{display:flex;gap:6px;margin:2px 0;word-break:keep-all}
+.opts li .n{flex:none;width:18px}
+.opts li.ok .n{color:#fff;background:var(--mint-d);border-radius:50%;height:18px;text-align:center;line-height:18px;font-size:12px;margin-top:3px}
+.gridt{border-collapse:collapse;margin:6px 0;font-size:13.5px;width:100%}
+.gridt td,.gridt th{border:1px solid #777;padding:3px 8px;text-align:center}
+.ox{display:flex;gap:8px;margin-top:6px}
+.ox span{border-radius:10px;background:#fff;border:1px solid var(--line);padding:2px 14px;font-family:'Do Hyeon'}
+.model{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:6px;font-size:13.5px}
+details.ex{margin-top:8px;font-family:'Gowun Dodum';font-size:13px}
+details.ex summary{cursor:pointer;color:var(--lav-ink);background:var(--lav);display:inline-block;border-radius:999px;padding:3px 12px;list-style:none}
+details.ex .exb{margin-top:6px;background:#fff;border-radius:10px;padding:10px 12px;line-height:1.7;white-space:pre-line}
+details.ex .exb b{color:var(--mint-d)}
+.notes{font-size:13.5px;line-height:1.75}
+.notes .nh{font-family:'Gowun Batang';font-weight:700;margin:12px 0 4px;font-size:14.5px}
+.notes .lbl{color:var(--muted);font-size:12px}
+.notes .l1{font-weight:700;margin-top:4px}
+.notes .l2{padding-left:14px}
+.notes .sum{background:var(--s1);border-radius:10px;padding:6px 10px;margin:4px 0}
+.notes .easy{background:var(--mint-bg);border-radius:10px;padding:6px 10px;margin:4px 0}
+.notes .sec{font-family:'Do Hyeon';font-size:18px;color:var(--pu);margin-top:14px}
+.blank{display:inline-block;min-width:56px;border-bottom:1px solid #333;text-align:center;font-family:'Do Hyeon';color:var(--pu);font-size:12px}
+.hint{font-size:12.5px;color:var(--ink2);background:var(--s1);border-radius:12px;padding:8px 12px;margin-bottom:10px}
+
+.find{display:flex;gap:8px;align-items:center;background:var(--s3);border:1px solid var(--line);border-radius:14px;padding:0 12px;height:46px}
+.find svg{flex:none;width:18px;height:18px;stroke:#7f9e8e;fill:none;stroke-width:1.8}
+.find input{flex:1;min-width:0;border:0;background:none;font:inherit;font-size:15px;color:var(--ink);outline:none}
+.find .x{flex:none;border:0;background:none;color:var(--muted);cursor:pointer;font:inherit;font-size:13px}
+#areas{margin-top:10px}
+#res{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-top:12px}
+#res:empty{display:none}
+.rc{border:0;text-align:left;font:inherit;background:var(--s3);border-radius:16px;padding:12px 14px;cursor:pointer;color:var(--ink)}
+.rc.on{outline:1.5px solid var(--pu2);background:#faf7fc}
+.rc b{display:block;font-family:'Gowun Batang';font-size:14.5px;margin:4px 0}
+.rc .rn{font-size:12.5px;color:var(--ink2)}
+.rc .rn em{font-style:normal;font-family:'Do Hyeon';font-size:16px;color:var(--pu)}
+.rc .sn{font-size:12.5px;color:var(--ink2);margin-top:6px;line-height:1.6;font-family:'Gowun Batang'}
+.rnone{font-size:13px;color:var(--ink2);margin-top:10px}
+mark{background:#fbe7a6;color:inherit;border-radius:3px;padding:0 1px}
+
+/* ---------- 인쇄 ---------- */
+#print{display:none}
+@page{size:A4;margin:13mm 12mm 12mm}
+body.printing .wrap{display:none}
+body.printing{background:#fff}
+body.printing #print{display:block}
+.pr{font-family:'Gowun Batang',serif;font-size:9.4pt;line-height:1.62;color:#111;column-count:2;column-gap:7mm;column-rule:.25mm solid #cfdcd8}
+.pr.exam{column-rule:.6pt solid #000;font-family:"Gowun Batang",serif}
+.pr .span{column-span:all}
+.ph{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:.5mm solid #8db8ad;padding-bottom:2.5mm;margin-bottom:4mm}
+.ph .lg{font-family:'Sacramento',cursive;font-size:24pt;color:#5f9488;line-height:1.5}
+.ph .tt{font-family:'Gowun Dodum';font-size:8.5pt;color:#3d675d}
+.ph .tt b{display:block;font-family:'Gowun Batang';font-size:14pt;color:#1f2a27}
+.ph .nm{font-family:'Gowun Dodum';font-size:8.5pt;color:#5f7a73;text-align:right;line-height:2}
+.ph .nm span{display:inline-block;border-bottom:.3mm solid #c3dcd5;min-width:28mm;margin-left:2mm}
+.pr .sech{font-family:'Gowun Dodum';font-size:10pt;color:#fff;background:#8db8ad;border-radius:1.5mm;padding:.8mm 3mm;display:inline-block;margin:3mm 0 2mm;break-after:avoid}
+.pr .ins{font-weight:700;margin:2mm 0 1.5mm;break-after:avoid}
+.pr .pas{font-size:9.4pt;line-height:1.66;border:.3mm solid #999;padding:2.5mm 3mm 1mm;margin-bottom:3mm}
+.pr.exam .pas{border:0;padding:0}
+.pr .pas .bwrap{margin-left:7mm}
+.pr .pas .bwrap .bm{left:-7mm;font-size:8pt}
+.pr .pas .brk{left:-2.2mm}
+.pr .q{background:none;border-radius:0;padding:0;margin:0 0 4mm;font-size:9.4pt;line-height:1.6}
+.pr .q .stem{break-after:avoid}
+.pr .opts li,.pr .box p,.pr .gridt{break-inside:avoid}
+.pr .box img{break-inside:avoid}
+.pr .q .qh{display:none}
+.pr .q .stem .no{font-family:'Gowun Batang';font-weight:700;color:#111;font-size:9.6pt}
+.pr .box{padding:2mm 2.6mm;margin:1.6mm 0} .pr .box img{max-width:92%}
+.pr .opts li.ok .n{background:#111;color:#fff;border-radius:50%;width:4.3mm;height:4.3mm;line-height:4.3mm;text-align:center;font-size:7pt;margin-top:.5mm;font-family:'Gowun Dodum'}
+.pr .ox span{border:0;padding:0 2mm}
+.pr details.ex{display:none}
+.pr .notes{font-size:8.8pt;line-height:1.55}
+.pr .notes .sum,.pr .notes .easy{padding:1mm 2mm;border-radius:1.2mm}
+.pr .notes .nh{font-size:9.4pt;margin:2.5mm 0 1mm}
+.pr .oxl{display:flex;gap:2mm;margin:0 0 1.6mm;break-inside:avoid}
+.pr .oxl .k{flex:none;font-weight:700}
+.pr .oxl .m{flex:none;margin-left:auto;font-family:'Gowun Dodum';color:#555;white-space:nowrap}
+.ansbox{column-span:all;break-before:page}
+.ansbox h3{font-family:'Gowun Batang';font-size:13pt;margin:0 0 3mm}
+.ansbox .qa{display:grid;grid-template-columns:repeat(10,1fr);gap:1mm;font-size:9pt;margin-bottom:4mm}
+.ansbox .qa div{border:.3mm solid #bbb;text-align:center;padding:1mm 0}
+.ansbox .ex1{font-size:8.6pt;line-height:1.55;margin-bottom:2.2mm;break-inside:avoid;column-count:1}
+.anscols{column-count:2;column-gap:7mm}
+/* 시험지 머리(A형 흉내) */
+.exh{column-span:all;border-bottom:1.6pt solid #000;padding-bottom:2mm;margin-bottom:4mm;display:flex;justify-content:space-between;align-items:flex-end}
+.exh .t1{font-family:'Gowun Dodum';font-size:9pt}
+.exh .t2{font-family:'Gowun Batang';font-weight:700;font-size:20pt;letter-spacing:.1em}
+.exh .t3{font-family:'Gowun Dodum';font-size:9pt;text-align:right;line-height:1.9}
+.exh .t3 span{display:inline-block;border-bottom:.3mm solid #000;min-width:26mm}
+.pr.exam .q .stem{font-weight:400}
+.pr.exam .ins{font-weight:700}
+.omr{column-span:all;margin-top:6mm;break-inside:avoid}
+.omr table{border-collapse:collapse;width:100%;font-size:9pt}
+.omr td{border:.3mm solid #000;padding:1.2mm;text-align:center}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-top:12px}
+.pcnt{font-size:12.5px;color:var(--ink2);margin-top:10px}
+.cur{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--ink2)}
+.cur b{font-family:'Gowun Batang';font-size:17px;color:var(--ink);margin-right:4px}
+.load{font-size:13px;color:var(--ink2);padding:6px 0}
+.err{font-size:13px;color:#b0525d;background:#fbeeea;border-radius:12px;padding:8px 12px;margin-top:8px}
+.back{display:inline-block;background:#fff;border-radius:999px;padding:6px 14px;font-size:13px;color:#4F5C56;text-decoration:none;margin-bottom:12px}
+#work[hidden]{display:none}
+</style>
+</head>
+<body>
+<script>
+/* ══ 교사 페이지 조용한 인증 (2026-08-25, 3단계) ═══════════════════════
+ * 이 아래 연결부들이 수파베이스에 보내는 요청에 '교사 신분'을 붙인다.
+ * 화면에 로그인 창은 없다 — 페이지가 열릴 때 알아서 받아 온다.
+ *
+ * 왜 필요한가:
+ *   공개 키(sb_publishable_…)는 학생이 여는 페이지에도 들어 있어서, 그 키로 표를
+ *   직접 읽을 수 있으면 전교생 명단(학생ID=비밀번호·접근코드)이 새어 나간다.
+ *   그래서 공개 키에서는 표 접근을 없애고(anon), 표는 이 신분(authenticated)만
+ *   읽고 쓰도록 나눴다. 학생 화면은 표 대신 함수(student_bundle 등)를 쓴다.
+ *
+ * 주의:
+ *   · 이 조각은 **교사용 페이지에만** 넣는다. 학생이 여는 페이지(s·r·클리닉 신청·
+ *     모의고사 신청·H WORK 제출)에는 절대 넣지 말 것 — 넣는 순간 위 보호가 무의미해진다.
+ *   · 아래 연결부들이 시작할 때 window.fetch 를 붙잡아 두므로, 이 조각은 **그것들보다
+ *     먼저** 실행돼야 한다. 페이지의 첫 스크립트 자리를 지킬 것.
+ *   · 인증이 실패하면 예전처럼 공개 키로 보낸다(권한을 회수하기 전까지는 그래도 동작). */
+(function(){
+  var SB_URL = 'https://bangdbhqpphqqdwcledg.supabase.co';
+  var SB_KEY = 'sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+  var T_ID = 'teachers@shueguk.internal';
+  var T_PW = 'shg_FCePWvnawH44SV8kYB9BHRKi6aag';
+  var tok = null, until = 0, pending = null;
+  var raw = window.fetch.bind(window);
+  window.__sbRawFetch = raw;   // 허브 로그인 이름(teacher-name.js)은 공용 계정 신분을 거치지 않고 묻는다 — 없으면 이름을 못 찾아 입력 창이 떴다(2026-11-17)
+  var TOK_LS = 'sb_teacher_tok_v1';   // 받아 둔 신분증은 브라우저에 남겨 다음 페이지에서 다시 받지 않는다(1시간짜리)
+
+  function cachedTok(){
+    try {
+      var c = JSON.parse(localStorage.getItem(TOK_LS) || 'null');
+      if (c && c.t && c.u > Date.now()){ tok = c.t; until = c.u; return true; }
+    } catch(e){}
+    return false;
+  }
+  function auth(){
+    if (tok && Date.now() < until) return Promise.resolve(tok);
+    if (cachedTok()) return Promise.resolve(tok);
+    if (pending) return pending;
+    var req = raw(SB_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: T_ID, password: T_PW })
+    }).then(function(r){ return r.json(); }).then(function(d){
+      if (!d || !d.access_token) throw new Error('teacher auth');
+      tok = d.access_token;
+      until = Date.now() + Math.max(60, (d.expires_in || 3600) - 300) * 1000;   // 만료 5분 전에 다시 받는다
+      try { localStorage.setItem(TOK_LS, JSON.stringify({ t: tok, u: until })); } catch(e){}
+      return tok;
+    });
+    /* 로그인이 멈춰 있으면 이 아래 모든 조회가 함께 멈춘다 — 10초를 넘기면 실패로 보고
+     * 그 조회는 예전 방식(공개 키)으로 내보낸다. 다음 호출 때 다시 받는다. */
+    var late = new Promise(function(_, rej){ setTimeout(function(){ rej(new Error('teacher auth timeout')); }, 10000); });
+    pending = Promise.race([req, late]).then(function(t){ pending = null; return t; },
+                                            function(e){ pending = null; throw e; });
+    return pending;
+  }
+  function withAuth(url, opts, t){
+    var src = (opts && opts.headers) || {}, h = {};
+    if (src.forEach && !src.hasOwnProperty) src.forEach(function(v, k){ h[k] = v; });
+    else for (var k in src) h[k] = src[k];
+    h['apikey'] = SB_KEY;
+    h['Authorization'] = 'Bearer ' + t;
+    var o = {}; for (var k2 in (opts || {})) o[k2] = opts[k2];
+    o.headers = h;
+    return o;
+  }
+  window.fetch = function(url, opts){
+    var u = (typeof url === 'string') ? url : ((url && url.url) || '');
+    if (u.indexOf(SB_URL + '/rest/v1') !== 0) return raw(url, opts);
+    return auth().then(function(t){
+      return raw(url, withAuth(url, opts, t)).then(function(r){
+        if (r.status !== 401) return r;
+        tok = null; until = 0;                       // 만료가 겹쳤으면 한 번만 다시 받아 재시도
+        try { localStorage.removeItem(TOK_LS); } catch(e){}
+        return auth().then(function(t2){ return raw(url, withAuth(url, opts, t2)); });
+      });
+    }, function(){ return raw(url, opts); });
+  };
+})();
+</script>
+<div class="wrap">
+  <a class="back" href="study.html">← 학습 관리</a>
+  <div class="hd">
+    <div><div class="brand">SHUEGUK · 슈핏</div><h1>Shuefit 독서</h1><div class="subt">너에게 꼭 맞춘 독서 학습</div></div>
+    <div class="tot" id="tot"></div>
+  </div>
+  <div class="card">
+    <div class="ct"><i>1</i>지문 고르기</div>
+    <label class="find"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+      <input id="q" placeholder="낱말로 찾기 — 예) 진화, 독점, 해밀턴" autocomplete="off"><button class="x" id="qx" type="button" hidden>지우기</button></label>
+    <div class="chips" id="areas"></div>
+    <div class="pcnt" id="pcnt"></div>
+    <div class="pgrid" id="res"></div>
+    <div class="rnone" id="rnone" hidden></div>
+  </div>
+  <div id="work" hidden>
+    <div class="card">
+      <div class="cur" id="pmeta"></div>
+    </div>
+    <div class="card">
+      <div class="ct"><i>2</i>문항 유형</div>
+      <div class="chips" id="tchips"></div>
+    </div>
+    <div class="cols">
+      <div class="card pas-col"><div class="ct">지문</div><div id="pas"></div></div>
+      <div class="card"><div class="ct" id="lt">문항</div><div id="list"></div></div>
+    </div>
+    <div class="card">
+      <div class="ct"><i>3</i>인쇄</div>
+      <div class="hint">고른 지문과 난도로 인쇄합니다. 학습자료 = 지문 · 핵심정리 · OX · 표현법·내용확인 · 내용불일치 · 키워드 빈칸 · 핵심 요약 빈칸, 시험지 = 원 기출 · 고난도 수능형 · 보기형(+ 답안 기록표). 인쇄 창에서 'PDF로 저장'을 고르면 파일로 받을 수 있어요.</div>
+      <div class="acts">
+        <button class="btn" data-pr="study">학습자료 (학생용)</button>
+        <button class="btn" data-pr="study" data-t="1">학습자료 (교사용)</button>
+        <button class="btn" data-pr="exam">시험지 (학생용)</button>
+        <button class="btn" data-pr="exam" data-t="1">시험지 (교사용)</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="print"></div>
+<script>
+var S = {lv:'기본', t:'orig'};
+var $ = function(s){return document.querySelector(s)};
+var CIRC = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
+var TYPES = [
+  ['orig','원 기출'], ['notes','핵심정리'], ['02','OX'], ['03','표현법·내용확인'], ['04','내용불일치'],
+  ['05','고난도 수능형'], ['06','보기형'], ['07','키워드 빈칸'], ['07_2','내신 서술형'], ['08','다지선다'],
+  ['09','그림자료'], ['10','핵심 요약 빈칸'], ['99','독립 밑줄 수능형']];
+function plain(h){ return String(h||'').replace(/<[^>]+>/g,'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&#x27;/g,"'").replace(/&quot;/g,'"'); }
+function itemText(it){ return [it.stem,(it.box||[]).map(function(b){return b.p||''}).join(' '),(it.opts||[]).join(' '),(it.cond||[]).map(function(b){return b.p||''}).join(' '),it.model||'',it.ans||'',it.expl||''].map(plain).join(' '); }
+function pasText(P){ return P.blocks.map(function(b){return plain(b.p||b.label||'')}).join(' ')+' '+(P.vocab||[]).map(plain).join(' '); }
+function countIn(t,q){ var n=0,i=0; t=t.toLowerCase(); q=q.toLowerCase(); while((i=t.indexOf(q,i))>=0){n++;i+=q.length} return n; }
+function allItems(g){ var a=g.orig.slice(); Object.keys(g.levels).forEach(function(l){ g.levels[l].forEach(function(s){ (s.items||[]).forEach(function(it){a.push(it)}) }) }); return a; }
+function snippet(t,q){ var i=t.toLowerCase().indexOf(q.toLowerCase()); if(i<0) return ''; var a=Math.max(0,i-28), b=Math.min(t.length,i+q.length+40);
+  return (a?'… ':'')+esc(t.slice(a,i))+'<mark>'+esc(t.slice(i,i+q.length))+'</mark>'+esc(t.slice(i+q.length,b))+(b<t.length?' …':''); }
+function markIn(root,q){
+  if(!q) return; var ql=q.toLowerCase();
+  var w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,null), ns=[], n;
+  while((n=w.nextNode())) if(n.nodeValue.toLowerCase().indexOf(ql)>=0 && !n.parentNode.closest('mark,summary')) ns.push(n);
+  ns.forEach(function(t){
+    var v=t.nodeValue, f=document.createDocumentFragment(), i=0, j;
+    while((j=v.toLowerCase().indexOf(ql,i))>=0){ f.appendChild(document.createTextNode(v.slice(i,j))); var m=document.createElement('mark'); m.textContent=v.slice(j,j+q.length); f.appendChild(m); i=j+q.length; }
+    f.appendChild(document.createTextNode(v.slice(i))); t.parentNode.replaceChild(f,t);
+  });
+}
+function img(name){ var g=CUR; return 'data:image/'+(/png$/.test(name)?'png':'jpeg')+';base64,'+g.imgs[name]; }
+function esc(s){return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]})}
+function blockHtml(b){
+  if(b.img) return '<img src="'+img(b.img)+'" alt="">';
+  if(b.tbl) return '<table class="gridt">'+b.tbl.map(function(r){return '<tr>'+r.map(function(c){return '<td>'+c+'</td>'}).join('')+'</tr>'}).join('')+'</table>';
+  if(b.label) return '<div class="lab">'+b.label+'</div>';
+  if(b.bracket) return '<div class="bwrap"><span class="brk"></span><span class="bm">'+b.bracket+'</span><p>'+b.p+'</p></div>';
+  return '<p>'+b.p+'</p>';
+}
+function passageHtml(P){
+  var h='<div class="pas">'+P.blocks.map(blockHtml).join('');
+  if(P.vocab) h+='<div class="voc"><b>어휘 풀이</b><br>'+P.vocab.join('<br>')+'</div>';
+  return h+'</div>';
+}
+function sections(code){ var g=CUR; return (g.levels[S.lv]||[]).filter(function(s){return s.code===code}); }
+function itemsOf(code){
+  var g=CUR;
+  if(code==='orig') return g.orig.map(function(it){return {it:it, v:0}});
+  var out=[]; sections(code).forEach(function(s){ (s.items||[]).forEach(function(it){ out.push({it:it, v:s.v, pas:s.passage}); }); });
+  return out;
+}
+function ansSet(it){ return (it.ans||'').match(/[①-⑳]/g)||[]; }
+function itemHtml(it, no, opt){
+  opt=opt||{};
+  var h='<div class="q">';
+  if(opt.tag) h+='<div class="qh"><span class="tag">'+opt.tag+'</span>'+(opt.v?'<span class="tag lav">v'+opt.v+'</span>':'')+'</div>';
+  h+='<div class="stem"><span class="no">'+no+'.</span>'+it.stem+(it.kind==='ox'?' <span style="font-weight:400">( O / X )</span>':'')+'</div>';
+  var box=(it.box||[]);
+  if(box.length){
+    var hasLabel = it.kind!=='essay' || true;
+    h+='<div class="box">'+(/보기|<보기>/.test(it.stem.replace(/<[^>]+>/g,''))?'<span class="bl">&lt;보 기&gt;</span>':'')+box.map(blockHtml).join('')+'</div>';
+  }
+  if(it.grid){
+    var tch=opt.teacher, A=ansSet(it);
+    h+='<table class="gridt"><tr><th></th>'+it.grid.head.map(function(x){return '<th>'+x+'</th>'}).join('')+'</tr>'+
+      it.grid.rows.map(function(r,i){return '<tr><td'+(tch&&A.indexOf(CIRC[i])>=0?' style="font-weight:700"':'')+'>'+CIRC[i]+'</td>'+r.map(function(c){return '<td>'+c+'</td>'}).join('')+'</tr>'}).join('')+'</table>';
+  } else if(it.opts){
+    var A2=ansSet(it);
+    h+='<ul class="opts">'+it.opts.map(function(o,i){return '<li'+(opt.teacher&&A2.indexOf(CIRC[i])>=0?' class="ok"':'')+'><span class="n">'+(opt.print&&opt.teacher&&A2.indexOf(CIRC[i])>=0?(i+1):CIRC[i])+'</span><span>'+o+'</span></li>'}).join('')+'</ul>';
+  }
+  if(it.cond&&it.cond.length) h+='<div class="cond"><b class="cl">&lt;조건&gt;</b>'+it.cond.map(blockHtml).join('')+'</div>';
+  if(it.model) h+='<div class="model">'+it.model.replace(/\(\s{3,}\)/g,'<span class="blank">&nbsp;</span>')+'</div>';
+  if(it.kind==='essay' && !opt.teacher && opt.print) h+='<div style="border:.3mm solid #999;height:26mm;margin-top:1.5mm"></div>';
+  if(opt.teacher && opt.print && (it.kind==='blank'||it.kind==='essay'||it.kind==='ox')) h+='<div class="cond"><b class="cl">정답</b>'+esc(it.ans)+'</div>';
+  if(!opt.print) h+='<details class="ex"><summary>정답·해설</summary><div class="exb"><b>정답 '+esc(it.ans)+'</b>\n'+esc(it.expl||'')+'</div></details>';
+  return h+'</div>';
+}
+function notesHtml(lines){
+  var h='<div class="notes">';
+  lines.forEach(function(b){
+    if(b.img){h+=blockHtml(b);return}
+    var t=b.p.replace(/<[^>]+>/g,'');
+    var raw=b.p;
+    if(/^\((가|나|다)\)$/.test(t)) h+='<div class="sec">'+raw+'</div>';
+    else if(/^\[\d+문단\]/.test(t)||/^(전체 요약|지문 간 비교 정리)/.test(t)) h+='<div class="nh">'+raw+'</div>';
+    else if(/^주요 내용:?$/.test(t)) {}
+    else if(/^문단 요약:/.test(t)) h+='<div class="sum"><span class="lbl">문단 요약</span> '+raw.replace(/^문단 요약:\s*/,'')+'</div>';
+    else if(/^쉽게 요약:/.test(t)) h+='<div class="easy"><span class="lbl">쉽게 요약</span> '+raw.replace(/^쉽게 요약:\s*/,'')+'</div>';
+    else if(/^\d+\)/.test(t)) h+='<div class="l1">'+raw+'</div>';
+    else h+='<div class="l2">'+raw+'</div>';
+  });
+  return h+'</div>';
+}
+function blanksHtml(B, teacher){
+  var lines=B.lines.map(function(b){
+    if(!b.p) return b;
+    return {p:b.p.replace(/\(\s*(\d+)\s+\)/g,function(m,n){return '<span class="blank">'+(teacher?(B.answers[n]||n):n)+'</span>'})};
+  });
+  return notesHtml(lines);
+}
+
+/* ---------- 화면 ---------- */
+function drawP(){
+  var g=CUR;
+  $('#pmeta').innerHTML='<b>'+esc(g.title)+'</b><span class="tag">'+esc(g.srcname)+(g.kind?' '+g.kind:'')+'</span>'+(g.area?'<span class="tag">'+esc(g.area)+'</span>':'<span class="tag lav">영역 미정</span>')+
+    '<span style="margin-left:auto">난도</span><span class="seg">'+['기본','실력'].map(function(l){return '<button data-lv="'+l+'" class="'+(l===S.lv?'on':'')+'"'+(g.levels[l]?'':' disabled')+'>'+l+'</button>'}).join('')+'</span>';
+  var n=0; ['02','03','04','05','06','07','07_2','08','09','99'].forEach(function(c){n+=itemsOf(c).length});
+  $('#tot').innerHTML='원 기출 <b>'+g.orig.length+'</b> · 변형 문항('+S.lv+') <b>'+n+'</b>';
+  drawT();
+}
+function cnt(c){ if(c==='notes'||c==='10') return ''; return itemsOf(c).length; }
+function hitItems(){
+  var q=(Q.q||'').trim(), out=[]; if(!q) return out;
+  TYPES.forEach(function(t){ if(t[0]==='notes'||t[0]==='10') return; itemsOf(t[0]).forEach(function(x){ if(countIn(itemText(x.it),q)) out.push({it:x.it,v:x.v,tag:t[1]}); }); });
+  return out;
+}
+function drawT(){
+  var q=(Q.q||'').trim();
+  if(!q && S.t==='hits') S.t='orig';
+  $('#tchips').innerHTML=(q?'<button class="chip'+(S.t==='hits'?' on':'')+'" data-t="hits">‘'+esc(q)+'’ 들어간 문항<small>'+hitItems().length+'</small></button>':'')+TYPES.map(function(t){var k=cnt(t[0]);return '<button class="chip'+(t[0]===S.t?' on':'')+'" data-t="'+t[0]+'">'+t[1]+(k!==''?'<small>'+k+'</small>':'')+'</button>'}).join('');
+  drawList();
+}
+function drawList(){
+  var g=CUR, c=S.t, name=c==='hits'?'찾은 문항':TYPES.filter(function(t){return t[0]===c})[0][1];
+  $('#lt').textContent=name;
+  var P=g.passage, h='';
+  if(c==='hits'){ var hs=hitItems(); h=hs.map(function(x,i){return itemHtml(x.it,i+1,{tag:x.tag,v:x.v})}).join('')||'<div class="hint">이 지문('+S.lv+')에는 그 낱말이 들어간 문항이 없습니다.</div>'; }
+  else if(c==='notes'){ h=notesHtml(g.notes); }
+  else if(c==='10'){ h='<div class="hint">빈칸 번호에 마우스를 올리면 답이 보이게 할 예정이에요. 지금은 교사용 인쇄에 답이 들어갑니다.</div>'+blanksHtml(g.blanks,false); }
+  else {
+    var arr=itemsOf(c);
+    if(c==='99' && arr.length && arr[0].pas) P=arr[0].pas;
+    h=arr.map(function(x,i){return itemHtml(x.it,i+1,{tag:name,v:x.v})}).join('')||'<div class="hint">이 난도에는 문항이 없습니다.</div>';
+    if(c==='99') h='<div class="hint">이 유형은 밑줄 위치가 다른 독립 지문을 씁니다. 왼쪽 지문이 바뀌어요.</div>'+h;
+  }
+  $('#pas').innerHTML=passageHtml(P);
+  $('#list').innerHTML=h;
+  var q=(Q.q||'').trim(); if(q){ markIn($('#pas'),q); markIn($('#list'),q); }
+}
+document.addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.lv){S.lv=b.dataset.lv;drawP();}
+  else if(b.dataset.t && !b.dataset.pr){S.t=b.dataset.t;drawT();}
+  else if(b.dataset.pr){ doPrint(b.dataset.pr, !!b.dataset.t); }
+});
+window.addEventListener('afterprint',function(){document.body.classList.remove('printing'); document.title=PAGE_TITLE;});
+
+/* ---------- 인쇄 ---------- */
+function headHtml(kind, teacher){
+  var g=CUR;
+  if(kind==='exam') return '<div class="exh"><div class="t1">'+g.srcname+' 기출 변형<br>Shuefit 독서 · '+S.lv+'</div><div class="t2">국어 영역</div><div class="t3">학교 <span></span><br>이름 <span></span></div></div>';
+  return '<div class="ph span"><div><div class="lg">Shueguk</div></div><div class="tt">Shuefit 독서 · '+S.lv+(teacher?' · 교사용':'')+'<b>'+g.title+'</b></div><div class="nm">날짜<span></span><br>이름<span></span></div></div>';
+}
+function printDoc(kind, teacher){
+  var g=CUR, h='', no=0;
+  var o={print:1, teacher:teacher};
+  if(kind==='study'){
+    h+=headHtml('study',teacher);
+    h+='<div class="sech">지문</div>'+passageHtml(g.passage);
+    h+='<div class="sech">핵심정리</div>'+notesHtml(g.notes);
+    h+='<div class="sech">OX</div>';
+    itemsOf('02').filter(function(x){return x.v===1}).forEach(function(x,i){
+      h+='<div class="oxl"><span class="k">'+(i+1)+'.</span><span>'+x.it.stem+'</span><span class="m">'+(teacher?'<b>'+x.it.ans+'</b>':'( O / X )')+'</span></div>';
+    });
+    [['03','표현법·내용확인'],['04','내용불일치'],['07','키워드 빈칸']].forEach(function(t){
+      h+='<div class="sech">'+t[1]+'</div>'; no=0;
+      itemsOf(t[0]).filter(function(x){return x.v===1}).forEach(function(x){ h+=itemHtml(x.it,++no,o); });
+    });
+    h+='<div class="sech">핵심 요약 빈칸</div>'+blanksHtml(g.blanks,teacher);
+    if(teacher){
+      h+='<div class="ansbox"><h3>정답과 해설</h3><div class="anscols">';
+      [['03','표현법·내용확인'],['04','내용불일치'],['07','키워드 빈칸']].forEach(function(t){
+        itemsOf(t[0]).filter(function(x){return x.v===1}).forEach(function(x,i){ h+='<div class="ex1"><b>'+t[1]+' '+(i+1)+'. 정답 '+esc(x.it.ans)+'</b> '+esc(x.it.expl||'')+'</div>'; });
+      });
+      h+='</div></div>';
+    }
+  } else {
+    var list=[].concat(itemsOf('orig'), itemsOf('05').filter(function(x){return x.v===1}), itemsOf('06').filter(function(x){return x.v===1}));
+    h+=headHtml('exam',teacher);
+    h+='<div class="ins">[1~'+list.length+'] 다음 글을 읽고 물음에 답하시오.</div>'+passageHtml(g.passage);
+    list.forEach(function(x,i){ h+=itemHtml(x.it,i+1,o); });
+    var row1='',row2='';
+    list.forEach(function(x,i){row1+='<td>'+(i+1)+'</td>'; row2+='<td>'+(teacher?'<b>'+x.it.ans+'</b>':'① ② ③ ④ ⑤')+'</td>';});
+    h+='<div class="omr"><h3 style="font-family:Gowun Batang">답안 기록표</h3><table><tr>'+row1+'</tr><tr>'+row2+'</tr></table></div>';
+    if(teacher){
+      h+='<div class="ansbox" style="break-before:auto;margin-top:6mm"><h3>정답과 해설</h3><div class="anscols">'+list.map(function(x,i){return '<div class="ex1"><b>'+(i+1)+'. 정답 '+esc(x.it.ans)+'</b> '+esc(x.it.expl||'')+'</div>'}).join('')+'</div></div>';
+    }
+  }
+  $('#print').innerHTML='<div class="pr '+kind+'">'+h+'</div>';
+  document.body.classList.add('printing');
+}
+
+
+/* ---------- 수파베이스 (079 reading_passages · reading_items, 교사 신분) ---------- */
+var SB='https://bangdbhqpphqqdwcledg.supabase.co', SB_KEY='sb_publishable_dE9d1KIbpgYaQkaS2MSrlg_-7SiRJuT';
+function sb(path){ return fetch(SB+'/rest/v1'+path,{headers:{apikey:SB_KEY}}).then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.json(); }); }
+var LIST=[], CUR=null, CACHE={}, Q={q:'',area:'',hits:null}, SEQ=0;
+var PAGE_TITLE=document.title;
+function safeQ(q){ return q.replace(/[,()*%\\:."']/g,' ').trim(); }
+function loadList(){
+  $('#pcnt').innerHTML='<span class="load">지문 목록을 불러오는 중…</span>';
+  sb('/reading_passages?select=id,title,src,srcname,kind,area,grade,ord&active=is.true&order=src.desc,ord,id').then(function(rows){
+    LIST=rows; drawAreas(); drawRes();
+  }).catch(function(e){ $('#pcnt').innerHTML='<div class="err">지문 목록을 불러오지 못했습니다('+esc(e.message)+'). 새로고침해 주세요.</div>'; });
+}
+function drawAreas(){
+  var order=['인문','사회','과학','기술','예술','융합'], as=[];
+  LIST.forEach(function(g){ if(g.area&&as.indexOf(g.area)<0) as.push(g.area) });
+  as.sort(function(a,b){return order.indexOf(a)-order.indexOf(b)});
+  $('#areas').innerHTML=['전체 영역'].concat(as).map(function(a,i){var v=i?a:'';var n=LIST.filter(function(g){return !v||g.area===v}).length;
+    return '<button class="chip'+(Q.area===v?' on':'')+'" data-area="'+esc(v)+'">'+esc(a)+'<small>'+n+'</small></button>'}).join('');
+}
+function search(){
+  var q=safeQ(Q.q), my=++SEQ;
+  $('#qx').hidden=!Q.q;
+  if(!q){ Q.hits=null; drawRes(); if(CUR) drawT(); return; }
+  $('#pcnt').innerHTML='<span class="load">찾는 중…</span>';
+  var pat=encodeURIComponent('*'+q+'*');
+  Promise.all([
+    sb('/reading_passages?select=id,plain&active=is.true&plain=ilike.'+pat),
+    sb('/reading_items?select=passage_id&active=is.true&plain=ilike.'+pat+'&limit=20000')
+  ]).then(function(r){
+    if(my!==SEQ) return;
+    var h={};
+    r[0].forEach(function(p){ h[p.id]=h[p.id]||{p:0,i:0,sn:''}; h[p.id].p=countIn(p.plain,q); h[p.id].sn=snippet(p.plain,q); });
+    r[1].forEach(function(x){ h[x.passage_id]=h[x.passage_id]||{p:0,i:0,sn:''}; h[x.passage_id].i++; });
+    Q.hits=h; drawRes(); if(CUR) drawT();
+  }).catch(function(e){ if(my===SEQ) $('#pcnt').innerHTML='<div class="err">찾지 못했습니다('+esc(e.message)+').</div>'; });
+}
+function drawRes(){
+  var q=safeQ(Q.q), cards=[];
+  LIST.forEach(function(g){
+    if(Q.area && g.area!==Q.area) return;
+    var h=Q.hits&&Q.hits[g.id], tn=q?countIn(g.title,q):0;
+    if(q && Q.hits && !h && !tn) return;
+    var rn=q&&Q.hits?((tn?'제목 · ':'')+'지문 <em>'+(h?h.p:0)+'</em>곳 · 문항 <em>'+(h?h.i:0)+'</em>개 <span style="font-size:11px">(기본·실력 합)</span>'):esc(g.grade||'');
+    cards.push('<button class="rc'+(CUR&&CUR.id===g.id?' on':'')+'" data-go="'+esc(g.id)+'"><span class="tag">'+esc(g.srcname)+(g.kind?' '+esc(g.kind):'')+'</span> <span class="tag">'+esc(g.area||'영역 미정')+'</span><b>'+(q?(snippet(g.title,q)||esc(g.title)):esc(g.title))+'</b><div class="rn">'+rn+'</div>'+(h&&h.sn?'<div class="sn">'+h.sn+'</div>':'')+'</button>');
+  });
+  $('#res').innerHTML=cards.join('');
+  $('#pcnt').textContent=q?('‘'+Q.q.trim()+'’ — 지문 '+cards.length+'개'):('지문 '+cards.length+'개'+(Q.area?' · '+Q.area:''));
+  $('#rnone').hidden=!!cards.length||!LIST.length; $('#rnone').textContent=q?('‘'+Q.q.trim()+'’이(가) 들어간 지문이 없습니다.'):'이 영역에는 지문이 없습니다.';
+}
+function shape(p, rows){
+  var g={id:p.id,title:p.title,srcname:p.srcname,kind:p.kind,area:p.area,imgs:p.imgs||{},passage:p.data.passage,notes:p.data.notes||[],blanks:p.data.blanks||{lines:[],answers:{}},orig:[],levels:{}};
+  rows.forEach(function(r){
+    var it=r.data; it.kind=r.kind;
+    if(r.level==='공통'){ g.orig.push(it); return; }
+    var L=g.levels[r.level]=g.levels[r.level]||[];
+    var s=L.filter(function(x){return x.code===r.code&&x.v===r.v})[0];
+    if(!s){ s={code:r.code,name:r.sec_name,v:r.v,items:[]}; L.push(s); }
+    if(it.passage && !s.passage) s.passage=it.passage;
+    s.items.push(it);
+  });
+  return g;
+}
+function openP(id){
+  var my=++SEQ;
+  $('#work').hidden=false; $('#pas').innerHTML='<div class="load">지문을 불러오는 중…</div>'; $('#list').innerHTML='';
+  var done=function(g){ if(my!==SEQ && CUR && CUR.id!==id) return; CUR=g; if(!g.levels[S.lv]) S.lv=Object.keys(g.levels)[0]||'기본'; drawP(); drawRes(); };
+  if(CACHE[id]){ done(CACHE[id]); return; }
+  Promise.all([
+    sb('/reading_passages?select=id,title,srcname,kind,area,data,imgs&id=eq.'+encodeURIComponent(id)),
+    sb('/reading_items?select=level,code,sec_name,v,ord,kind,data&active=is.true&passage_id=eq.'+encodeURIComponent(id)+'&order=level,code,v,ord&limit=5000')
+  ]).then(function(r){
+    if(!r[0].length) throw new Error('지문 없음');
+    var g=shape(r[0][0], r[1]); CACHE[id]=g; done(g);
+  }).catch(function(e){ $('#pas').innerHTML='<div class="err">지문을 불러오지 못했습니다('+esc(e.message)+').</div>'; });
+}
+/* 인쇄 — 글꼴·그림을 기다린 뒤(머리 로고 빈칸 방지), 파일 이름 = 지문 제목 + 종류 */
+function waitFonts(){ try{ if(!document.fonts) return Promise.resolve(); return Promise.race([Promise.all([document.fonts.load('20pt Sacramento','Shueguk'),document.fonts.load('10pt "Gowun Batang"','가'),document.fonts.load('10pt "Gowun Dodum"','가')]).then(function(){return document.fonts.ready}), new Promise(function(r){setTimeout(r,4000)})]).catch(function(){}); }catch(e){ return Promise.resolve(); } }
+function waitImgs(el){ return Promise.all([].slice.call(el.querySelectorAll('img')).map(function(i){ return i.complete?0:new Promise(function(r){i.onload=i.onerror=r}); })); }
+function doPrint(kind, teacher){
+  if(!CUR) return;
+  printDoc(kind, teacher);
+  document.title=('Shuefit 독서 '+CUR.title+' '+S.lv+' '+(kind==='exam'?'시험지':'학습자료')+(teacher?' (교사용)':'')).replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim();
+  Promise.all([waitImgs($('#print')), waitFonts()]).then(function(){ setTimeout(function(){ window.print(); },50); });
+}
+waitFonts();
+var qT=null;
+$('#q').addEventListener('input',function(){ clearTimeout(qT); qT=setTimeout(function(){ Q.q=$('#q').value; search(); },300); });
+$('#qx').addEventListener('click',function(){ $('#q').value=''; Q.q=''; search(); $('#q').focus(); });
+document.addEventListener('click',function(e){
+  var a=e.target.closest('[data-area]'); if(a){ Q.area=a.dataset.area; drawAreas(); drawRes(); return; }
+  var r=e.target.closest('[data-go]'); if(r){ if(safeQ(Q.q)) S.t='hits'; openP(r.dataset.go); setTimeout(function(){ var w=$('#work'); if(w.scrollIntoView) w.scrollIntoView({behavior:'smooth'}); },60); }
+});
+window.__printDoc=printDoc; window.__S=S;
+loadList();
+</script>
+</body>
+</html>
