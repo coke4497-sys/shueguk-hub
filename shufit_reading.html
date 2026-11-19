@@ -723,10 +723,17 @@ body.printing .toast{display:none}
 <script>
 /* 독서·문학 한 화면(2026-11-19 원장님 "문학도 같은 틀로", 리포트 084) — 주소에 ?s=lit 이면 Shuefit 문학.
  * 표는 같다(reading_passages.subject · shufit_reading_papers.subject), 다른 것은 이름·유형 목록·갈래뿐. */
-var LIT=/[?&]s=lit(?:&|$)/.test(location.search), SUBJ=LIT?'문학':'독서', SFN='Shuefit '+SUBJ;
-if(LIT){ document.title=SFN; (function(){ var h=document.querySelector('h1'); if(h) h.textContent=SFN; var t=document.querySelector('.hd .subt, .subt'); if(t) t.textContent='너에게 꼭 맞춘 문학 학습';
-  var q=document.getElementById('q'); if(q) q.placeholder='낱말로 찾기 — 예) 청산별곡, 김소월, 그리움';
-  var e=document.getElementById('exSubj'); if(e) e.placeholder="비우면 '문학 · 갈래'"; })(); }
+/* 독서·문학·화법·작문 한 화면(2026-11-19 원장님 — 문학 "같은 틀로", 화법·작문 "화면도 만들어 주세요", 리포트 084·085).
+ * 주소 ?s=lit | speech | writing. 표는 같다(reading_passages.subject · shufit_reading_papers.subject), 다른 것은 이름·유형 목록·영역뿐. */
+var SUBS={
+  lit:{ s:'문학', src:'literature', area:'갈래', order:['현대시','현대소설','고전시가','고전소설','수필','극','갈래 복합'], q:'청산별곡, 김소월, 그리움', none:'아직 올린 문학 작품이 없습니다. 자료를 받으면 작품마다 올려 드려요.' },
+  speech:{ s:'화법', src:'speech', area:'영역', order:['발표','강연','토론','협상','면담','대화','화법 복합'], q:'토론, 반대 신문, 공감', none:'아직 올린 화법 지문이 없습니다. 자료를 받으면 지문마다 올려 드려요.' },
+  writing:{ s:'작문', src:'writing', area:'영역', order:['설득하는 글','정보 전달 글','자기 표현 글','고쳐쓰기','작문 복합'], q:'건의문, 고쳐쓰기, 자료 활용', none:'아직 올린 작문 지문이 없습니다. 자료를 받으면 지문마다 올려 드려요.' } };
+var SK=(location.search.match(/[?&]s=(lit|speech|writing)(?:&|$)/)||[])[1]||'', SC=SUBS[SK]||null;
+var LIT=!!SC, SUBJ=SC?SC.s:'독서', SFN='Shuefit '+SUBJ;   // LIT = 독서가 아닌 과목(문학·화법·작문 — 같은 짜임)
+if(LIT){ document.title=SFN; (function(){ var h=document.querySelector('h1'); if(h) h.textContent=SFN; var t=document.querySelector('.hd .subt, .subt'); if(t) t.textContent='너에게 꼭 맞춘 '+SUBJ+' 학습';
+  var q=document.getElementById('q'); if(q) q.placeholder='낱말로 찾기 — 예) '+SC.q;
+  var e=document.getElementById('exSubj'); if(e) e.placeholder="비우면 '"+SUBJ+" · "+SC.area+"'"; })(); }
 var S = {t:'orig'};   /* 독서·문학은 난도 없음(2026-11-19 원장님) — 기본·실력 파일 문항을 한 목록으로 합친다 */
 var UM = 'bk';  /* 모두 인쇄 방식 — 기본 중철 책자(2026-11-19 원장님), A4 도 고를 수 있음 */  /* 골라서 인쇄 — 지문 종류(교과서/모의고사)마다 고른 것 */
 var $ = function(s){return document.querySelector(s)};
@@ -743,11 +750,19 @@ var TB_TYPES = [
 var LIT_TYPES = [
   ['orig','원 기출'], ['notes','작품 정리'], ['analysis','작품 분석'], ['02','OX'], ['03','표현상 특징'], ['04','내용 이해'],
   ['05','고난도 수능형'], ['06','〈보기〉 감상'], ['07','시어·소재 빈칸'], ['07_2','내신 서술형'], ['08','다지선다'], ['10','핵심 요약 빈칸'], ['keys','정오답 선지 근거']];
+/* 화법·작문 유형 — 자료를 받기 전 임시 목록. 번호는 독서 모의고사와 같게(묶음 담기·인쇄 규칙을 함께 쓴다) */
+var SP_TYPES = [
+  ['orig','원 기출'], ['notes','핵심 정리'], ['analysis','담화 분석'], ['02','OX'], ['03','말하기 방식'], ['04','내용 이해'],
+  ['05','고난도 수능형'], ['06','〈보기〉 적용'], ['07','핵심어 빈칸'], ['07_2','내신 서술형'], ['08','다지선다'], ['10','핵심 요약 빈칸'], ['keys','정오답 선지 근거']];
+var WR_TYPES = [
+  ['orig','원 기출'], ['notes','핵심 정리'], ['analysis','글 분석'], ['02','OX'], ['03','글쓰기 전략'], ['04','고쳐쓰기'],
+  ['05','고난도 수능형'], ['06','〈보기〉 자료 활용'], ['07','핵심어 빈칸'], ['07_2','내신 서술형'], ['08','다지선다'], ['10','핵심 요약 빈칸'], ['keys','정오답 선지 근거']];
+function subTypes(){ return SK==='speech'?SP_TYPES:(SK==='writing'?WR_TYPES:LIT_TYPES); }
 var NONQ = ['notes','analysis','keys','10'];
 function isTB(){ return !LIT && !!(CUR && CUR.kind==='교과서'); }
 function types(){ return LIT?litTypes():(isTB()?TB_TYPES:MG_TYPES); }
 function litTypes(){
-  var t=LIT_TYPES.slice(), have={}; t.forEach(function(x){ have[x[0]]=1; });
+  var t=subTypes().slice(), have={}; t.forEach(function(x){ have[x[0]]=1; });
   if(CUR) Object.keys(CUR.levels).forEach(function(l){ CUR.levels[l].forEach(function(sx){ if(!have[sx.code]){ have[sx.code]=1; t.push([sx.code, sx.name||sx.code]); } }); });
   return t;
 }
@@ -844,7 +859,7 @@ function blanksHtml(B, teacher){
 /* ---------- 화면 ---------- */
 function drawP(){
   var g=CUR;
-  $('#pmeta').innerHTML='<b>'+esc(g.title)+'</b><span class="tag">'+esc(g.srcname)+(g.kind?' '+g.kind:'')+'</span>'+(g.area?'<span class="tag">'+esc(g.area)+'</span>':'<span class="tag lav">'+(LIT?'갈래':'영역')+' 미정</span>')+(g.works||[]).map(function(w){ return '<span class="tag lav">'+esc(w.title)+(w.author?' · '+esc(w.author):'')+'</span>'; }).join('')+
+  $('#pmeta').innerHTML='<b>'+esc(g.title)+'</b><span class="tag">'+esc(g.srcname)+(g.kind?' '+g.kind:'')+'</span>'+(g.area?'<span class="tag">'+esc(g.area)+'</span>':'<span class="tag lav">'+(LIT?SC.area:'영역')+' 미정</span>')+(g.works||[]).map(function(w){ return '<span class="tag lav">'+esc(w.title)+(w.author?' · '+esc(w.author):'')+'</span>'; }).join('')+
 ''; 
   var n=0; types().forEach(function(t){ if(t[0]!=='orig'&&NONQ.indexOf(t[0])<0) n+=itemsOf(t[0]).length; });
   if(isTB()){
@@ -1008,11 +1023,11 @@ function loadList(){
   }).catch(function(e){ $('#pcnt').innerHTML='<div class="err">지문 목록을 불러오지 못했습니다('+esc(e.message)+'). 새로고침해 주세요.</div>'; });
 }
 function drawAreas(){
-  var order=LIT?['현대시','현대소설','고전시가','고전소설','수필','극','갈래 복합']:['인문','사회','과학','기술','예술','융합'], as=[];
+  var order=LIT?SC.order:['인문','사회','과학','기술','예술','융합'], as=[];
   LIST.forEach(function(g){ if(g.area&&as.indexOf(g.area)<0) as.push(g.area) });
   as.sort(function(a,b){return order.indexOf(a)-order.indexOf(b)});
   if(LIST.some(function(g){return g.kind==='교과서'})) as.push('교과서');
-  $('#areas').innerHTML=[LIT?'전체 갈래':'전체 영역'].concat(as).map(function(a,i){var v=i?a:'';var n=LIST.filter(function(g){return areaOk(g,v)}).length;
+  $('#areas').innerHTML=[LIT?'전체 '+SC.area:'전체 영역'].concat(as).map(function(a,i){var v=i?a:'';var n=LIST.filter(function(g){return areaOk(g,v)}).length;
     return '<button class="chip'+(Q.area===v?' on':'')+'" data-area="'+esc(v)+'">'+esc(a)+'<small>'+n+'</small></button>'}).join('');
 }
 function areaOk(g,v){ return !v || (v==='교과서'?g.kind==='교과서':g.area===v); }
@@ -1044,7 +1059,7 @@ function drawRes(){
   });
   $('#res').innerHTML=cards.join('');
   $('#pcnt').textContent=q?('‘'+Q.q.trim()+'’ — 지문 '+cards.length+'개'):('지문 '+cards.length+'개'+(Q.area?' · '+Q.area:''));
-  if(!LIST.length && LIT) $('#pcnt').textContent='아직 올린 문학 작품이 없습니다. 자료를 받으면 작품마다 올려 드려요.';
+  if(!LIST.length && LIT) $('#pcnt').textContent=SC.none;
   $('#rnone').hidden=!!cards.length||!LIST.length; $('#rnone').textContent=q?('‘'+Q.q.trim()+'’이(가) 들어간 지문이 없습니다.'):'이 영역에는 지문이 없습니다.';
 }
 function shape(p, rows){
@@ -1118,7 +1133,7 @@ function mkEntry(g,it,tag,pas99){
 function matLines(g,k){ return k==='notes'?(g.notes||[]):k==='analysis'?(g.analysis||[]):k==='keys'?(g.keys||[]):k==='10'?((g.blanks&&g.blanks.lines)||[]):[]; }
 function matHas(g,k){ return NONQ.indexOf(k)>=0 && matLines(g,k).length>0; }
 function matId(gid,k){ return 'm:'+gid+':'+k; }
-function matName(g,k){ var t=(LIT?LIT_TYPES:(g.kind==='교과서'?TB_TYPES:MG_TYPES)).filter(function(x){return x[0]===k})[0]; return t?t[1]:k; }
+function matName(g,k){ var t=(LIT?subTypes():(g.kind==='교과서'?TB_TYPES:MG_TYPES)).filter(function(x){return x[0]===k})[0]; return t?t[1]:k; }
 function matEntry(g,k){ return {id:matId(g.id,k), mat:k, g:g, tag:matName(g,k), gid:g.id, title:g.title, srcname:g.srcname, pkey:g.id, pas:g.passage, imgs:g.imgs, indep:false}; }
 function selQ(list){ return (list||SEL).filter(function(x){return !x.mat}); }
 function selCount(list){ var q=selQ(list).length, m=(list||SEL).length-q; return (q||!m?q+'문항':'')+(q&&m?' · ':'')+(m?'학습 자료 '+m:''); }
@@ -1170,7 +1185,7 @@ function findEntry(g,id){
   var out=null;
   Object.keys(g.levels).forEach(function(l){ g.levels[l].forEach(function(sx){ (sx.items||[]).forEach(function(it){
     if(out||it.id!==id) return;
-    var tn=((LIT?LIT_TYPES:MG_TYPES.concat(TB_TYPES)).filter(function(t){return t[0]===sx.code})[0]||[0,sx.name])[1];
+    var tn=((LIT?subTypes():MG_TYPES.concat(TB_TYPES)).filter(function(t){return t[0]===sx.code})[0]||[0,sx.name])[1];
     out=mkEntry(g,it,tn,sx.code==='99'?(it.passage||sx.passage):null);
   }); }); });
   return out;
@@ -1342,7 +1357,7 @@ $('#paperSave').onclick=function(){
     .then(function(r){ if(!r.ok) return r.text().then(function(t){ throw new Error(r.status+' '+t.slice(0,100)); }); return r.json(); }); };
   var hasMat=seq.length!==ids.length;
   post(row).catch(function(e){   // 083 전 DB(seq 열 없음) — 문항만이면 seq 없이 다시
-      if(/teacher_title_key/.test(e.message)) throw new Error('같은 제목의 '+(LIT?'독서':'문학')+' 문제지가 이미 있습니다. 제목을 바꿔 주세요');
+      if(/teacher_title_key/.test(e.message)) throw new Error('다른 과목에 같은 제목의 문제지가 이미 있습니다. 제목을 바꿔 주세요');
       if(!/seq/.test(e.message)) throw e;
       if(hasMat) throw new Error('학습 자료를 담으려면 데이터베이스 083 적용이 필요합니다');
       var r1={}; Object.keys(row).forEach(function(k){ if(k!=='seq') r1[k]=row[k]; }); return post(r1); })
@@ -1758,7 +1773,7 @@ function saveHw(opt){
   return pre.then(function(go){
     if(!go) return false;
     btn.disabled=true; btn.textContent='출제 중…'; setMsg('','');
-    var data={teacher:teacher, code:code, count:SEL.length, schools:SCHOOLS, items:{}, rd:{}, src:LIT?'literature':'reading'};
+    var data={teacher:teacher, code:code, count:SEL.length, schools:SCHOOLS, items:{}, rd:{}, src:LIT?SC.src:'reading'};
     var pas={}, rows=SEL.map(function(x,i){
       var k=hwKind(x.it), pid='rd:'+hstr(x.pkey)+':'+x.pkey.slice(0,40);
       if(!pas[pid]) pas[pid]=srcPassage(x);
