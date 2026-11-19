@@ -60,7 +60,7 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.route('**/*', async route => {
     const u = route.request().url();
     if (/\/auth\/v1\/token/.test(u)) return route.fulfill({ json: { access_token: 'tok', expires_in: 3600 } });
-    if (/script\.google\.com/.test(u)) { gas.push(route.request().postData()); return route.fulfill({ json: { ok: true } }); }
+    if (/script\.google\.com/.test(u)) { gas.push(route.request().postData()); return route.fulfill({ json: { ok: true, result: 'success' } }); }
     if (/\/rest\/v1\//.test(u) && route.request().method() !== 'GET') {
       writes.push({ m: route.request().method(), u: decodeURIComponent(u), b: route.request().postData() });
       if (/shufit_reading_papers\?on_conflict/.test(u)) return route.fulfill({ status: 201, json: JSON.parse(route.request().postData()) });
@@ -322,12 +322,25 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   const onDlg = d => { dlg.push(d.message()); d.accept(); };
   pg.on('dialog', onDlg);
   await pg.click('#unitHw');
-  await pg.waitForFunction(() => /출제했습니다/.test(document.querySelector('#saveMsg').textContent), null, { timeout: 5000 });
+  await pg.waitForFunction(() => /구간 \d+개로 나눠 출제했습니다/.test(document.querySelector('#saveMsg').textContent), null, { timeout: 8000 });
   pg.off('dialog', onDlg);
-  t('모두 출제 — 다른 지문 비울지·출제할지 묻기', dlg.length === 2 && /다른 지문 문항 \d+개/.test(dlg[0]) && /문항 7개를 H WORK/.test(dlg[1]), JSON.stringify(dlg));
+  t('모두 출제 — 다른 지문 비울지·구간으로 나눠 출제할지 묻기', dlg.length === 2 && /다른 지문 문항 \d+개/.test(dlg[0]) && /문항 7개를 구간 \d+개로 나눠/.test(dlg[1]), JSON.stringify(dlg));
   t('모두 출제 — 고른 문항 7·H WORK 탭', (await pg.textContent('#selN')) === '7문항' && !(await pg.$eval('#xp-hw', e => e.hidden)));
-  const uitems = JSON.parse(writes.find(w => w.m === 'POST' && /hwork_src_items$/.test(w.u.split('?')[0])).b);
-  t('모두 출제 — 문항 7줄', uitems.length === 7 && JSON.parse(gas[0]).data.count === 7 && JSON.parse(gas[0]).data.code === '교과서 단원 과제');
+  const uposts = writes.filter(w => w.m === 'POST' && /hwork_src_items$/.test(w.u.split('?')[0])).map(w => JSON.parse(w.b));
+  const ugas = gas.filter(Boolean).map(g => JSON.parse(g)).filter(g => g.action === 'saveHomework');
+  t('모두 출제 — 구간마다 따로 과제', ugas.length > 1 && ugas.length === uposts.length && uposts.reduce((a, r) => a + r.length, 0) === 7
+    && ugas.every((g, i) => /^Shuefit 독서: 가상 교과서 글 · \d\d .+ \(\d+\)$/.test(g.data.code) && g.data.count === uposts[i].length && uposts[i].every((r, k) => r.code === g.data.code && r.no === k + 1)),
+    JSON.stringify(ugas.map(g => g.data.code)));
+  t('모두 출제 — 구간 이름은 01부터', /· 01 /.test(ugas[0].data.code) && new Set(ugas.map(g => g.data.code)).size === ugas.length);
+  // 구간 과제 모두 한 번에 배정
+  gas.length = 0;
+  await pg.evaluate(() => { window.HWP_SEL = { type: '개인', target: '홍길동', summary: '홍길동' }; });
+  const dlg2 = []; const onDlg2 = d => { dlg2.push(d.message()); d.accept(); }; pg.on('dialog', onDlg2);
+  await pg.click('#hwAssignBtn');
+  await pg.waitForFunction(() => /구간 과제 \d+개를 배정했습니다/.test(document.querySelector('#hwAssignMsg').textContent), null, { timeout: 8000 });
+  pg.off('dialog', onDlg2);
+  const adds = gas.filter(Boolean).map(g => JSON.parse(g)).filter(g => g.action === 'addAssignment');
+  t('모두 출제 — 구간 과제 모두 배정', /구간 과제 \d+개를/.test(dlg2[0] || '') && adds.length === ugas.length && adds.every((a, i) => a.item === '김선생 / ' + ugas[i].data.code && a.target === '홍길동'), JSON.stringify(adds.map(a => a.item)));
   await pg.click('#areas [data-area=""]'); await pg.click('#res .rc:nth-child(1)');
   await pg.waitForFunction(() => /가상 시장/.test(document.querySelector('#pmeta').textContent));
   t('모의고사 지문 골라서 인쇄 기본', (await pg.$$eval('#pchips .chip.on', a => a.map(x => x.dataset.pk))).join() === 'pas,notes,02,10');
