@@ -512,6 +512,24 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   if (process.env.SHOT) { await lp.evaluate(() => { document.body.classList.remove('printing'); }); await lp.screenshot({ path: process.env.SHOT + '/literature-make.png' }); }
   t('문학 — 스크립트 오류 없음', lerr.length === 0, lerr);
   await lp.close();
+  // ── Shuefit 화법·작문(2026-11-19) — 같은 화면, 주소 ?s=speech · ?s=writing ──
+  for (const [k, nm, ar] of [['speech', '화법', '전체 영역'], ['writing', '작문', '전체 영역']]) {
+    const sp2 = await b.newPage({ viewport: { width: 1280, height: 900 } });
+    const se = []; sp2.on('pageerror', e => se.push(e.message));
+    let asked = '';
+    await sp2.route('**/*', async route => {
+      const u = route.request().url();
+      if (/\/rest\/v1\/reading_passages/.test(u)) { asked = decodeURIComponent(u); return route.fulfill({ json: [] }); }
+      if (/\/rest\/v1\//.test(u)) return route.fulfill({ json: [] });
+      if (u.startsWith('file://')) return route.continue();
+      return route.fulfill({ status: 200, body: '' });
+    });
+    await sp2.goto(PAGE + '?s=' + k);
+    await sp2.waitForFunction(() => /아직 올린/.test(document.querySelector('#pcnt').textContent));
+    t(nm + ' — 이름·작은 제목·빈 안내·과목 조건', (await sp2.textContent('h1')) === 'Shuefit ' + nm && new RegExp(nm + ' 학습').test(await sp2.textContent('.subt'))
+      && new RegExp('아직 올린 ' + nm).test(await sp2.textContent('#pcnt')) && asked.includes('subject=eq.' + nm) && se.length === 0, [asked, se]);
+    await sp2.close();
+  }
 
   const m = await b.newPage({ viewport: { width: 390, height: 844 } });
   await m.route('**/*', r => pg.context() && r.request().url().startsWith('file://') ? r.continue() : (/rest\/v1\/reading_passages/.test(r.request().url()) && !/id=eq/.test(r.request().url()) ? r.fulfill({ json: P }) : r.fulfill({ status: 200, body: /auth/.test(r.request().url()) ? '{"access_token":"tok"}' : '[]' })));
