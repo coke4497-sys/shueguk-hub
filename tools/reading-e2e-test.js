@@ -56,11 +56,20 @@ P.push({ id: '2409고3-가상문학', subject: '문학', title: '가상 시 모�
   data: { passage: { blocks: [{ label: '(가)' }, { p: '별을 노래하는 마음으로' }, { label: '(나)' }, { p: '강물은 흘러간다' }] },
           works: [{ title: '가상 시 하나', author: '시인 갑', genre: '현대시' }, { title: '가상 시 둘', author: '시인 을', genre: '현대시' }],
           notes: [{ p: '[작품 1] 가상 시 하나' }, { p: '주제: 별' }], blanks: { lines: [{ p: '① 화자는 ( 1      )을 노래한다.' }], answers: { '1': '별' } }, levels: ['기본'] }, imgs: {} });
-[{ level: '공통', code: '00', sec_name: '원 기출', kind: 'choice', data: ch('(가)와 (나)의 공통점은?', '③') },
- { level: '기본', code: '02', sec_name: 'OX', kind: 'ox', data: { stem: '(가)는 별을 노래한다.', ans: 'O', expl: '' } },
- { level: '기본', code: '05', sec_name: '고난도 수능형', kind: 'choice', data: ch('고난도 문학 문항?', '④') },
- { level: '기본', code: '31', sec_name: '시어 의미', kind: 'choice', data: ch('시어의 의미는?', '①') }]
+// 국어공방 '시 문제 풀이' 짜임(11~19) + 내신 기출(30 — 문항마다 묶음 지문, 086)
+const GP1 = { blocks: [{ label: '(가)' }, { p: '별을 노래하는<br>마음으로' }, { p: '- 시인 갑, 「가상 시 하나」', src: 1 }, { label: '(나)' }, { p: '다른 시 한 행' }], works: [{ title: '가상 시 하나', author: '시인 갑' }, { title: '다른 시', author: '시인 병' }] };
+const GP2 = { blocks: [{ p: '별을 노래하는<br>마음으로' }], works: [{ title: '가상 시 하나', author: '시인 갑' }] };
+[{ level: '교과서', code: '11', sec_name: 'OX 쉬움', kind: 'ox', data: { stem: '(가)는 별을 노래한다.', ans: 'O', expl: '' } },
+ { level: '교과서', code: '15', sec_name: '고난도 보기형', kind: 'choice', data: ch('고난도 문학 문항?', '④') },
+ { level: '교과서', code: '30', sec_name: '내신 기출', kind: 'choice', data: Object.assign(ch('기출 1번?', '③'), { passage: GP1 }) },
+ { level: '교과서', code: '30', sec_name: '내신 기출', kind: 'choice', data: Object.assign(ch('기출 2번?', '②'), { passage: GP1 }), ord: 2 },
+ { level: '교과서', code: '30', sec_name: '내신 기출', kind: 'choice', data: Object.assign(ch('기출 3번?', '①'), { passage: GP2 }), ord: 3 },
+ { level: '교과서', code: '31', sec_name: '시어 의미', kind: 'choice', data: ch('시어의 의미는?', '①') }]
   .forEach((x, i) => I.push(Object.assign({ passage_id: '2409고3-가상문학', v: 1, ord: 1, plain: '', id: 2000 + i }, x)));
+// 검수 중인 작품(086) — 원장님(admin)에게만 보인다
+P.push({ id: '문학-검수중', subject: '문학', review: '검수 중', uploaded_by: '김선생', title: '검수 중 시', src: '26EBS', srcname: '2026 수능특강 문학 1', kind: 'EBS', area: '현대시', grade: '', ord: 0, plain: '',
+  data: { passage: { blocks: [{ p: '검수 중 시 한 행' }] }, notes: [], blanks: null, levels: ['교과서'] }, imgs: {} });
+I.push({ passage_id: '문학-검수중', level: '교과서', code: '11', sec_name: 'OX 쉬움', v: 1, ord: 1, kind: 'ox', data: { stem: '검수 OX', ans: 'X', expl: '' }, plain: '', id: 2100 });
 const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [1014, 1002, 1012], seq: [1014, 'm:2306고2-가상시장:notes', 1002, 1012], print_date: '2026-12-01', school: '화정고', updated_at: '2026-11-18' }];
 
 (async () => {
@@ -495,11 +504,19 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await lp.goto(PAGE + '?s=lit'); await lp.waitForSelector('#res .rc');
   t('문학 — 이름·작은 제목·창 제목', (await lp.textContent('h1')) === 'Shuefit 문학' && /문학 학습/.test(await lp.textContent('.subt')) && (await lp.title()) === 'Shuefit 문학');
   t('문학 — 문학 작품만·갈래 알약', (await lp.$$('#res .rc')).length === 1 && /전체 갈래/.test(await lp.textContent('#areas')) && /현대시/.test(await lp.textContent('#areas')));
-  await lp.click('#res .rc'); await lp.waitForSelector('#list .q');
-  t('문학 — 작품 꼬리표 두 개(지문에 여러 작품)', /가상 시 하나 · 시인 갑/.test(await lp.textContent('#pmeta')) && /가상 시 둘 · 시인 을/.test(await lp.textContent('#pmeta')));
+  t('문학 — 검수 중 작품은 선생님 화면에 없음 · 안내', (await lp.$$('#res .rc')).length === 1 && /검수를 기다리는 작품 1개/.test(await lp.textContent('#pcnt')), await lp.textContent('#pcnt'));
+  await lp.click('#res .rc'); await lp.waitForSelector('#list .notes');
+  t('문학 — 기본 탭 작품 정리 · 작품 꼬리표', /작품 정리/.test(await lp.textContent('#lt')) && /가상 시 하나 · 시인 갑/.test(await lp.textContent('#pmeta')));
   const lchips = await lp.$$eval('#tchips .chip', a => a.map(x => x.textContent.replace(/\d+$/, '')));
-  t('문학 — 유형 알약(작품 정리·〈보기〉 감상, 자료의 새 유형도)', lchips.includes('작품 정리') && lchips.includes('〈보기〉 감상') && lchips.includes('시어 의미'), lchips.join());
-  t('문학 — 묶음 안내', /학습자료 작품 정리 · OX · 핵심 요약 빈칸/.test(await lp.textContent('#bdlInfo')) && /시험지 원 기출 · 고난도 수능형 \(2문항\)/.test(await lp.textContent('#bdlInfo')), await lp.textContent('#bdlInfo'));
+  t('문학 — 유형 알약(작품 정리·참고자료 보기형·내신 기출, 자료의 새 유형도)', lchips.includes('작품 정리') && lchips.includes('참고자료 보기형') && lchips.includes('내신 기출') && lchips.includes('시어 의미'), lchips.join());
+  t('문학 — 묶음 안내(시험지 = 내신 기출)', /학습자료 작품 정리 · OX 쉬움 · 핵심 정리 빈칸/.test(await lp.textContent('#bdlInfo')) && /시험지 내신 기출 \(3문항\)/.test(await lp.textContent('#bdlInfo')), await lp.textContent('#bdlInfo'));
+  await lp.click('#tchips [data-t="30"]'); await lp.waitForSelector('#list .gpas');
+  t('문학 — 내신 기출은 묶음마다 지문([1~2]·[3]) · 시는 줄바꿈', (await lp.$$('#list .gpas')).length === 2 && /\[1~2\]/.test(await lp.textContent('#list .gpas')) && (await lp.$$('#list .gpas p.poem')).length === 2);
+  await lp.click('[data-bundle="exam"]');
+  await lp.evaluate(() => { selDoc('study', true); });
+  t('문학 — 내신 기출 문제지 = 묶음마다 지문 한 번', (await lp.textContent('#selN')) === '3문항' && (await lp.$$('#print .pas')).length === 2, [await lp.textContent('#selN'), (await lp.$$('#print .pas')).length]);
+  await lp.evaluate(() => { document.body.classList.remove('printing'); SEL = []; selChanged(); });
+  await lp.click('#tchips [data-t="notes"]');
   await lp.click('[data-bundle="study"]');
   t('문학 — 학습자료 묶음 담기', (await lp.textContent('#selN')) === '1문항 · 학습 자료 2' && /^Shuefit 문학: 가상 시 모음/.test(await lp.inputValue('#pTitle')), await lp.textContent('#selN'));
   await lp.fill('#hTeacher', '김선생');
@@ -510,6 +527,16 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await lp.evaluate(() => { selDoc('study', true); });
   t('문학 — 학습지 머리 Shuefit 문학', /Shuefit 문학 · 1문항 · 학습 자료 2/.test(await lp.textContent('#print')) && /작품 정리/.test(await lp.textContent('#print')));
   if (process.env.SHOT) { await lp.evaluate(() => { document.body.classList.remove('printing'); }); await lp.screenshot({ path: process.env.SHOT + '/literature-make.png' }); }
+  // 원장님 화면 — 검수 중 작품이 보이고 [검수 완료] → PATCH review 완료
+  await lp.evaluate(() => { document.body.classList.remove('printing'); setMode('make'); ADMIN = true; ME = '이수경'; LIST = ALLLIST.filter(reviewOk); drawRes(); });
+  t('문학 — 원장님은 검수 중 작품도 봄', (await lp.$$('#res .rc')).length === 2 && /검수 중/.test(await lp.textContent('#res')));
+  await lp.click('#res .rc:has-text("검수 중 시")'); await lp.waitForSelector('#rvOk');
+  t('문학 — 검수 중 꼬리표·올린 사람', /검수 중 · 김선생 올림/.test(await lp.textContent('#pmeta')));
+  lp.once('dialog', d => d.accept());
+  await lp.click('#rvOk');
+  await lp.waitForFunction(() => !document.querySelector('#rvOk'));
+  const rvw = lw.find(w => /reading_passages\?id=eq\.문학-검수중/.test(w.u));
+  t('문학 — 검수 완료 저장', !!rvw && JSON.parse(rvw.b).review === '완료' && JSON.parse(rvw.b).reviewed_by === '이수경', rvw && rvw.b);
   t('문학 — 스크립트 오류 없음', lerr.length === 0, lerr);
   await lp.close();
   // ── Shuefit 화법·작문(2026-11-19) — 같은 화면, 주소 ?s=speech · ?s=writing ──
