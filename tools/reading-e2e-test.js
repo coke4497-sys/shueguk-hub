@@ -412,6 +412,10 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
     pg.off('dialog', acc); }
   await pg.click('#xTabs [data-x=pr]');
   t('하나 고르면 그 문제지를 연다(저장 안 한 문항은 물어봄)', (await pg.textContent('#shOrd')).includes('「진화 원 기출」') && await pg.isVisible('#shOne'));
+  t('문제지함 날짜·학교 칸 — 그 문제지 값', await pg.isVisible('#xMeta') && (await pg.inputValue('#xSchool')) === '화정고2');
+  await pg.fill('#xSchool', '화정고 2학년'); 
+  t('하나일 때 고치면 그 문제지 칸도', (await pg.inputValue('#pSchool')) === '화정고 2학년');
+  await pg.fill('#xSchool', '화정고2');
   await pg.check('[data-bap="71"]');
   t('묶음 칸 — 고른 차례 번호', (await pg.$$eval('#baPapers .ord', a => a.map(x => x.textContent))).sort().join() === '1,2' && (await pg.$eval('[data-bap="72"] + span .ord', e => e.textContent)) === '1');
   t('묶음 칸 — 문제지 학교로 진도반 저절로·학교·학년 맞는 학생만', (await pg.locator('#baClsOn span').count()) === 1 && (await pg.textContent('#baStu')).includes('받을 학생 2명') && (await pg.textContent('#baStu .miss')).includes('최다솜'));
@@ -429,6 +433,12 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.click('#mpBkT');
   await pg.waitForFunction(() => document.querySelectorAll('#print .ksec').length === 2, null, { timeout: 8000 });
   t('묶음 교사용 — 정답과 해설도 문제지마다 소제목', (await pg.$$eval('#print .ksec', a => a.map(x => x.textContent))).join('|') === '진화 원 기출' + idB.length + '문항|시장 원 기출' + idA.length + '문항');
+  await pg.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+  t('여러 개 — 묶음 책자에만 쓴다는 안내', /이번 묶음 책자에만/.test(await pg.textContent('#xMetaNote')));
+  await pg.fill('#xDate', '2026-12-24'); await pg.fill('#xSchool', '능곡고');
+  await pg.click('#mpBkS');
+  await pg.waitForFunction(() => /능곡고/.test((document.querySelector('#print') || {}).textContent || ''), null, { timeout: 8000 });
+  t('묶음 책자 — 문제지함에서 바꾼 날짜·학교', /2026\. 12\. 24\./.test(await pg.textContent('#print')) && (await pg.inputValue('#pSchool')) === '화정고2');
   await pg.evaluate(() => window.dispatchEvent(new Event('afterprint')));
   gas.length = 0;
   await pg.evaluate(() => { ALLHW = ALLHW.filter(h => !(h.data && h.data.rd && /가상 (진화|시장)/.test(h.code))); baDraw(); });

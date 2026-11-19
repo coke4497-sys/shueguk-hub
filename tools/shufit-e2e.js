@@ -431,7 +431,21 @@ function rpc(fn, p) {
     const pidU = await p.evaluate(() => PAPERS.find(x => x.title === '음운 연습' && x.teacher === '이현지').id);
     await p.check(`[data-bap="${pidU}"]`);
     ok((await p.locator('#shOrd').textContent()).includes('「음운 연습」') && await p.locator('#shOne').isVisible() && !(await p.locator('#prS').isDisabled()) && !(await p.locator('#paperDel').isDisabled()), '하나 고르면 그 문제지 — 낱장 인쇄·삭제 열림');
+    // 문제지함에서 날짜·학교 고치기(2026-11-19) — 하나면 그 문제지에 저장
+    ok(await p.locator('#xMeta').isVisible() && (await p.inputValue('#xDate')) === '2026-12-01' && (await p.inputValue('#xSchool')) === '행신고등학교', '문제지함 날짜·학교 칸 — 그 문제지 값');
+    const npt = (DB.paperPatches || []).length;
+    await p.fill('#xSchool', '화정고'); await p.locator('#xSchool').dispatchEvent('change');
+    ok((await p.inputValue('#pSchool')) === '화정고' && (DB.paperPatches || []).length > npt && DB.paperPatches.slice(-1)[0].b.school === '화정고', '문제지함에서 고친 학교 — 문제지에 저장');
+    await p.fill('#xSchool', '행신고등학교'); await p.locator('#xSchool').dispatchEvent('change');
     await p.check('[data-bap="98"]');
+    ok(/이번 묶음 책자에만/.test(await p.locator('#xMetaNote').textContent()), '여러 개 — 묶음 책자에만 쓴다는 안내');
+    await p.fill('#xDate', '2026-12-24'); await p.fill('#xSchool', '능곡고');
+    await p.evaluate(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
+    await p.click('#mpBkS');
+    await p.waitForFunction(() => document.querySelectorAll('#print .sheet').length > 0, null, { timeout: 8000 });
+    const mh = await p.evaluate(() => document.querySelector('#print .ph1').textContent);
+    ok(/2026\. 12\. 24\./.test(mh) && /능곡고/.test(mh) && (await p.inputValue('#pSchool')) === '행신고등학교', '묶음 책자 — 문제지함에서 바꾼 날짜·학교(문제지 값은 그대로) ' + mh);
+    await p.evaluate(() => window.dispatchEvent(new Event('afterprint')));
     ok(await p.locator('#shMulti').isVisible() && await p.locator('#shOne').isHidden() && await p.locator('#xTabs [data-x=ex]').isDisabled() && await p.locator('#paperDel').isDisabled() && await p.locator('#shOpen').isDisabled() && /① 음운 연습 → ② 품사 하나/.test(await p.locator('#shOrd').textContent()), '여러 개 — 묶음 책자, 시험지·삭제·열기 잠김, 고른 차례 표시');
     await p.click('#xTabs [data-x=hw]'); await p.click('#hwWho [data-w=pick]');
     ok(await p.locator('#hwPickMulti').isVisible() && await p.locator('#hwPickOne').isHidden(), '여러 개 — 학생 직접 고르기는 하나일 때만');
