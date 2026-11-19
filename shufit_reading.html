@@ -776,7 +776,9 @@ function isTB(){ return !LIT && !!(CUR && CUR.kind==='교과서'); }
 function types(){ return LIT?litTypes():(isTB()?TB_TYPES:MG_TYPES); }
 function litTypes(){
   var t=subTypes().slice(), have={}; t.forEach(function(x){ have[x[0]]=1; });
-  if(CUR) Object.keys(CUR.levels).forEach(function(l){ CUR.levels[l].forEach(function(sx){ if(!have[sx.code]){ have[sx.code]=1; t.push([sx.code, sx.name||sx.code]); } }); });
+  var nm={};   /* 작품마다 구역 이름이 다를 수 있다(시 '표현법·시어의 의미' / 소설·수필 '모의고사형') — 그 작품 자료의 이름을 쓴다 */
+  if(CUR) Object.keys(CUR.levels).forEach(function(l){ CUR.levels[l].forEach(function(sx){ if(sx.name) nm[sx.code]=sx.name; if(!have[sx.code]){ have[sx.code]=1; t.push([sx.code, sx.name||sx.code]); } }); });
+  if(LIT) t=t.map(function(x){ return /^\d+$/.test(x[0])&&nm[x[0]]&&x[0]!=='30' ? [x[0], nm[x[0]]] : x; });
   return t;
 }
 function plain(h){ return String(h||'').replace(/<[^>]+>/g,'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&#x27;/g,"'").replace(/&quot;/g,'"'); }
