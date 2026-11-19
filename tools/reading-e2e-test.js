@@ -37,15 +37,19 @@ const I = [
   { passage_id: P[0].id, level: '실력', code: '02', sec_name: 'OX', v: 1, ord: 1, kind: 'ox', data: { stem: '실력 OX 문항', ans: 'O', expl: '' }, plain: '' },
   { passage_id: P[1].id, level: '공통', code: '00', sec_name: '원 기출', v: 1, ord: 1, kind: 'choice', data: ch('진화 문항?', '①'), plain: '진화' },
 ];
+I.forEach((x, i) => { x.id = 1000 + i; });
 
 (async () => {
   const b = await chromium.launch();
   const pg = await b.newPage({ viewport: { width: 1280, height: 1000 } });
-  const errs = [], reqs = [];
+  const errs = [], reqs = [], writes = [], gas = [];
   pg.on('pageerror', e => errs.push(e.message));
   await pg.route('**/*', async route => {
     const u = route.request().url();
     if (/\/auth\/v1\/token/.test(u)) return route.fulfill({ json: { access_token: 'tok', expires_in: 3600 } });
+    if (/script\.google\.com/.test(u)) { gas.push(route.request().postData()); return route.fulfill({ json: { ok: true } }); }
+    if (/\/rest\/v1\//.test(u) && route.request().method() !== 'GET') { writes.push({ m: route.request().method(), u: decodeURIComponent(u), b: route.request().postData() }); return route.fulfill({ status: 201, body: '' }); }
+    if (/\/rest\/v1\/(hwork_homeworks|students|hwork_submissions)/.test(u)) return route.fulfill({ json: /hwork_homeworks/.test(u) ? [{ teacher: '김선생', code: '겹치는 제목', data: { items: {} } }] : [] });
     if (/\/rest\/v1\//.test(u)) {
       reqs.push({ u: decodeURIComponent(u), auth: route.request().headers()['authorization'] });
       const q = new URL(u); const sp = q.searchParams;
@@ -71,7 +75,7 @@ const I = [
   await pg.waitForSelector('#res .rc');
   t('목록 카드 2개', (await pg.$$('#res .rc')).length === 2);
   t('교사 신분으로 읽음', reqs.every(r => r.auth === 'Bearer tok'));
-  t('최근 출처 먼저(order=src.desc)', reqs[0].u.includes('order=src.desc'));
+  t('최근 출처 먼저(order=src.desc)', reqs.find(r => /reading_passages/.test(r.u)).u.includes('order=src.desc'));
   t('영역 알약', (await pg.$$eval('#areas .chip', a => a.map(x => x.innerText.replace(/\s+/g, '')))).join() === '전체영역2,인문1,사회1');
   await pg.click('[data-area="인문"]');
   t('영역 거르기', (await pg.$$('#res .rc')).length === 1 && (await pg.textContent('#res')).includes('가상 진화'));
@@ -126,8 +130,66 @@ const I = [
   t('교사용 정답 동그라미', (await pg.$$('#print .opts li.ok')).length >= 3);
   await pg.evaluate(() => document.body.classList.remove('printing'));
 
-  // 다른 지문(실력 없음) — 난도 알약 잠김
+  // ── 고른 문항 — 여러 지문을 담아 인쇄·책자·H WORK 출제 (2026-11-19) ──
+  await pg.evaluate(() => { window.print = () => {}; });
+  const unprint = () => pg.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+  t('처음엔 내보내기 버튼 잠김', await pg.$eval('[data-sp="exam"]', e => e.disabled) && await pg.$eval('#saveBtn', e => e.disabled));
+  await pg.click('#tchips [data-t="orig"]');
+  await pg.click('#list [data-pick="1000"]');
+  await pg.click('#list [data-pick="1001"]');
+  t('담기 → 담음 표시', (await pg.textContent('#list [data-pick="1000"]')).includes('담음') && (await pg.$$('#list .q.on')).length === 2);
+  await pg.click('#tchips [data-t="02"]');
+  await pg.click('#allBtn');
+  await pg.click('#tchips [data-t="07"]'); await pg.click('#list [data-pick="1008"]');
+  await pg.click('#tchips [data-t="07_2"]'); await pg.click('#list [data-pick="1009"]');
+  await pg.click('#tchips [data-t="09"]'); await pg.click('#list [data-pick="1011"]');
+  await pg.click('#tchips [data-t="99"]'); await pg.click('#list [data-pick="1012"]');
   await pg.click('#res .rc:nth-child(2)'); await pg.waitForFunction(() => /가상 진화/.test(document.querySelector('#pmeta').textContent));
+  await pg.click('#tchips [data-t="orig"]'); await pg.click('#list [data-pick="1014"]');
+  t('고른 문항 9개', (await pg.textContent('#selN')) === '9문항', await pg.textContent('#selN'));
+  t('지문 묶음 머리 3개(본 지문·독립 지문·다른 지문)', (await pg.$$('#sel .sgh')).length === 3);
+  t('제목 자동', (await pg.inputValue('#pTitle')) === 'Shuefit 독서: 가상 시장 이야기 외 1지문 (9)', await pg.inputValue('#pTitle'));
+  await pg.fill('#pSchool', '행신고등학교');
+  await pg.click('[data-x="ex"]');
+  await pg.evaluate(() => document.querySelector('[data-sp="exam"]').click());
+  const ins = await pg.$$eval('#print .ins', a => a.map(x => x.textContent));
+  t('시험지 — 지문마다 안내 [1~7]·[8]·[9]', ins.join('|') === '[1~7] 다음 글을 읽고 물음에 답하시오.|[8] 다음 글을 읽고 물음에 답하시오.|[9] 다음 글을 읽고 물음에 답하시오.', ins);
+  t('시험지 9문항·학교·답안 기록표', (await pg.$$('#print .q')).length === 9 && (await pg.textContent('#print .exh')).includes('행신고등학교') && (await pg.$$('#print .ansrow table')).length === 1);
+  t('지문 그림 = 그 지문 그림', await pg.$$eval('#print img', a => a.length > 0 && a.every(i => i.src.startsWith('data:image/png;base64,iVBOR'))));
+  t('쪽 번호(@page)', (await pg.textContent('#pageStyle')).includes('counter(page)'));
+  await unprint();
+  await pg.evaluate(() => document.querySelector('[data-sp="study"][data-t="1"]').click());
+  t('학습지 교사용 — 정답과 해설', (await pg.textContent('#print .ansbox')).includes('1. 정답 ②'));
+  await unprint();
+  await pg.evaluate(() => document.querySelector('[data-bk][data-t="1"]').click());
+  await pg.waitForFunction(() => document.querySelectorAll('#print .sheet').length > 0, null, { timeout: 8000 });
+  const sheets = (await pg.$$('#print .sheet')).length;
+  t('책자 쪽 수 4의 배수·표지·뒤표지', sheets % 4 === 0 && !!(await pg.$('#print .cover')) && !!(await pg.$('#print .bkback')), sheets);
+  t('책자 9문항 모두·쪽 번호', (await pg.$$('#print .sheet .q')).length === 9 && /- 2 -/.test(await pg.textContent('#print')));
+  t('책자 여백 0', (await pg.textContent('#pageStyle')).includes('margin:0'));
+  if (process.env.SHOT) await pg.pdf({ path: process.env.SHOT + '/reading-booklet.pdf', preferCSSPageSize: true });
+  await unprint();
+  t('인쇄 뒤 A4 쪽 번호로 되돌림', (await pg.textContent('#pageStyle')).includes('counter(pages)'));
+  // H WORK 출제
+  await pg.click('[data-x="hw"]');
+  await pg.fill('#hTeacher', '김선생'); await pg.fill('#pTitle', '겹치는 제목');
+  await pg.click('#saveBtn'); await pg.waitForTimeout(200);
+  t('같은 이름의 다른 과제면 막음', /다른 H WORK 과제/.test(await pg.textContent('#saveMsg')) && !writes.length, await pg.textContent('#saveMsg'));
+  await pg.fill('#pTitle', '독서 과제 1');
+  await pg.click('#saveBtn');
+  await pg.waitForFunction(() => /출제했습니다/.test(document.querySelector('#saveMsg').textContent), null, { timeout: 5000 });
+  const items = JSON.parse(writes.find(w => w.m === 'POST' && /hwork_src_items$/.test(w.u.split('?')[0])).b);
+  t('src 문항 9줄·번호', items.length === 9 && items.map(x => x.no).join() === '1,2,3,4,5,6,7,8,9');
+  t('src 종류', items.map(x => x.type).join() === '5지,5지,OX,OX,단답,서술,5지,5지,5지', items.map(x => x.type).join());
+  t('정답 표시 없음·보기 번호 칸', items.every(x => !/cn ok/.test(x.html)) && items[0].html.includes('<span class="cn">①</span>'));
+  t('지문 3개 저장', JSON.parse(writes.find(w => /hwork_src_passages/.test(w.u)).b).length === 3);
+  t('옛 문항 지우고 넣음', writes.some(w => w.m === 'DELETE' && w.u.includes('hwork_src_items?code=eq.독서 과제 1')));
+  const data = JSON.parse(gas[0]).data;
+  t('과제 데이터 — 채점 종류·정답', data.count === 9 && data.items[1].type === 'choice5' && data.items[1].ans === '2' && data.items[3].ans === 'O' && data.items[5].type === 'text' && data.items[6].type === 'essay' && data.rd[1] === 1000 && data.src === 'reading', JSON.stringify(data.items));
+  t('미러 hwork_homeworks', writes.some(w => w.u.includes('hwork_homeworks?on_conflict')));
+  t('출제한 문항은 낸 적 있음', !!(await pg.$('#list .used')));
+
+  // 다른 지문(실력 없음) — 난도 알약 잠김
   t('실력 없는 지문은 실력 잠김', await pg.$eval('[data-lv="실력"]', e => e.disabled));
 
   const m = await b.newPage({ viewport: { width: 390, height: 844 } });
