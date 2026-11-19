@@ -956,11 +956,12 @@ function setMsg(k,t){ const m=$('saveMsg'); m.className='msg '+(k||''); m.textCo
  * 같은 이름에 다른 문항이 이미 있으면 뒤에 ' 02'·' 03', 같은 선생님·같은 문항이면 그 과제를 덮어쓴다. 지문 세트는 나누지 않는다. */
 let HWPARTS=null;   // 마지막으로 출제한 구간 {teacher, sig, parts:[{code,ids}]}
 function hwBank(h){ const b=h&&h.data&&h.data.bank; if(!b) return null; return Object.keys(b).sort((x,y)=>x-y).map(k=>Number(b[k])).join(','); }
-function hwPartsOf(groups, title, custom, teacher){
+function hwPartsOf(groups, title, custom, teacher, taken){
+  taken=taken||new Set();
   const byA=new Map();
   groups.forEach(g=>{ const a=BYID[g[0]].area||'단원'; if(!byA.has(a)) byA.set(a,[]); byA.get(a).push(...g); });
-  if(byA.size<=1) return [{ code:title, ids:groups.flat(), label:[...byA.keys()][0]||'' }];
-  const lv=['기본','실력','심화'], taken=new Set(), out=[];
+  if(byA.size<=1){ taken.add(title); return [{ code:title, ids:groups.flat(), label:[...byA.keys()][0]||'' }]; }
+  const lv=['기본','실력','심화'], out=[];
   for(const [area, ids] of byA){
     const lvls=[...new Set(ids.map(id=>BYID[id].lvl).filter(Boolean))].sort((a,b)=>lv.indexOf(a)-lv.indexOf(b)).join('·');
     const base=custom ? `${title} · ${area} (${ids.length})` : `${TITLE_PRE}${area} ${lvls} (${ids.length})`.replace(/\s+/g,' ');
@@ -1502,7 +1503,7 @@ $('baGo').onclick=async()=>{
   const stus=baSelected().list.filter(s=>!BA.off.has(s.name+'|'+s.school+'|'+s.grade));
   if(!papers.length || !stus.length) return;
   const target=stus.map(baToken).join(', '), clsNames=BA.cls.map(id=>(BA.ttc.find(c=>c.class_id===id)||{}).name).filter(Boolean);
-  const plan=papers.map(p=>{ const ids=(p.ids||[]).filter(id=>BYID[id]); return { p, parts:ids.length?hwPartsOf(baGroups(ids), p.title, !String(p.title).startsWith(TITLE_PRE), teacher):[] }; });
+  const taken=new Set(), plan=papers.map(p=>{ const ids=(p.ids||[]).filter(id=>BYID[id]); return { p, parts:ids.length?hwPartsOf(baGroups(ids), p.title, !String(p.title).startsWith(TITLE_PRE), teacher, taken):[] }; });
   const nTask=plan.reduce((a,x)=>a+x.parts.length,0);
   if(!confirm(`문제지 ${papers.length}개(H WORK 과제 ${nTask}개)를 ${clsNames.join(', ')} 학생 ${stus.length}명에게 출제하고 배정할까요?\n출제 선생님: ${teacher}\n`+plan.map(x=>x.parts.map(t=>'· '+t.code).join('\n')).join('\n')+($('baDue').value?`\n마감: ${$('baDue').value}`:''))) return;
   BA.busy=true; baDraw(); const btn=$('baGo'), msg=$('baMsg'); msg.className='msg'; msg.textContent='';

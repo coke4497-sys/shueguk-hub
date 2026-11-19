@@ -68,6 +68,13 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
     }
     if (/\/rest\/v1\/shufit_reading_papers/.test(u)) return route.fulfill({ json: PAPERS });
     if (/\/rest\/v1\/reading_items\?select=id,passage_id/.test(u)) { const ids = (new URL(u).searchParams.get('id') || '').replace(/^in\.\(|\)$/g, '').split(',').map(Number); return route.fulfill({ json: I.filter(x => ids.includes(x.id)).map(x => ({ id: x.id, passage_id: x.passage_id })) }); }
+    if (/\/rest\/v1\/students\?select=name/.test(u)) return route.fulfill({ json: [
+      { name: '김가람', school: '화정고', grade: '2026 고등 2학년', enrolled: '재원' }, { name: '박나래', school: '화정고', grade: '2026 고등 2학년', enrolled: '재원' },
+      { name: '박나래', school: '능곡고', grade: '2026 고등 2학년', enrolled: '재원' }, { name: '최다솜', school: '화정고', grade: '2026 고등 1학년', enrolled: '재원' }] });
+    if (/\/rest\/v1\/tt_classes/.test(u)) return route.fulfill({ json: [
+      { class_id: 'n009', name: '고2 화정A(비상 화언)', day: '수', start_time: '5:30', teacher: '주혜', roster: '김가람 (화정)박나래 최다솜' },
+      { class_id: 'n017', name: '고2 확인', day: '토', start_time: '2:00', teacher: '현정', roster: '김가람' }] });
+    if (/\/rest\/v1\/assignments/.test(u)) return route.fulfill({ json: [] });
     if (/\/rest\/v1\/(hwork_homeworks|students|hwork_submissions)/.test(u)) return route.fulfill({ json: /hwork_homeworks/.test(u) ? [{ teacher: '김선생', code: 'Shuefit 독서: 가상 시장 이야기 · 01 원 기출 (2)', data: { items: {} } }] : [] });
     if (/\/rest\/v1\//.test(u)) {
       reqs.push({ u: decodeURIComponent(u), auth: route.request().headers()['authorization'] });
@@ -376,6 +383,44 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.waitForFunction(() => /가상 시장/.test(document.querySelector('#pmeta').textContent));
   t('모의고사 지문 골라서 인쇄 기본', (await pg.$$eval('#pchips .chip.on', a => a.map(x => x.dataset.pk))).join() === 'pas,notes,02,10');
   t('모의고사 지문으로 돌아가면 난도·원 기출', (await pg.$$('#pmeta [data-lv]')).length === 0 && await pg.$eval('#tchips .chip.on', e => e.dataset.t) === 'orig' && !(await pg.$eval('#exsetw', e => e.classList.contains('on'))));
+
+  // ── 저장한 문제지 묶음(2026-11-19 — 문법과 같은 칸): 합쳐서 중철 책자 · 한 번에 출제·배정 ──
+  const idA = I.filter(x => x.passage_id === P[0].id && x.code === '00').map(x => x.id).slice(0, 2), idB = I.filter(x => x.passage_id === P[1].id).map(x => x.id);
+  await pg.evaluate(([a, bb]) => { PAPERS.unshift({ id: 71, teacher: '김선생', title: '시장 원 기출', ids: a, school: '화정고2' }, { id: 72, teacher: '김선생', title: '진화 원 기출', ids: bb, school: '화정고2' }); baDraw(); }, [idA, idB]);
+  await pg.waitForFunction(() => document.querySelectorAll('#baCls option').length > 1);
+  t('묶음 칸 — 진도반 고르기(확인 반 빼기)', !(await pg.$$eval('#baCls option', a => a.map(o => o.textContent))).some(x => x.includes('확인')));
+  await pg.check('[data-bap="72"]'); await pg.check('[data-bap="71"]');
+  t('묶음 칸 — 고른 차례 번호', (await pg.$$eval('#baPapers .ord', a => a.map(x => x.textContent))).sort().join() === '1,2' && (await pg.$eval('[data-bap="72"] + span .ord', e => e.textContent)) === '1');
+  t('묶음 칸 — 문제지 학교로 진도반 저절로·학교·학년 맞는 학생만', (await pg.locator('#baClsOn span').count()) === 1 && (await pg.textContent('#baStu')).includes('받을 학생 2명') && (await pg.textContent('#baStu .miss')).includes('최다솜'));
+  await pg.evaluate(() => { window.print = () => {}; });
+  await pg.click('#mpBkS');
+  await pg.waitForFunction(() => document.querySelectorAll('#print .sheet').length > 0, null, { timeout: 8000 });
+  const rmp = await pg.evaluate(() => { const secs = [...document.querySelectorAll('#print .bksec')];
+    return { n: document.querySelectorAll('#print .sheet').length, secs: secs.map(e => e.textContent), top: secs.slice(1).every(e => e.parentElement.classList.contains('bbody') && e.parentElement.firstElementChild === e),
+      ins: [...document.querySelectorAll('#print .bbody .ins')].map(e => e.textContent), cover: document.querySelector('#print .cover .cv-sub').textContent, title: document.title }; });
+  t('묶음 책자 — 고른 차례대로 소제목·문항 수', rmp.n % 4 === 0 && rmp.secs.join('|') === '진화 원 기출' + idB.length + '문항|시장 원 기출' + idA.length + '문항', rmp.secs);
+  t('묶음 책자 — 둘째 문제지부터 새 쪽 맨 위', rmp.top);
+  t('묶음 책자 — 번호는 문제지마다 1번부터', rmp.ins.length === 2 && rmp.ins.every(x => /^\[1/.test(x)), rmp.ins);
+  t('묶음 책자 — 표지·파일 이름', /문제지 2개/.test(rmp.cover) && /문제지 2개 묶음/.test(rmp.title), [rmp.cover, rmp.title]);
+  await pg.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+  await pg.click('#mpBkT');
+  await pg.waitForFunction(() => document.querySelectorAll('#print .ksec').length === 2, null, { timeout: 8000 });
+  t('묶음 교사용 — 정답과 해설도 문제지마다 소제목', (await pg.$$eval('#print .ksec', a => a.map(x => x.textContent))).join('|') === '진화 원 기출' + idB.length + '문항|시장 원 기출' + idA.length + '문항');
+  await pg.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+  gas.length = 0;
+  await pg.evaluate(() => { ALLHW = ALLHW.filter(h => !(h.data && h.data.rd && /가상 (진화|시장)/.test(h.code))); baDraw(); });
+  const onDlg3 = d => d.accept(); pg.on('dialog', onDlg3);
+  await pg.click('#baGo');
+  await pg.waitForFunction(() => /끝났습니다/.test(document.querySelector('#baMsg').textContent), null, { timeout: 8000 });
+  pg.off('dialog', onDlg3);
+  const bg = gas.filter(Boolean).map(g => JSON.parse(g)), bsv = bg.filter(g => g.action === 'saveHomework'), bas = bg.filter(g => g.action === 'addAssignment');
+  t('한 번에 — 문제지마다 구간 과제로 출제, 이름 안 겹침', bsv.length === 2 && new Set(bsv.map(g => g.data.code)).size === 2 && /가상 진화.* · 01 /.test(bsv[0].data.code), bsv.map(g => g.data.code));
+  t('한 번에 — 진도반 학생 토큰으로 배정(같은 이름은 학교·학년까지)', bas.length === 2 && bas.every((a, i) => a.type === '일부' && a.item === '김선생 / ' + bsv[i].data.code && a.target === '김가람, 박나래|화정고|2026고등2학년'), bas.map(a => a.target));
+  gas.length = 0; pg.on('dialog', onDlg3);
+  await pg.click('#baGo');
+  await pg.waitForFunction(() => /건너뜀 2개/.test(document.querySelector('#baMsg').textContent), null, { timeout: 8000 });
+  pg.off('dialog', onDlg3);
+  t('다시 누르면 이미 출제·배정한 것은 건너뜀', !gas.filter(Boolean).map(g => JSON.parse(g)).some(g => g.action === 'saveHomework' || g.action === 'addAssignment'));
 
   const m = await b.newPage({ viewport: { width: 390, height: 844 } });
   await m.route('**/*', r => pg.context() && r.request().url().startsWith('file://') ? r.continue() : (/rest\/v1\/reading_passages/.test(r.request().url()) && !/id=eq/.test(r.request().url()) ? r.fulfill({ json: P }) : r.fulfill({ status: 200, body: /auth/.test(r.request().url()) ? '{"access_token":"tok"}' : '[]' })));
