@@ -180,6 +180,7 @@ body.printing .toast{display:none}
 .ptop .cur{flex:1 1 380px}
 .unitbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-left:auto}
 .unitbar .ul{font-family:'Do Hyeon';font-size:14px;color:#4a3f63;margin-right:2px}
+.unitbar .umseg button{padding:6px 10px;font-size:12.5px}
 .unitbar .btn{padding:7px 12px;font-size:13px}
 .ptop #unitHwNote{flex:1 1 100%;margin:0;font-size:12px;color:#5C6A64}
 @media (max-width:640px){ .unitbar{margin-left:0} }
@@ -368,6 +369,7 @@ body.printing .toast{display:none}
       <div class="cur" id="pmeta"></div>
       <div class="unitbar">
         <span class="ul">이 단원 한 번에</span>
+        <span class="seg umseg" id="umSeg"><button type="button" data-um="bk" class="on">중철 책자</button><button type="button" data-um="a4">A4</button></span>
         <button class="btn" data-pr="all" id="paS">모두 인쇄 (학생용)</button>
         <button class="btn" data-pr="all" data-t="1" id="paT">모두 인쇄 (교사용)</button>
         <button class="btn main" type="button" id="unitHw">모두 H WORK 출제</button>
@@ -454,7 +456,8 @@ body.printing .toast{display:none}
 <style id="pageStyle"></style>
 <script>
 var S = {lv:'기본', t:'orig'};
-var PKSEL = {tb:null, mg:null};  /* 골라서 인쇄 — 지문 종류(교과서/모의고사)마다 고른 것 */
+var PKSEL = {tb:null, mg:null};
+var UM = 'bk';  /* 모두 인쇄 방식 — 기본 중철 책자(2026-11-19 원장님), A4 도 고를 수 있음 */  /* 골라서 인쇄 — 지문 종류(교과서/모의고사)마다 고른 것 */
 var $ = function(s){return document.querySelector(s)};
 var CIRC = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
 var MG_TYPES = [
@@ -618,6 +621,7 @@ document.addEventListener('click',function(e){
   if(b.dataset.rm!=null){ SEL.splice(Number(b.dataset.rm),1); selChanged(); return; }
   if(b.id==='allBtn'){ pickAll(); return; }
   if(b.id==='unitHw'){ unitHw(); return; }
+  if(b.dataset.um){ UM=b.dataset.um; document.querySelectorAll('#umSeg [data-um]').forEach(function(y){ y.classList.toggle('on', y.dataset.um===UM); }); drawUnitHw(); return; }
   if(b.dataset.lv){S.lv=b.dataset.lv;drawP();}
   else if(b.dataset.t && !b.dataset.pr){S.t=b.dataset.t;drawT();}
   else if(b.dataset.pk){ pickToggle(b.dataset.pk); }
@@ -740,30 +744,58 @@ function drawPick(){
 }
 function pickEvery(){ return pickTypes().map(function(t){return t[0]}).filter(pickHas); }
 function pickAllTypes(on){ var k=isTB()?'tb':'mg'; PKSEL[k]=on?pickEvery():[]; drawPick(); }
-function printPick(teacher, all){
-  var g=CUR, on=all?pickEvery():pickOn(), h='', o={print:1, teacher:teacher}, ex=[];
-  if(!on.length) return;
-  h+=headHtml('study',teacher);
+/* 고른 묶음을 블록 목록으로 — split 이면 책자용(문단·줄 단위로 나눠 흘려 넣기) */
+function pickBlocks(on, teacher, split){
+  var g=CUR, o={print:1, teacher:teacher}, B=[], ex=[];
+  var lines=function(arr){ if(!split){ B.push(notesHtml(arr)); return; } arr.forEach(function(b){ B.push(notesHtml([b])); }); };
+  var pas=function(P){ if(!split){ B.push(passageHtml(P)); return; }
+    P.blocks.forEach(function(bk){ B.push('<div class="pas">'+blockHtml(bk)+'</div>'); });
+    if(P.vocab) B.push('<div class="pas"><div class="voc"><b>어휘 풀이</b><br>'+P.vocab.join('<br>')+'</div></div>'); };
   on.forEach(function(c){
     var name=pickName(c);
-    h+='<div class="sech">'+name+'</div>';
-    if(c==='pas'){ h+=passageHtml(g.passage); return; }
-    if(c==='notes'){ h+=notesHtml(g.notes); return; }
-    if(c==='analysis'){ h+=notesHtml(g.analysis||[]); return; }
-    if(c==='keys'){ h+=notesHtml(g.keys||[]); return; }
-    if(c==='10'){ h+=blanksHtml(g.blanks,teacher); return; }
+    B.push('<div class="sech">'+name+'</div>');
+    if(c==='pas'){ pas(g.passage); return; }
+    if(c==='notes'){ lines(g.notes); return; }
+    if(c==='analysis'){ lines(g.analysis||[]); return; }
+    if(c==='keys'){ lines(g.keys||[]); return; }
+    if(c==='10'){ var Bl=g.blanks; lines(Bl.lines.map(function(b){ return b.p?{p:b.p.replace(/\(\s*(\d+)\s+\)/g,function(m,n){return '<span class="blank">'+(teacher?(Bl.answers[n]||n):n)+'</span>'})}:b; })); return; }
     var arr=itemsOf(c);
-    if(c==='99' && arr.length && arr[0].pas) h+=passageHtml(arr[0].pas);
+    if(c==='99' && arr.length && arr[0].pas) pas(arr[0].pas);
     var allOx=arr.every(function(x){return x.it.kind==='ox'});
     arr.forEach(function(x,i){
-      if(allOx) h+='<div class="oxl"><span class="k">'+(i+1)+'.</span><span>'+x.it.stem+'</span><span class="m">'+(teacher?'<b>'+esc(x.it.ans)+'</b>':'( O / X )')+'</span></div>';
-      else h+=itemHtml(x.it,i+1,o);
+      if(allOx) B.push('<div class="oxl"><span class="k">'+(i+1)+'.</span><span>'+x.it.stem+'</span><span class="m">'+(teacher?'<b>'+esc(x.it.ans)+'</b>':'( O / X )')+'</span></div>');
+      else B.push(itemHtml(x.it,i+1,o));
       if(teacher && (x.it.expl||'').trim()) ex.push('<div class="ex1"><b>'+name+' '+(i+1)+'. 정답 '+esc(x.it.ans)+'</b> '+esc(x.it.expl)+'</div>');
     });
   });
-  if(teacher && ex.length) h+='<div class="ansbox"><h3>정답과 해설</h3><div class="anscols">'+ex.join('')+'</div></div>';
+  return {blocks:B, key:ex};
+}
+function printPick(teacher, all){
+  var on=all?pickEvery():pickOn();
+  if(!on.length) return;
+  var d=pickBlocks(on, teacher, false), h=headHtml('study',teacher)+d.blocks.join('');
+  if(teacher && d.key.length) h+='<div class="ansbox"><h3>정답과 해설</h3><div class="anscols">'+d.key.join('')+'</div></div>';
   $('#print').innerHTML='<div class="pr study pick">'+h+'</div>';
   document.body.classList.add('printing');
+}
+/* 이 단원 모두 인쇄 — 중철 책자(기본). 쪽 흘려 넣기는 문항 책자(bookletRun)와 같은 길 */
+function unitBooklet(teacher){
+  var g=CUR, on=pickEvery(); if(!g||!on.length) return;
+  var d=pickBlocks(on, teacher, true), nq=unitEntries().length;
+  var title='Shuefit 독서: '+g.title;
+  var head='<div class="ph"><div><div class="lg">Shueguk</div></div><div class="tt">Shuefit 독서 · '+esc(isTB()?g.srcname:S.lv)+(teacher?' · 교사용':'')+'<b>'+esc(g.title)+'</b></div><div class="nm">날짜<span></span><br>학교<span></span><br>이름<span></span></div></div>';
+  var cover=function(){
+    var p=document.createElement('div'); p.className='bpage cover';
+    p.innerHTML='<div class="cv-top"><div class="cv-brand"><span>이수경국어 · Shuefit 독서</span><div class="cv-logo"><b>Shueguk</b><span>'+(teacher?'교사용':'학생용')+'</span></div></div>'
+      +'<div class="cv-tag">독서 · '+esc(isTB()?'교과서':(g.area||'단원'))+'</div><div class="cv-series">Shuefit 독서 시리즈 · 너에게 꼭 맞춘 독서 학습</div>'
+      +'<div class="cv-title">Shuefit 독서<br>'+esc(g.title)+'</div><div class="cv-sub">'+esc(g.srcname)+(g.author?' · '+esc(g.author):'')+' · 단원 전체 · '+nq+'문항'+(teacher?' · 정답과 해설':'')+'</div>'
+      +'<img class="cv-sk" src="assets/sk-study.png" alt=""></div>'
+      +'<div class="cv-bot"><h4>이 책에 담긴 것</h4><div class="cv-list">'+on.map(function(c){return '<div class="cv-u"><i>'+esc(pickName(c))+'</i>'+(NONQ.indexOf(c)<0&&c!=='pas'?cnt(c)+'문항':'')+'</div>'}).join('')+'</div></div>'
+      +'<div class="cv-name"><div>학교</div><div>이름</div></div>';
+    return p;
+  };
+  bookletRun({title:title, head:head, blocks:d.blocks, keyHead:'<div class="bkhead"><h3>정답과 해설</h3></div>', keyBlocks:d.key}, teacher, cover);
+  if(window.shuegukActivity) shuegukActivity('Shuefit 독서', '단원 모두 인쇄(중철)', g.title, nq+'문항'+(teacher?' · 교사용':''), false);
 }
 
 /* ---------- 수파베이스 (079 reading_passages · reading_items, 교사 신분) ---------- */
@@ -851,6 +883,7 @@ function waitFonts(){ try{ if(!document.fonts) return Promise.resolve(); return 
 function waitImgs(el){ return Promise.all([].slice.call(el.querySelectorAll('img')).map(function(i){ return i.complete?0:new Promise(function(r){i.onload=i.onerror=r}); })); }
 function doPrint(kind, teacher){
   if(!CUR) return;
+  if(kind==='all' && UM==='bk'){ unitBooklet(teacher); return; }
   printDoc(kind, teacher);
   if(kind==='pick' && !pickOn().length) return;
   document.title=('Shuefit 독서 '+CUR.title+' '+(isTB()?(kind==='exam'?exSetName():''):S.lv)+' '+(kind==='exam'?'시험지':kind==='pick'?pickOn().map(pickName).join('·'):kind==='all'?'전체':'학습자료')+(teacher?' (교사용)':'')).replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim();
@@ -908,7 +941,7 @@ function unitEntries(){
 function drawUnitHw(){
   var b=$('#unitHw'); if(!b||!CUR) return;
   var n=unitEntries().length; b.disabled=!n;
-  $('#unitHwNote').textContent=n?('H WORK 출제 = 이 지문'+(isTB()?'':'('+S.lv+' + 원 기출)')+' 문항 '+n+'개를 고른 문항에 담아 한 과제로 냅니다. 모두 인쇄는 지문·핵심정리부터 모든 유형까지 한 파일이에요. 따로 하려면 아래 [골라서 인쇄]나 문항마다 [+ 담기]를 쓰세요.'):'이 지문에는 출제할 문항이 없습니다.';
+  $('#unitHwNote').textContent=n?('H WORK 출제 = 이 지문'+(isTB()?'':'('+S.lv+' + 원 기출)')+' 문항 '+n+'개를 고른 문항에 담아 한 과제로 냅니다. 모두 인쇄는 지문·핵심정리부터 모든 유형까지 한 파일 — 기본은 표지가 붙은 중철 책자(A4 한 쪽씩, 4의 배수)이고 [A4]를 고르면 A4 2단이에요. 따로 하려면 아래 [골라서 인쇄]나 문항마다 [+ 담기]를 쓰세요.'):'이 지문에는 출제할 문항이 없습니다.';
 }
 function unitHw(){
   if(!CUR) return;
@@ -1135,7 +1168,12 @@ function backPage(){ var p=document.createElement('div'); p.className='bpage bkb
 function bookletDoc(teacher){
   if(!SEL.length){ toast('문항을 먼저 담아 주세요'); return; }
   if(!canPrint()){ toast('문제지를 먼저 저장해 주세요'); return; }
-  var d=bookParts(teacher), M=$('#bkm'), pages=[], content=[], body;
+  var d=bookParts(teacher);
+  bookletRun(d, teacher, function(){ return coverPage(d, teacher); });
+  if(window.shuegukActivity) shuegukActivity('Shuefit 독서', '중철 책자 인쇄', d.title, SEL.length+'문항'+(teacher?' · 교사용':''), false);
+}
+function bookletRun(d, teacher, mkCover){
+  var M=$('#bkm'), pages=[], content=[], body;
   M.innerHTML='';
   var newPage=function(){ var p=document.createElement('div'); p.className='bpage'; p.innerHTML='<div class="bbody"></div><div class="bno"></div>'; M.appendChild(p); pages.push(p); content.push(p); return p.firstChild; };
   var over=function(b){ return b.scrollWidth > b.clientWidth+2; };
@@ -1147,7 +1185,7 @@ function bookletDoc(teacher){
     }); }, Promise.resolve());
   };
   waitFonts().then(function(){
-    var cv=coverPage(d, teacher); M.appendChild(cv); pages.push(cv);
+    var cv=mkCover(); M.appendChild(cv); pages.push(cv);
     body=newPage(); body.insertAdjacentHTML('beforeend', d.head);
     return flow(d.blocks, body.children.length, 1);
   }).then(function(){
@@ -1167,7 +1205,6 @@ function bookletDoc(teacher){
     document.title=(d.title+' 중철 책자'+(teacher?' (교사용)':'')).replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim();
     return waitImgs($('#print'));
   }).then(function(){ setTimeout(function(){ window.print(); },80); });
-  if(window.shuegukActivity) shuegukActivity('Shuefit 독서', '중철 책자 인쇄', d.title, SEL.length+'문항'+(teacher?' · 교사용':''), false);
 }
 
 /* ── H WORK 출제 ── */
@@ -1321,7 +1358,7 @@ $('#hwAssignBtn').onclick=function(){
 drawSel(); loadHw();
 (function(){ try{ if(window.shuegukTeacherName) shuegukTeacherName().then(function(n){ if(n&&!$('#hTeacher').value){ $('#hTeacher').value=n; rebuildUsed(); drawLoad(); drawPrint(); if(CUR) drawList(); } }).catch(function(){}); }catch(e){} })();
 
-window.__printDoc=printDoc; window.__S=S; window.__SEL=function(){return SEL};
+window.__printDoc=printDoc; window.__unitBooklet=unitBooklet; window.__S=S; window.__SEL=function(){return SEL};
 loadList();
 </script>
 <script src="https://coke4497-sys.github.io/shueguk-report/activity.js"></script>
