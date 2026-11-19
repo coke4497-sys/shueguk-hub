@@ -296,6 +296,21 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.click('#list [data-pkgo="notes"]');
   t('안내에서 골라서 인쇄에 넣기', (await pg.$$eval('#pchips .chip.on', a => a.map(x => x.dataset.pk))).join() === 'notes' && /가기/.test(await pg.textContent('#list [data-pkgo]')));
   await pg.click('#tchips [data-t="11"]');
+  // 모두 인쇄 — 기본 중철 책자, [A4] 로 바꿀 수 있음
+  t('모두 인쇄 기본 = 중철 책자', await pg.$eval('#umSeg [data-um="bk"]', e => e.classList.contains('on')));
+  await pg.click('#paT');
+  await pg.waitForFunction(() => document.querySelectorAll('#print .sheet').length > 0, null, { timeout: 8000 });
+  const usheets = (await pg.$$('#print .sheet')).length;
+  t('단원 책자 — 표지·뒤표지·4의 배수', usheets % 4 === 0 && !!(await pg.$('#print .cover')) && !!(await pg.$('#print .bkback')) && /단원 전체/.test(await pg.textContent('#print .cover')), usheets);
+  t('단원 책자 — 모든 묶음·문항·정답과 해설', (await pg.$$eval('#print .sech', a => a.map(x => x.textContent))).join() === '지문,문단별 정리,지문 분석,OX 쉬움,OX 어려움,모의고사형,고난도 보기형,1등급 보기형,키워드 빈칸,문단 정리 빈칸,정오답 선지 근거'
+    && (await pg.$$('#print .sheet .q')).length === 5 && /정답과 해설/.test(await pg.textContent('#print')) && /문화/.test(await pg.textContent('#print')),
+    JSON.stringify([await pg.$$eval('#print .sech', a => a.map(x => x.textContent)), (await pg.$$('#print .sheet .q')).length]));
+  await unprint();
+  await pg.click('#umSeg [data-um="a4"]');
+  await pg.click('#paS'); await pg.waitForTimeout(300);
+  t('[A4] 고르면 A4 한 파일', !(await pg.$('#print .sheet')) && (await pg.$$('#print .sech')).length === 11);
+  await unprint();
+  await pg.click('#umSeg [data-um="bk"]');
   // 이 단원 모두 H WORK 출제 — 다른 지문 문항을 비우고 교과서 문항만 담아 출제
   t('모두 출제 안내', /문항 7개/.test(await pg.textContent('#unitHwNote')), await pg.textContent('#unitHwNote'));
   await pg.fill('#pTitle', '교과서 단원 과제');
