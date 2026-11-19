@@ -348,6 +348,51 @@ body.printing .toast{display:none}
 .psave{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px}
 #paperMsg{font-size:12.5px;color:var(--ink2)}
 .ldl{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--ink2);margin-top:12px}
+/* 두 화면 — 문제지 만들기 / 내 문제지함 (2026-11-19 시안 2단계, 문법·독서 같은 모양) */
+.hdr{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.hdT{display:flex;align-items:center;gap:8px;font-size:13.5px;color:#5c6a64}
+.hdT input{width:150px;height:40px;box-sizing:border-box;border:1px solid #dfe5e1;border-radius:12px;padding:0 12px;font:inherit;font-size:15px;background:#fff;color:#2a332f}
+.modes{display:flex;gap:6px;background:#fff;border-radius:16px;padding:6px;align-self:flex-start;flex-wrap:wrap;width:fit-content;max-width:100%;box-sizing:border-box}
+.modes button{border:0;background:none;min-height:44px;padding:0 22px;border-radius:12px;font:inherit;font-size:16px;color:#2a332f;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+.modes button.on{background:#4a3f63;color:#fff}
+.modes .mn{background:#EDE4F4;color:#5A4A6A;border-radius:999px;padding:1px 9px;font-size:13px}
+.steps{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 14px}
+.steps .st{display:inline-flex;align-items:center;gap:8px;border:0;border-radius:999px;padding:8px 16px;background:#fff;color:#5c6a64;font:inherit;font-size:13.5px}
+.steps .st b{font-family:'Do Hyeon';font-weight:400;font-size:16px}
+.steps .st.done{background:#d7ece4;color:#2f5a50}
+.steps .st.now{background:#4a3f63;color:#fff}
+.steps button.st{cursor:pointer}
+.steps button.st:disabled{cursor:default}
+.steps i{font-style:normal;color:#9aa49f}
+#makeView[hidden],#shelfView[hidden]{display:none}
+.shtip{font-size:14px;color:#4f5c56;margin:0 4px 12px;line-height:1.6}
+.shcols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,460px);gap:16px;align-items:start}
+@media (max-width:920px){ .shcols{grid-template-columns:minmax(0,1fr)} }
+.shh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.shh h2{flex:1;margin:0}
+.shf{display:flex;gap:4px}
+.shf button{border:0;border-radius:999px;padding:7px 14px;background:#f1f4f1;color:#2a332f;font:inherit;font-size:13px;cursor:pointer}
+.shf button.on{background:#4a3f63;color:#fff}
+.shh .lk{border:0;background:none;color:#8D83A8;font:inherit;font-size:12.5px;text-decoration:underline;cursor:pointer}
+.ba-list.shlist{max-height:none;background:none;padding:0;gap:6px;overflow:visible}
+.shlist .ba-p{border:1px solid #e5ede8;border-radius:14px;padding:12px 14px;font-size:14.5px;background:#fff}
+.shlist .ba-p.on{border:1.5px solid #b9b0d6;background:#f3eff8}
+.shlist .ba-p small{font-size:12.5px}
+.shord{font-size:13.5px;line-height:1.65;color:#2a332f;background:#f3eff8;border-radius:12px;padding:10px 12px}
+.shord span{color:#5c6a64}
+.shord .warn{color:#a14c4c}
+.shact{display:flex;gap:8px;border-top:1px solid #eef1ef;padding-top:12px}
+.shact .btn{flex:1}
+.btn.danger{color:#a14c4c}
+.seg.two-seg{grid-template-columns:repeat(2,minmax(0,1fr))}
+#xTabs button:disabled{opacity:.45;cursor:default}
+.gotoshelf{background:#EDE4F4;color:#5A4A6A;border:0}
+.gotoshelf:disabled{opacity:.5;cursor:default}
+.modes{margin:0 0 12px}
+.shcols .card{margin-bottom:0}
+.shp{display:flex;flex-direction:column;gap:10px}
+.shp .xtabs{margin:0}
+.gotoshelf{width:100%;margin:0 0 10px}
 .ldrow{display:flex;gap:6px}
 .ldrow select{flex:1;min-width:0;border:1px solid #dfe5e1;border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;background:#fafbf9}
 .xpane h3{font-family:'Do Hyeon';font-weight:400;font-size:16px;margin:10px 0 6px}
@@ -512,8 +557,15 @@ body.printing .toast{display:none}
   <a class="back" href="study.html">← 학습 관리</a>
   <div class="hd">
     <div><div class="brand">SHUEGUK · 슈핏</div><h1>Shuefit 독서</h1><div class="subt">너에게 꼭 맞춘 독서 학습</div></div>
-    <div class="tot" id="tot"></div>
+    <div class="hdr"><div class="tot" id="tot"></div>
+      <label class="hdT">출제 선생님<input id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></label></div>
   </div>
+  <nav class="modes" id="modeTabs" role="tablist" aria-label="화면">
+    <button type="button" data-m="make" class="on" role="tab">문제지 만들기</button>
+    <button type="button" data-m="shelf" role="tab">내 문제지함 <span class="mn" id="shN">0</span></button>
+  </nav>
+  <div id="makeView">
+  <div class="steps" id="steps"></div>
   <div class="card">
     <div class="ct"><i>1</i>지문 고르기</div>
     <label class="find"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
@@ -549,8 +601,8 @@ body.printing .toast{display:none}
       <div class="card"><div class="ct" id="lt">문항</div><div id="list"></div></div>
     </div>
     <div class="card">
-      <div class="ct"><i>3</i>인쇄</div>
-      <div class="hint">고른 지문의 기본 묶음을 바로 인쇄합니다. 학습자료 = 지문 · 핵심정리 · OX · 표현법·내용확인 · 내용불일치 · 키워드 빈칸 · 핵심 요약 빈칸, 시험지 = 원 기출 · 고난도 수능형 · 보기형(+ 답안 기록표). 인쇄 창에서 'PDF로 저장'을 고르면 파일로 받을 수 있어요.</div>
+      <div class="ct">이 지문 바로 인쇄 <span class="tag lav">지름길 · 저장 없이</span></div>
+      <div class="hint">고른 지문의 기본 묶음을 저장 없이 바로 인쇄합니다. 학생에게 나눠 줄 문제지를 만들 때는 아래 [지금 만드는 문제지]에 담아 저장하세요. 학습자료 = 지문 · 핵심정리 · OX · 표현법·내용확인 · 내용불일치 · 키워드 빈칸 · 핵심 요약 빈칸, 시험지 = 원 기출 · 고난도 수능형 · 보기형(+ 답안 기록표). 인쇄 창에서 'PDF로 저장'을 고르면 파일로 받을 수 있어요.</div>
       <div class="acts">
         <label class="exset" id="exsetw">시험지 문항 <select id="exset"><option value="13">모의고사형</option><option value="14">보기형</option><option value="15,16">고난도·1등급 보기형</option></select></label>
         <button class="btn" data-pr="study">학습자료 (학생용)</button>
@@ -572,76 +624,95 @@ body.printing .toast{display:none}
     </div>
   </div>
   <div class="card" id="selCard">
-    <div class="ct"><i>4</i>고른 문항 <span class="tag lav" id="selN">0문항</span><span style="margin-left:auto;display:flex;gap:6px"><button class="btn ghost" id="selClear" type="button">비우기</button></span></div>
-    <div class="selc" id="sel"></div>
-    <label class="ldl">저장된 문제지 · 과제 불러오기 <span class="dim">· 고치거나 다시 인쇄</span>
-      <span class="ldrow"><select id="loadSel"><option value="">— 고르세요 —</option></select><button class="btn ghost" id="paperDel" type="button" disabled title="저장한 문제지를 고르면 지울 수 있어요">삭제</button></span></label>
-  </div>
-  <div class="card" id="xCard">
-    <div class="ct"><i>5</i>고른 문항 내보내기 <span class="dim" style="font-family:'Gowun Dodum';font-weight:400;font-size:12.5px" id="xHint">문항을 담으면 쓸 수 있어요</span></div>
+    <div class="ct"><i>3</i>지금 만드는 문제지 <span class="tag lav" id="selN">0문항</span><span style="margin-left:auto;display:flex;gap:6px"><button class="btn ghost" id="selClear" type="button">비우기</button></span></div>
     <div class="fx">
-      <label>출제 선생님<input id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></label>
       <label>제목 <span class="dim">· 문제지·PDF 파일 이름</span><input id="pTitle" maxlength="120" placeholder="문항을 담으면 자동으로 채워져요"></label>
       <label>날짜 <span class="dim">· 인쇄에 들어가요</span><input type="date" id="pDate"></label>
       <label>학교 <span class="dim">· 비우면 빈칸</span><input id="pSchool" maxlength="30" placeholder="예: 행신고등학교"></label>
     </div>
-    <div class="psave"><button class="btn main" type="button" id="paperSave" disabled>문제지 저장</button><span id="paperMsg">저장해야 인쇄할 수 있어요</span></div>
-    <div class="seg xtabs" id="xTabs"><button type="button" data-x="pr" class="on">학습자료 인쇄</button><button type="button" data-x="ex">시험지 인쇄</button><button type="button" data-x="hw">H WORK 출제</button></div>
-    <div class="xpane" id="xp-pr">
-      <div class="hint">지문마다 '[1~3] 다음 글을 읽고…'와 지문을 한 번 싣고, 고른 순서대로 번호를 매깁니다. 교사용은 정답 표시와 맨 뒤 정답과 해설이 들어가요.</div>
-      <h3>A4 학습지</h3>
-      <div class="acts"><button class="btn" data-sp="study">학생용 인쇄</button><button class="btn" data-sp="study" data-t="1">교사용 인쇄 (정답·해설)</button></div>
-      <h3 style="margin-top:14px">중철 책자</h3>
-      <div class="acts"><button class="btn" data-bk="1">학생용 책자 PDF</button><button class="btn" data-bk="1" data-t="1">교사용 책자 PDF</button></div>
-      <div class="hint" style="margin:8px 0 0">앞표지·본문·뒤표지를 <b>A4 한 장에 한 쪽씩, 차례대로</b> 담습니다. 쪽 수는 4의 배수로 맞추고 남는 쪽은 뒤표지 앞에 비워 둬요. 복합기 '소책자 인쇄'로 중철하거나 A4 양면으로 그대로 찍으면 됩니다.</div>
-    </div>
-    <div class="xpane" id="xp-ex" hidden>
-      <div class="exdes" id="exDes" role="tablist" aria-label="시험지 양식">
-        <button type="button" data-d="A" class="on">A형 · 과목명 크게 + 로고</button>
-        <button type="button" data-d="B">B형 · 표 형식 머리</button>
-      </div>
-      <div class="hint" id="exDesInfo">비운 칸은 시험지에 빈칸으로 나가요.</div>
-      <div class="exgrid">
-        <label class="da">시험명<input id="exTitle" maxlength="40" placeholder="예: 2026년 1학기 모의 기말고사"></label>
-        <label class="db">학년도<input type="number" id="exYear" min="2020" max="2100" inputmode="numeric"></label>
-        <label class="db">학기<select id="exSem"><option value="">비움</option><option>1</option><option>2</option></select></label>
-        <label class="db">고사<input id="exType" maxlength="10" placeholder="예: 중간 · 기말"></label>
-        <label class="db">학년<input id="exGrade" maxlength="4" placeholder="예: 1"></label>
-        <label>과목명<input id="exSubj" maxlength="30" placeholder="비우면 '독서 · 영역'"></label>
-        <label class="db">총점 (점)<input type="number" id="exPts" min="1" max="1000" inputmode="numeric" placeholder="예: 100"></label>
-        <label class="db">시험 시간 (분)<input type="number" id="exMin" min="1" max="300" inputmode="numeric" placeholder="비우면 안 넣음"></label>
-      </div>
-      <div class="acts"><button class="btn" data-sp="exam">시험지 인쇄</button><button class="btn" data-sp="exam" data-t="1">교사용 시험지</button><button class="btn" data-sp="key">정답표 인쇄</button></div>
-      <div class="hint" style="margin:8px 0 0">학교 지필고사 양식 — 2단 · 2쪽부터 '국어 영역' 머리말 · 쪽 번호, 문항은 단을 넘겨 나뉘지 않고 지문은 문단 단위로 이어집니다. 마지막 장은 <b>답안 기록표</b>예요. 교사용은 같은 쪽에 정답 번호만 검은 동그라미 + 뒤에 정답과 해설, 정답표는 채점용 한 장입니다.</div>
-    </div>
-    <div class="xpane" id="xp-hw" hidden>
-      <div class="hint" style="margin:0 0 8px"><b>구간(지문 × 유형)마다 과제를 따로</b> 냅니다 — 학생은 구간마다 따로 입력·채점하고, 선생님은 과제 하나하나를 검사해요. 학생 H WORK 화면에 지문과 문제가 그대로 뜹니다. 5지선다·OX는 자동 채점, 키워드 빈칸은 단답(키워드 모두 들어가야 정답), 내신 서술형·다지선다는 예시 답과 비교해요.</div>
-      <button class="btn main" type="button" id="saveBtn">H WORK 과제로 출제</button>
-      <div class="msg" id="saveMsg"></div>
-      <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
-        <b style="font-family:'Do Hyeon';font-weight:400;font-size:16px">학생에게 바로 배정</b>
-        <div id="hwPicker"><span class="dim" style="font-size:13px">학생 고르기를 불러오는 중…</span></div>
-        <div class="fx" style="margin:0"><label>마감 <span class="dim">(선택)</span><input type="date" id="hwDue"></label><label>비고 <span class="dim">(선택)</span><input id="hwMemo" maxlength="60" placeholder="예: 1회차"></label></div>
-        <button class="btn main" type="button" id="hwAssignBtn">이 학생들에게 배정</button>
-        <div class="msg" id="hwAssignMsg"></div>
-      </div>
-    </div>
+    <div class="selc" id="sel"></div>
+    <div class="psave" style="margin:14px 0 10px"><button class="btn main" type="button" id="paperSave" disabled>문제지 저장</button><span id="paperMsg">저장해야 인쇄할 수 있어요</span></div>
+    <button class="btn gotoshelf" type="button" id="goShelf" disabled>내 문제지함에서 인쇄 · 출제하기 →</button>
+    <div class="hint" style="margin:0">저장하면 <b>내 문제지함</b>에 들어갑니다. 인쇄·책자·H WORK 출제는 문제지함에서 해요.</div>
     <div class="xsec"><button class="btn ghost" type="button" id="newBtn">새 문제지 만들기 <span class="dim">· 고른 문항·제목·날짜·학교를 비워요</span></button></div>
   </div>
-  <div class="card ba" id="baBox">
-    <div class="ct"><i>6</i>저장한 문제지 묶음 <span class="dim" style="font-family:'Gowun Dodum';font-weight:400;font-size:12.5px" id="baPN"></span></div>
-    <div class="hint">저장한 문제지를 여러 개 골라 <b>한 권의 중철 책자</b>로 인쇄하거나 <b>한 번에 H WORK으로 출제·배정</b>합니다. 문제지는 고른 차례대로 실리고, 문제지마다 새 쪽에서 제목·문항 수와 함께 1번부터 시작해요.</div>
-    <div class="ba-h">① 문제지 고르기 <button class="lk" type="button" id="baClear">모두 빼기</button></div>
-    <div class="ba-list" id="baPapers"><span class="dim">출제 선생님의 저장한 문제지를 불러오는 중…</span></div>
-    <div class="ba-h">② 합쳐서 인쇄 — 중철 책자</div>
-    <div class="acts"><button class="btn" type="button" id="mpBkS" disabled>학생용 책자 PDF</button><button class="btn" type="button" id="mpBkT" disabled>교사용 책자 PDF</button></div>
-    <div class="ba-h">③ H WORK 한 번에 출제·배정 — 내신 진도반 불러오기</div>
-    <select id="baCls"><option value="">— 진도반을 고르세요 —</option></select>
-    <div class="ba-chips" id="baClsOn"></div>
-    <div class="ba-stu" id="baStu"></div>
-    <div class="fx" style="margin:0"><label>마감 <span class="dim">(선택)</span><input type="date" id="baDue"></label><label>비고 <span class="dim">(선택)</span><input id="baMemo" maxlength="60" placeholder="예: 기말 대비"></label></div>
-    <button class="btn main" type="button" id="baGo" disabled>출제하고 배정하기</button>
-    <div class="msg" id="baMsg"></div>
+  </div>
+  <div id="shelfView" hidden>
+  <div class="shtip">문제지를 <b>하나</b> 고르면 낱장 인쇄·출제가, <b>여러 개</b> 고르면 묶음 책자·한 번에 배정이 열립니다. 누른 차례가 책자에 실리는 차례예요.</div>
+  <div class="shcols" id="baBox">
+    <div class="card shl">
+      <div class="shh"><h2 class="ct" id="shTitle">내 문제지</h2>
+        <span class="shf" id="shF"><button type="button" data-shf="all" class="on">전체</button><button type="button" data-shf="new">아직 안 낸 것</button></span>
+        <button class="lk" type="button" id="baClear">모두 빼기</button></div>
+      <span id="baPN" hidden></span>
+      <div class="ba-list shlist" id="baPapers" style="margin-top:10px"><span class="dim">출제 선생님의 저장한 문제지를 불러오는 중…</span></div>
+      <label class="ldl">H WORK 과제 · 문제지 불러오기 <span class="dim">· 문제지로 저장하지 않은 옛 H WORK 과제도 열 수 있어요</span>
+        <span class="ldrow"><select id="loadSel"><option value="">— 고르세요 —</option></select></span></label>
+    </div>
+    <div class="card shp" id="xCard">
+      <div class="ct">고른 문제지 <span class="tag lav" id="shSum">0개</span><span class="dim" style="font-family:'Gowun Dodum';font-weight:400;font-size:12.5px;margin-left:auto" id="xHint">문항을 담으면 쓸 수 있어요</span></div>
+      <div class="shord" id="shOrd"></div>
+      <div class="seg xtabs" id="xTabs"><button type="button" data-x="pr" class="on">인쇄</button><button type="button" data-x="ex">시험지 인쇄</button><button type="button" data-x="hw">H WORK 출제 · 배정</button></div>
+      <div class="xpane" id="xp-pr">
+        <div id="shOne">
+          <div class="hint">지문마다 '[1~3] 다음 글을 읽고…'와 지문을 한 번 싣고, 고른 순서대로 번호를 매깁니다. 교사용은 정답 표시와 맨 뒤 정답과 해설이 들어가요.</div>
+          <h3>A4 학습지</h3>
+          <div class="acts"><button class="btn" data-sp="study">학생용 인쇄</button><button class="btn" data-sp="study" data-t="1">교사용 인쇄 (정답·해설)</button></div>
+          <h3 style="margin-top:14px">중철 책자</h3>
+          <div class="acts"><button class="btn" data-bk="1">학생용 책자 PDF</button><button class="btn" data-bk="1" data-t="1">교사용 책자 PDF</button></div>
+        </div>
+        <div id="shMulti" hidden>
+          <h3>묶음 중철 책자 <span class="dim" style="font-family:'Gowun Dodum';font-size:12.5px">문제지마다 새 쪽 · 제목·문항 수 · 1번부터</span></h3>
+          <div class="acts"><button class="btn" type="button" id="mpBkS" disabled>학생용 책자 PDF</button><button class="btn" type="button" id="mpBkT" disabled>교사용 책자 PDF</button></div>
+        </div>
+        <div class="hint" style="margin:8px 0 0">앞표지·본문·뒤표지를 <b>A4 한 장에 한 쪽씩, 차례대로</b> 담습니다. 쪽 수는 4의 배수로 맞추고 남는 쪽은 뒤표지 앞에 비워 둬요. 복합기 '소책자 인쇄'로 중철하거나 A4 양면으로 그대로 찍으면 됩니다.</div>
+      </div>
+      <div class="xpane" id="xp-ex" hidden>
+        <div class="exdes" id="exDes" role="tablist" aria-label="시험지 양식">
+          <button type="button" data-d="A" class="on">A형 · 과목명 크게 + 로고</button>
+          <button type="button" data-d="B">B형 · 표 형식 머리</button>
+        </div>
+        <div class="hint" id="exDesInfo">비운 칸은 시험지에 빈칸으로 나가요.</div>
+        <div class="exgrid">
+          <label class="da">시험명<input id="exTitle" maxlength="40" placeholder="예: 2026년 1학기 모의 기말고사"></label>
+          <label class="db">학년도<input type="number" id="exYear" min="2020" max="2100" inputmode="numeric"></label>
+          <label class="db">학기<select id="exSem"><option value="">비움</option><option>1</option><option>2</option></select></label>
+          <label class="db">고사<input id="exType" maxlength="10" placeholder="예: 중간 · 기말"></label>
+          <label class="db">학년<input id="exGrade" maxlength="4" placeholder="예: 1"></label>
+          <label>과목명<input id="exSubj" maxlength="30" placeholder="비우면 '독서 · 영역'"></label>
+          <label class="db">총점 (점)<input type="number" id="exPts" min="1" max="1000" inputmode="numeric" placeholder="예: 100"></label>
+          <label class="db">시험 시간 (분)<input type="number" id="exMin" min="1" max="300" inputmode="numeric" placeholder="비우면 안 넣음"></label>
+        </div>
+        <div class="acts"><button class="btn" data-sp="exam">시험지 인쇄</button><button class="btn" data-sp="exam" data-t="1">교사용 시험지</button><button class="btn" data-sp="key">정답표 인쇄</button></div>
+        <div class="hint" style="margin:8px 0 0">학교 지필고사 양식 — 2단 · 2쪽부터 '국어 영역' 머리말 · 쪽 번호, 문항은 단을 넘겨 나뉘지 않고 지문은 문단 단위로 이어집니다. 마지막 장은 <b>답안 기록표</b>예요. 교사용은 같은 쪽에 정답 번호만 검은 동그라미 + 뒤에 정답과 해설, 정답표는 채점용 한 장입니다.</div>
+      </div>
+      <div class="xpane" id="xp-hw" hidden>
+        <div class="seg two-seg" id="hwWho" style="margin-bottom:10px"><button type="button" data-w="cls" class="on">진도반으로</button><button type="button" data-w="pick">학생 직접 고르기</button></div>
+        <div id="hwClass" data-wpane="cls" style="display:flex;flex-direction:column;gap:8px">
+          <select id="baCls"><option value="">— 진도반을 고르세요 —</option></select>
+          <div class="ba-chips" id="baClsOn"></div>
+          <div class="ba-stu" id="baStu"></div>
+          <div class="fx" style="margin:0"><label>마감 <span class="dim">(선택)</span><input type="date" id="baDue"></label><label>비고 <span class="dim">(선택)</span><input id="baMemo" maxlength="60" placeholder="예: 기말 대비"></label></div>
+          <button class="btn main" type="button" id="baGo" disabled>출제하고 배정하기</button>
+          <div class="msg" id="baMsg"></div>
+        </div>
+        <div id="hwPick" data-wpane="pick" hidden>
+          <div class="hint" id="hwPickMulti" hidden>학생을 직접 고르는 배정은 문제지를 <b>하나</b> 골랐을 때 합니다. 여러 문제지는 [진도반으로]에서 한 번에 배정해요.</div>
+          <div id="hwPickOne" style="display:flex;flex-direction:column;gap:10px">
+            <div id="hwPicker"><span class="dim" style="font-size:13px">학생 고르기를 불러오는 중…</span></div>
+            <div class="fx" style="margin:0"><label>마감 <span class="dim">(선택)</span><input type="date" id="hwDue"></label><label>비고 <span class="dim">(선택)</span><input id="hwMemo" maxlength="60" placeholder="예: 1회차"></label></div>
+            <button class="btn main" type="button" id="hwAssignBtn">이 학생들에게 배정</button>
+            <div class="msg" id="hwAssignMsg"></div>
+            <div class="xsec" style="margin-top:6px"><h3>배정 없이 출제만</h3>
+              <button class="btn" type="button" id="saveBtn">H WORK 과제로 출제</button>
+              <div class="msg" id="saveMsg"></div></div>
+          </div>
+        </div>
+        <div class="hint" style="margin:10px 0 0"><b>구간(지문 × 유형)마다 과제를 따로</b> 냅니다 — 학생은 구간마다 따로 입력·채점하고, 선생님은 과제 하나하나를 검사해요. 학생 H WORK 화면에 지문과 문제가 그대로 뜹니다. 이미 같은 문항으로 낸 과제·같은 학생 배정은 건너뜁니다.</div>
+      </div>
+      <div class="shact"><button class="btn ghost" type="button" id="shOpen" disabled>열어서 고치기</button><button class="btn ghost danger" type="button" id="paperDel" disabled title="저장한 문제지를 하나 고르면 지울 수 있어요">삭제</button></div>
+    </div>
+  </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -1269,6 +1340,7 @@ function drawPrint(){
   document.querySelectorAll('[data-sp],[data-bk]').forEach(function(b){ b.disabled=!n||!ok; });
   $('#paperSave').disabled=!n;
   $('#paperMsg').textContent=!n?'문항을 담으면 저장할 수 있어요':(ok?'저장한 문제지 그대로예요 · 인쇄할 수 있어요':(!PAPERS_OK?'문제지 표를 읽지 못했습니다(데이터베이스 080 확인)':(SAVED?'고친 내용이 있어요 · 다시 저장해야 인쇄할 수 있어요':'저장해야 인쇄할 수 있어요')));
+  if(typeof drawSteps==='function'){ drawSteps(); shDraw(); }
 }
 function pmSaveRow(){
   if(!SAVED) return;
@@ -1292,8 +1364,9 @@ $('#paperSave').onclick=function(){
     .then(function(rows){
       PAPERS=PAPERS.filter(function(p){return !(p.teacher===teacher&&p.title===title)}); PAPERS.unshift((rows&&rows[0])||row); PAPERS_OK=true;
       SAVED={teacher:teacher,title:title,sig:ids.join(',')};
+      var sv=(rows&&rows[0])||{}; if(sv.id!=null) BA.papers=[sv.id];
       drawTeachers(); rebuildUsed(); drawLoad(); if(CUR) drawList();
-      toast('문제지를 저장했어요. 이제 인쇄할 수 있어요'); baDraw();
+      toast('문제지를 저장했어요. 내 문제지함에서 인쇄·출제할 수 있어요'); baDraw();
       if(window.shuegukActivity) shuegukActivity('Shuefit 독서', '문제지 저장', title, teacher+' · '+ids.length+'문항', false);
     })
     .catch(function(e){ toast('저장하지 못했습니다. ('+e.message+')'); })
@@ -1315,10 +1388,10 @@ function drawLoad(){
   drawDel();
 }
 function loadPick(){ var v=$('#loadSel').value; return v===''?null:LOADS[Number(v)]; }
-function drawDel(){ var h=loadPick(); $('#paperDel').disabled=!(h&&h.kind==='paper'); }
+function drawDel(){ var h=loadPick(); $('#paperDel').disabled=!(h&&h.kind==='paper') || SFA.ids().length>1; }
 $('#loadSel').addEventListener('change',function(){
   drawDel(); var h=loadPick(); if(!h) return;
-  if(SEL.length && !confirm('지금 고른 문항 '+SEL.length+'개 대신 「'+h.title+'」 문항을 불러올까요?')){ $('#loadSel').value=''; drawDel(); return; }
+  if(SEL.length && !canPrint() && !confirm('지금 고른 문항 '+SEL.length+'개(저장하지 않음) 대신 「'+h.title+'」 문항을 불러올까요?')){ $('#loadSel').value=''; drawDel(); return; }
   var ids=h.ids.slice(); if(!ids.length){ toast('문항이 없는 문제지입니다'); return; }
   toast('불러오는 중…');
   sb('/reading_items?select=id,passage_id&id=in.('+ids.join(',')+')').then(function(rows){
@@ -1847,10 +1920,15 @@ function baDraw(){
   var mine=baMyPapers(), t=$('#hTeacher').value.trim();
   BA.papers=BA.papers.filter(function(id){ return mine.some(function(p){ return p.id===id; }); });
   $('#baPN').textContent=t?'· '+t+' 선생님 문제지 '+mine.length+'개':'· 출제 선생님을 먼저 적어 주세요';
-  $('#baPapers').innerHTML=mine.length?mine.map(function(p){
-    var ord=BA.papers.indexOf(p.id);
-    return '<label class="ba-p"><input type="checkbox" data-bap="'+p.id+'"'+(ord>=0?' checked':'')+'><span>'+(ord>=0?'<i class="ord">'+(ord+1)+'</i>':'')+esc(p.title)+(baDone(p)?'<span class="dn">출제함</span>':'')+'<small>'+(p.ids||[]).length+'문항'+(p.school?' · '+esc(p.school):'')+'</small></span></label>';
-  }).join(''):'<span class="dim">저장한 문제지가 없어요. 문항을 담고 [문제지 저장]을 먼저 눌러 주세요.</span>';
+  $('#shTitle').textContent=t?t+' 선생님 문제지 '+mine.length+'개':'출제 선생님을 먼저 적어 주세요';
+  /* 'H WORK 출제함' = 그 선생님의 H WORK 과제(data.rd)에 문제지 문항이 모두 들어 있음 — 지문을 불러오지 않고 판단 */
+  var rdIds={}; ALLHW.forEach(function(h){ if(h.teacher===t && h.data && h.data.rd) Object.keys(h.data.rd).forEach(function(k){ rdIds[Number(h.data.rd[k])]=1; }); });
+  var doneOf=function(p){ var ids=p.ids||[]; return !!ids.length && ids.every(function(id){ return rdIds[Number(id)]; }); };
+  var rows=mine.filter(function(p){ return SH_F!=='new' || !doneOf(p); });
+  $('#baPapers').innerHTML=rows.length?rows.map(function(p){
+    var ord=BA.papers.indexOf(p.id), pd=String(p.print_date||'').match(/^\d{4}-(\d{2})-(\d{2})/);
+    return '<label class="ba-p'+(ord>=0?' on':'')+'"><input type="checkbox" data-bap="'+p.id+'"'+(ord>=0?' checked':'')+'><span>'+(ord>=0?'<i class="ord">'+(ord+1)+'</i>':'')+esc(p.title)+(doneOf(p)?'<span class="dn">H WORK 출제함</span>':'')+'<small>'+(p.ids||[]).length+'문항'+(pd?' · '+Number(pd[1])+'/'+Number(pd[2]):'')+(p.school?' · '+esc(p.school):'')+'</small></span></label>';
+  }).join(''):'<span class="dim">'+(mine.length?'아직 안 낸 문제지가 없어요.':'저장한 문제지가 없어요. [문제지 만들기]에서 문항을 담고 [문제지 저장]을 눌러 주세요.')+'</span>';
   if(BA.ttc){
     var groups={}, keys=[];
     BA.ttc.forEach(function(c){ var k=baKeyOf(c.name); if(!k) return; if(!groups[k.key]){ groups[k.key]=[]; keys.push(k.key); } groups[k.key].push(c); });
@@ -1868,6 +1946,7 @@ function baDraw(){
   $('#baGo').textContent=n&&st?'문제지 '+n+'개를 '+st+'명에게 출제하고 배정하기':'출제하고 배정하기';
   $('#mpBkS').disabled=$('#mpBkT').disabled=!n;
   $('#mpBkS').textContent=n?'문제지 '+n+'개 학생용 책자 PDF':'학생용 책자 PDF';
+  if(typeof shDraw==='function'){ shDraw(); drawSteps(); }
 }
 /* 저장한 문제지의 문항을 지문째 불러온다(불러오기 #loadSel 과 같은 길) */
 function rdEntries(ids){
@@ -1894,7 +1973,7 @@ function baAutoClass(){
 $('#baBox').addEventListener('change', function(e){
   var c=e.target.closest('[data-bap]');
   if(c){ var id=Number(c.dataset.bap); BA.papers=BA.papers.filter(function(x){ return x!==id; }); if(c.checked){ BA.papers.push(id); var p=baMyPapers().filter(function(x){ return x.id===id; })[0]; if(p) baEnt(p).then(baDraw).catch(function(){}); }
-    baAutoClass(); baDraw(); return; }
+    baAutoClass(); baDraw(); if(BA.papers.length===1) shOpenPaper(BA.papers[0]); return; }
   if(e.target.id==='baCls'){ var v=e.target.value; e.target.value=''; if(!v) return;
     if(v.indexOf('g:')===0) BA.ttc.forEach(function(cc){ var k=baKeyOf(cc.name); if(k && k.key===v.slice(2) && BA.cls.indexOf(cc.class_id)<0) BA.cls.push(cc.class_id); });
     else if(BA.cls.indexOf(v.slice(2))<0) BA.cls.push(v.slice(2));
@@ -1978,6 +2057,87 @@ function mpBooklet(teacher){
 $('#mpBkS').onclick=function(){ mpBooklet(false); };
 $('#mpBkT').onclick=function(){ mpBooklet(true); };
 
+/* 페이지 어댑터 — 독서 */
+var SFA={ page:'r', ids:function(){ return BA.papers.slice(); }, setIds:function(a){ BA.papers=a.slice(); }, mine:function(){ return baMyPapers(); }, selN:function(){ return SEL.length; } };
+/* ── 두 화면: [문제지 만들기] / [내 문제지함] (2026-11-19 원장님 시안 2단계 "이대로 진행") ──
+ * 문법(shufit_grammar.html)·독서(shufit_reading.html)에 같은 코드 — 고치면 함께. 페이지마다 다른 것은 위 SFA(어댑터)만.
+ * 만들기 = 고르기 → 지금 만드는 문제지 → 저장까지. 인쇄·묶음 책자·H WORK 출제·배정·불러오기·삭제는 문제지함 한 곳.
+ * 문제지함에서 문제지를 하나 고르면 그 문제지를 열어(불러오기 #loadSel 과 같은 길) 낱장 인쇄·출제를, 여러 개면 묶음 책자·진도반 배정을 한다. */
+var SF_MODE='make', SF_LOADING=false, SH_F='all', HW_WHO='cls';
+function sfEl(id){ return document.getElementById(id); }
+function setMode(m){
+  SF_MODE = m==='shelf' ? 'shelf' : 'make';
+  document.body.setAttribute('data-mode', SF_MODE);
+  sfEl('makeView').hidden = SF_MODE!=='make'; sfEl('shelfView').hidden = SF_MODE!=='shelf';
+  [].forEach.call(document.querySelectorAll('#modeTabs [data-m]'), function(b){ var on=b.getAttribute('data-m')===SF_MODE; b.classList.toggle('on', on); b.setAttribute('aria-selected', on?'true':'false'); });
+  try{ sessionStorage.setItem('sf_mode_'+SFA.page, SF_MODE); }catch(e){}
+  if(SF_MODE==='shelf'){ shAutoPick(); if(typeof baLoad==='function') baLoad(); baDraw(); }
+  drawSteps(); shDraw();
+}
+function sfSavedPaper(){ if(!SAVED || !canPrint()) return null; return PAPERS.filter(function(p){ return p.teacher===SAVED.teacher && p.title===SAVED.title; })[0] || null; }
+function shAutoPick(){ var p=sfSavedPaper(); if(p && !SFA.ids().length) SFA.setIds([p.id]); }
+function drawSteps(){
+  var st=sfEl('steps'); if(!st) return;
+  var n=SFA.selN(), ok=n>0 && canPrint();
+  var c1=n?'done':'now', c2=ok?'done':(n?'now':''), c3=ok?'now':'';
+  st.innerHTML='<span class="st '+c1+'"><b>① 문항 담기</b>'+(n?'✓ '+n+'문항':'왼쪽에서 고르세요')+'</span><i aria-hidden="true">→</i>'
+    +'<span class="st '+c2+'"><b>② 문제지 저장</b>'+(ok?'✓ 저장함':(n?'지금 할 일':''))+'</span><i aria-hidden="true">→</i>'
+    +'<button type="button" class="st '+c3+'" id="stGo"'+(ok?'':' disabled')+'><b>③ 인쇄 · 출제</b>내 문제지함에서</button>';
+  sfEl('goShelf').disabled=!ok;
+  sfEl('shN').textContent=SFA.mine().length;
+}
+function shDraw(){
+  if(!sfEl('shOrd')) return;
+  var ids=SFA.ids(), mine=SFA.mine(), k=ids.length, n=SFA.selN();
+  var ps=ids.map(function(id){ return mine.filter(function(p){ return p.id===id; })[0]; }).filter(Boolean);
+  var multi=k>1;
+  sfEl('shSum').innerHTML='<b>'+k+'</b>개'+(multi?' · '+ps.reduce(function(a,p){ return a+(p.ids||[]).length; },0)+'문항':'');
+  sfEl('shSum').classList.toggle('has', k>0);
+  var t=(sfEl('pTitle').value||'').trim();
+  sfEl('shOrd').innerHTML = multi
+    ? ps.map(function(p,i){ return '<b>'+'①②③④⑤⑥⑦⑧⑨⑩'.charAt(i)+'</b> '+esc(p.title); }).join(' → ')+'<br><span>문제지마다 새 쪽에서 제목·문항 수와 함께 1번부터 시작해요.</span>'
+    : (n ? '<b>「'+esc(t||'제목 없음')+'」</b> · '+n+'문항'+(canPrint()?'':' · <span class="warn">저장하지 않은 문제지예요 — [열어서 고치기]에서 저장해 주세요</span>')
+         : '<span>왼쪽에서 문제지를 고르세요. 하나를 고르면 낱장 인쇄·출제, 여러 개를 고르면 묶음 책자·한 번에 배정이 열려요.</span>');
+  sfEl('shOne').hidden=multi; sfEl('shMulti').hidden=!multi;
+  var exb=document.querySelector('#xTabs [data-x="ex"]'); exb.disabled=multi;
+  if(multi && exb.classList.contains('on')) document.querySelector('#xTabs [data-x="pr"]').click();
+  sfEl('hwPickMulti').hidden=!multi; sfEl('hwPickOne').hidden=multi;
+  sfEl('shOpen').disabled=multi || !n;
+  if(typeof drawDel==='function') drawDel();
+}
+/* 문제지를 하나만 고르면 그 문제지를 연다 — 불러오기(#loadSel)와 같은 길. 지금 고른 문항이 저장되지 않았으면 묻는다(취소하면 고르지 않음) */
+function shOpenPaper(id){
+  var p=SFA.mine().filter(function(x){ return x.id===id; })[0]; if(!p) return;
+  var find=function(){ var k=-1; LOADS.forEach(function(x,i){ if(k<0 && x.kind==='paper' && x.teacher===p.teacher && x.title===p.title) k=i; }); return k; };
+  var k=find(); if(k<0 && typeof drawLoad==='function'){ drawLoad(); k=find(); }
+  if(SAVED && SAVED.teacher===p.teacher && SAVED.title===p.title && canPrint()){ if(k>=0){ sfEl('loadSel').value=String(k); drawDel(); } return; }   // 이미 열려 있음 — 삭제할 문제지만 맞춰 둔다
+  if(k<0) return;
+  SF_LOADING=true; sfEl('loadSel').value=String(k); sfEl('loadSel').dispatchEvent(new Event('change')); SF_LOADING=false;
+  if(sfEl('loadSel').value===''){ SFA.setIds(SFA.ids().filter(function(x){ return x!==id; })); baDraw(); }
+}
+sfEl('modeTabs').addEventListener('click', function(e){ var b=e.target.closest('[data-m]'); if(b) setMode(b.getAttribute('data-m')); });
+sfEl('goShelf').onclick=function(){ setMode('shelf'); };
+document.addEventListener('click', function(e){ if(e.target.closest('#stGo')) setMode('shelf'); });
+sfEl('shOpen').onclick=function(){ setMode('make'); window.scrollTo(0,0); toast('문제지를 열었어요. 고친 뒤 [문제지 저장]을 눌러 주세요'); };
+sfEl('shF').addEventListener('click', function(e){ var b=e.target.closest('[data-shf]'); if(!b) return; SH_F=b.getAttribute('data-shf');
+  [].forEach.call(sfEl('shF').children, function(x){ x.classList.toggle('on', x===b); }); baDraw(); });
+sfEl('hwWho').addEventListener('click', function(e){ var b=e.target.closest('[data-w]'); if(!b) return; HW_WHO=b.getAttribute('data-w');
+  [].forEach.call(sfEl('hwWho').children, function(x){ x.classList.toggle('on', x===b); });
+  sfEl('hwClass').hidden=HW_WHO!=='cls'; sfEl('hwPick').hidden=HW_WHO!=='pick'; if(HW_WHO==='pick') hwPickerInit(); });
+sfEl('loadSel').addEventListener('change', function(){
+  if(SF_LOADING) return; var h=loadPick(); if(!h || h.kind!=='paper') return;
+  var p=SFA.mine().filter(function(x){ return x.teacher===h.teacher && x.title===h.title; })[0];
+  if(p){ SFA.setIds([p.id]); baDraw(); }
+});
+/* 검사·도움말에서 숨은 칸을 누를 때 그 칸이 있는 화면·탭을 연다 */
+window.__sfReveal=function(sel){
+  var el=typeof sel==='string'?document.querySelector(sel):sel; if(!el) return;
+  if(sfEl('shelfView').contains(el) && SF_MODE!=='shelf') setMode('shelf');
+  if(sfEl('makeView').contains(el) && SF_MODE!=='make') setMode('make');
+  var pane=el.closest('#xp-pr,#xp-ex,#xp-hw'); if(pane && pane.hidden){ var tb=document.querySelector('#xTabs [data-x="'+pane.id.slice(3)+'"]'); if(tb) tb.click(); }
+  var wp=el.closest('[data-wpane]'); if(wp && wp.hidden){ var wb=document.querySelector('#hwWho [data-w="'+wp.getAttribute('data-wpane')+'"]'); if(wb) wb.click(); }
+};
+setMode((function(){ try{ return location.hash==='#shelf' ? 'shelf' : (sessionStorage.getItem('sf_mode_r')||'make'); }catch(e){ return 'make'; } })());
 drawSel(); loadHw();
 (function(){ try{ if(window.shuegukTeacherName) shuegukTeacherName().then(function(n){ if(n&&!$('#hTeacher').value){ $('#hTeacher').value=n; rebuildUsed(); drawUnusedLb(); drawLoad(); drawPrint(); if(CUR) drawList(); } }).catch(function(){}); }catch(e){} })();
 

@@ -123,6 +123,9 @@ function rpc(fn, p) {
   ctx.on('page', pg => pg.on('dialog', d => d.accept()));
   // ── 1. 출제·인쇄 ──
   const p = await ctx.newPage();
+  // 두 화면(문제지 만들기 / 내 문제지함, 2026-11-19) — 누르기 전에 그 칸이 있는 화면·탭을 연다(사람은 탭을 눌러 간다)
+  const reveal = page => { for (const m of ['click', 'fill', 'check', 'uncheck', 'selectOption']) { const o = page[m].bind(page); page[m] = async (sel, ...a) => { await page.evaluate(s => window.__sfReveal && window.__sfReveal(s), sel).catch(() => {}); return o(sel, ...a); }; } };
+  reveal(p);
   const errs = []; p.on('pageerror', e => errs.push(e.message));
   await p.goto(U + 'shufit_grammar.html'); await p.waitForSelector('.it');
   if (SHOT) await p.screenshot({ path: path.join(SHOT, 'shufit-first.png') });
@@ -156,7 +159,13 @@ function rpc(fn, p) {
     ok(await p.locator('.it').first().locator('.pas').count() === 1, '지문 보기');
     ok(await p.locator('#rLvl').isHidden() && await p.locator('#rKind').isHidden() && (await p.locator('#fStep').textContent()).includes('단원'), '처음엔 단원만 — 난도·출처 숨김');
     ok(await p.locator('#prS').isDisabled() && await p.locator('#saveBtn').isDisabled() && (await p.locator('#xHint').textContent()).includes('담으면'), '문항이 없으면 내보내기 버튼 잠김');
-    ok(await p.locator('#xp-pr').isVisible() && await p.locator('#xp-ex').isHidden() && await p.locator('#xp-hw').isHidden() && (await p.locator('#xTabs').innerText()).replace(/\s+/g, '') === '학습자료인쇄시험지인쇄H WORK출제'.replace(/\s+/g, ''), '내보내기 탭 — 학습자료 인쇄 · 시험지 인쇄 · H WORK 출제, 처음엔 학습자료');
+    // 두 화면(2026-11-19 시안 2단계) — 처음은 [문제지 만들기], 인쇄·출제 칸은 [내 문제지함]에만
+    ok(await p.locator('#makeView').isVisible() && await p.locator('#shelfView').isHidden() && await p.locator('#xCard').isHidden() && (await p.locator('#modeTabs').innerText()).replace(/\s+/g, '').startsWith('문제지만들기내문제지함'), '처음은 문제지 만들기 — 인쇄·출제는 안 보임');
+    ok((await p.locator('#steps').innerText()).replace(/\s+/g, ' ').includes('① 문항 담기') && await p.locator('#stGo').isDisabled() && await p.locator('#goShelf').isDisabled(), '진행 줄 — 저장 전엔 ③ 인쇄·출제 잠김');
+    await p.click('#modeTabs [data-m=shelf]');
+    ok(await p.locator('#xp-pr').isVisible() && await p.locator('#xp-ex').isHidden() && await p.locator('#xp-hw').isHidden() && await p.locator('#makeView').isHidden() && (await p.locator('#xTabs').innerText()).replace(/\s+/g, '') === '인쇄시험지인쇄HWORK출제·배정', '내 문제지함 — 인쇄 · 시험지 인쇄 · H WORK 출제·배정, 처음엔 인쇄');
+    ok((await p.locator('#shOrd').textContent()).includes('왼쪽에서 문제지를 고르세요'), '고른 문제지가 없으면 안내');
+    await p.click('#modeTabs [data-m=make]');
     ok((await p.locator('#tot').textContent()).includes('문항 4개') && (await p.locator('.it .no').first().textContent()) === '01', '머리 합계 · 카드 번호');
     // 문항 묶음(2026-11-17) — 0~456 = 2026 묶음, 457부터 = 2025 묶음. 가짜 문항은 모두 2026 묶음이라 2025 칩은 없다
     ok((await p.locator('#fSet').textContent()) === '전체42026 묶음4', '묶음 칩 — 있는 묶음만: ' + await p.locator('#fSet').textContent());
@@ -209,9 +218,11 @@ function rpc(fn, p) {
     await p.click('[data-add="103"]'); await p.click('[data-add="103"]');
     ok((await p.locator('#pTitle').inputValue()) === '음운 연습', '직접 고친 제목은 덮지 않음');
     ok((await p.locator('#hCode').inputValue()) === '음운 연습', '시험지 제목과 과제 제목은 같은 값');
-    ok(await p.locator('#bkS').isVisible() && await p.locator('#prS').isVisible(), '학습자료 탭 = A4 학습지 + 중철 책자');
+    await p.click('#modeTabs [data-m=shelf]');
+    ok(await p.locator('#bkS').isVisible() && await p.locator('#prS').isVisible(), '인쇄 탭 = A4 학습지 + 중철 책자');
     await p.click('#xTabs [data-x=ex]'); ok(await p.locator('#xp-ex').isVisible() && await p.locator('#xp-pr').isHidden(), '탭 바꾸기 — 시험지 인쇄');
-    ok(await p.locator('#pTitle').isVisible(), '제목 칸은 책자 탭에서도 보임');
+    await p.click('#modeTabs [data-m=make]');
+    ok(await p.locator('#pTitle').isVisible() && await p.locator('#paperSave').isVisible(), '제목·저장은 문제지 만들기에');
     await p.evaluate(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; window.__fontAtPrint = document.fonts.check('20pt Sacramento', 'Shueguk'); }; });
     // 시험지 저장(2026-11-17) — 출제 선생님별, 저장해야 인쇄
     ok((await p.locator('#hTeacher').inputValue()) === '이현지' && await p.locator('#hTeacher').isVisible(), '출제 선생님 = 로그인 이름, 탭 위에 보임');
@@ -359,7 +370,7 @@ function rpc(fn, p) {
     const opts = await p.$$eval('#baCls option', a => a.map(o => o.textContent));
     ok(opts.some(t => t.startsWith('고2 화정 진도반 모두 (2반 · 3명)')) && !opts.some(t => t.includes('확인')) && !opts.some(t => t.includes('능곡')), '진도반 고르기 — 학교·학년 모두 + 반마다, 확인 반·빈 반 빼기 ' + JSON.stringify(opts));
     // 문제지 학교가 '화정고2'면 그 진도반을 저절로 불러온다
-    await p.evaluate(() => { PAPERS.unshift({ id: 99, teacher: '이현지', title: 'Shuefit 문법: 음운 심화 (2)', ids: [101, 102], school: '화정고2' }); baDraw(); });
+    await p.evaluate(() => { BA.papers.clear(); PAPERS.unshift({ id: 99, teacher: '이현지', title: 'Shuefit 문법: 음운 심화 (2)', ids: [101, 102], school: '화정고2' }); baDraw(); });
     await p.check('[data-bap="99"]');
     ok((await p.locator('#baClsOn span').count()) === 2 && (await p.locator('#baStu').textContent()).includes('받을 학생 3명'), '문제지 학교(화정고2)로 진도반 저절로 불러옴');
     ok((await p.locator('#baStu .miss').textContent()).includes('이없음'), '명단에서 못 찾은 학생은 따로 알림');
@@ -411,6 +422,33 @@ function rpc(fn, p) {
     ok((await p.$$eval('#print .ksec', a => a.map(x => x.textContent))).join('|').startsWith('음운 연습1 ⑤') && (await p.$$('#print .ksec')).length === 2, '묶음 교사용 — 정답과 해설도 문제지마다 소제목');
     await p.evaluate(() => window.dispatchEvent(new Event('afterprint')));
     await p.evaluate(() => { PAPERS = PAPERS.filter(x => x.id !== 99); BA.papers.clear(); BA.cls = []; baDraw(); });
+    // 두 화면 — 내 문제지함에서 고르기(2026-11-19 시안 2단계)
+    await p.click('#modeTabs [data-m=make]');
+    ok(await p.locator('#xCard').isHidden() && (await p.locator('#steps').innerText()).includes('저장함') && !(await p.locator('#stGo').isDisabled()) && !(await p.locator('#goShelf').isDisabled()), '저장한 문제지면 진행 줄 ③·[내 문제지함에서 인쇄·출제] 열림');
+    await p.click('#goShelf');
+    ok(await p.locator('#shelfView').isVisible() && await p.locator('#makeView').isHidden(), '[내 문제지함에서 인쇄·출제] → 문제지함');
+    await p.evaluate(() => { PAPERS.push({ id: 98, teacher: '이현지', title: '품사 하나', ids: [103] }); drawLoad(); BA.papers.clear(); baDraw(); });
+    const pidU = await p.evaluate(() => PAPERS.find(x => x.title === '음운 연습' && x.teacher === '이현지').id);
+    await p.check(`[data-bap="${pidU}"]`);
+    ok((await p.locator('#shOrd').textContent()).includes('「음운 연습」') && await p.locator('#shOne').isVisible() && !(await p.locator('#prS').isDisabled()) && !(await p.locator('#paperDel').isDisabled()), '하나 고르면 그 문제지 — 낱장 인쇄·삭제 열림');
+    await p.check('[data-bap="98"]');
+    ok(await p.locator('#shMulti').isVisible() && await p.locator('#shOne').isHidden() && await p.locator('#xTabs [data-x=ex]').isDisabled() && await p.locator('#paperDel').isDisabled() && await p.locator('#shOpen').isDisabled() && /① 음운 연습 → ② 품사 하나/.test(await p.locator('#shOrd').textContent()), '여러 개 — 묶음 책자, 시험지·삭제·열기 잠김, 고른 차례 표시');
+    await p.click('#xTabs [data-x=hw]'); await p.click('#hwWho [data-w=pick]');
+    ok(await p.locator('#hwPickMulti').isVisible() && await p.locator('#hwPickOne').isHidden(), '여러 개 — 학생 직접 고르기는 하나일 때만');
+    await p.click('#hwWho [data-w=cls]'); await p.click('#xTabs [data-x=pr]');
+    await p.uncheck(`[data-bap="${pidU}"]`);
+    await p.waitForFunction(() => document.getElementById('pTitle').value === '품사 하나');
+    ok((await p.locator('#selN').textContent()).includes('1') && !(await p.locator('#prS').isDisabled()), '하나만 남으면 그 문제지를 열어 인쇄 가능');
+    await p.click('#shOpen');
+    ok(await p.locator('#makeView').isVisible() && (await p.locator('#pTitle').inputValue()) === '품사 하나', '열어서 고치기 → 문제지 만들기');
+    await p.click('#modeTabs [data-m=shelf]'); await p.click('#shF [data-shf=new]');
+    ok((await p.locator(`[data-bap="${pidU}"]`).count()) === 0 && (await p.locator('[data-bap="98"]').count()) === 1, '아직 안 낸 것 — 출제한 문제지는 빠짐');
+    await p.click('#shF [data-shf=all]');
+    if (SHOT) await p.locator('#shelfView').screenshot({ path: path.join(SHOT, 'shufit-shelf.png') });
+    await p.evaluate(() => { PAPERS = PAPERS.filter(x => x.id !== 98); drawLoad(); BA.papers.clear(); baDraw(); });
+    await p.check(`[data-bap="${pidU}"]`);   // 다시 「음운 연습」을 연다(아래 검사가 이 문제지로 이어진다)
+    await p.waitForFunction(() => document.getElementById('pTitle').value === '음운 연습');
+    await p.evaluate(() => setMode('make'));
     // 새 문제지 만들기(2026-11-17)
     await p.fill('#pSchool', '행신고'); await p.fill('#hwMemo', '2회차');
     await p.evaluate(() => { window.__c = window.confirm; window.confirm = () => false; }); await p.click('#newBtn'); await p.evaluate(() => { window.confirm = window.__c; });
@@ -449,6 +487,7 @@ function rpc(fn, p) {
       html: '<div class="qh"><div class="stem">긴 문항 ' + i + ' ' + '문장 성분을 바르게 이해한 것은? '.repeat(6) + '</div></div>' + ch(), ans: 3, good: '해설', bad: [], plain: '긴 문항 ' + i });
   }
   const bk = await ctx.newPage(); const bkerr = []; bk.on('pageerror', e => bkerr.push(e.message));
+  reveal(bk);
   await bk.goto(U + 'shufit_grammar.html'); await bk.waitForSelector('.it');
   await bk.evaluate(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
   await bk.evaluate(() => { while (document.getElementById('moreBtn')) document.getElementById('moreBtn').click(); });

@@ -55,6 +55,8 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
 (async () => {
   const b = await chromium.launch();
   const pg = await b.newPage({ viewport: { width: 1280, height: 1000 } });
+  // 두 화면(문제지 만들기 / 내 문제지함, 2026-11-19) — 누르기 전에 그 칸이 있는 화면·탭을 연다(사람은 탭을 눌러 간다)
+  for (const m of ['click', 'fill', 'check', 'uncheck', 'selectOption']) { const o = pg[m].bind(pg); pg[m] = async (sel, ...a) => { await pg.evaluate(s => window.__sfReveal && window.__sfReveal(s), sel).catch(() => {}); return o(sel, ...a); }; }
   const errs = [], reqs = [], writes = [], gas = [];
   pg.on('pageerror', e => errs.push(e.message));
   await pg.route('**/*', async route => {
@@ -389,7 +391,12 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.evaluate(([a, bb]) => { PAPERS.unshift({ id: 71, teacher: '김선생', title: '시장 원 기출', ids: a, school: '화정고2' }, { id: 72, teacher: '김선생', title: '진화 원 기출', ids: bb, school: '화정고2' }); baDraw(); }, [idA, idB]);
   await pg.waitForFunction(() => document.querySelectorAll('#baCls option').length > 1);
   t('묶음 칸 — 진도반 고르기(확인 반 빼기)', !(await pg.$$eval('#baCls option', a => a.map(o => o.textContent))).some(x => x.includes('확인')));
-  await pg.check('[data-bap="72"]'); await pg.check('[data-bap="71"]');
+  { const acc = d => d.accept(); pg.on('dialog', acc);   // 하나만 고르면 그 문제지를 연다 — 지금 고른 문항(저장 안 함)을 바꿀지 묻는다
+    await pg.check('[data-bap="72"]'); await pg.waitForFunction(() => document.querySelector('#pTitle').value === '진화 원 기출', null, { timeout: 8000 });
+    pg.off('dialog', acc); }
+  await pg.click('#xTabs [data-x=pr]');
+  t('하나 고르면 그 문제지를 연다(저장 안 한 문항은 물어봄)', (await pg.textContent('#shOrd')).includes('「진화 원 기출」') && await pg.isVisible('#shOne'));
+  await pg.check('[data-bap="71"]');
   t('묶음 칸 — 고른 차례 번호', (await pg.$$eval('#baPapers .ord', a => a.map(x => x.textContent))).sort().join() === '1,2' && (await pg.$eval('[data-bap="72"] + span .ord', e => e.textContent)) === '1');
   t('묶음 칸 — 문제지 학교로 진도반 저절로·학교·학년 맞는 학생만', (await pg.locator('#baClsOn span').count()) === 1 && (await pg.textContent('#baStu')).includes('받을 학생 2명') && (await pg.textContent('#baStu .miss')).includes('최다솜'));
   await pg.evaluate(() => { window.print = () => {}; });
@@ -421,6 +428,23 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.waitForFunction(() => /건너뜀 2개/.test(document.querySelector('#baMsg').textContent), null, { timeout: 8000 });
   pg.off('dialog', onDlg3);
   t('다시 누르면 이미 출제·배정한 것은 건너뜀', !gas.filter(Boolean).map(g => JSON.parse(g)).some(g => g.action === 'saveHomework' || g.action === 'addAssignment'));
+
+  // ── 두 화면(2026-11-19 시안 2단계) — 만들기에는 인쇄·출제가 없고, 문제지함에서 고른다 ──
+  await pg.click('#xTabs [data-x=pr]');
+  t('여러 개 — 묶음 책자, 시험지·삭제·열기 잠김', await pg.isVisible('#shMulti') && await pg.isHidden('#shOne') && await pg.isDisabled('#xTabs [data-x=ex]') && await pg.isDisabled('#paperDel') && await pg.isDisabled('#shOpen') && /① 진화 원 기출 → ② 시장 원 기출/.test(await pg.textContent('#shOrd')));
+  await pg.uncheck('[data-bap="72"]');
+  await pg.waitForFunction(() => document.querySelector('#pTitle').value === '시장 원 기출', null, { timeout: 8000 });
+  t('하나만 남으면 그 문제지를 열어 낱장 인쇄', await pg.isVisible('#shOne') && !(await pg.isDisabled('#xp-pr [data-sp="study"]')) && (await pg.textContent('#shOrd')).includes('「시장 원 기출」'));
+  await pg.click('#shOpen');
+  t('열어서 고치기 → 문제지 만들기', await pg.isVisible('#makeView') && await pg.isHidden('#xCard') && (await pg.textContent('#steps')).includes('저장함'));
+  await pg.click('#goShelf');
+  t('[내 문제지함에서 인쇄·출제] → 문제지함', await pg.isVisible('#shelfView') && await pg.isHidden('#makeView'));
+  await pg.click('#shF [data-shf=new]');
+  t('아직 안 낸 것 — 출제한 문제지는 빠짐', (await pg.$$('[data-bap="71"]')).length === 0);
+  await pg.click('#shF [data-shf=all]');
+  if (process.env.SHOT) await pg.screenshot({ path: process.env.SHOT + '/reading-shelf.png', fullPage: true });
+  await pg.evaluate(() => setMode('make'));
+  if (process.env.SHOT) await pg.screenshot({ path: process.env.SHOT + '/reading-make.png' });
 
   const m = await b.newPage({ viewport: { width: 390, height: 844 } });
   await m.route('**/*', r => pg.context() && r.request().url().startsWith('file://') ? r.continue() : (/rest\/v1\/reading_passages/.test(r.request().url()) && !/id=eq/.test(r.request().url()) ? r.fulfill({ json: P }) : r.fulfill({ status: 200, body: /auth/.test(r.request().url()) ? '{"access_token":"tok"}' : '[]' })));
