@@ -50,7 +50,7 @@ const I = [
   { passage_id: P[2].id, level: '교과서', code: '19', sec_name: '키워드 빈칸', v: 1, ord: 1, kind: 'blank', data: { stem: '서술하시오.', model: '건축물은 (     )를 담는다.', ans: '문화', expl: '' }, plain: '' },
 ];
 I.forEach((x, i) => { x.id = 1000 + i; });
-const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [1014, 1002, 1012], print_date: '2026-12-01', school: '화정고', updated_at: '2026-11-18' }];
+const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [1014, 1002, 1012], seq: [1014, 'm:2306고2-가상시장:notes', 1002, 1012], print_date: '2026-12-01', school: '화정고', updated_at: '2026-11-18' }];
 
 (async () => {
   const b = await chromium.launch();
@@ -143,18 +143,30 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   t('요약 빈칸 번호(학생 화면은 답 없음)', (await pg.textContent('#list .blank')) === '1');
   t('난도 알약 없음·변형 문항 합계', (await pg.$$('[data-lv]')).length === 0 && /변형 문항 12/.test(await pg.textContent('#tot')), await pg.textContent('#tot'));
 
-  await pg.evaluate(() => window.__printDoc('study', true));
+  // ── 3단계(2026-11-19): 학습 자료도 문제지에 담는다 · 묶음 담기 — 바로 인쇄·골라서 인쇄는 없어짐 ──
+  t('바로 인쇄·골라서 인쇄 없음', !(await pg.$('#pchips')) && !(await pg.$('[data-pr="study"]')) && !(await pg.$('[data-pr="exam"]')));
+  t('요약 빈칸 탭 — [+ 문제지에 담기]', /학습 자료예요/.test(await pg.textContent('#list .nqnote')) && /\+ 문제지에 담기/.test(await pg.textContent('#list [data-mat="10"]')));
+  await pg.click('#list [data-mat="10"]');
+  t('학습 자료 담기 — 개수·담음 표시·목록 줄', (await pg.textContent('#selN')) === '학습 자료 1' && /담음/.test(await pg.textContent('#list [data-mat="10"]')) && (await pg.$$('#sel .si.mat')).length === 1, await pg.textContent('#selN'));
+  t('학습 자료만이면 H WORK·제목', await pg.$eval('#saveBtn', e => e.disabled) && /\(학습 자료\)$/.test(await pg.inputValue('#pTitle')), await pg.inputValue('#pTitle'));
+  await pg.click('#list [data-mat="10"]');
+  t('다시 누르면 빠짐', (await pg.textContent('#selN')) === '0문항');
+  t('묶음 담기 안내', /학습자료 핵심정리 · OX · 표현법·내용확인 · 내용불일치 · 키워드 빈칸 · 핵심 요약 빈칸/.test(await pg.textContent('#bdlInfo')) && /시험지 원 기출 · 고난도 수능형 · 보기형 \(4문항\)/.test(await pg.textContent('#bdlInfo')), await pg.textContent('#bdlInfo'));
+  await pg.click('[data-bundle="study"]');
+  const sn = await pg.textContent('#selN');
+  t('학습자료 묶음 담기 — 문항 + 학습 자료 2(핵심정리 맨 앞)', / · 학습 자료 2$/.test(sn) && (await pg.$$('#sel .si.mat')).length === 2 && /핵심정리/.test(await pg.$eval('#sel .si', e => e.textContent)), sn);
+  await pg.evaluate(() => selDoc('study', true));
   const st = await pg.textContent('#print');
-  t('학습자료 교사용 — 머리·지문·핵심정리·빈칸 답', st.includes('Shuefit 독서 · 2023학년도 6월 고2 · 교사용') && st.includes('시장에는') && st.includes('쉽게 요약') && /가격/.test(await pg.$$eval('#print .notes .blank', a => a.map(x => x.textContent).join())), st.slice(0,160));
-  await pg.evaluate(() => document.body.classList.remove('printing'));
-  await pg.evaluate(() => window.__printDoc('exam', false));
-  t('시험지 — 원 기출 2 + 고난도 1 + 보기형 1', (await pg.$$('#print .q')).length === 4 && (await pg.textContent('#print .ins')).includes('[1~4]'));
-  t('시험지 답안 기록표', (await pg.$$('#print .omr td')).length === 8);
-  t('학생용엔 정답 표시 없음', (await pg.$$('#print .opts li.ok')).length === 0);
-  await pg.evaluate(() => document.body.classList.remove('printing'));
-  await pg.evaluate(() => window.__printDoc('exam', true));
-  t('교사용 정답 동그라미', (await pg.$$('#print .opts li.ok')).length >= 3);
-  await pg.evaluate(() => document.body.classList.remove('printing'));
+  t('학습지 교사용 — 지문·핵심정리·빈칸 답이 그 지문 뒤에', st.includes('시장에는') && st.includes('쉽게 요약') && /가격/.test(await pg.$$eval('#print .notes .blank', a => a.map(x => x.textContent).join()))
+    && (await pg.$$eval('#print .sech', a => a.map(x => x.textContent))).join() === '핵심정리,핵심 요약 빈칸', st.slice(0, 160));
+  await pg.evaluate(() => { document.body.classList.remove('printing'); SEL = []; selChanged(); });
+  await pg.click('[data-bundle="exam"]');
+  t('시험지 묶음 담기 — 원 기출 2 + 고난도 1 + 보기형 1', (await pg.textContent('#selN')) === '4문항');
+  await pg.click('[data-bundle="exam"]');
+  t('같은 묶음을 또 누르면 겹쳐 담지 않음', (await pg.textContent('#selN')) === '4문항');
+  await pg.evaluate(() => selDoc('study', false));
+  t('학생용 — 답안 기록표·정답 표시 없음', (await pg.$$('#print .ansrow td')).length === 8 && (await pg.$$('#print .opts li.ok')).length === 0 && (await pg.textContent('#print .ins')).includes('[1~4]'));
+  await pg.evaluate(() => { document.body.classList.remove('printing'); SEL = []; selChanged(); });
 
   // ── 고른 문항 — 여러 지문을 담아 인쇄·책자·H WORK 출제 (2026-11-19) ──
   await pg.evaluate(() => { window.print = () => {}; });
@@ -181,7 +193,7 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.click('#paperSave');
   await pg.waitForFunction(() => !document.querySelector('[data-bk]').disabled);
   const pw = writes.find(w => /shufit_reading_papers\?on_conflict/.test(w.u));
-  t('문제지 저장 본문 — 선생님·제목·문항 순서·학교', !!pw && (b => b.teacher === '박선생' && b.ids.length === 10 && b.ids[0] === 1000 && b.school === '행신고등학교')(JSON.parse(pw.b)[0]));
+  t('문제지 저장 본문 — 선생님·제목·문항 순서·학교·차례(seq)', !!pw && (b => b.teacher === '박선생' && b.ids.length === 10 && b.ids[0] === 1000 && b.school === '행신고등학교' && b.seq.join() === b.ids.join())(JSON.parse(pw.b)[0]));
   writes.length = 0;
   await pg.click('[data-x="ex"]');
   t('시험지 양식 A형/B형 고르기', (await pg.$$('#exDes [data-d]')).length === 2 && await pg.$eval('#exDes [data-d="A"]', e => e.classList.contains('on')));
@@ -231,8 +243,9 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   pg.once('dialog', d => d.accept());
   const v = await pg.$eval('#loadSel', s => [...s.options].find(o => /지난 문제지/.test(o.textContent)).value);
   await pg.selectOption('#loadSel', v);
-  await pg.waitForFunction(() => document.querySelector('#selN').textContent === '3문항');
-  t('불러온 순서·지문 묶음', (await pg.$$eval('#sel .si .st small', a => a.map(x => x.textContent))).join('|') === '원 기출|OX|독립 밑줄 수능형', await pg.$$eval('#sel .si .st small', a => a.map(x => x.textContent)));
+  await pg.waitForFunction(() => document.querySelector('#selN').textContent === '3문항 · 학습 자료 1');
+  t('불러온 순서(seq — 학습 자료 포함)·지문 묶음', (await pg.$$eval('#sel .si .st', a => a.map(x => x.querySelector('small').textContent + (x.closest('.mat') ? ':' + x.textContent.replace('학습 자료', '') : '')))).join('|') === '원 기출|학습 자료:핵심정리|OX|독립 밑줄 수능형', await pg.$$eval('#sel .si .st', a => a.map(x => x.textContent)));
+  t('불러오기 목록에 학습 자료 수', /지난 문제지 · 이선생 \(3문항 · 학습 자료 1\)/.test(await pg.textContent('#loadSel')));
   t('불러온 선생님·제목·날짜·학교', (await pg.inputValue('#hTeacher')) === '이선생' && (await pg.inputValue('#pTitle')) === '지난 문제지' && (await pg.inputValue('#pDate')) === '2026-12-01' && (await pg.inputValue('#pSchool')) === '화정고');
   t('불러온 문제지는 바로 인쇄 가능', !(await pg.$eval('[data-bk]', e => e.disabled)));
   await pg.fill('#pSchool', '능곡고'); await pg.dispatchEvent('#pSchool', 'change'); await pg.waitForTimeout(150);
@@ -299,42 +312,33 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.click('#tchips [data-t="analysis"]'); t('지문 분석', /기본정보/.test(await pg.textContent('#list')));
   await pg.click('#tchips [data-t="keys"]'); t('정오답 선지 근거', /근거 모음/.test(await pg.textContent('#list')));
   t('시험지 문항 고르기 보임', await pg.$eval('#exsetw', e => e.classList.contains('on')));
-  await pg.evaluate(() => window.__printDoc('exam', false));
-  t('교과서 시험지 — 모의고사형 2', (await pg.$$('#print .q')).length === 2 && (await pg.textContent('#print .ins')).includes('[1~2]'));
-  await pg.evaluate(() => document.body.classList.remove('printing'));
+  await pg.evaluate(() => { window.__K = SEL.slice(); window.__KS = SAVED; SEL = []; selChanged(); });
+  t('교과서 묶음 안내 — 시험지 = 고른 유형', /시험지 모의고사형 \(2문항\)/.test(await pg.textContent('#bdlInfo')) && /학습자료 문단별 정리 · OX 쉬움 · OX 어려움 · 키워드 빈칸 · 문단 정리 빈칸/.test(await pg.textContent('#bdlInfo')), await pg.textContent('#bdlInfo'));
   await pg.selectOption('#exset', '15,16');
-  await pg.evaluate(() => window.__printDoc('exam', true));
-  t('교과서 시험지 — 고난도·1등급 2, 교사용 정답', (await pg.$$('#print .q')).length === 2 && (await pg.$$('#print .opts li.ok')).length === 2);
-  await pg.evaluate(() => document.body.classList.remove('printing'));
-  await pg.evaluate(() => window.__printDoc('study', true));
-  t('교과서 학습자료 — OX 2·키워드 빈칸·문단 정리 빈칸 답', (await pg.$$('#print .oxl')).length === 2 && /문화/.test(await pg.textContent('#print')));
-  await pg.evaluate(() => document.body.classList.remove('printing'));
-  // 골라서 인쇄 — 기본은 지문·문단별 정리·OX 쉬움·OX 어려움·문단 정리 빈칸
-  const pk = async () => (await pg.$$eval('#pchips .chip.on', a => a.map(x => x.dataset.pk))).join();
-  t('골라서 인쇄 기본 선택(교과서)', await pk() === 'pas,notes,11,12,10', await pk());
-  t('문항 없는 유형은 잠김', await pg.$eval('#pchips [data-pk="14"]', e => e.disabled));
-  await pg.click('#pchips [data-pk="12"]'); await pg.click('#pchips [data-pk="13"]');
-  t('알약 켜고 끄기', await pk() === 'pas,notes,11,13,10' && /지문 → 문단별 정리 → OX 쉬움 → 모의고사형 → 문단 정리 빈칸/.test(await pg.textContent('#pord')));
-  await pg.evaluate(() => window.__printDoc('pick', false));
-  t('골라서 인쇄 — 고른 순서대로 한 파일', (await pg.$$eval('#print .bksec b', a => a.map(x => x.textContent))).join() === '지문,문단별 정리,OX 쉬움,모의고사형,문단 정리 빈칸'
-    && (await pg.$$('#print .oxl')).length === 1 && (await pg.$$('#print .q')).length === 2 && !(await pg.$$('#print .ansbox')).length);
-  await pg.evaluate(() => document.body.classList.remove('printing'));
-  await pg.evaluate(() => window.__printDoc('pick', true));
-  t('골라서 인쇄 교사용 — OX 답·빈칸 답·정답 표시·해설', /문화/.test(await pg.textContent('#print')) && (await pg.$$('#print .opts li.ok')).length === 2 && (await pg.$$('#print .ansbox')).length === 1);
-  await pg.evaluate(() => document.body.classList.remove('printing'));
-  for (const c of ['pas', 'notes', '11', '13', '10']) await pg.click('#pchips [data-pk="' + c + '"]');
-  t('하나도 안 고르면 버튼 잠김', await pg.$eval('#pkS', e => e.disabled) && /하나 이상/.test(await pg.textContent('#pord')));
-  await pg.click('[data-pkall="1"]');
-  t('모두 고르기 = 있는 것 전부', (await pg.$$eval('#pchips .chip.on', a => a.map(x => x.dataset.pk))).join() === 'pas,notes,analysis,11,12,13,15,16,19,10,keys');
-  await pg.click('[data-pkall="0"]');
-  t('모두 빼기', (await pg.$$('#pchips .chip.on')).length === 0);
+  t('시험지 유형을 바꾸면 안내도 바뀜', /시험지 고난도 보기형 · 1등급 보기형 \(2문항\)/.test(await pg.textContent('#bdlInfo')));
+  await pg.click('[data-bundle="exam"]');
+  await pg.evaluate(() => selDoc('study', true));
+  t('교과서 시험지 묶음 — 고난도·1등급 2, 교사용 정답', (await pg.textContent('#selN')) === '2문항' && (await pg.$$('#print .q')).length === 2 && (await pg.$$('#print .opts li.ok')).length === 2);
+  await pg.evaluate(() => { document.body.classList.remove('printing'); SEL = []; selChanged(); });
+  await pg.click('[data-bundle="study"]');
+  await pg.evaluate(() => selDoc('study', true));
+  t('교과서 학습자료 묶음 — 문단별 정리·문단 정리 빈칸 답', / · 학습 자료 2$/.test(await pg.textContent('#selN')) && /문화/.test(await pg.textContent('#print')) && (await pg.$$eval('#print .sech', a => a.map(x => x.textContent))).join() === '문단별 정리,문단 정리 빈칸');
+  await pg.evaluate(() => { document.body.classList.remove('printing'); SEL = []; selChanged(); });
+  // 학습 자료만 담은 문제지 저장 — ids 는 문항만(빈 배열), seq 에 'm:지문:종류'
+  await pg.click('#tchips [data-t="keys"]'); await pg.click('#list [data-mat="keys"]');
+  await pg.click('#tchips [data-t="notes"]'); await pg.click('#list [data-mat="notes"]');
+  t('학습 자료 두 개 — 담은 순서', (await pg.$$eval('#sel .si.mat .st', a => a.map(x => x.textContent.replace('학습 자료', '')))).join() === '정오답 선지 근거,문단별 정리');
+  await pg.fill('#pTitle', '교과서 정리 자료');
+  writes.length = 0;
+  await pg.click('#paperSave');
+  await pg.waitForFunction(() => /인쇄할 수 있어요/.test(document.querySelector('#paperMsg').textContent));
+  const mw = writes.find(w => /shufit_reading_papers\?on_conflict/.test(w.u));
+  t('학습 자료 문제지 저장 — ids 빈 배열 · seq 차례', !!mw && (b => b.ids.length === 0 && b.seq.join() === 'm:교과서-가상교과서-5-1-1:keys,m:교과서-가상교과서-5-1-1:notes')(JSON.parse(mw.b)[0]), mw && mw.b);
+  await pg.evaluate(() => { PAPERS = PAPERS.filter(p => p.title !== '교과서 정리 자료'); SEL = window.__K; SAVED = window.__KS; drawLoad(); baDraw(); selChanged(); });
+  await pg.click('#tchips [data-t="11"]');
   await pg.evaluate(() => window.__printDoc('all', true));
   t('이 단원 모두 인쇄 — 지문·문단별 정리·지문 분석·모든 유형·정오답 근거', (await pg.$$eval('#print .bksec b', a => a.map(x => x.textContent))).join() === '지문,문단별 정리,지문 분석,OX 쉬움,OX 어려움,모의고사형,고난도 보기형,1등급 보기형,키워드 빈칸,문단 정리 빈칸,정오답 선지 근거');
   await pg.evaluate(() => document.body.classList.remove('printing'));
-  await pg.click('#tchips [data-t="notes"]');
-  t('문단별 정리 탭 — 담을 수 없다는 안내', /넣을 수 없어요/.test(await pg.textContent('#list .nqnote')));
-  await pg.click('#list [data-pkgo="notes"]');
-  t('안내에서 골라서 인쇄에 넣기', (await pg.$$eval('#pchips .chip.on', a => a.map(x => x.dataset.pk))).join() === 'notes' && /가기/.test(await pg.textContent('#list [data-pkgo]')));
   await pg.click('#tchips [data-t="11"]');
   // 모두 인쇄 — 기본 중철 책자, [A4] 로 바꿀 수 있음
   t('모두 인쇄 기본 = 중철 책자', await pg.$eval('#umSeg [data-um="bk"]', e => e.classList.contains('on')));
@@ -383,7 +387,7 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   t('모두 출제 — 구간 과제 모두 배정', /구간 과제 \d+개를/.test(dlg2[0] || '') && adds.length === ugas.length && adds.every((a, i) => a.item === '김선생 / ' + ugas[i].data.code && a.target === '홍길동'), JSON.stringify(adds.map(a => a.item)));
   await pg.click('#areas [data-area=""]'); await pg.click('#res .rc:nth-child(1)');
   await pg.waitForFunction(() => /가상 시장/.test(document.querySelector('#pmeta').textContent));
-  t('모의고사 지문 골라서 인쇄 기본', (await pg.$$eval('#pchips .chip.on', a => a.map(x => x.dataset.pk))).join() === 'pas,notes,02,10');
+  t('모의고사 지문으로 돌아가면 묶음 안내도', /학습자료 핵심정리 · OX/.test(await pg.textContent('#bdlInfo')));
   t('모의고사 지문으로 돌아가면 난도·원 기출', (await pg.$$('#pmeta [data-lv]')).length === 0 && await pg.$eval('#tchips .chip.on', e => e.dataset.t) === 'orig' && !(await pg.$eval('#exsetw', e => e.classList.contains('on'))));
 
   // ── 저장한 문제지 묶음(2026-11-19 — 문법과 같은 칸): 합쳐서 중철 책자 · 한 번에 출제·배정 ──
