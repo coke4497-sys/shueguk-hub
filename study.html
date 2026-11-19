@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
 <title>학습 관리 · 슈국 티쳐스</title>
 <script src="assets/teacher-auth.js" data-mode="protected"></script>
-<meta name="description" content="이수경국어 학습 관리 — 어휘·문법 테스트, H WORK, 과제 검사, 주말 실전모의고사, 클리닉, 지필고사 리포트" />
+<meta name="description" content="이수경국어 학습 관리 — Shuefit, 어휘·문법 테스트, H WORK, 복습 영상, 수업 기록, 모의고사·지필고사 리포트, 클리닉" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&display=swap" rel="stylesheet" />
@@ -53,6 +53,20 @@
   /* 슈핏 (2026-11-17 원장님 — 문항 은행 이름을 슈핏 문법으로, 차차 슈핏 독서·문학) */
   .g-shufit .gh i{background:#3d675d;} .g-shufit .icon{background:#e3f0ec;color:#3d675d;}
   .row.soon{opacity:.5;cursor:default;} .row.soon:hover{background:transparent;}
+  /* 2026-11-19 원장님 "학습관리 화면 정리" — 슈핏은 맨 위 넓은 상자(과목 타일 + 사용 안내 링크), 나머지는 두 열 */
+  .grp.wide{grid-column:1 / -1;padding:18px 16px 16px;}
+  .grp.wide .gh{justify-content:space-between;flex-wrap:wrap;gap:6px 10px;}
+  .grp.wide .gh .gt{display:flex;align-items:center;gap:8px;}
+  .gsub{margin:0 2px 12px;color:var(--ink-soft);font-size:.82rem;line-height:1.5;}
+  .tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+  .tile{display:flex;flex-direction:column;gap:4px;min-width:0;background:#F4F8F6;border-radius:14px;padding:12px 14px;text-decoration:none;color:inherit;transition:background .15s ease;}
+  .tile:hover{background:#e3f0ec;}
+  .tile b{font-size:1rem;color:var(--ink);display:flex;align-items:center;gap:7px;}
+  .tile b svg{width:15px;height:15px;color:#3d675d;flex:none;}
+  .tile span{font-size:.78rem;color:var(--ink-soft);line-height:1.45;}
+  .tile.gd{background:#EDE4F4;} .tile.gd:hover{background:#E3D7EE;} .tile.gd b svg{color:#5A4A6A;}
+  .tile .st{align-self:flex-start;font-size:.7rem;border-radius:999px;padding:0 8px;margin-top:2px;}
+  .tile .st.on{background:#e3f0ec;color:#3d675d;} .tile .st.prep{background:#F7ECC4;color:#806423;}
   .g-test .gh i{background:#8A6A35;} .g-test .icon{background:#F7ECC4;color:#806423;}
   .g-work .gh i{background:#3d6870;} .g-work .icon{background:#DBEEF0;color:#3d6870;}
   .g-class .gh i{background:#4a4266;} .g-class .icon{background:#E6E2F2;color:#4a4266;}
@@ -61,6 +75,7 @@
 
   footer{text-align:center;margin-top:40px;color:var(--ink-soft);font-size:.82rem;line-height:2;}
   @media (max-width:640px){
+    .tiles{grid-template-columns:repeat(2,minmax(0,1fr));}
     .wrap{padding:0 14px;}
     header{padding:18px 6px 16px;}
     .tagline{font-size:1.5rem;}
@@ -80,7 +95,7 @@
 
   <header>
     <h1 class="tagline">학습 관리</h1>
-    <p class="intro">테스트·과제·모의고사·리포트 관리 메뉴를 선택하세요.</p>
+    <p class="intro">Shuefit 문항 출제부터 테스트·과제·수업 기록·모의고사·클리닉까지 한곳에서 고릅니다.</p>
   </header>
 
   <div class="groups" id="list"></div>
@@ -103,13 +118,14 @@
   const REPORT = "https://coke4497-sys.github.io/shueguk-report/";
   // 묶음별 목록 (2026-10-21 원장님 시안) — 넓은 화면은 2열(테스트|과제·복습 / 수업·피드백|모의고사·리포트 / 클리닉), 휴대폰은 1열
   const groups = [
-    { key:"shufit", name:"슈핏 · 너에게 꼭 맞춘 슈국 학습 프로그램", items:[
-      { title:"Shuefit 문법", icon:"pencil", url:"shufit_grammar.html", desc:"너에게 꼭 맞춘 문법 학습 · 문항 골라 담기 · 책자 인쇄 · H WORK 출제" },
-      { title:"Shuefit 문법 사용 안내", icon:"clipboard", url:"shufit_guide.html", desc:"선생님용 안내 · 링크로 공유해도 돼요" },
-      { title:"Shuefit 독서", icon:"book", url:"shufit_reading.html", desc:"너에게 꼭 맞춘 독서 학습 · 지문 찾기 · 유형별 변형 문항 · 학습자료·시험지 인쇄" },
-      { title:"Shuefit 문학", icon:"book", url:"shufit_reading.html?s=lit", desc:"너에게 꼭 맞춘 문학 학습 · 작품 찾기 · 유형별 문항 · 문제지 저장·인쇄·H WORK 출제 (작품 자료 준비 중)" },
-      { title:"Shuefit 화법", icon:"book", url:"shufit_reading.html?s=speech", desc:"너에게 꼭 맞춘 화법 학습 · 지문 찾기 · 유형별 문항 · 문제지 저장·인쇄·H WORK 출제 (자료 준비 중)" },
-      { title:"Shuefit 작문", icon:"book", url:"shufit_reading.html?s=writing", desc:"너에게 꼭 맞춘 작문 학습 · 지문 찾기 · 유형별 문항 · 문제지 저장·인쇄·H WORK 출제 (자료 준비 중)" } ]},
+    { key:"shufit", wide:true, name:"Shuefit · 너에게 꼭 맞춘 슈국 학습 프로그램",
+      sub:"문항을 골라 문제지로 저장하고, 학습지·책자·시험지로 인쇄하거나 H WORK 과제로 내요. 다섯 과목이 같은 화면 틀을 씁니다.", items:[
+      { title:"문법", icon:"pencil", url:"shufit_grammar.html", desc:"단원·난도·출처로 모의고사 문법 문항 고르기", st:"on" },
+      { title:"독서", icon:"book", url:"shufit_reading.html", desc:"지문을 찾아 유형별 변형 문항·학습 자료 담기", st:"on" },
+      { title:"문학", icon:"book", url:"shufit_reading.html?s=lit", desc:"작품을 찾아 유형별 문항·내신 기출 담기", st:"prep", stl:"작품 올리는 중" },
+      { title:"화법", icon:"book", url:"shufit_reading.html?s=speech", desc:"담화 지문별 유형 문항", st:"prep", stl:"자료 준비 중" },
+      { title:"작문", icon:"book", url:"shufit_reading.html?s=writing", desc:"글 지문별 유형 문항", st:"prep", stl:"자료 준비 중" },
+      { title:"사용 안내", icon:"clipboard", url:"shufit_guide.html", desc:"다섯 과목 고르기·담기·인쇄·출제·문항 올리기 · 링크로 공유해도 돼요", guide:true } ]},
     { key:"test", name:"테스트", items:[
       { title:"어휘 테스트", icon:"book", url:"voca.html", desc:"링크 발송 · 결과 확인" },
       { title:"문법 테스트", icon:"pencil", url:"gramma.html", desc:"링크 발송 · 결과 확인" } ]},
@@ -121,14 +137,18 @@
       { title:"내신대비 피드백", icon:"pencil", url:REPORT+"naeshin.html", desc:"내신반 주차별 진도·과제 · 학생 피드백" } ]},
     { key:"mock", name:"모의고사 · 리포트", items:[
       { title:"주말 실전모의고사", icon:"paper", url:"weekend.html", desc:"출제 · 응시 · 성적" },
-      { title:"교육청, 평가원 모의고사 리포트", icon:"chart", url:"smock.html", desc:"학교 모의고사 회차 열기 · 학생 입력 결과 · 설문 응답 옮겨 오기" },
+      { title:"교육청, 평가원 모의고사 리포트", icon:"chart", url:"smock.html", desc:"학교 모의고사 회차 열기 · 학생 입력 결과 · 등급컷" },
       { title:"지필고사 리포트", icon:"chart", url:"report.html", desc:"제작 · 수정·배정 · 학생작성 확인 · 제출 분석" } ]},
     { key:"clinic", name:"클리닉", items:[
       { title:"클리닉", icon:"pulse", url:"clinic.html", desc:"배정 · 신청 확인 · 질문 대기열" } ]},
   ];
   const svg = (inner, w) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w || 1.8}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
   const CHEV = svg('<path d="M9 6l6 6-6 6"/>', 2);
-  document.getElementById("list").innerHTML = groups.map(g =>
+  const tile = m => `<a class="tile${m.guide ? " gd" : ""}" href="${m.url}"><b>${svg(ICON[m.icon])}${m.title}</b><span>${m.desc}</span>${m.stl ? `<em class="st ${m.st}" style="font-style:normal">${m.stl}</em>` : ""}</a>`;
+  document.getElementById("list").innerHTML = groups.map(g => g.wide ?
+    `<section class="grp wide g-${g.key}" aria-label="${g.name}"><div class="gh"><span class="gt"><i></i>${g.name}</span>` +
+    `</div>` +
+    (g.sub ? `<p class="gsub">${g.sub}</p>` : "") + `<div class="tiles">${g.items.map(tile).join("")}</div></section>` :
     `<section class="grp g-${g.key}" aria-label="${g.name}"><div class="gh"><i></i>${g.name}</div>` +
     g.items.map(m => m.soon ? `<div class="row soon" aria-disabled="true">
       <span class="icon">${svg(ICON[m.icon])}</span>
