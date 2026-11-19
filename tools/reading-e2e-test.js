@@ -276,7 +276,7 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.click('#pchips [data-pk="12"]'); await pg.click('#pchips [data-pk="13"]');
   t('알약 켜고 끄기', await pk() === 'pas,notes,11,13,10' && /지문 → 문단별 정리 → OX 쉬움 → 모의고사형 → 문단 정리 빈칸/.test(await pg.textContent('#pord')));
   await pg.evaluate(() => window.__printDoc('pick', false));
-  t('골라서 인쇄 — 고른 순서대로 한 파일', (await pg.$$eval('#print .sech', a => a.map(x => x.textContent))).join() === '지문,문단별 정리,OX 쉬움,모의고사형,문단 정리 빈칸'
+  t('골라서 인쇄 — 고른 순서대로 한 파일', (await pg.$$eval('#print .bksec b', a => a.map(x => x.textContent))).join() === '지문,문단별 정리,OX 쉬움,모의고사형,문단 정리 빈칸'
     && (await pg.$$('#print .oxl')).length === 1 && (await pg.$$('#print .q')).length === 2 && !(await pg.$$('#print .ansbox')).length);
   await pg.evaluate(() => document.body.classList.remove('printing'));
   await pg.evaluate(() => window.__printDoc('pick', true));
@@ -289,7 +289,7 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.click('[data-pkall="0"]');
   t('모두 빼기', (await pg.$$('#pchips .chip.on')).length === 0);
   await pg.evaluate(() => window.__printDoc('all', true));
-  t('이 단원 모두 인쇄 — 지문·문단별 정리·지문 분석·모든 유형·정오답 근거', (await pg.$$eval('#print .sech', a => a.map(x => x.textContent))).join() === '지문,문단별 정리,지문 분석,OX 쉬움,OX 어려움,모의고사형,고난도 보기형,1등급 보기형,키워드 빈칸,문단 정리 빈칸,정오답 선지 근거');
+  t('이 단원 모두 인쇄 — 지문·문단별 정리·지문 분석·모든 유형·정오답 근거', (await pg.$$eval('#print .bksec b', a => a.map(x => x.textContent))).join() === '지문,문단별 정리,지문 분석,OX 쉬움,OX 어려움,모의고사형,고난도 보기형,1등급 보기형,키워드 빈칸,문단 정리 빈칸,정오답 선지 근거');
   await pg.evaluate(() => document.body.classList.remove('printing'));
   await pg.click('#tchips [data-t="notes"]');
   t('문단별 정리 탭 — 담을 수 없다는 안내', /넣을 수 없어요/.test(await pg.textContent('#list .nqnote')));
@@ -302,14 +302,16 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.waitForFunction(() => document.querySelectorAll('#print .sheet').length > 0, null, { timeout: 8000 });
   const usheets = (await pg.$$('#print .sheet')).length;
   t('단원 책자 — 표지·뒤표지·4의 배수', usheets % 4 === 0 && !!(await pg.$('#print .cover')) && !!(await pg.$('#print .bkback')) && /단원 전체/.test(await pg.textContent('#print .cover')), usheets);
+  t('단원 책자 — 구간마다 새 쪽 맨 위에서 시작', await pg.evaluate(() => [...document.querySelectorAll('#print .bksec:not(.first)')].every(e => e.parentElement.classList.contains('bbody') && e.parentElement.firstElementChild === e)));
+  t('단원 책자 — 구간 제목에 문항 수', /1등급 보기형\s*1문항/.test(await pg.evaluate(() => [...document.querySelectorAll('#print .bksec')].map(e => e.textContent).join('|'))));
   t('단원 책자 앞표지 — 담긴 것 목록이 학교·이름 칸을 덮지 않음', await pg.evaluate(() => { const c = document.querySelector('#print .cover'); return c.querySelector('.cv-list').getBoundingClientRect().bottom <= c.querySelector('.cv-name').getBoundingClientRect().top; }));
-  t('단원 책자 — 모든 묶음·문항·정답과 해설', (await pg.$$eval('#print .sech', a => a.map(x => x.textContent))).join() === '지문,문단별 정리,지문 분석,OX 쉬움,OX 어려움,모의고사형,고난도 보기형,1등급 보기형,키워드 빈칸,문단 정리 빈칸,정오답 선지 근거'
+  t('단원 책자 — 모든 묶음·문항·정답과 해설', (await pg.$$eval('#print .bksec b', a => a.map(x => x.textContent))).join() === '지문,문단별 정리,지문 분석,OX 쉬움,OX 어려움,모의고사형,고난도 보기형,1등급 보기형,키워드 빈칸,문단 정리 빈칸,정오답 선지 근거'
     && (await pg.$$('#print .sheet .q')).length === 5 && /정답과 해설/.test(await pg.textContent('#print')) && /문화/.test(await pg.textContent('#print')),
-    JSON.stringify([await pg.$$eval('#print .sech', a => a.map(x => x.textContent)), (await pg.$$('#print .sheet .q')).length]));
+    JSON.stringify([await pg.$$eval('#print .bksec b', a => a.map(x => x.textContent)), (await pg.$$('#print .sheet .q')).length]));
   await unprint();
   await pg.click('#umSeg [data-um="a4"]');
   await pg.click('#paS'); await pg.waitForTimeout(300);
-  t('[A4] 고르면 A4 한 파일', !(await pg.$('#print .sheet')) && (await pg.$$('#print .sech')).length === 11);
+  t('[A4] 고르면 A4 한 파일', !(await pg.$('#print .sheet')) && (await pg.$$('#print .bksec b')).length === 11);
   await unprint();
   await pg.click('#umSeg [data-um="bk"]');
   // 이 단원 모두 H WORK 출제 — 다른 지문 문항을 비우고 교과서 문항만 담아 출제
