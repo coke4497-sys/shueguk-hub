@@ -50,6 +50,17 @@ const I = [
   { passage_id: P[2].id, level: '교과서', code: '19', sec_name: '키워드 빈칸', v: 1, ord: 1, kind: 'blank', data: { stem: '서술하시오.', model: '건축물은 (     )를 담는다.', ans: '문화', expl: '' }, plain: '' },
 ];
 I.forEach((x, i) => { x.id = 1000 + i; });
+// 문학(084 — 같은 표, subject '문학') — 지문 하나에 두 작품
+P.push({ id: '2409고3-가상문학', subject: '문학', title: '가상 시 모음', src: '2409고3', srcname: '2024학년도 9월 고3', kind: '평가원', area: '현대시', grade: '고3', ord: 0,
+  plain: '가상 시 모음 별을 노래하는 마음',
+  data: { passage: { blocks: [{ label: '(가)' }, { p: '별을 노래하는 마음으로' }, { label: '(나)' }, { p: '강물은 흘러간다' }] },
+          works: [{ title: '가상 시 하나', author: '시인 갑', genre: '현대시' }, { title: '가상 시 둘', author: '시인 을', genre: '현대시' }],
+          notes: [{ p: '[작품 1] 가상 시 하나' }, { p: '주제: 별' }], blanks: { lines: [{ p: '① 화자는 ( 1      )을 노래한다.' }], answers: { '1': '별' } }, levels: ['기본'] }, imgs: {} });
+[{ level: '공통', code: '00', sec_name: '원 기출', kind: 'choice', data: ch('(가)와 (나)의 공통점은?', '③') },
+ { level: '기본', code: '02', sec_name: 'OX', kind: 'ox', data: { stem: '(가)는 별을 노래한다.', ans: 'O', expl: '' } },
+ { level: '기본', code: '05', sec_name: '고난도 수능형', kind: 'choice', data: ch('고난도 문학 문항?', '④') },
+ { level: '기본', code: '31', sec_name: '시어 의미', kind: 'choice', data: ch('시어의 의미는?', '①') }]
+  .forEach((x, i) => I.push(Object.assign({ passage_id: '2409고3-가상문학', v: 1, ord: 1, plain: '', id: 2000 + i }, x)));
 const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [1014, 1002, 1012], seq: [1014, 'm:2306고2-가상시장:notes', 1002, 1012], print_date: '2026-12-01', school: '화정고', updated_at: '2026-11-18' }];
 
 (async () => {
@@ -84,6 +95,7 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
       const like = (sp.get('plain') || '').replace(/^ilike\.\*|\*$/g, '');
       if (q.pathname.endsWith('/reading_passages')) {
         let rows = P;
+        if (sp.get('subject')) rows = rows.filter(p => (p.subject || '독서') === sp.get('subject').replace(/^eq\./, ''));
         if (sp.get('id')) rows = rows.filter(p => p.id === sp.get('id').replace(/^eq\./, ''));
         if (like) rows = rows.filter(p => p.plain.includes(like));
         return route.fulfill({ json: rows });
@@ -249,11 +261,11 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   t('불러온 선생님·제목·날짜·학교', (await pg.inputValue('#hTeacher')) === '이선생' && (await pg.inputValue('#pTitle')) === '지난 문제지' && (await pg.inputValue('#pDate')) === '2026-12-01' && (await pg.inputValue('#pSchool')) === '화정고');
   t('불러온 문제지는 바로 인쇄 가능', !(await pg.$eval('[data-bk]', e => e.disabled)));
   await pg.fill('#pSchool', '능곡고'); await pg.dispatchEvent('#pSchool', 'change'); await pg.waitForTimeout(150);
-  t('학교를 바꾸면 그 문제지에 PATCH', writes.some(w => w.m === 'PATCH' && /shufit_reading_papers\?teacher=eq\.이선생&title=eq\.지난 문제지/.test(w.u) && JSON.parse(w.b).school === '능곡고'));
+  t('학교를 바꾸면 그 문제지에 PATCH', writes.some(w => w.m === 'PATCH' && /shufit_reading_papers\?subject=eq\.독서&teacher=eq\.이선생&title=eq\.지난 문제지/.test(w.u) && JSON.parse(w.b).school === '능곡고'));
   await pg.click('#list [data-pick]').catch(() => {});
   pg.once('dialog', d => d.accept());
   await pg.click('#paperDel'); await pg.waitForTimeout(150);
-  t('문제지 삭제', writes.some(w => w.m === 'DELETE' && /shufit_reading_papers\?teacher=eq\.이선생/.test(w.u)));
+  t('문제지 삭제', writes.some(w => w.m === 'DELETE' && /shufit_reading_papers\?subject=eq\.독서&teacher=eq\.이선생/.test(w.u)));
   pg.once('dialog', d => d.accept());
   await pg.click('#newBtn');
   t('새 문제지 — 비움·인쇄 잠김', (await pg.textContent('#selN')) === '0문항' && await pg.$eval('[data-bk]', e => e.disabled));
@@ -449,6 +461,47 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   if (process.env.SHOT) await pg.screenshot({ path: process.env.SHOT + '/reading-shelf.png', fullPage: true });
   await pg.evaluate(() => setMode('make'));
   if (process.env.SHOT) await pg.screenshot({ path: process.env.SHOT + '/reading-make.png' });
+
+  // ── Shuefit 문학(2026-11-19) — 같은 화면, 주소 ?s=lit ──
+  t('독서 목록에는 문학 작품이 없음', !/가상 시 모음/.test(await pg.textContent('#res')));
+  const lp = await b.newPage({ viewport: { width: 1280, height: 1000 } });
+  for (const mm of ['click', 'fill']) { const o = lp[mm].bind(lp); lp[mm] = async (sel, ...a) => { await lp.evaluate(s2 => window.__sfReveal && window.__sfReveal(s2), sel).catch(() => {}); return o(sel, ...a); }; }
+  const lerr = []; lp.on('pageerror', e => lerr.push(e.message));
+  const lw = [];
+  await lp.route('**/*', async route => {
+    const u = route.request().url();
+    if (/\/rest\/v1\//.test(u) && route.request().method() !== 'GET') { lw.push({ u: decodeURIComponent(u), b: route.request().postData() }); return /on_conflict/.test(u) ? route.fulfill({ status: 201, json: JSON.parse(route.request().postData()) }) : route.fulfill({ status: 201, body: '' }); }
+    if (/\/rest\/v1\/shufit_reading_papers/.test(u)) return route.fulfill({ json: [] });
+    if (/\/rest\/v1\/(hwork_homeworks|students|hwork_submissions|tt_classes|assignments|teacher_accounts)/.test(u)) return route.fulfill({ json: [] });
+    if (/\/rest\/v1\//.test(u)) {
+      const q = new URL(u), sp = q.searchParams;
+      if (q.pathname.endsWith('/reading_passages')) { let rows = P; if (sp.get('subject')) rows = rows.filter(x => (x.subject || '독서') === sp.get('subject').replace(/^eq\./, '')); if (sp.get('id')) rows = rows.filter(x => x.id === sp.get('id').replace(/^eq\./, '')); return route.fulfill({ json: rows }); }
+      if (q.pathname.endsWith('/reading_items')) return route.fulfill({ json: I.filter(r => !sp.get('passage_id') || r.passage_id === sp.get('passage_id').replace(/^eq\./, '')) });
+      return route.fulfill({ status: 404, json: {} });
+    }
+    if (u.startsWith('file://')) return route.continue();
+    return route.fulfill({ status: 200, body: '' });
+  });
+  await lp.goto(PAGE + '?s=lit'); await lp.waitForSelector('#res .rc');
+  t('문학 — 이름·작은 제목·창 제목', (await lp.textContent('h1')) === 'Shuefit 문학' && /문학 학습/.test(await lp.textContent('.subt')) && (await lp.title()) === 'Shuefit 문학');
+  t('문학 — 문학 작품만·갈래 알약', (await lp.$$('#res .rc')).length === 1 && /전체 갈래/.test(await lp.textContent('#areas')) && /현대시/.test(await lp.textContent('#areas')));
+  await lp.click('#res .rc'); await lp.waitForSelector('#list .q');
+  t('문학 — 작품 꼬리표 두 개(지문에 여러 작품)', /가상 시 하나 · 시인 갑/.test(await lp.textContent('#pmeta')) && /가상 시 둘 · 시인 을/.test(await lp.textContent('#pmeta')));
+  const lchips = await lp.$$eval('#tchips .chip', a => a.map(x => x.textContent.replace(/\d+$/, '')));
+  t('문학 — 유형 알약(작품 정리·〈보기〉 감상, 자료의 새 유형도)', lchips.includes('작품 정리') && lchips.includes('〈보기〉 감상') && lchips.includes('시어 의미'), lchips.join());
+  t('문학 — 묶음 안내', /학습자료 작품 정리 · OX · 핵심 요약 빈칸/.test(await lp.textContent('#bdlInfo')) && /시험지 원 기출 · 고난도 수능형 \(2문항\)/.test(await lp.textContent('#bdlInfo')), await lp.textContent('#bdlInfo'));
+  await lp.click('[data-bundle="study"]');
+  t('문학 — 학습자료 묶음 담기', (await lp.textContent('#selN')) === '1문항 · 학습 자료 2' && /^Shuefit 문학: 가상 시 모음/.test(await lp.inputValue('#pTitle')), await lp.textContent('#selN'));
+  await lp.fill('#hTeacher', '김선생');
+  await lp.click('#paperSave');
+  await lp.waitForFunction(() => /그대로예요/.test(document.querySelector('#paperMsg').textContent), null, { timeout: 8000 }).catch(() => {});
+  const lsv = lw.find(w => /shufit_reading_papers\?on_conflict=subject,teacher,title/.test(w.u));
+  t('문학 — 문제지 저장 subject 문학', !!lsv && JSON.parse(lsv.b)[0].subject === '문학', JSON.stringify(lw.map(w => w.u)));
+  await lp.evaluate(() => { selDoc('study', true); });
+  t('문학 — 학습지 머리 Shuefit 문학', /Shuefit 문학 · 1문항 · 학습 자료 2/.test(await lp.textContent('#print')) && /작품 정리/.test(await lp.textContent('#print')));
+  if (process.env.SHOT) { await lp.evaluate(() => { document.body.classList.remove('printing'); }); await lp.screenshot({ path: process.env.SHOT + '/literature-make.png' }); }
+  t('문학 — 스크립트 오류 없음', lerr.length === 0, lerr);
+  await lp.close();
 
   const m = await b.newPage({ viewport: { width: 390, height: 844 } });
   await m.route('**/*', r => pg.context() && r.request().url().startsWith('file://') ? r.continue() : (/rest\/v1\/reading_passages/.test(r.request().url()) && !/id=eq/.test(r.request().url()) ? r.fulfill({ json: P }) : r.fulfill({ status: 200, body: /auth/.test(r.request().url()) ? '{"access_token":"tok"}' : '[]' })));
