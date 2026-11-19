@@ -165,6 +165,34 @@
   .msg{font-size:13px;white-space:pre-line}
   .hwas{display:flex;flex-direction:column;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid #E5EDE8}
   .hwas-h{font-family:'Do Hyeon',sans-serif;font-size:17px;color:var(--ink)}
+  /* 저장한 문제지로 한 번에 출제·배정(2026-11-19) */
+  .ba{display:flex;flex-direction:column;gap:8px}
+  .ba-h .lk{border:0;background:none;color:#8D83A8;font:inherit;font-size:12px;cursor:pointer;margin-left:6px;text-decoration:underline}
+  .ba-p .ord{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:50%;background:#4a3f63;color:#fff;font-size:11px;margin-right:4px}
+  #baPN{font-size:12px;color:var(--ink2)}
+  /* 문제지 묶음 책자 — 문제지마다 새 쪽 + 소제목·문항 수(독서 단원 책자와 같은 모양) */
+  .bk .bksec{column-span:all;display:flex;align-items:baseline;gap:3mm;border-bottom:.6mm solid #8db8ad;padding:0 0 2mm;margin:0 0 4mm;break-after:avoid}
+  .bk .bksec b{font-family:'Gowun Batang',serif;font-size:15pt;color:#24443d}
+  .bk .bksec span{font-family:'Gowun Dodum',sans-serif;font-size:9.5pt;color:#fff;background:#8db8ad;border-radius:1.5mm;padding:.6mm 2.6mm}
+  .bk .ksec{column-span:all;font-family:'Gowun Dodum',sans-serif;font-size:9pt;margin:3mm 0 2mm;padding-bottom:1mm;border-bottom:.3mm solid #c3dcd5}
+  .bk .ksec b{font-family:'Gowun Batang',serif;font-size:11pt;color:#24443d;margin-right:2mm}
+  .ba input[type=date],.ba input[type=text]{border:1px solid #dfe5e1;border-radius:10px;padding:9px 10px;font-family:inherit;font-size:14px;background:#fafbf9;min-width:0}
+  .ba-h{font-size:13px;font-weight:700;color:var(--ink2);margin-top:4px}
+  .ba-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;background:#fafbf9;border-radius:12px;padding:6px}
+  .ba-p{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-radius:10px;cursor:pointer;font-size:13px}
+  .ba-p:hover{background:#f3eff8}
+  .ba-p input{margin-top:3px;accent-color:#4a3f63}
+  .ba-p small{display:block;color:var(--ink2);font-size:11.5px}
+  .ba-p .dn{font-size:11px;background:#e3f0ec;color:#3d675d;border-radius:999px;padding:1px 7px;margin-left:4px}
+  #baCls{border:1px solid #dfe5e1;border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;background:#fafbf9}
+  .ba-chips{display:flex;flex-wrap:wrap;gap:6px}
+  .ba-chips span{background:#EDE4F4;color:#5A4A6A;border-radius:999px;padding:4px 6px 4px 12px;font-size:12.5px;display:inline-flex;align-items:center;gap:4px}
+  .ba-chips button{border:0;background:none;color:#5A4A6A;cursor:pointer;font-size:14px;padding:0 4px}
+  .ba-stu{font-size:12.5px;color:var(--ink2);line-height:1.7}
+  .ba-stu .st{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+  .ba-stu .st button{border:0;border-radius:999px;padding:3px 10px;font:inherit;font-size:12px;background:#e3f0ec;color:#3d675d;cursor:pointer}
+  .ba-stu .st button.off{background:#f1f4f1;color:#9aa49f;text-decoration:line-through}
+  .ba-stu .miss{color:#a14c4c}
   .hwas input[type=date],.hwas input[type=text]{border:1px solid #dfe5e1;border-radius:10px;padding:9px 10px;font-family:inherit;font-size:14px;background:#fafbf9;min-width:0}
   .msg:empty{display:none}
   .msg.ok{color:#2F7A57}.msg.bad{color:#B0525D}
@@ -438,6 +466,7 @@
         </div>
         <div class="pane" id="xp-hw" hidden>
           <input type="hidden" id="hCode"><!-- 과제 제목 = 위 '제목' 칸과 같은 값(따로 보이지 않음) -->
+          <div class="hwas-h">지금 고른 문항으로 출제</div>
           <button class="btn main" type="button" id="saveBtn">H WORK 과제로 출제</button>
           <div class="msg" id="saveMsg"></div>
           <div class="hwas" id="hwAssign">
@@ -450,6 +479,21 @@
           <span class="info" style="line-height:1.7"><b>단원이 여럿이면 단원마다 과제를 따로</b> 냅니다 — 학생은 단원마다 따로 풀고, 선생님은 과제 하나하나를 검사해요(지문 세트는 나누지 않아요). 아직 출제하지 않은 문항이면 [이 학생들에게 배정]이 먼저 H WORK 과제로 출제한 뒤 배정합니다. 배정 내역 확인·취소는 [H WORK 배정하기]에서 해요. 학생은 휴대폰에서 문제를 보며 풀고, 틀린 문항은 오답하기와 질문으로 선생님과 이야기할 수 있어요.</span>
         </div>
               <button class="btn ghost newbtn" type="button" id="newBtn">새 문제지 만들기 <span>· 고른 문항·제목·날짜·학교를 비워요</span></button>
+      </section>
+      <section class="card ba" id="baBox">
+        <div class="xh"><h2><span class="n">5</span>저장한 문제지 묶음</h2><span id="baPN"></span></div>
+        <span class="info">저장한 문제지를 여러 개 골라 <b>한 권의 중철 책자</b>로 인쇄하거나 <b>한 번에 H WORK으로 출제·배정</b>합니다. 문제지는 고른 차례대로 실리고, 문제지마다 새 쪽에서 제목·문항 수와 함께 1번부터 시작해요.</span>
+        <div class="ba-h">① 문제지 고르기 <button class="lk" type="button" id="baClear">모두 빼기</button></div>
+        <div class="ba-list" id="baPapers"><span class="info">출제 선생님의 저장한 문제지를 불러오는 중…</span></div>
+        <div class="ba-h">② 합쳐서 인쇄 — 중철 책자</div>
+        <div class="two"><button class="btn" type="button" id="mpBkS" disabled>학생용 책자 PDF</button><button class="btn" type="button" id="mpBkT" disabled>교사용 책자 PDF</button></div>
+        <div class="ba-h">③ H WORK 한 번에 출제·배정 — 내신 진도반 불러오기</div>
+        <select id="baCls"><option value="">— 진도반을 고르세요 —</option></select>
+        <div class="ba-chips" id="baClsOn"></div>
+        <div class="ba-stu" id="baStu"></div>
+        <div class="two"><label class="f">마감 <span class="dim">(선택)</span><input type="date" id="baDue"></label><label class="f">비고 <span class="dim">(선택)</span><input type="text" id="baMemo" maxlength="60" placeholder="예: 기말 대비"></label></div>
+        <button class="btn main" type="button" id="baGo" disabled>출제하고 배정하기</button>
+        <div class="msg" id="baMsg"></div>
       </section>
     </aside>
   </div>
@@ -641,7 +685,7 @@ async function boot(){
     drawTeachers(); rebuildUsed(); drawLoad();
     if(!ITEMS.length){ $('list').innerHTML='<div class="empty">Shuefit 문법 문항이 비어 있습니다. 문항을 올린 뒤 다시 열어 주세요.</div>'; return; }
     $('tot').innerHTML=`문항 <b>${ITEMS.length}</b>개 · 지문 세트 <b>${new Set(ITEMS.map(x=>x.pid).filter(Boolean)).size}</b>개`;
-    drawFilters(); drawList(); drawSel();
+    drawFilters(); drawList(); drawSel(); baDraw(); baLoad();
   }catch(e){
     $('list').innerHTML='<div class="empty">문항을 불러오지 못했습니다. ('+esc(e.message)+')<br>데이터베이스 067 적용 전이면 이 화면을 쓸 수 없어요.</div>';
   }
@@ -774,7 +818,7 @@ function autoTitle(){
 /* 시험지 제목과 과제 제목은 같은 값을 쓴다(디자인 묶음) — 한쪽을 고치면 다른 쪽도 */
 ['pTitle','hCode'].forEach(id=>$(id).addEventListener('input', e=>{ const o=$(id==='pTitle'?'hCode':'pTitle'); o.value=e.target.value; o.dataset.auto=e.target.dataset.auto||''; }));
 /* 내보내기 탭 — 인쇄 · 중철 책자 · H WORK */
-function xTab(k){ document.querySelectorAll('#xTabs [data-x]').forEach(b=>b.classList.toggle('on', b.dataset.x===k)); ['pr','ex','hw'].forEach(x=>{ $('xp-'+x).hidden = x!==k; }); if(k==='hw') hwPickerInit(); }
+function xTab(k){ document.querySelectorAll('#xTabs [data-x]').forEach(b=>b.classList.toggle('on', b.dataset.x===k)); ['pr','ex','hw'].forEach(x=>{ $('xp-'+x).hidden = x!==k; }); if(k==='hw'){ hwPickerInit(); baLoad(); baDraw(); } }
 $('xTabs').addEventListener('click', e=>{ const b=e.target.closest('[data-x]'); if(b) xTab(b.dataset.x); });
 function applyAutoTitle(){
   const t=autoTitle();
@@ -866,7 +910,7 @@ $('paperDel').onclick=async()=>{
   }catch(e){ toast('지우지 못했습니다. ('+e.message+')'); }
   finally{ btn.textContent='삭제'; drawDel(); }
 };
-function teacherChanged(){ rebuildUsed(); drawLoad(); drawSel(); drawList(); }
+function teacherChanged(){ rebuildUsed(); drawLoad(); drawSel(); drawList(); if(typeof baDraw==='function') baDraw(); }
 $('hTeacher').addEventListener('change', teacherChanged);
 $('hTeacher').addEventListener('input', ()=>{ clearTimeout($('hTeacher')._t); $('hTeacher')._t=setTimeout(teacherChanged, 400); });
 $('pTitle').addEventListener('input', drawPrint);
@@ -898,7 +942,7 @@ $('paperSave').onclick=async()=>{
     const row=(rows&&rows[0]) || { teacher, title, ids };
     PAPERS=PAPERS.filter(p=>!(p.teacher===teacher && p.title===title)); PAPERS.unshift(row); PAPERS_OK=true;
     SAVED={ teacher, title, sig:ids.join(',') }; pmRemember();
-    drawTeachers(); rebuildUsed(); drawLoad(); drawList(); drawPrint();
+    drawTeachers(); rebuildUsed(); drawLoad(); drawList(); drawPrint(); baDraw();
     toast('문제지를 저장했어요. 이제 인쇄할 수 있어요');
     if(window.shuegukActivity) shuegukActivity('Shuefit 문법', '문제지 저장', title, teacher+' · '+ids.length+'문항', false);
   }catch(e){ toast('저장하지 못했습니다. ('+e.message+')'); }
@@ -912,12 +956,12 @@ function setMsg(k,t){ const m=$('saveMsg'); m.className='msg '+(k||''); m.textCo
  * 같은 이름에 다른 문항이 이미 있으면 뒤에 ' 02'·' 03', 같은 선생님·같은 문항이면 그 과제를 덮어쓴다. 지문 세트는 나누지 않는다. */
 let HWPARTS=null;   // 마지막으로 출제한 구간 {teacher, sig, parts:[{code,ids}]}
 function hwBank(h){ const b=h&&h.data&&h.data.bank; if(!b) return null; return Object.keys(b).sort((x,y)=>x-y).map(k=>Number(b[k])).join(','); }
-function hwParts(){
-  const teacher=curTeacher(), title=$('hCode').value.trim(), custom=title && title!==($('hCode').dataset.auto||'');
+function hwPartsOf(groups, title, custom, teacher, taken){
+  taken=taken||new Set();
   const byA=new Map();
-  SEL.forEach(g=>{ const a=BYID[g[0]].area||'단원'; if(!byA.has(a)) byA.set(a,[]); byA.get(a).push(...g); });
-  if(byA.size<=1) return [{ code:title, ids:selIds(), label:[...byA.keys()][0]||'' }];
-  const lv=['기본','실력','심화'], taken=new Set(), out=[];
+  groups.forEach(g=>{ const a=BYID[g[0]].area||'단원'; if(!byA.has(a)) byA.set(a,[]); byA.get(a).push(...g); });
+  if(byA.size<=1){ taken.add(title); return [{ code:title, ids:groups.flat(), label:[...byA.keys()][0]||'' }]; }
+  const lv=['기본','실력','심화'], out=[];
   for(const [area, ids] of byA){
     const lvls=[...new Set(ids.map(id=>BYID[id].lvl).filter(Boolean))].sort((a,b)=>lv.indexOf(a)-lv.indexOf(b)).join('·');
     const base=custom ? `${title} · ${area} (${ids.length})` : `${TITLE_PRE}${area} ${lvls} (${ids.length})`.replace(/\s+/g,' ');
@@ -926,6 +970,10 @@ function hwParts(){
     taken.add(code); out.push({ code, ids, label:area });
   }
   return out;
+}
+function hwParts(){
+  const title=$('hCode').value.trim(), custom=title && title!==($('hCode').dataset.auto||'');
+  return hwPartsOf(SEL, title, custom, curTeacher());
 }
 async function saveOne(teacher, code, ids, quiet){
   const same=ALLHW.find(h=>h.teacher===teacher && h.code===code);
@@ -1122,7 +1170,8 @@ function coverInfo(d, teacher){
   const sub=`${yr}${kinds.join('·')} 모의고사 · ${d.ids.length}문항 · ${lvls.join('·')} 단계${teacher?' · 정답과 해설':''}`;
   return { areas, t1, t2, sub, all:[...new Set(ITEMS.map(x=>x.area))] };
 }
-function coverPage(c, teacher){
+function coverPage(c, teacher, pm){
+  pm=pm||pmVal();
   const p=document.createElement('div'); p.className='bpage cover';
   p.innerHTML=`<div class="cv-top"><div class="cv-brand"><span>이수경국어 · Shuefit 문법</span>
       <div class="cv-logo"><b>Shueguk</b><span>${teacher?'교사용':'학생용'}</span></div></div>
@@ -1133,7 +1182,7 @@ function coverPage(c, teacher){
     <img class="cv-sk" src="assets/sk-study.png" alt=""></div>
   <div class="cv-bot"><h4>${esc(c.t1)} 시리즈 ${c.all.length}단원</h4>
     <div class="cv-grid">${c.all.map((a,i)=>`<div class="cv-u${c.areas.includes(a)?' on':''}"><i>${String(i+1).padStart(2,'0')}</i>${esc(a)}</div>`).join('')}</div></div>
-  <div class="cv-name">${pmVal().dot?`<div>날짜 ${esc(pmVal().dot)}</div>`:''}<div>학교 ${esc(pmVal().school)}</div><div>이름</div></div>`;
+  <div class="cv-name">${pm.dot?`<div>날짜 ${esc(pm.dot)}</div>`:''}<div>학교 ${esc(pm.school)}</div><div>이름</div></div>`;
   return p;
 }
 function backPage(c){
@@ -1145,10 +1194,15 @@ function backPage(c){
 async function bookletDoc(teacher){
   if(!selIds().length){ toast('문항을 먼저 고르세요'); return; }
   if(!canPrint()){ toast('문제지를 먼저 저장해 주세요'); return; }
-  const d=docParts(teacher), M=$('bkm'), c=coverInfo(d, teacher);
+  const d=docParts(teacher);
+  await bookletRun(d, teacher, coverInfo(d, teacher), pmVal());
+}
+/* 쪽 흘려 넣기 — 한 문제지 책자와 문제지 묶음 책자(mpBooklet)가 함께 쓴다. '.bksec'(문제지 소제목)를 만나면 새 쪽(첫 소제목 제외) */
+async function bookletRun(d, teacher, c, pm){
+  const M=$('bkm');
   M.className='bk '+(teacher?'teacher':'student'); M.innerHTML='';
   try{ if(document.fonts){ await Promise.all([document.fonts.load('30pt Sacramento','Shueguk'), document.fonts.load('10pt "Gowun Dodum"','가')]); await document.fonts.ready; } }catch(e){}
-  const pages=[coverPage(c, teacher)]; M.appendChild(pages[0]);
+  const pages=[coverPage(c, teacher, pm)]; M.appendChild(pages[0]);
   const content=[];
   const newPage=()=>{ const p=document.createElement('div'); p.className='bpage'; p.innerHTML='<div class="bbody"></div><div class="bno"></div>'; M.appendChild(p); pages.push(p); content.push(p); return p.firstChild; };
   const over=b=>b.scrollWidth > b.clientWidth + 2;
@@ -1157,7 +1211,9 @@ async function bookletDoc(teacher){
   const tmp=document.createElement('div');
   const flow=async(list, fixed, start)=>{
     for(const h of list){
-      tmp.innerHTML=h; const el=tmp.firstElementChild; body.appendChild(el);
+      tmp.innerHTML=h; const el=tmp.firstElementChild;
+      if(el.classList.contains('bksec') && !el.classList.contains('first') && body.children.length) body=newPage();
+      body.appendChild(el);
       await waitImgs(el);
       if(over(body) && body.children.length > (content.length===start?fixed+1:1)){ el.remove(); body=newPage(); body.appendChild(el); }
     }
@@ -1351,6 +1407,173 @@ $('exT').onclick=()=>examDoc(true);
 $('exQ').onclick=()=>examDoc(false, true);
 $('prS').onclick=()=>printDoc(false);
 $('prT').onclick=()=>printDoc(true);
+/* ── 저장한 문제지로 한 번에 출제·배정 (2026-11-19 원장님 "학생을 일일이 선택하는 과정을 매번 반복하는 것은 불필요해요.
+ * 문제지를 선택해 한번에 … 화정고2의 내신 진도반을 불러오면 그 학생들에게 배정") ──
+ * 문제지 여러 개 × 진도반 학생 → 문제지마다 단원별 과제(hwPartsOf)로 출제(같은 문항이 이미 출제돼 있으면 다시 쓰지 않음)
+ * → 리포트 addAssignment 대상 '일부'(학생 토큰). 같은 과제·같은 대상 배정이 이미 있으면 건너뛴다. */
+const BA={ papers:new Set(), cls:[], off:new Set(), stu:null, ttc:null, asg:null, loading:false };
+function baTok(name){ return String(name||'').trim().replace(/^\([^)]*\)/,'').replace(/\([^)]*\)$/,'').trim(); }
+function baFront(name){ const m=String(name||'').match(/^\(([^)]*)\)/); return m?m[1]:''; }
+function baGd(g){ const m=String(g||'').match(/(\d)\s*학년|[중고]\s*(\d)/); return m?(m[1]||m[2]):''; }
+function baLv(g){ return /중/.test(g||'')?'중':(/고/.test(g||'')?'고':''); }
+function baSch(s){ return String(s||'').replace(/\s+/g,'').replace(/(고등학교|중학교|고|중)$/,''); }
+function baKeyOf(name){ const n=String(name).replace(/\(.*$/,'').trim(); const m=n.match(/^([중고])\s*(\d)\s*(.+?)[A-Z]?$/); return m?{ key:`${m[1]}${m[2]} ${m[3].trim()}`, lv:m[1], gd:m[2], sch:m[3].trim() }:null; }
+async function baLoad(){
+  if(BA.stu || BA.loading) return; BA.loading=true;
+  try{
+    const [stu, ttc, asg]=await Promise.all([
+      sbAll('/students?select=name,school,grade,enrolled'),
+      sbAll('/tt_classes?select=class_id,name,day,start_time,teacher,roster&book=eq.'+encodeURIComponent('내신')+'&class_id=not.like.w*'),
+      sbAll('/assignments?select=item,target&tool=eq.'+encodeURIComponent('H WORK')).catch(()=>[])
+    ]);
+    BA.stu=stu.filter(s=>!LEFT_RE.test(s.enrolled||'')); BA.ttc=ttc.filter(c=>!/확인/.test(c.name) && (c.roster||'').trim()); BA.asg=asg;
+  }catch(e){ $('baMsg').className='msg bad'; $('baMsg').textContent='진도반·학생 명단을 불러오지 못했습니다. ('+e.message+')'; }
+  BA.loading=false; baDraw();
+}
+function baMyPapers(){ return PAPERS.filter(p=>p.teacher===curTeacher()); }
+function baClassStudents(c){
+  const k=baKeyOf(c.name); const out=[], miss=[];
+  String(c.roster||'').split(/\s+/).filter(Boolean).forEach(tok=>{
+    const nm=baTok(tok), fr=baSch(baFront(tok)); if(!nm) return;
+    const pool=n=>BA.stu.filter(s=>s.name===n && (!k || ((!baLv(s.grade)||baLv(s.grade)===k.lv) && (!baGd(s.grade)||baGd(s.grade)===k.gd) && baSch(s.school).indexOf(fr||k.sch)>=0)));
+    let c1=pool(nm); if(!c1.length && /A$/.test(nm)) c1=pool(nm.slice(0,-1)); if(!c1.length) c1=pool(nm+'A');
+    if(c1.length===1) out.push(c1[0]); else miss.push(nm+(c1.length>1?' (같은 이름 둘 이상)':''));
+  });
+  return { out, miss };
+}
+function baSelected(){
+  const seen=new Map(), miss=[];
+  BA.cls.forEach(id=>{ const c=BA.ttc.find(x=>x.class_id===id); if(!c) return; const r=baClassStudents(c); r.out.forEach(s=>seen.set(s.name+'|'+s.school+'|'+s.grade, s)); miss.push(...r.miss); });
+  return { list:[...seen.values()].sort((a,b)=>a.name.localeCompare(b.name,'ko')), miss };
+}
+function baToken(s){
+  const n=BA.stu.filter(x=>x.name===s.name).length;
+  return n<=1 ? s.name : [s.name, String(s.school||'').replace(/\s+/g,''), String(s.grade||'').replace(/\s+/g,'')].join('|');
+}
+function baDraw(){
+  if(!$('baBox')) return;
+  const mine=baMyPapers();
+  for(const id of [...BA.papers]) if(!mine.some(p=>p.id===id)) BA.papers.delete(id);
+  $('baPN').textContent=curTeacher()?`· ${curTeacher()} 선생님 문제지 ${mine.length}개`:'· 출제 선생님을 먼저 적어 주세요';
+  $('baPapers').innerHTML=mine.length?mine.map(p=>{
+    const ids=(p.ids||[]).filter(id=>BYID[id]); const parts=hwPartsOf(baGroups(ids), p.title, !String(p.title).startsWith(TITLE_PRE), p.teacher);
+    const done=parts.every(x=>{ const h=ALLHW.find(y=>y.teacher===p.teacher && y.code===x.code); return h && hwBank(h)===x.ids.join(','); });
+    const ord=[...BA.papers].indexOf(p.id);
+    return `<label class="ba-p"><input type="checkbox" data-bap="${p.id}"${BA.papers.has(p.id)?' checked':''}><span>${ord>=0?`<i class="ord">${ord+1}</i>`:''}${esc(p.title)}${done?'<span class="dn">출제함</span>':''}<small>${ids.length}문항${p.school?' · '+esc(p.school):''}${parts.length>1?' · 단원 '+parts.length+'개 과제로':''}</small></span></label>`;
+  }).join(''):'<span class="info">저장한 문제지가 없어요. 문항을 고르고 [문제지 저장]을 먼저 눌러 주세요.</span>';
+  if(BA.ttc){
+    const groups=new Map(); BA.ttc.forEach(c=>{ const k=baKeyOf(c.name); if(!k) return; if(!groups.has(k.key)) groups.set(k.key,[]); groups.get(k.key).push(c); });
+    const keys=[...groups.keys()].sort((a,b)=>a.localeCompare(b,'ko'));
+    const cnt=c=>baClassStudents(c).out.length;
+    $('baCls').innerHTML='<option value="">— 진도반을 고르세요 —</option>'+keys.map(k=>{ const cs=groups.get(k).sort((a,b)=>a.name.localeCompare(b.name,'ko'));
+      return `<optgroup label="${esc(k)}">${cs.length>1?`<option value="g:${esc(k)}">${esc(k)} 진도반 모두 (${cs.length}반 · ${new Set(cs.flatMap(c=>baClassStudents(c).out.map(x=>x.name+'|'+x.school+'|'+x.grade))).size}명)</option>`:''}${cs.map(c=>`<option value="c:${esc(c.class_id)}">${esc(c.name)} · ${esc(c.day)} ${esc(c.start_time||'')} · ${esc(c.teacher)}T · ${cnt(c)}명</option>`).join('')}</optgroup>`; }).join('');
+    $('baClsOn').innerHTML=BA.cls.map(id=>{ const c=BA.ttc.find(x=>x.class_id===id); return c?`<span>${esc(c.name)} · ${esc(c.day)}<button type="button" data-bacx="${esc(id)}" title="빼기">×</button></span>`:''; }).join('');
+    const sel=baSelected(), on=sel.list.filter(s=>!BA.off.has(s.name+'|'+s.school+'|'+s.grade));
+    $('baStu').innerHTML=BA.cls.length?`받을 학생 <b>${on.length}</b>명${BA.off.size?` (뺀 학생 ${sel.list.length-on.length}명)`:''} · 이름을 누르면 빼거나 다시 넣어요<div class="st">${sel.list.map(s=>{ const k=s.name+'|'+s.school+'|'+s.grade; return `<button type="button" data-bas="${esc(k)}" class="${BA.off.has(k)?'off':''}">${esc(s.name)}</button>`; }).join('')}</div>${sel.miss.length?`<div class="miss">명단에서 찾지 못한 학생 ${sel.miss.length}명 — ${esc(sel.miss.join(', '))} (학생 고르기로 따로 배정해 주세요)</div>`:''}`:'';
+  }
+  const n=BA.papers.size, st=BA.ttc?baSelected().list.filter(s=>!BA.off.has(s.name+'|'+s.school+'|'+s.grade)).length:0;
+  $('baGo').disabled=!n || !st || BA.busy;
+  $('mpBkS').disabled=$('mpBkT').disabled=!n;
+  $('baGo').textContent=n&&st?`문제지 ${n}개를 ${st}명에게 출제하고 배정하기`:'출제하고 배정하기';
+  if(n){ $('mpBkS').textContent=`문제지 ${n}개 학생용 책자 PDF`; $('mpBkT').textContent=`교사용 책자 PDF`; } else { $('mpBkS').textContent='학생용 책자 PDF'; $('mpBkT').textContent='교사용 책자 PDF'; }
+}
+function baGroups(ids){ const G=[]; ids.forEach(id=>{ const last=G[G.length-1]; if(last && BYID[id].pid && BYID[last[0]].pid===BYID[id].pid) last.push(id); else G.push([id]); }); return G; }
+function baAutoClass(){
+  if(BA.cls.length || !BA.ttc) return;
+  const p=baMyPapers().find(x=>BA.papers.has(x.id) && x.school); if(!p) return;
+  const m=String(p.school).replace(/\s+/g,'').match(/^(.+?)(고|중)(?:등학교|학교)?(\d)/); if(!m) return;
+  const key=`${m[2]}${m[3]} ${m[1]}`;
+  BA.ttc.forEach(c=>{ const k=baKeyOf(c.name); if(k && k.key===key) BA.cls.push(c.class_id); });
+}
+$('baBox').addEventListener('change', e=>{
+  const c=e.target.closest('[data-bap]');
+  if(c){ const id=Number(c.dataset.bap); if(c.checked) BA.papers.add(id); else BA.papers.delete(id); baAutoClass(); baDraw(); return; }
+  if(e.target.id==='baCls'){ const v=e.target.value; e.target.value=''; if(!v) return;
+    if(v.startsWith('g:')) BA.ttc.forEach(c=>{ const k=baKeyOf(c.name); if(k && k.key===v.slice(2) && !BA.cls.includes(c.class_id)) BA.cls.push(c.class_id); });
+    else if(!BA.cls.includes(v.slice(2))) BA.cls.push(v.slice(2));
+    baDraw(); }
+});
+$('baBox').addEventListener('click', e=>{
+  const x=e.target.closest('[data-bacx]'); if(x){ BA.cls=BA.cls.filter(i=>i!==x.dataset.bacx); baDraw(); return; }
+  const s=e.target.closest('[data-bas]'); if(s){ const k=s.dataset.bas; if(BA.off.has(k)) BA.off.delete(k); else BA.off.add(k); baDraw(); }
+});
+$('baGo').onclick=async()=>{
+  const teacher=curTeacher(); if(!teacher){ toast('출제 선생님을 적어 주세요'); $('hTeacher').focus(); return; }
+  const papers=baChosen();
+  const stus=baSelected().list.filter(s=>!BA.off.has(s.name+'|'+s.school+'|'+s.grade));
+  if(!papers.length || !stus.length) return;
+  const target=stus.map(baToken).join(', '), clsNames=BA.cls.map(id=>(BA.ttc.find(c=>c.class_id===id)||{}).name).filter(Boolean);
+  const taken=new Set(), plan=papers.map(p=>{ const ids=(p.ids||[]).filter(id=>BYID[id]); return { p, parts:ids.length?hwPartsOf(baGroups(ids), p.title, !String(p.title).startsWith(TITLE_PRE), teacher, taken):[] }; });
+  const nTask=plan.reduce((a,x)=>a+x.parts.length,0);
+  if(!confirm(`문제지 ${papers.length}개(H WORK 과제 ${nTask}개)를 ${clsNames.join(', ')} 학생 ${stus.length}명에게 출제하고 배정할까요?\n출제 선생님: ${teacher}\n`+plan.map(x=>x.parts.map(t=>'· '+t.code).join('\n')).join('\n')+($('baDue').value?`\n마감: ${$('baDue').value}`:''))) return;
+  BA.busy=true; baDraw(); const btn=$('baGo'), msg=$('baMsg'); msg.className='msg'; msg.textContent='';
+  let saved=0, kept=0, asg=0, dup=0; const fail=[], empty=[];
+  try{
+    for(const x of plan){
+      if(!x.parts.length){ empty.push(x.p.title); continue; }
+      for(const t of x.parts){
+        btn.textContent=`처리 중… ${t.code}`;
+        const h=ALLHW.find(y=>y.teacher===teacher && y.code===t.code);
+        if(h && hwBank(h)===t.ids.join(',')) kept++;
+        else { if(!(await saveOne(teacher, t.code, t.ids, true))){ fail.push(t.code+' (출제)'); continue; } saved++; }
+        const item=teacher+' / '+t.code;
+        if((BA.asg||[]).some(a=>a.item===item && a.target===target)){ dup++; continue; }
+        try{
+          const r=await fetch(REPORT_API,{ method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+            body:JSON.stringify({ action:'addAssignment', pw:'sh', tool:'H WORK', item, type:'일부', target, due:$('baDue').value, memo:$('baMemo').value.trim() }) });
+          const j=await r.json();
+          if(j.result==='success'){ asg++; (BA.asg=BA.asg||[]).push({ item, target }); } else fail.push(t.code+' (배정: '+(j.message||'오류')+')');
+        }catch(e){ fail.push(t.code+' (배정: 연결 오류)'); }
+      }
+    }
+  } finally {
+    BA.busy=false;
+    if(saved||asg) hwResyncAssign();
+    drawTeachers(); rebuildUsed(); drawLoad(); drawList();
+    msg.className='msg '+(fail.length?'bad':'ok');
+    msg.textContent=(fail.length?'일부를 하지 못했습니다.\n':'✓ 끝났습니다.\n')+`새로 출제 ${saved}개 · 이미 출제돼 그대로 ${kept}개 · 배정 ${asg}개`+(dup?` · 이미 같은 학생에게 배정돼 건너뜀 ${dup}개`:'')+`\n받은 학생 ${stus.length}명 (${clsNames.join(', ')})`
+      +(empty.length?`\n문항이 없어 건너뛴 문제지: ${empty.join(', ')}`:'')+(fail.length?'\n'+fail.join('\n')+'\n다시 누르면 남은 것만 이어서 합니다.':'\n학생 페이지 H WORK 목록에 바로 보여요.');
+    if(asg && window.shuegukActivity) shuegukActivity('Shuefit 문법', 'H WORK 한 번에 배정', clsNames.join(', '), `문제지 ${papers.length}개 · 과제 ${asg}개 · ${stus.length}명`, false);
+    baDraw();
+  }
+};
+
+/* ── 문제지 묶음 책자 (2026-11-19 원장님 "여러개의 문제지를 합쳐 중철 인쇄 … 아이들이 문제지가 나뉘어 있는 대로 풀고 채점과 오답을 반복 … 소제목과 문항 개수 표시도 앞에")
+ * 고른 차례대로 문제지마다 새 쪽 + '.bksec' 소제목(제목 · n문항), 번호는 문제지마다 1번부터. 교사용 정답과 해설도 문제지마다 소제목(.ksec) 아래.
+ * 독서(shufit_reading.html mpBooklet)와 같은 규칙 — 고치면 함께. */
+function baChosen(){ const mine=baMyPapers(); return [...BA.papers].map(id=>mine.find(p=>p.id===id)).filter(Boolean); }
+function mpMeta(papers){
+  const one=(k)=>{ const v=[...new Set(papers.map(p=>String(p[k]||'').trim()))]; return v.length===1?v[0]:''; };
+  const date=one('print_date'), school=one('school') || (pmVal().school);
+  const m=date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return { date, school, dot:m?`${m[1]}. ${Number(m[2])}. ${Number(m[3])}.`:pmVal().dot, kor:m?`${m[1]}년 ${Number(m[2])}월 ${Number(m[3])}일`:pmVal().kor };
+}
+function mpTitle(papers, pm){ return `${TITLE_PRE}${pm.school?pm.school+' ':''}문제지 ${papers.length}개 묶음`; }
+async function mpBooklet(teacher){
+  const papers=baChosen().filter(p=>(p.ids||[]).some(id=>BYID[id]));
+  if(!papers.length){ toast('문제지를 먼저 고르세요'); return; }
+  const keep=SEL, pm=mpMeta(papers), title=mpTitle(papers, pm);
+  const blocks=[], keyBlocks=[], all=[];
+  try{
+    papers.forEach((p,i)=>{
+      const ids=p.ids.filter(id=>BYID[id]); SEL=baGroups(ids);
+      const d=docParts(teacher);
+      blocks.push(`<div class="bksec${i?'':' first'}"><b>${esc(p.title)}</b><span>${ids.length}문항</span></div>`, ...d.blocks);
+      keyBlocks.push(`<div class="ksec"><b>${esc(p.title)}</b>${ids.map((id,k)=>`${k+1} ${CHS[BYID[id].ans-1]||''}`).join(' · ')}</div>`, ...d.keyBlocks);
+      all.push(...ids);
+    });
+  } finally { SEL=keep; }
+  const head=`<div class="ph1"><div><div class="logo">Shueguk</div><div class="tt">${esc(title)}${teacher?' · 교사용':''}</div></div>
+    <div class="nm">${pm.dot?esc(pm.dot)+' · ':''}문제지 ${papers.length}개 · ${all.length}문항 · 학교<span>${pm.school?`<b>${esc(pm.school)}</b>`:''}</span> 이름<span></span></div></div>`;
+  const d={ ids:all, title, head, blocks, keyHead:'<div class="anshead"><div class="at">정답과 해설</div></div>', keyBlocks };
+  const c=coverInfo(d, teacher); c.sub=`문제지 ${papers.length}개 · `+c.sub;
+  await bookletRun(d, teacher, c, pm);
+  if(window.shuegukActivity) shuegukActivity('Shuefit 문법', '문제지 묶음 책자', title, papers.map(p=>p.title).join(' / ')+(teacher?' · 교사용':''), false);
+}
+$('mpBkS').onclick=()=>mpBooklet(false);
+$('mpBkT').onclick=()=>mpBooklet(true);
+$('baClear').onclick=()=>{ BA.papers.clear(); baDraw(); };
+
 boot();
 </script>
 <script src="https://coke4497-sys.github.io/shueguk-report/activity.js"></script>
