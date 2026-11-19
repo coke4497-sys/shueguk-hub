@@ -425,6 +425,10 @@
   #print .xbox div, #bkm .xbox div{margin-top:.6mm}
   #print .gq .qh .qn, #bkm .gq .qh .qn{flex:none;min-width:7.2mm;height:5.4mm;border-radius:1.2mm;background:#8db8ad;color:#fff;font-size:9pt;text-align:center;line-height:5.4mm;margin-top:.3mm}
   #print .psrc, #bkm .psrc{font-size:7.3pt;color:#8a9a97;text-align:right;margin-top:1mm}
+  .xmeta{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end;background:#f6f7f4;border-radius:14px;padding:10px 12px;margin:0 0 12px}
+  .xmeta label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:#4f5c56;flex:1 1 150px;min-width:0}
+  .xmeta input{height:40px;border:1px solid #dfe5e1;border-radius:10px;padding:0 10px;background:#fff;font-family:inherit;font-size:14px;color:#2a332f;width:100%;min-width:0}
+  .xmeta .xmn{flex:1 1 100%;font-size:12px;color:#5c6a64}
 </style>
 </head>
 <body>
@@ -502,6 +506,7 @@
       <div class="ch2"><h2>고른 문제지</h2><span class="cnt" id="shSum"><b>0</b>개</span></div>
       <div class="shord" id="shOrd"></div>
       <span id="xHint">문항을 담으면 쓸 수 있어요</span>
+      <div class="xmeta" id="xMeta" hidden><label>날짜 <input type="date" id="xDate"></label><label>학교 <input type="text" id="xSchool" maxlength="30" placeholder="비우면 빈칸"></label><span class="xmn" id="xMetaNote"></span></div>
       <div class="seg" id="xTabs"><button type="button" data-x="pr" class="on">인쇄</button><button type="button" data-x="ex">시험지 인쇄</button><button type="button" data-x="hw">H WORK 출제 · 배정</button></div>
       <div class="pane" id="xp-pr">
         <div class="pane" id="shOne">
@@ -1629,7 +1634,7 @@ function mpTitle(papers, pm){ return `${TITLE_PRE}${pm.school?pm.school+' ':''}�
 async function mpBooklet(teacher){
   const papers=baChosen().filter(p=>(p.ids||[]).some(id=>BYID[id]));
   if(!papers.length){ toast('문제지를 먼저 고르세요'); return; }
-  const keep=SEL, pm=mpMeta(papers), title=mpTitle(papers, pm);
+  const keep=SEL, pm=mpOvr(mpMeta(papers)), title=mpTitle(papers, pm);
   const blocks=[], keyBlocks=[], all=[];
   try{
     papers.forEach((p,i)=>{
@@ -1698,6 +1703,7 @@ function shDraw(){
   sfEl('hwPickMulti').hidden=!multi; sfEl('hwPickOne').hidden=multi;
   sfEl('shOpen').disabled=multi || !n;
   if(typeof drawDel==='function') drawDel();
+  xMetaDraw();
 }
 /* 문제지를 하나만 고르면 그 문제지를 연다 — 불러오기(#loadSel)와 같은 길. 지금 고른 문항이 저장되지 않았으면 묻는다(취소하면 고르지 않음) */
 function shOpenPaper(id){
@@ -1709,6 +1715,37 @@ function shOpenPaper(id){
   SF_LOADING=true; sfEl('loadSel').value=String(k); sfEl('loadSel').dispatchEvent(new Event('change')); SF_LOADING=false;
   if(sfEl('loadSel').value===''){ SFA.setIds(SFA.ids().filter(function(x){ return x!==id; })); baDraw(); }
 }
+/* 인쇄 날짜·학교 — 문제지함에서 바로 고친다(2026-11-19 원장님 "인쇄할 때 날짜, 학교명을 바꿀 수 있게").
+ * 하나를 고르면 그 문제지의 #pDate·#pSchool 과 같은 값 — 고치면 그 문제지에 저장(pmSaveRow).
+ * 여럿이면 이번 묶음 책자에만 쓴다(MP_OVR) — 문제지마다 저장된 값은 그대로. 고른 문제지가 바뀌면 처음 값으로. */
+var MP_OVR=null, MP_KEY='';
+function mpOvr(pm){
+  if(!MP_OVR) return pm;
+  var d=MP_OVR.date||'', m=d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return { date:d, school:MP_OVR.school||'', dot:m?m[1]+'. '+Number(m[2])+'. '+Number(m[3])+'.':'', kor:m?m[1]+'년 '+Number(m[2])+'월 '+Number(m[3])+'일':'' };
+}
+function xMetaDraw(){
+  var box=sfEl('xMeta'); if(!box) return;
+  var ids=SFA.ids(), multi=ids.length>1, n=SFA.selN();
+  box.hidden=!(multi || n);
+  var key=ids.join(','); if(key!==MP_KEY){ MP_KEY=key; MP_OVR=null; }
+  var d=sfEl('xDate'), s=sfEl('xSchool'), act=document.activeElement;
+  var v;
+  if(multi){ var pm=MP_OVR || mpMeta(typeof baChosen==='function'?baChosen():[]); v={date:pm.date||'', school:pm.school||''}; }
+  else v={date:sfEl('pDate').value||'', school:sfEl('pSchool').value||''};
+  if(act!==d) d.value=v.date; if(act!==s) s.value=v.school;
+  sfEl('xMetaNote').textContent = multi ? '이번 묶음 책자에만 들어가요. 문제지마다 저장된 값은 그대로예요.' : (canPrint() ? '고치면 이 문제지에 저장돼요. 인쇄·책자·시험지에 모두 들어가요.' : '');
+}
+['xDate','xSchool'].forEach(function(id){
+  var el=sfEl(id); if(!el) return;
+  var on=function(ev){
+    if(SFA.ids().length>1){ MP_OVR={date:sfEl('xDate').value||'', school:(sfEl('xSchool').value||'').trim()}; return; }
+    var t=sfEl(id==='xDate'?'pDate':'pSchool'); t.value=el.value;
+    if(ev.type==='change') t.dispatchEvent(new Event('change'));
+  };
+  el.addEventListener('input', on); el.addEventListener('change', on);
+});
+['pDate','pSchool'].forEach(function(id){ var el=sfEl(id); if(el){ el.addEventListener('input', xMetaDraw); el.addEventListener('change', xMetaDraw); } });
 sfEl('modeTabs').addEventListener('click', function(e){ var b=e.target.closest('[data-m]'); if(b) setMode(b.getAttribute('data-m')); });
 sfEl('goShelf').onclick=function(){ setMode('shelf'); };
 document.addEventListener('click', function(e){ if(e.target.closest('#stGo')) setMode('shelf'); });
