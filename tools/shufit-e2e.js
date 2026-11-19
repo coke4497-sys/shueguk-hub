@@ -308,15 +308,18 @@ function rpc(fn, p) {
     ok((await p.locator('#pSchool').inputValue()) === '행신고등학교' && (await p.locator('#pDate').inputValue()) === '2026-12-01', '다른 기기에서도 문제지를 불러오면 날짜·학교 채움(데이터베이스)');
     ok((await p.locator('#hTeacher').inputValue()) === '이현지', '담당 강사 = 로그인 이름');
     await p.click('#xTabs [data-x=hw]');
-    await p.fill('#pTitle', '일반 과제'); await p.click('#saveBtn');
-    ok((await p.locator('#saveMsg').textContent()).includes('일반 H WORK 과제가 이미'), '같은 이름 일반 과제는 막음');
+    // H WORK 출제 = 단원마다 따로 과제(2026-11-19 원장님 "문법도 과제 하나하나를 검사") — 품사 1 + 음운 3
+    ok(await p.evaluate(() => { const h=$('hCode'); const o=h.value, oa=h.dataset.auto; h.value='일반 과제'; h.dataset.auto=''; const keep=SEL; SEL=[[103]]; const r=hwParts(); SEL=keep; h.value=o; h.dataset.auto=oa; return r.length===1 && r[0].code==='일반 과제'; }), '단원이 하나면 제목 그대로 한 과제');
     await p.fill('#pTitle', '[슈핏 문법] 음운 연습'); await p.click('#saveBtn');
-    await p.waitForFunction(() => document.getElementById('saveMsg').textContent.includes('저장했습니다'));
-    const post = DB.posts.find(x => x.action === 'saveHomework');
-    ok(post && post.data.count === 4 && post.data.items['1'].type === 'choice5' && post.data.items['1'].ans === 5, '시트 저장 — 5지선다 정답');
-    ok(post && JSON.stringify(post.data.bank) === '{"1":104,"2":101,"3":102,"4":103}', '저장 — bank 번호표 ' + JSON.stringify(post && post.data.bank));
+    await p.waitForFunction(() => document.getElementById('saveMsg').textContent.includes('단원 2개로 나눠 출제했습니다'));
+    const hp = DB.posts.filter(x => x.action === 'saveHomework');
+    ok(hp.length === 2 && hp[0].data.code === '[슈핏 문법] 음운 연습 · 품사 (1)' && hp[1].data.code === '[슈핏 문법] 음운 연습 · 음운 (3)', '단원마다 과제 이름 ' + JSON.stringify(hp.map(x => x.data.code)));
+    const post = hp[1];
+    ok(JSON.stringify(hp[0].data.bank) === '{"1":104}' && hp[0].data.items['1'].ans === 5, '품사 과제 — 번호표·정답');
+    ok(post && post.data.count === 3 && post.data.items['1'].type === 'choice5' && post.data.items['1'].ans === 2, '음운 과제 — 5지선다 정답');
+    ok(post && JSON.stringify(post.data.bank) === '{"1":101,"2":102,"3":103}', '음운 과제 — 지문 세트 나누지 않은 번호표 ' + JSON.stringify(post && post.data.bank));
     ok(post && post.data.schools.join() === '능곡고,화정고', '학교 목록 = 재원생 학교(퇴원 제외)');
-    ok(DB.saved && DB.saved.data.bank['2'] === 101, '수파베이스 과제 표에도 저장');
+    ok(DB.saved && DB.saved.data.bank['2'] === 102, '수파베이스 과제 표에도 저장');
     ok((await p.locator('.tg.used').count()) >= 1, '저장 뒤 낸 적 있음 표시');
     if (SHOT) await p.screenshot({ path: path.join(SHOT, 'shufit-make.png') });
     // H WORK 바로 배정(2026-11-17)
@@ -327,7 +330,7 @@ function rpc(fn, p) {
     let nPost = DB.posts.length; await p.click('#hwAssignBtn');
     await p.waitForFunction(() => document.getElementById('hwAssignMsg').textContent.includes('배정했습니다'));
     let asg = DB.posts.slice(nPost).filter(x => x.action === 'addAssignment');
-    ok(asg.length === 1 && asg[0].tool === 'H WORK' && asg[0].item === '이현지 / [슈핏 문법] 음운 연습' && asg[0].type === '학년' && asg[0].target === '고1' && asg[0].due === '2026-11-30' && asg[0].memo === '1회차' && asg[0].pw === 'sh', '배정 요청 = 강사 / 과제 · 대상 · 마감 · 비고 ' + JSON.stringify(asg[0]));
+    ok(asg.length === 2 && asg[1].item === '이현지 / [슈핏 문법] 음운 연습 · 음운 (3)' && asg[0].tool === 'H WORK' && asg[0].item === '이현지 / [슈핏 문법] 음운 연습 · 품사 (1)' && asg[0].type === '학년' && asg[0].target === '고1' && asg[0].due === '2026-11-30' && asg[0].memo === '1회차' && asg[0].pw === 'sh', '배정 요청 = 강사 / 과제 · 대상 · 마감 · 비고 ' + JSON.stringify(asg[0]));
     ok(!DB.posts.slice(nPost).some(x => x.action === 'saveHomework'), '이미 출제한 과제는 다시 출제하지 않음');
     await p.waitForFunction(() => true); await new Promise(r => setTimeout(r, 400));
     ok((DB.asg || []).some(x => x.startsWith('DELETE /assignments?tool=eq.')) && (DB.asg || []).some(x => x.startsWith('POST /assignments')), '배정 뒤 배정 미러를 다시 맞춤');
@@ -336,7 +339,7 @@ function rpc(fn, p) {
     nPost = DB.posts.length; await p.click('#hwAssignBtn');
     await p.waitForFunction(() => document.getElementById('hwAssignMsg').textContent.includes('배정했습니다'));
     const seq = DB.posts.slice(nPost).map(x => x.action);
-    ok(seq.join() === 'saveHomework,addAssignment' && DB.posts[DB.posts.length - 1].item === '이현지 / [슈핏 문법] 음운 연습 2', '출제 전 문항은 출제한 뒤 배정 ' + seq.join());
+    ok(seq.join() === 'saveHomework,saveHomework,addAssignment,addAssignment' && DB.posts[DB.posts.length - 1].item === '이현지 / [슈핏 문법] 음운 연습 2 · 음운 (3)', '제목을 바꾸면 다시 출제한 뒤 단원 과제 모두 배정 ' + seq.join());
     if (SHOT) await p.locator('#xp-hw').screenshot({ path: path.join(SHOT, 'shufit-assign.png') });
     // 새 문제지 만들기(2026-11-17)
     await p.fill('#pSchool', '행신고'); await p.fill('#hwMemo', '2회차');
