@@ -907,37 +907,72 @@ $('paperSave').onclick=async()=>{
 
 /* ── H WORK 과제로 저장 ── */
 function setMsg(k,t){ const m=$('saveMsg'); m.className='msg '+(k||''); m.textContent=t||''; }
-async function saveHw(){
-  const teacher=$('hTeacher').value.trim(), code=$('hCode').value.trim(), ids=selIds();
-  if(!ids.length){ toast('문항을 먼저 고르세요'); return false; }
-  if(!teacher){ toast('출제 선생님을 적어 주세요'); $('hTeacher').focus(); return false; }
-  if(!code){ toast('제목을 적어 주세요'); $('pTitle').focus(); return false; }
+/* H WORK 출제는 단원마다 따로 과제(2026-11-19 원장님 "문법도 과제 하나하나를 검사" — 독서·문학과 같은 원칙).
+ * 단원이 하나면 제목 그대로 한 과제. 여럿이면 단원마다 'Shuefit 문법: 음운 기본 (10)'(제목을 직접 고쳤으면 '제목 · 음운 (10)').
+ * 같은 이름에 다른 문항이 이미 있으면 뒤에 ' 02'·' 03', 같은 선생님·같은 문항이면 그 과제를 덮어쓴다. 지문 세트는 나누지 않는다. */
+let HWPARTS=null;   // 마지막으로 출제한 구간 {teacher, sig, parts:[{code,ids}]}
+function hwBank(h){ const b=h&&h.data&&h.data.bank; if(!b) return null; return Object.keys(b).sort((x,y)=>x-y).map(k=>Number(b[k])).join(','); }
+function hwParts(){
+  const teacher=curTeacher(), title=$('hCode').value.trim(), custom=title && title!==($('hCode').dataset.auto||'');
+  const byA=new Map();
+  SEL.forEach(g=>{ const a=BYID[g[0]].area||'단원'; if(!byA.has(a)) byA.set(a,[]); byA.get(a).push(...g); });
+  if(byA.size<=1) return [{ code:title, ids:selIds(), label:[...byA.keys()][0]||'' }];
+  const lv=['기본','실력','심화'], taken=new Set(), out=[];
+  for(const [area, ids] of byA){
+    const lvls=[...new Set(ids.map(id=>BYID[id].lvl).filter(Boolean))].sort((a,b)=>lv.indexOf(a)-lv.indexOf(b)).join('·');
+    const base=custom ? `${title} · ${area} (${ids.length})` : `${TITLE_PRE}${area} ${lvls} (${ids.length})`.replace(/\s+/g,' ');
+    let code=base, k=1;
+    for(;;){ const h=ALLHW.find(x=>x.code===code); if(!taken.has(code) && (!h || (h.teacher===teacher && hwBank(h)===ids.join(',')))) break; k++; code=base+' '+String(k).padStart(2,'0'); }
+    taken.add(code); out.push({ code, ids, label:area });
+  }
+  return out;
+}
+async function saveOne(teacher, code, ids, quiet){
   const same=ALLHW.find(h=>h.teacher===teacher && h.code===code);
   if(same){
-    if(!(same.data && same.data.bank)){ setMsg('bad','같은 강사·제목의 일반 H WORK 과제가 이미 있습니다. 제목을 바꿔 주세요.'); return false; }
+    if(!(same.data && same.data.bank)){ setMsg('bad','「'+code+'」은(는) 같은 강사의 일반 H WORK 과제 이름과 같습니다. 제목을 바꿔 주세요.'); return false; }
     let nsub=0; try{ nsub=(await sb('/hwork_submissions?select=id&teacher=eq.'+encodeURIComponent(teacher)+'&code=eq.'+encodeURIComponent(code)+'&limit=1000')).length; }catch(e){}
-    if(!confirm(nsub ? `이미 학생 ${nsub}명이 제출한 과제입니다. 문항을 바꾸면 지난 제출과 번호가 어긋납니다.\n그래도 덮어쓸까요?` : '같은 제목의 과제를 이 문항으로 바꿀까요?')) return false;
+    if(nsub && !confirm(`「${code}」은(는) 이미 학생 ${nsub}명이 제출한 과제입니다. 문항을 바꾸면 지난 제출과 번호가 어긋납니다.\n그래도 덮어쓸까요?`)) return false;
+    if(!nsub && !quiet && hwBank(same)!==ids.join(',') && !confirm('같은 제목의 과제를 이 문항으로 바꿀까요?')) return false;
   }
   const data={ teacher, code, count:ids.length, schools:SCHOOLS, items:{}, bank:{} };
   ids.forEach((id,i)=>{ data.items[i+1]={ type:'choice5', ans:BYID[id].ans }; data.bank[i+1]=id; });
+  const res=await fetch(API_URL,{ method:'POST', body:JSON.stringify({ action:'saveHomework', data }) });
+  const j=await res.json();
+  if(!j.ok){ setMsg('bad','저장하지 못했습니다: '+(j.error||'')); return false; }
+  await sb('/hwork_homeworks?on_conflict=teacher,code',{ method:'POST', headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=minimal' },
+    body:JSON.stringify([{ teacher, code, data }]) });
+  if(same) same.data=data; else ALLHW.push({ teacher, code, data });
+  const h=HWS.find(x=>x.teacher===teacher && x.code===code); if(h) h.data=data; else HWS.push({ teacher, code, data });
+  return true;
+}
+async function saveHw(ask){
+  const teacher=$('hTeacher').value.trim(), ids=selIds();
+  if(!ids.length){ toast('문항을 먼저 고르세요'); return false; }
+  if(!teacher){ toast('출제 선생님을 적어 주세요'); $('hTeacher').focus(); return false; }
+  if(!$('hCode').value.trim()){ toast('제목을 적어 주세요'); $('pTitle').focus(); return false; }
+  const parts=hwParts();
+  if(ask && parts.length>1 && !confirm(`고른 문항 ${ids.length}개를 단원 ${parts.length}개로 나눠 H WORK 과제 ${parts.length}개로 출제할까요?\n학생은 단원마다 따로 풀고, 선생님은 과제 하나하나를 검사합니다.\n출제 선생님: ${teacher}\n`+parts.map(p=>'· '+p.code).join('\n'))) return false;
   const btn=$('saveBtn'); btn.disabled=true; btn.textContent='저장 중…'; setMsg('','');
+  const done=[];
   try{
-    const res=await fetch(API_URL,{ method:'POST', body:JSON.stringify({ action:'saveHomework', data }) });
-    const j=await res.json();
-    if(!j.ok){ setMsg('bad','저장하지 못했습니다: '+(j.error||'')); return false; }
-    await sb('/hwork_homeworks?on_conflict=teacher,code',{ method:'POST', headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json', Prefer:'resolution=merge-duplicates,return=minimal' },
-      body:JSON.stringify([{ teacher, code, data }]) });
-    if(same) same.data=data; else ALLHW.push({ teacher, code, data });
-    const h=HWS.find(x=>x.teacher===teacher && x.code===code); if(h) h.data=data; else HWS.push({ teacher, code, data });
+    for(const [i,p] of parts.entries()){
+      if(parts.length>1) setMsg('',`출제 중… (${i+1} / ${parts.length}) ${p.code}`);
+      if(!(await saveOne(teacher, p.code, p.ids, parts.length>1))){ if(done.length) setMsg('bad',`단원 ${done.length}개까지 출제하고 멈췄습니다. 다시 누르면 같은 이름으로 덮어써요.`); return false; }
+      done.push(p);
+    }
+    HWPARTS={ teacher, title:$('hCode').value.trim(), sig:selSig(), parts:done.map(p=>({ code:p.code, n:p.ids.length })) };
     drawTeachers(); rebuildUsed(); drawLoad();
-    setMsg('ok',`저장했습니다 — ${teacher} / ${code} (${ids.length}문항)\n아래에서 바로 학생에게 배정할 수 있어요.`);
-    if(window.shuegukActivity) shuegukActivity('Shuefit 문법', 'H WORK 출제', code, ids.length+'문항', false);
+    setMsg('ok', parts.length>1
+      ? `단원 ${done.length}개로 나눠 출제했습니다 — ${teacher}\n`+done.map(p=>`· ${p.code}`).join('\n')+'\n아래에서 단원 과제 모두를 한 번에 배정할 수 있어요.'
+      : `저장했습니다 — ${teacher} / ${parts[0].code} (${ids.length}문항)\n아래에서 바로 학생에게 배정할 수 있어요.`);
+    if(window.shuegukActivity) shuegukActivity('Shuefit 문법', 'H WORK 출제', parts.length>1?$('hCode').value.trim():parts[0].code, (parts.length>1?'단원 '+parts.length+'개 · ':'')+ids.length+'문항', false);
     drawList();
     return true;
   }catch(e){ setMsg('bad','저장하지 못했습니다. 인터넷 연결을 확인해 주세요. ('+e.message+')'); return false; }
   finally{ btn.disabled=false; btn.textContent='H WORK 과제로 출제'; }
-};
-$('saveBtn').onclick=()=>saveHw();
+}
+$('saveBtn').onclick=()=>saveHw(true);
 
 /* ── H WORK 학생 배정 — H WORK 배정하기(hwork_assign.html)와 같은 경로: 리포트 백엔드 addAssignment(시트 원본) → assignments 미러를 통째로 다시 맞춤.
  * 학생 고르기 = 같은 공용 위젯(student-picker.js). 아직 출제하지 않은 문항이면 먼저 출제한다(2026-11-17 원장님 "슈핏에서 h work 바로 배정"). */
@@ -969,6 +1004,7 @@ async function hwResyncAssign(){
     if(rows.length) await sb('/assignments', { method:'POST', headers:H, body:JSON.stringify(rows) });
   }catch(e){ console.warn('배정 미러 재동기화 실패 — 일일 점검이 복구', e); }
 }
+function hwPartsSaved(){ return !!HWPARTS && HWPARTS.teacher===curTeacher() && HWPARTS.title===$('hCode').value.trim() && HWPARTS.sig===selSig() && HWPARTS.parts.every(p=>ALLHW.some(h=>h.teacher===HWPARTS.teacher && h.code===p.code)); }
 $('hwAssignBtn').onclick=async()=>{
   const teacher=$('hTeacher').value.trim(), code=$('hCode').value.trim(), ids=selIds();
   if(!ids.length){ toast('문항을 먼저 고르세요'); return; }
@@ -977,25 +1013,37 @@ $('hwAssignBtn').onclick=async()=>{
   const sel=HWP_SEL || (HWP && HWP.getSelection());
   if(!sel){ hwaMsg('bad','배정할 학생을 먼저 골라 주세요.'); return; }
   const who=sel.summary||'고른 학생', btn=$('hwAssignBtn'); hwaMsg('','');
-  if(!hwSavedSame(teacher, code, ids)){
-    if(!confirm(`아직 이 문항으로 출제하지 않았습니다.\nH WORK 과제로 출제한 뒤 ${who}에게 배정할까요?`)) return;
+  let parts=null;
+  const one=hwParts(); if(one.length===1 && hwSavedSame(teacher, one[0].code, ids)) parts=[{ code:one[0].code }];
+  else if(hwPartsSaved()) parts=HWPARTS.parts;
+  if(!parts){
+    const n=one.length;
+    if(!confirm(n>1 ? `아직 이 문항으로 출제하지 않았습니다.\n단원 ${n}개로 나눠 H WORK 과제로 출제한 뒤 ${who}에게 배정할까요?` : `아직 이 문항으로 출제하지 않았습니다.\nH WORK 과제로 출제한 뒤 ${who}에게 배정할까요?`)) return;
     btn.disabled=true; btn.textContent='출제 중…';
-    const ok=await saveHw();
+    const ok=await saveHw(false);
     btn.disabled=false; btn.textContent='이 학생들에게 배정';
     if(!ok){ hwaMsg('bad','출제하지 못해 배정하지 않았습니다. 위 안내를 확인해 주세요.'); return; }
-  } else if(!confirm(`「${code}」을(를) ${who}에게 배정할까요?`)) return;
-  btn.disabled=true; btn.textContent='배정 중…'; hwaMsg('','');
-  try{
-    const r=await fetch(REPORT_API, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
-      body:JSON.stringify({ action:'addAssignment', pw:'sh', tool:'H WORK', item:teacher+' / '+code, type:sel.type, target:sel.target, due:$('hwDue').value, memo:$('hwMemo').value.trim() }) });
-    const j=await r.json();
-    if(j.result!=='success'){ hwaMsg('bad','배정하지 못했습니다: '+(j.message==='unauthorized'?'권한 없음':(j.message||'오류'))); return; }
-    hwaMsg('ok','✓ 배정했습니다 — '+code+' · '+who+'\n학생 페이지 H WORK 목록에 바로 보여요.');
-    if(window.shuegukActivity) shuegukActivity('Shuefit 문법', 'H WORK 배정', code, who, false);
+    parts=HWPARTS.parts;
+  } else if(!confirm(parts.length>1 ? `단원 과제 ${parts.length}개를 ${who}에게 배정할까요?\n`+parts.map(p=>'· '+p.code).join('\n') : `「${parts[0].code}」을(를) ${who}에게 배정할까요?`)) return;
+  btn.disabled=true; hwaMsg('');
+  let n=0; const fail=[];
+  for(const [i,p] of parts.entries()){
+    btn.textContent=parts.length>1?`배정 중… (${i+1} / ${parts.length})`:'배정 중…';
+    try{
+      const r=await fetch(REPORT_API, { method:'POST', headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({ action:'addAssignment', pw:'sh', tool:'H WORK', item:teacher+' / '+p.code, type:sel.type, target:sel.target, due:$('hwDue').value, memo:$('hwMemo').value.trim() }) });
+      const j=await r.json();
+      if(j.result==='success') n++; else fail.push(p.code+(j.message==='unauthorized'?' (권한 없음)':''));
+    }catch(e){ fail.push(p.code); }
+  }
+  if(n) hwResyncAssign();
+  if(fail.length) hwaMsg('bad',(n?`${n}개는 배정했고 `:'')+`${fail.length}개는 배정하지 못했습니다:\n`+fail.join('\n')+(n?'\n다시 누르면 같은 학생에게 한 번 더 배정되니 H WORK 배정하기에서 확인해 주세요.':'\n인터넷 연결을 확인해 주세요.'));
+  else {
+    hwaMsg('ok', parts.length>1 ? `✓ 단원 과제 ${n}개를 배정했습니다 — ${who}\n학생 페이지 H WORK 목록에 단원마다 따로 보여요.` : '✓ 배정했습니다 — '+parts[0].code+' · '+who+'\n학생 페이지 H WORK 목록에 바로 보여요.');
     if(HWP) HWP.reset(); HWP_SEL=null; $('hwMemo').value='';
-    hwResyncAssign();
-  }catch(e){ hwaMsg('bad','배정하지 못했습니다. 인터넷 연결을 확인해 주세요.'); }
-  finally{ btn.disabled=false; btn.textContent='이 학생들에게 배정'; }
+  }
+  if(n && window.shuegukActivity) shuegukActivity('Shuefit 문법', 'H WORK 배정', parts.length>1?code:parts[0].code, (parts.length>1?'단원 '+n+'개 · ':'')+who, false);
+  btn.disabled=false; btn.textContent='이 학생들에게 배정';
 };
 
 /* ── 인쇄 ── 학생용 = 문항만, 교사용 = 정답 동그라미 + 문항 아래 해설 + 맨 위 빠른 정답 */
