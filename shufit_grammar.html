@@ -167,6 +167,15 @@
   .hwas-h{font-family:'Do Hyeon',sans-serif;font-size:17px;color:var(--ink)}
   /* 저장한 문제지로 한 번에 출제·배정(2026-11-19) */
   .ba{display:flex;flex-direction:column;gap:8px}
+  .ba-h .lk{border:0;background:none;color:#8D83A8;font:inherit;font-size:12px;cursor:pointer;margin-left:6px;text-decoration:underline}
+  .ba-p .ord{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:50%;background:#4a3f63;color:#fff;font-size:11px;margin-right:4px}
+  #baPN{font-size:12px;color:var(--ink2)}
+  /* 문제지 묶음 책자 — 문제지마다 새 쪽 + 소제목·문항 수(독서 단원 책자와 같은 모양) */
+  .bk .bksec{column-span:all;display:flex;align-items:baseline;gap:3mm;border-bottom:.6mm solid #8db8ad;padding:0 0 2mm;margin:0 0 4mm;break-after:avoid}
+  .bk .bksec b{font-family:'Gowun Batang',serif;font-size:15pt;color:#24443d}
+  .bk .bksec span{font-family:'Gowun Dodum',sans-serif;font-size:9.5pt;color:#fff;background:#8db8ad;border-radius:1.5mm;padding:.6mm 2.6mm}
+  .bk .ksec{column-span:all;font-family:'Gowun Dodum',sans-serif;font-size:9pt;margin:3mm 0 2mm;padding-bottom:1mm;border-bottom:.3mm solid #c3dcd5}
+  .bk .ksec b{font-family:'Gowun Batang',serif;font-size:11pt;color:#24443d;margin-right:2mm}
   .ba input[type=date],.ba input[type=text]{border:1px solid #dfe5e1;border-radius:10px;padding:9px 10px;font-family:inherit;font-size:14px;background:#fafbf9;min-width:0}
   .ba-h{font-size:13px;font-weight:700;color:var(--ink2);margin-top:4px}
   .ba-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;background:#fafbf9;border-radius:12px;padding:6px}
@@ -457,20 +466,7 @@
         </div>
         <div class="pane" id="xp-hw" hidden>
           <input type="hidden" id="hCode"><!-- 과제 제목 = 위 '제목' 칸과 같은 값(따로 보이지 않음) -->
-          <div class="ba" id="baBox">
-            <div class="hwas-h">저장한 문제지로 한 번에 출제·배정</div>
-            <span class="info">① 문제지를 고르고 ② 내신 진도반을 불러온 뒤 ③ 단추 한 번이면 출제와 배정이 함께 끝납니다. 학생을 하나씩 고르지 않아도 돼요.</span>
-            <div class="ba-h">① 문제지 <span class="dim" id="baPN"></span></div>
-            <div class="ba-list" id="baPapers"><span class="info">출제 선생님의 저장한 문제지를 불러오는 중…</span></div>
-            <div class="ba-h">② 받을 학생 — 내신 진도반 불러오기</div>
-            <select id="baCls"><option value="">— 진도반을 고르세요 —</option></select>
-            <div class="ba-chips" id="baClsOn"></div>
-            <div class="ba-stu" id="baStu"></div>
-            <div class="two"><label class="f">마감 <span class="dim">(선택)</span><input type="date" id="baDue"></label><label class="f">비고 <span class="dim">(선택)</span><input type="text" id="baMemo" maxlength="60" placeholder="예: 기말 대비"></label></div>
-            <button class="btn main" type="button" id="baGo" disabled>③ 출제하고 배정하기</button>
-            <div class="msg" id="baMsg"></div>
-          </div>
-          <div class="hwas-h" style="margin-top:14px;padding-top:14px;border-top:1px solid #E5EDE8">지금 고른 문항으로 출제</div>
+          <div class="hwas-h">지금 고른 문항으로 출제</div>
           <button class="btn main" type="button" id="saveBtn">H WORK 과제로 출제</button>
           <div class="msg" id="saveMsg"></div>
           <div class="hwas" id="hwAssign">
@@ -483,6 +479,21 @@
           <span class="info" style="line-height:1.7"><b>단원이 여럿이면 단원마다 과제를 따로</b> 냅니다 — 학생은 단원마다 따로 풀고, 선생님은 과제 하나하나를 검사해요(지문 세트는 나누지 않아요). 아직 출제하지 않은 문항이면 [이 학생들에게 배정]이 먼저 H WORK 과제로 출제한 뒤 배정합니다. 배정 내역 확인·취소는 [H WORK 배정하기]에서 해요. 학생은 휴대폰에서 문제를 보며 풀고, 틀린 문항은 오답하기와 질문으로 선생님과 이야기할 수 있어요.</span>
         </div>
               <button class="btn ghost newbtn" type="button" id="newBtn">새 문제지 만들기 <span>· 고른 문항·제목·날짜·학교를 비워요</span></button>
+      </section>
+      <section class="card ba" id="baBox">
+        <div class="xh"><h2><span class="n">5</span>저장한 문제지 묶음</h2><span id="baPN"></span></div>
+        <span class="info">저장한 문제지를 여러 개 골라 <b>한 권의 중철 책자</b>로 인쇄하거나 <b>한 번에 H WORK으로 출제·배정</b>합니다. 문제지는 고른 차례대로 실리고, 문제지마다 새 쪽에서 제목·문항 수와 함께 1번부터 시작해요.</span>
+        <div class="ba-h">① 문제지 고르기 <button class="lk" type="button" id="baClear">모두 빼기</button></div>
+        <div class="ba-list" id="baPapers"><span class="info">출제 선생님의 저장한 문제지를 불러오는 중…</span></div>
+        <div class="ba-h">② 합쳐서 인쇄 — 중철 책자</div>
+        <div class="two"><button class="btn" type="button" id="mpBkS" disabled>학생용 책자 PDF</button><button class="btn" type="button" id="mpBkT" disabled>교사용 책자 PDF</button></div>
+        <div class="ba-h">③ H WORK 한 번에 출제·배정 — 내신 진도반 불러오기</div>
+        <select id="baCls"><option value="">— 진도반을 고르세요 —</option></select>
+        <div class="ba-chips" id="baClsOn"></div>
+        <div class="ba-stu" id="baStu"></div>
+        <div class="two"><label class="f">마감 <span class="dim">(선택)</span><input type="date" id="baDue"></label><label class="f">비고 <span class="dim">(선택)</span><input type="text" id="baMemo" maxlength="60" placeholder="예: 기말 대비"></label></div>
+        <button class="btn main" type="button" id="baGo" disabled>출제하고 배정하기</button>
+        <div class="msg" id="baMsg"></div>
       </section>
     </aside>
   </div>
@@ -674,7 +685,7 @@ async function boot(){
     drawTeachers(); rebuildUsed(); drawLoad();
     if(!ITEMS.length){ $('list').innerHTML='<div class="empty">Shuefit 문법 문항이 비어 있습니다. 문항을 올린 뒤 다시 열어 주세요.</div>'; return; }
     $('tot').innerHTML=`문항 <b>${ITEMS.length}</b>개 · 지문 세트 <b>${new Set(ITEMS.map(x=>x.pid).filter(Boolean)).size}</b>개`;
-    drawFilters(); drawList(); drawSel();
+    drawFilters(); drawList(); drawSel(); baDraw(); baLoad();
   }catch(e){
     $('list').innerHTML='<div class="empty">문항을 불러오지 못했습니다. ('+esc(e.message)+')<br>데이터베이스 067 적용 전이면 이 화면을 쓸 수 없어요.</div>';
   }
@@ -1158,7 +1169,8 @@ function coverInfo(d, teacher){
   const sub=`${yr}${kinds.join('·')} 모의고사 · ${d.ids.length}문항 · ${lvls.join('·')} 단계${teacher?' · 정답과 해설':''}`;
   return { areas, t1, t2, sub, all:[...new Set(ITEMS.map(x=>x.area))] };
 }
-function coverPage(c, teacher){
+function coverPage(c, teacher, pm){
+  pm=pm||pmVal();
   const p=document.createElement('div'); p.className='bpage cover';
   p.innerHTML=`<div class="cv-top"><div class="cv-brand"><span>이수경국어 · Shuefit 문법</span>
       <div class="cv-logo"><b>Shueguk</b><span>${teacher?'교사용':'학생용'}</span></div></div>
@@ -1169,7 +1181,7 @@ function coverPage(c, teacher){
     <img class="cv-sk" src="assets/sk-study.png" alt=""></div>
   <div class="cv-bot"><h4>${esc(c.t1)} 시리즈 ${c.all.length}단원</h4>
     <div class="cv-grid">${c.all.map((a,i)=>`<div class="cv-u${c.areas.includes(a)?' on':''}"><i>${String(i+1).padStart(2,'0')}</i>${esc(a)}</div>`).join('')}</div></div>
-  <div class="cv-name">${pmVal().dot?`<div>날짜 ${esc(pmVal().dot)}</div>`:''}<div>학교 ${esc(pmVal().school)}</div><div>이름</div></div>`;
+  <div class="cv-name">${pm.dot?`<div>날짜 ${esc(pm.dot)}</div>`:''}<div>학교 ${esc(pm.school)}</div><div>이름</div></div>`;
   return p;
 }
 function backPage(c){
@@ -1181,10 +1193,15 @@ function backPage(c){
 async function bookletDoc(teacher){
   if(!selIds().length){ toast('문항을 먼저 고르세요'); return; }
   if(!canPrint()){ toast('문제지를 먼저 저장해 주세요'); return; }
-  const d=docParts(teacher), M=$('bkm'), c=coverInfo(d, teacher);
+  const d=docParts(teacher);
+  await bookletRun(d, teacher, coverInfo(d, teacher), pmVal());
+}
+/* 쪽 흘려 넣기 — 한 문제지 책자와 문제지 묶음 책자(mpBooklet)가 함께 쓴다. '.bksec'(문제지 소제목)를 만나면 새 쪽(첫 소제목 제외) */
+async function bookletRun(d, teacher, c, pm){
+  const M=$('bkm');
   M.className='bk '+(teacher?'teacher':'student'); M.innerHTML='';
   try{ if(document.fonts){ await Promise.all([document.fonts.load('30pt Sacramento','Shueguk'), document.fonts.load('10pt "Gowun Dodum"','가')]); await document.fonts.ready; } }catch(e){}
-  const pages=[coverPage(c, teacher)]; M.appendChild(pages[0]);
+  const pages=[coverPage(c, teacher, pm)]; M.appendChild(pages[0]);
   const content=[];
   const newPage=()=>{ const p=document.createElement('div'); p.className='bpage'; p.innerHTML='<div class="bbody"></div><div class="bno"></div>'; M.appendChild(p); pages.push(p); content.push(p); return p.firstChild; };
   const over=b=>b.scrollWidth > b.clientWidth + 2;
@@ -1193,7 +1210,9 @@ async function bookletDoc(teacher){
   const tmp=document.createElement('div');
   const flow=async(list, fixed, start)=>{
     for(const h of list){
-      tmp.innerHTML=h; const el=tmp.firstElementChild; body.appendChild(el);
+      tmp.innerHTML=h; const el=tmp.firstElementChild;
+      if(el.classList.contains('bksec') && !el.classList.contains('first') && body.children.length) body=newPage();
+      body.appendChild(el);
       await waitImgs(el);
       if(over(body) && body.children.length > (content.length===start?fixed+1:1)){ el.remove(); body=newPage(); body.appendChild(el); }
     }
@@ -1438,7 +1457,8 @@ function baDraw(){
   $('baPapers').innerHTML=mine.length?mine.map(p=>{
     const ids=(p.ids||[]).filter(id=>BYID[id]); const parts=hwPartsOf(baGroups(ids), p.title, !String(p.title).startsWith(TITLE_PRE), p.teacher);
     const done=parts.every(x=>{ const h=ALLHW.find(y=>y.teacher===p.teacher && y.code===x.code); return h && hwBank(h)===x.ids.join(','); });
-    return `<label class="ba-p"><input type="checkbox" data-bap="${p.id}"${BA.papers.has(p.id)?' checked':''}><span>${esc(p.title)}${done?'<span class="dn">출제함</span>':''}<small>${ids.length}문항${p.school?' · '+esc(p.school):''}${parts.length>1?' · 단원 '+parts.length+'개 과제로':''}</small></span></label>`;
+    const ord=[...BA.papers].indexOf(p.id);
+    return `<label class="ba-p"><input type="checkbox" data-bap="${p.id}"${BA.papers.has(p.id)?' checked':''}><span>${ord>=0?`<i class="ord">${ord+1}</i>`:''}${esc(p.title)}${done?'<span class="dn">출제함</span>':''}<small>${ids.length}문항${p.school?' · '+esc(p.school):''}${parts.length>1?' · 단원 '+parts.length+'개 과제로':''}</small></span></label>`;
   }).join(''):'<span class="info">저장한 문제지가 없어요. 문항을 고르고 [문제지 저장]을 먼저 눌러 주세요.</span>';
   if(BA.ttc){
     const groups=new Map(); BA.ttc.forEach(c=>{ const k=baKeyOf(c.name); if(!k) return; if(!groups.has(k.key)) groups.set(k.key,[]); groups.get(k.key).push(c); });
@@ -1452,7 +1472,9 @@ function baDraw(){
   }
   const n=BA.papers.size, st=BA.ttc?baSelected().list.filter(s=>!BA.off.has(s.name+'|'+s.school+'|'+s.grade)).length:0;
   $('baGo').disabled=!n || !st || BA.busy;
-  $('baGo').textContent=n&&st?`③ 문제지 ${n}개를 ${st}명에게 출제하고 배정하기`:'③ 출제하고 배정하기';
+  $('mpBkS').disabled=$('mpBkT').disabled=!n;
+  $('baGo').textContent=n&&st?`문제지 ${n}개를 ${st}명에게 출제하고 배정하기`:'출제하고 배정하기';
+  if(n){ $('mpBkS').textContent=`문제지 ${n}개 학생용 책자 PDF`; $('mpBkT').textContent=`교사용 책자 PDF`; } else { $('mpBkS').textContent='학생용 책자 PDF'; $('mpBkT').textContent='교사용 책자 PDF'; }
 }
 function baGroups(ids){ const G=[]; ids.forEach(id=>{ const last=G[G.length-1]; if(last && BYID[id].pid && BYID[last[0]].pid===BYID[id].pid) last.push(id); else G.push([id]); }); return G; }
 function baAutoClass(){
@@ -1476,7 +1498,7 @@ $('baBox').addEventListener('click', e=>{
 });
 $('baGo').onclick=async()=>{
   const teacher=curTeacher(); if(!teacher){ toast('출제 선생님을 적어 주세요'); $('hTeacher').focus(); return; }
-  const papers=baMyPapers().filter(p=>BA.papers.has(p.id));
+  const papers=baChosen();
   const stus=baSelected().list.filter(s=>!BA.off.has(s.name+'|'+s.school+'|'+s.grade));
   if(!papers.length || !stus.length) return;
   const target=stus.map(baToken).join(', '), clsNames=BA.cls.map(id=>(BA.ttc.find(c=>c.class_id===id)||{}).name).filter(Boolean);
@@ -1514,6 +1536,42 @@ $('baGo').onclick=async()=>{
     baDraw();
   }
 };
+
+/* ── 문제지 묶음 책자 (2026-11-19 원장님 "여러개의 문제지를 합쳐 중철 인쇄 … 아이들이 문제지가 나뉘어 있는 대로 풀고 채점과 오답을 반복 … 소제목과 문항 개수 표시도 앞에")
+ * 고른 차례대로 문제지마다 새 쪽 + '.bksec' 소제목(제목 · n문항), 번호는 문제지마다 1번부터. 교사용 정답과 해설도 문제지마다 소제목(.ksec) 아래.
+ * 독서(shufit_reading.html mpBooklet)와 같은 규칙 — 고치면 함께. */
+function baChosen(){ const mine=baMyPapers(); return [...BA.papers].map(id=>mine.find(p=>p.id===id)).filter(Boolean); }
+function mpMeta(papers){
+  const one=(k)=>{ const v=[...new Set(papers.map(p=>String(p[k]||'').trim()))]; return v.length===1?v[0]:''; };
+  const date=one('print_date'), school=one('school') || (pmVal().school);
+  const m=date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return { date, school, dot:m?`${m[1]}. ${Number(m[2])}. ${Number(m[3])}.`:pmVal().dot, kor:m?`${m[1]}년 ${Number(m[2])}월 ${Number(m[3])}일`:pmVal().kor };
+}
+function mpTitle(papers, pm){ return `${TITLE_PRE}${pm.school?pm.school+' ':''}문제지 ${papers.length}개 묶음`; }
+async function mpBooklet(teacher){
+  const papers=baChosen().filter(p=>(p.ids||[]).some(id=>BYID[id]));
+  if(!papers.length){ toast('문제지를 먼저 고르세요'); return; }
+  const keep=SEL, pm=mpMeta(papers), title=mpTitle(papers, pm);
+  const blocks=[], keyBlocks=[], all=[];
+  try{
+    papers.forEach((p,i)=>{
+      const ids=p.ids.filter(id=>BYID[id]); SEL=baGroups(ids);
+      const d=docParts(teacher);
+      blocks.push(`<div class="bksec${i?'':' first'}"><b>${esc(p.title)}</b><span>${ids.length}문항</span></div>`, ...d.blocks);
+      keyBlocks.push(`<div class="ksec"><b>${esc(p.title)}</b>${ids.map((id,k)=>`${k+1} ${CHS[BYID[id].ans-1]||''}`).join(' · ')}</div>`, ...d.keyBlocks);
+      all.push(...ids);
+    });
+  } finally { SEL=keep; }
+  const head=`<div class="ph1"><div><div class="logo">Shueguk</div><div class="tt">${esc(title)}${teacher?' · 교사용':''}</div></div>
+    <div class="nm">${pm.dot?esc(pm.dot)+' · ':''}문제지 ${papers.length}개 · ${all.length}문항 · 학교<span>${pm.school?`<b>${esc(pm.school)}</b>`:''}</span> 이름<span></span></div></div>`;
+  const d={ ids:all, title, head, blocks, keyHead:'<div class="anshead"><div class="at">정답과 해설</div></div>', keyBlocks };
+  const c=coverInfo(d, teacher); c.sub=`문제지 ${papers.length}개 · `+c.sub;
+  await bookletRun(d, teacher, c, pm);
+  if(window.shuegukActivity) shuegukActivity('Shuefit 문법', '문제지 묶음 책자', title, papers.map(p=>p.title).join(' / ')+(teacher?' · 교사용':''), false);
+}
+$('mpBkS').onclick=()=>mpBooklet(false);
+$('mpBkT').onclick=()=>mpBooklet(true);
+$('baClear').onclick=()=>{ BA.papers.clear(); baDraw(); };
 
 boot();
 </script>

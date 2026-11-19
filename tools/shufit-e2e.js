@@ -138,8 +138,9 @@ function rpc(fn, p) {
     await p.evaluate(() => { document.getElementById('tallT').remove(); document.getElementById('list').scrollTop = 0; scrollTo(0, 0); });
     const sd = await p.evaluate(() => { const e = document.querySelector('.side'), c = getComputedStyle(e); return { oy: c.overflowY, mh: parseFloat(c.maxHeight), pos: c.position }; });
     ok(sd.oy === 'auto' && Math.abs(sd.mh - 868) < 2 && sd.pos === 'sticky', '고른 문항·내보내기 칸도 따로 스크롤 ' + JSON.stringify(sd));
-    await p.evaluate(() => { const s = document.querySelector('.side'); s.scrollTop = s.scrollHeight; });
-    ok(await p.evaluate(() => { const r = document.getElementById('xTabs').getBoundingClientRect(); return r.bottom <= innerHeight && r.top >= 0; }), '내보내기 탭이 화면 안으로 들어옴');
+    await p.evaluate(() => { const s = document.querySelector('.side'); s.scrollTop = s.scrollHeight; scrollTo(0, document.documentElement.scrollHeight); });
+    ok(await p.evaluate(() => { const r = document.getElementById('baGo').getBoundingClientRect(); return r.bottom <= innerHeight && r.top >= 0; }), '칸과 화면을 끝까지 내리면 맨 아래(문제지 묶음)까지 보임');
+    await p.evaluate(() => { document.querySelector('.side').scrollTop = 0; scrollTo(0, 0); });
     await p.evaluate(() => { document.querySelector('.side').scrollTop = 0; });
     await p.setViewportSize({ width: 390, height: 900 });
     ok(await p.evaluate(() => getComputedStyle(document.getElementById('list')).overflowY === 'visible' && getComputedStyle(document.querySelector('.side')).overflowY === 'visible'), '휴대폰은 화면 스크롤 그대로');
@@ -386,6 +387,29 @@ function rpc(fn, p) {
     bp = DB.posts.slice(bn);
     ok(bp.filter(x => x.action === 'saveHomework').map(x => x.data.code).join('|') === '음운 연습 · 품사 (1)|음운 연습 · 음운 (3)' && bp.filter(x => x.action === 'addAssignment').length === 2, '단원 둘 = 과제 둘로 출제·배정 ' + JSON.stringify(bp.map(x => x.data ? x.data.code : x.item)));
     if (SHOT) await p.locator('#baBox').screenshot({ path: path.join(SHOT, 'shufit-batch.png') });
+    // 문제지 묶음 책자(2026-11-19) — 고른 차례대로, 문제지마다 새 쪽 + 소제목·문항 수, 번호는 문제지마다 1번부터
+    await p.check('[data-bap="99"]');
+    ok((await p.$$eval('#baPapers .ord', a => a.map(x => x.textContent))).sort().join() === '1,2' && !(await p.locator('#mpBkS').isDisabled()), '고른 차례 번호·책자 버튼 열림');
+    await p.evaluate(() => { window.print = () => { window.__printed = (window.__printed || 0) + 1; }; });
+    await p.click('#mpBkS');
+    await p.waitForFunction(() => document.querySelectorAll('#print .sheet').length > 0, null, { timeout: 8000 });
+    const mp = await p.evaluate(() => {
+      const secs = [...document.querySelectorAll('#print .bksec')];
+      return { n: document.querySelectorAll('#print .sheet').length, secs: secs.map(e => e.textContent),
+        top: secs.slice(1).every(e => e.parentElement.classList.contains('bbody') && e.parentElement.firstElementChild === e),
+        nums: [...document.querySelectorAll('#print .bbody .qn')].map(e => e.textContent).join(','), cover: document.querySelector('#print .cover .cv-sub').textContent,
+        head: document.querySelector('#print .ph1').textContent, title: document.title };
+    });
+    ok(mp.n % 4 === 0 && mp.secs.join('|') === '음운 연습4문항|Shuefit 문법: 음운 심화 (2)2문항', '묶음 책자 — 고른 차례대로 소제목·문항 수 ' + JSON.stringify(mp.secs));
+    ok(mp.top, '묶음 책자 — 둘째 문제지부터 새 쪽 맨 위에서 시작');
+    ok(mp.nums === '01,02,03,04,01,02', '묶음 책자 — 번호는 문제지마다 1번부터 ' + mp.nums);
+    ok(/문제지 2개/.test(mp.cover) && /문제지 2개 · 6문항/.test(mp.head) && /문제지 2개 묶음/.test(mp.title), '묶음 책자 — 표지·머리·파일 이름 ' + JSON.stringify([mp.cover, mp.head, mp.title]));
+    if (SHOT) { await p.emulateMedia({ media: 'print' }); await p.pdf({ path: path.join(SHOT, 'shufit-bundle.pdf'), preferCSSPageSize: true, printBackground: true }); await p.emulateMedia({ media: 'screen' }); }
+    await p.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+    await p.click('#mpBkT');
+    await p.waitForFunction(() => document.querySelectorAll('#print .ksec').length > 0, null, { timeout: 8000 });
+    ok((await p.$$eval('#print .ksec', a => a.map(x => x.textContent))).join('|').startsWith('음운 연습1 ⑤') && (await p.$$('#print .ksec')).length === 2, '묶음 교사용 — 정답과 해설도 문제지마다 소제목');
+    await p.evaluate(() => window.dispatchEvent(new Event('afterprint')));
     await p.evaluate(() => { PAPERS = PAPERS.filter(x => x.id !== 99); BA.papers.clear(); BA.cls = []; baDraw(); });
     // 새 문제지 만들기(2026-11-17)
     await p.fill('#pSchool', '행신고'); await p.fill('#hwMemo', '2회차');
