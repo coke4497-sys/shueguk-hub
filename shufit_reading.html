@@ -176,6 +176,13 @@ body.printing .toast{display:none}
 .omr td{border:.3mm solid #000;padding:1.2mm;text-align:center}
 .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;margin-top:12px}
 .pcnt{font-size:12.5px;color:var(--ink2);margin-top:10px}
+.ptop{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
+.ptop .cur{flex:1 1 380px}
+.unitbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-left:auto}
+.unitbar .ul{font-family:'Do Hyeon';font-size:14px;color:#4a3f63;margin-right:2px}
+.unitbar .btn{padding:7px 12px;font-size:13px}
+.ptop #unitHwNote{flex:1 1 100%;margin:0;font-size:12px;color:#5C6A64}
+@media (max-width:640px){ .unitbar{margin-left:0} }
 .cur{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--ink2)}
 .cur b{font-family:'Gowun Batang';font-size:17px;color:var(--ink);margin-right:4px}
 .load{font-size:13px;color:var(--ink2);padding:6px 0}
@@ -357,8 +364,15 @@ body.printing .toast{display:none}
     <div class="rnone" id="rnone" hidden></div>
   </div>
   <div id="work" hidden>
-    <div class="card">
+    <div class="card ptop">
       <div class="cur" id="pmeta"></div>
+      <div class="unitbar">
+        <span class="ul">이 단원 한 번에</span>
+        <button class="btn" data-pr="all" id="paS">모두 인쇄 (학생용)</button>
+        <button class="btn" data-pr="all" data-t="1" id="paT">모두 인쇄 (교사용)</button>
+        <button class="btn main" type="button" id="unitHw">모두 H WORK 출제</button>
+      </div>
+      <div class="ord" id="unitHwNote"></div>
     </div>
     <div class="card">
       <div class="ct"><i>2</i>문항 유형</div>
@@ -388,13 +402,6 @@ body.printing .toast{display:none}
           <button class="btn" data-pr="pick" id="pkS">골라서 인쇄 (학생용)</button>
           <button class="btn" data-pr="pick" data-t="1" id="pkT">골라서 인쇄 (교사용)</button>
         </div>
-        <div class="pl" style="margin-top:12px"><b>이 단원 한 번에</b>이 지문에 있는 것을 한 번에 인쇄하거나 H WORK로 출제합니다. 따로 하려면 위 [골라서 인쇄]나 문항마다 [+ 담기]를 쓰세요.</div>
-        <div class="acts">
-          <button class="btn" data-pr="all" id="paS">모두 인쇄 (학생용)</button>
-          <button class="btn" data-pr="all" data-t="1" id="paT">모두 인쇄 (교사용)</button>
-          <button class="btn main" type="button" id="unitHw">모두 H WORK 출제</button>
-        </div>
-        <div class="ord" id="unitHwNote"></div>
       </div>
     </div>
   </div>
@@ -901,7 +908,7 @@ function unitEntries(){
 function drawUnitHw(){
   var b=$('#unitHw'); if(!b||!CUR) return;
   var n=unitEntries().length; b.disabled=!n;
-  $('#unitHwNote').textContent=n?('H WORK 출제 = 이 지문'+(isTB()?'':'('+S.lv+' + 원 기출)')+' 문항 '+n+'개를 고른 문항에 담아 한 과제로 냅니다. 제목·출제 선생님은 아래 5번 칸 그대로예요.'):'이 지문에는 출제할 문항이 없습니다.';
+  $('#unitHwNote').textContent=n?('H WORK 출제 = 이 지문'+(isTB()?'':'('+S.lv+' + 원 기출)')+' 문항 '+n+'개를 고른 문항에 담아 한 과제로 냅니다. 모두 인쇄는 지문·핵심정리부터 모든 유형까지 한 파일이에요. 따로 하려면 아래 [골라서 인쇄]나 문항마다 [+ 담기]를 쓰세요.'):'이 지문에는 출제할 문항이 없습니다.';
 }
 function unitHw(){
   if(!CUR) return;
