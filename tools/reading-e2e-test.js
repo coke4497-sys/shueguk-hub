@@ -38,6 +38,7 @@ const I = [
   { passage_id: P[1].id, level: '공통', code: '00', sec_name: '원 기출', v: 1, ord: 1, kind: 'choice', data: ch('진화 문항?', '①'), plain: '진화' },
 ];
 I.forEach((x, i) => { x.id = 1000 + i; });
+const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [1014, 1002, 1012], print_date: '2026-12-01', school: '화정고', updated_at: '2026-11-18' }];
 
 (async () => {
   const b = await chromium.launch();
@@ -48,7 +49,13 @@ I.forEach((x, i) => { x.id = 1000 + i; });
     const u = route.request().url();
     if (/\/auth\/v1\/token/.test(u)) return route.fulfill({ json: { access_token: 'tok', expires_in: 3600 } });
     if (/script\.google\.com/.test(u)) { gas.push(route.request().postData()); return route.fulfill({ json: { ok: true } }); }
-    if (/\/rest\/v1\//.test(u) && route.request().method() !== 'GET') { writes.push({ m: route.request().method(), u: decodeURIComponent(u), b: route.request().postData() }); return route.fulfill({ status: 201, body: '' }); }
+    if (/\/rest\/v1\//.test(u) && route.request().method() !== 'GET') {
+      writes.push({ m: route.request().method(), u: decodeURIComponent(u), b: route.request().postData() });
+      if (/shufit_reading_papers\?on_conflict/.test(u)) return route.fulfill({ status: 201, json: JSON.parse(route.request().postData()) });
+      return route.fulfill({ status: 201, body: '' });
+    }
+    if (/\/rest\/v1\/shufit_reading_papers/.test(u)) return route.fulfill({ json: PAPERS });
+    if (/\/rest\/v1\/reading_items\?select=id,passage_id/.test(u)) { const ids = (new URL(u).searchParams.get('id') || '').replace(/^in\.\(|\)$/g, '').split(',').map(Number); return route.fulfill({ json: I.filter(x => ids.includes(x.id)).map(x => ({ id: x.id, passage_id: x.passage_id })) }); }
     if (/\/rest\/v1\/(hwork_homeworks|students|hwork_submissions)/.test(u)) return route.fulfill({ json: /hwork_homeworks/.test(u) ? [{ teacher: '김선생', code: '겹치는 제목', data: { items: {} } }] : [] });
     if (/\/rest\/v1\//.test(u)) {
       reqs.push({ u: decodeURIComponent(u), auth: route.request().headers()['authorization'] });
@@ -150,6 +157,13 @@ I.forEach((x, i) => { x.id = 1000 + i; });
   t('지문 묶음 머리 3개(본 지문·독립 지문·다른 지문)', (await pg.$$('#sel .sgh')).length === 3);
   t('제목 자동', (await pg.inputValue('#pTitle')) === 'Shuefit 독서: 가상 시장 이야기 외 1지문 (9)', await pg.inputValue('#pTitle'));
   await pg.fill('#pSchool', '행신고등학교');
+  t('저장 전에는 인쇄 잠김', await pg.$eval('[data-bk]', e => e.disabled) && /저장해야/.test(await pg.textContent('#paperMsg')));
+  await pg.fill('#hTeacher', '박선생');
+  await pg.click('#paperSave');
+  await pg.waitForFunction(() => !document.querySelector('[data-bk]').disabled);
+  const pw = writes.find(w => /shufit_reading_papers\?on_conflict/.test(w.u));
+  t('문제지 저장 본문 — 선생님·제목·문항 순서·학교', !!pw && (b => b.teacher === '박선생' && b.ids.length === 9 && b.ids[0] === 1000 && b.school === '행신고등학교')(JSON.parse(pw.b)[0]));
+  writes.length = 0;
   await pg.click('[data-x="ex"]');
   await pg.evaluate(() => document.querySelector('[data-sp="exam"]').click());
   const ins = await pg.$$eval('#print .ins', a => a.map(x => x.textContent));
@@ -170,6 +184,36 @@ I.forEach((x, i) => { x.id = 1000 + i; });
   if (process.env.SHOT) await pg.pdf({ path: process.env.SHOT + '/reading-booklet.pdf', preferCSSPageSize: true });
   await unprint();
   t('인쇄 뒤 A4 쪽 번호로 되돌림', (await pg.textContent('#pageStyle')).includes('counter(pages)'));
+  // 순서를 바꾸면 다시 저장해야 인쇄
+  await pg.click('#sel .si:nth-of-type(2) [data-mv="-1"]').catch(() => {});
+  await pg.evaluate(() => { const S = window.__SEL(); });
+  // 저장한 문제지 불러오기
+  await pg.fill('#hTeacher', ''); await pg.dispatchEvent('#hTeacher', 'change');
+  t('불러오기 목록 — 저장한 문제지 묶음', (await pg.$$eval('#loadSel optgroup', a => a.map(x => x.label))).includes('저장한 문제지'));
+  pg.once('dialog', d => d.accept());
+  const v = await pg.$eval('#loadSel', s => [...s.options].find(o => /지난 문제지/.test(o.textContent)).value);
+  await pg.selectOption('#loadSel', v);
+  await pg.waitForFunction(() => document.querySelector('#selN').textContent === '3문항');
+  t('불러온 순서·지문 묶음', (await pg.$$eval('#sel .si .st small', a => a.map(x => x.textContent))).join('|') === '원 기출|OX · 기본|독립 밑줄 수능형 · 기본', await pg.$$eval('#sel .si .st small', a => a.map(x => x.textContent)));
+  t('불러온 선생님·제목·날짜·학교', (await pg.inputValue('#hTeacher')) === '이선생' && (await pg.inputValue('#pTitle')) === '지난 문제지' && (await pg.inputValue('#pDate')) === '2026-12-01' && (await pg.inputValue('#pSchool')) === '화정고');
+  t('불러온 문제지는 바로 인쇄 가능', !(await pg.$eval('[data-bk]', e => e.disabled)));
+  await pg.fill('#pSchool', '능곡고'); await pg.dispatchEvent('#pSchool', 'change'); await pg.waitForTimeout(150);
+  t('학교를 바꾸면 그 문제지에 PATCH', writes.some(w => w.m === 'PATCH' && /shufit_reading_papers\?teacher=eq\.이선생&title=eq\.지난 문제지/.test(w.u) && JSON.parse(w.b).school === '능곡고'));
+  await pg.click('#list [data-pick]').catch(() => {});
+  pg.once('dialog', d => d.accept());
+  await pg.click('#paperDel'); await pg.waitForTimeout(150);
+  t('문제지 삭제', writes.some(w => w.m === 'DELETE' && /shufit_reading_papers\?teacher=eq\.이선생/.test(w.u)));
+  pg.once('dialog', d => d.accept());
+  await pg.click('#newBtn');
+  t('새 문제지 — 비움·인쇄 잠김', (await pg.textContent('#selN')) === '0문항' && await pg.$eval('[data-bk]', e => e.disabled));
+  writes.length = 0;
+  // H WORK 출제는 다시 9문항을 담아서
+  await pg.click('#res .rc:nth-child(1)'); await pg.waitForFunction(() => /가상 시장/.test(document.querySelector('#pmeta').textContent));
+  for (const [ty, ids] of [['orig', [1000, 1001]], ['02', [1002, 1003]], ['07', [1008]], ['07_2', [1009]], ['09', [1011]], ['99', [1012]]]) {
+    await pg.click(`#tchips [data-t="${ty}"]`); for (const id of ids) await pg.click(`#list [data-pick="${id}"]`);
+  }
+  await pg.click('#res .rc:nth-child(2)'); await pg.waitForFunction(() => /가상 진화/.test(document.querySelector('#pmeta').textContent));
+  await pg.click('#tchips [data-t="orig"]'); await pg.click('#list [data-pick="1014"]');
   // H WORK 출제
   await pg.click('[data-x="hw"]');
   await pg.fill('#hTeacher', '김선생'); await pg.fill('#pTitle', '겹치는 제목');
