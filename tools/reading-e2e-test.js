@@ -486,9 +486,14 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   const lp = await b.newPage({ viewport: { width: 1280, height: 1000 } });
   for (const mm of ['click', 'fill']) { const o = lp[mm].bind(lp); lp[mm] = async (sel, ...a) => { await lp.evaluate(s2 => window.__sfReveal && window.__sfReveal(s2), sel).catch(() => {}); return o(sel, ...a); }; }
   const lerr = []; lp.on('pageerror', e => lerr.push(e.message));
-  const lw = [];
+  const lw = [], upPosts = [];
   await lp.route('**/*', async route => {
     const u = route.request().url();
+    if (/script\.google\.com/.test(u) && /editReqList/.test(u)) return route.fulfill({ json: { result: 'success', reqs: [
+      { screen: '슈핏 문항', writer: '김선생', ts: '2026-11-19 22:10', status: '처리 완료', text: '[슈핏 문항] 문학 · 폴더 x\n메모: 멸치 한 작품', note: '「멸치」 132문항을 올렸어요.' },
+      { screen: '슈핏 문항', writer: '박선생', ts: '2026-11-19 22:20', status: '접수됨', text: '[슈핏 문항] 독서 · 폴더 y' },
+      { screen: '수업 리포트', writer: '김선생', ts: '2026-11-19 22:30', status: '접수됨', text: 'x' }] } });
+    if (/script\.google\.com/.test(u) && route.request().method() === 'POST') { upPosts.push(JSON.parse(route.request().postData())); return route.fulfill({ json: { result: 'success' } }); }
     if (/\/rest\/v1\//.test(u) && route.request().method() !== 'GET') { lw.push({ u: decodeURIComponent(u), b: route.request().postData() }); return /on_conflict/.test(u) ? route.fulfill({ status: 201, json: JSON.parse(route.request().postData()) }) : route.fulfill({ status: 201, body: '' }); }
     if (/\/rest\/v1\/shufit_reading_papers/.test(u)) return route.fulfill({ json: [] });
     if (/\/rest\/v1\/(hwork_homeworks|students|hwork_submissions|tt_classes|assignments|teacher_accounts)/.test(u)) return route.fulfill({ json: [] });
@@ -527,6 +532,24 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await lp.evaluate(() => { selDoc('study', true); });
   t('문학 — 학습지 머리 Shuefit 문학', /Shuefit 문학 · 1문항 · 학습 자료 2/.test(await lp.textContent('#print')) && /작품 정리/.test(await lp.textContent('#print')));
   if (process.env.SHOT) { await lp.evaluate(() => { document.body.classList.remove('printing'); }); await lp.screenshot({ path: process.env.SHOT + '/literature-make.png' }); }
+  // [문항 올리기](2026-11-19) — 드라이브 폴더 열기 → [올렸어요] → 수정 요청함('슈핏 문항')으로 클로슈 알림
+  await lp.evaluate(() => { document.body.classList.remove('printing'); setMode('make'); ShufitUpload._st.me = '김선생'; });
+  await lp.click('#upBtn'); await lp.waitForSelector('#upHist .hr');
+  t('문항 올리기 — 창·과목 기본 문학·폴더 링크', await lp.isVisible('#upBox') && (await lp.textContent('#upSubs .on')) === '문학' && /drive\.google\.com\/drive\/folders\/1VuoNjbAwcOvo9szEfgfKraKcH9-iZ_E3/.test(await lp.getAttribute('#upFold', 'href')) && /「문학」 폴더 열기/.test(await lp.textContent('#upFold')));
+  t('문항 올리기 — 내 기록만(슈핏 문항·내 이름)·결과 메모', (await lp.$$('#upHist .hr')).length === 1 && /올림 · 원장님 검수/.test(await lp.textContent('#upHist')) && /132문항을 올렸어요/.test(await lp.textContent('#upHist')));
+  await lp.click('#upSubs [data-us="독서"]');
+  t('문항 올리기 — 과목 바꾸면 폴더도', /13sEk4G2U_-FngO8YZHY0lbhl4l7Sg1ap/.test(await lp.getAttribute('#upFold', 'href')));
+  await lp.click('#upSubs [data-us="문학"]');
+  await lp.fill('#upMemo', '수특 문학 30번'); await lp.check('#upNoHwp');
+  await lp.click('#upGo'); await lp.waitForFunction(() => /클로슈에게 알렸어요/.test(document.querySelector('#upMsg').textContent));
+  const up = upPosts.find(x => x.action === 'editReqAdd');
+  t('문항 올리기 — 수정 요청함 본문', !!up && up.screen === '슈핏 문항' && up.writer === '김선생' && up.pw === 'sh' && /^\[슈핏 문항\] 문학 · 폴더 1VuoNjb/.test(up.text) && /메모: 수특 문학 30번/.test(up.text) && /표시: 한글 파일 없음/.test(up.text), up);
+  await lp.evaluate(() => { ShufitUpload._st.admin = true; });
+  await lp.keyboard.press('Escape');
+  await lp.click('#upBtn'); await lp.waitForSelector('#upHist .hr');
+  t('문항 올리기 — 원장님은 모든 선생님 기록', (await lp.$$('#upHist .hr')).length === 2 && /선생님들이 올린 기록/.test(await lp.textContent('#upHistT')));
+  await lp.click('#upX');
+  t('문항 올리기 — 닫기', await lp.isHidden('#upBack'));
   // 원장님 화면 — 검수 중 작품이 보이고 [검수 완료] → PATCH review 완료
   await lp.evaluate(() => { document.body.classList.remove('printing'); setMode('make'); ADMIN = true; ME = '이수경'; LIST = ALLLIST.filter(reviewOk); drawRes(); });
   t('문학 — 원장님은 검수 중 작품도 봄', (await lp.$$('#res .rc')).length === 2 && /검수 중/.test(await lp.textContent('#res')));
