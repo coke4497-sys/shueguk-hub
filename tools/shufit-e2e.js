@@ -169,7 +169,7 @@ function rpc(fn, p) {
     ok((await p.locator('#tot').textContent()).includes('문항 4개') && (await p.locator('.it .no').first().textContent()) === '01', '머리 합계 · 카드 번호');
     // 문항 묶음(2026-11-17) — 0~456 = 2026 묶음, 457부터 = 2025 묶음. 가짜 문항은 모두 2026 묶음이라 2025 칩은 없다
     ok((await p.locator('#fSet').textContent()) === '전체42026 묶음4', '묶음 칩 — 있는 묶음만: ' + await p.locator('#fSet').textContent());
-    ok(await p.evaluate(() => [setOf({ id: 0 }), setOf({ id: 456 }), setOf({ id: 457 }), setOf({ id: 1636 })].join()) === '2026,2026,2025,2025', '번호로 묶음 가르기');
+    ok(await p.evaluate(() => [setOf({ id: 0 }), setOf({ id: 456 }), setOf({ id: 457 }), setOf({ id: 1636 }), setOf({ id: 1637 }), setOf({ id: 2448 })].join()) === '2026,2026,2025,2025,2024,2024', '번호로 묶음 가르기');
     ok(await p.evaluate(() => { F.set = '2025'; const n = ITEMS.filter(match).length; F.set = ''; return n; }) === 0, '2025 묶음을 고르면 2026 문항은 빠짐');
     await p.click('.chip[data-k=set][data-v="2026"]'); ok(await p.locator('.it').count() === 3 && (await p.locator('#fInfo').textContent()).startsWith('2026 묶음'), '묶음 칩 누르기 — 안내 줄에 묶음');
     await p.click('.chip[data-k=set][data-v=""]');
