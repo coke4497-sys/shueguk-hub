@@ -951,7 +951,7 @@ function unitEntries(){
 function drawUnitHw(){
   var b=$('#unitHw'); if(!b||!CUR) return;
   var n=unitEntries().length; b.disabled=!n;
-  $('#unitHwNote').textContent=n?('H WORK 출제 = 이 지문'+(isTB()?'':'('+S.lv+' + 원 기출)')+' 문항 '+n+'개를 고른 문항에 담아 한 과제로 냅니다. 모두 인쇄는 지문·핵심정리부터 모든 유형까지 한 파일 — 기본은 표지가 붙은 중철 책자(A4 한 쪽씩, 4의 배수)이고 [A4]를 고르면 A4 2단이에요. 따로 하려면 아래 [골라서 인쇄]나 문항마다 [+ 담기]를 쓰세요.'):'이 지문에는 출제할 문항이 없습니다.';
+  $('#unitHwNote').textContent=n?('H WORK 출제 = 이 지문'+(isTB()?'':'('+S.lv+' + 원 기출)')+' 문항 '+n+'개를 구간(유형)마다 따로 과제로 냅니다 — 학생은 구간마다 따로 입력하고 채점해요. 모두 인쇄는 지문·핵심정리부터 모든 유형까지 한 파일 — 기본은 표지가 붙은 중철 책자(A4 한 쪽씩, 4의 배수)이고 [A4]를 고르면 A4 2단이에요. 따로 하려면 아래 [골라서 인쇄]나 문항마다 [+ 담기]를 쓰세요.'):'이 지문에는 출제할 문항이 없습니다.';
 }
 function unitHw(){
   if(!CUR) return;
@@ -962,10 +962,44 @@ function unitHw(){
   var tb=document.querySelector('#xTabs [data-x="hw"]'); if(tb) tb.click();
   var xc=$('#xCard'); if(xc&&xc.scrollIntoView) xc.scrollIntoView({behavior:'smooth',block:'start'});
   setTimeout(function(){
-    var t=$('#hTeacher').value.trim(), c=$('#pTitle').value.trim();
-    if(!t||!c){ toast(!t?'출제 선생님을 적은 뒤 [H WORK 과제로 출제]를 눌러 주세요':'제목을 적은 뒤 [H WORK 과제로 출제]를 눌러 주세요'); return; }
-    if(confirm('「'+CUR.title+'」 문항 '+SEL.length+'개를 H WORK 과제로 출제할까요?\n출제 선생님: '+t+'\n과제 이름: '+c)) saveHw();
+    var t=$('#hTeacher').value.trim();
+    if(!t){ toast('출제 선생님을 적은 뒤 [H WORK 과제로 출제]를 눌러 주세요'); return; }
+    var parts=unitParts(SEL);
+    if(confirm('「'+CUR.title+'」 문항 '+SEL.length+'개를 구간 '+parts.length+'개로 나눠 H WORK 과제 '+parts.length+'개로 출제할까요?\n학생은 구간마다 따로 입력하고 채점합니다.\n출제 선생님: '+t+'\n과제 이름: '+parts[0].code+' …')) saveUnit(t);
   }, 350);
+}
+/* 단원 한 번에 출제 = 구간(유형)마다 따로 H WORK 과제 (2026-11-19 원장님 "지문 단원을 한꺼번에 출제해도 구간별로 따로따로 입력하고 채점")
+ * 과제 이름 'Shuefit 독서: 지문 · 01 OX 쉬움 (17)'. 배정도 구간 과제 모두에 한 번에. */
+var UNIT=null;
+function unitBase(es){ return 'Shuefit 독서: '+String(es[0].title).split(/\s*[\/,]\s*/)[0]; }
+function partLabel(x){ return x.tag+((x.lv&&x.lv!=='공통'&&x.lv!=='교과서')?' '+x.lv:''); }
+function unitParts(es){
+  var out=[], base=unitBase(es);
+  es.forEach(function(x){ var l=partLabel(x), g=out[out.length-1]; if(!g||g.label!==l){ g={label:l,list:[]}; out.push(g); } g.list.push(x); });
+  out.forEach(function(g,i){ g.code=base+' · '+String(i+1).padStart(2,'0')+' '+g.label+' ('+g.list.length+')'; });
+  return out;
+}
+function selIds(){ return SEL.map(function(x){return x.id}).join(','); }
+function isUnitSel(){
+  if(!CUR||!SEL.length||SEL.some(function(x){return x.gid!==CUR.id})) return false;
+  return selIds()===unitEntries().map(function(x){return x.id}).join(',');
+}
+function unitValid(){ return !!UNIT && UNIT.teacher===$('#hTeacher').value.trim() && UNIT.ids===selIds(); }
+function saveUnit(t){
+  var parts=unitParts(SEL), done=[], chain=Promise.resolve(true);
+  parts.forEach(function(p,i){ chain=chain.then(function(ok){
+    if(!ok) return false;
+    setMsg('','출제 중… ('+(i+1)+' / '+parts.length+') '+p.code);
+    return saveHw({code:p.code, list:p.list, quiet:true}).then(function(r){ if(r) done.push(p); return r; });
+  }); });
+  return chain.then(function(ok){
+    UNIT=ok?{teacher:t, ids:selIds(), parts:done.map(function(p){return {code:p.code,n:p.list.length}})}:null;
+    if(ok){
+      setMsg('ok','구간 '+done.length+'개로 나눠 출제했습니다 — '+t+'\n'+done.map(function(p){return '· '+p.code}).join('\n')+'\n아래에서 구간 과제 모두를 한 번에 배정할 수 있어요.');
+      if(window.shuegukActivity) shuegukActivity('Shuefit 독서', 'H WORK 출제', unitBase(SEL), '구간 '+done.length+'개 · '+SEL.length+'문항', false);
+    } else if(done.length) setMsg('bad','구간 '+done.length+'개까지 출제하고 멈췄습니다. 위 안내를 확인한 뒤 다시 눌러 주세요 — 이미 낸 구간은 같은 이름으로 덮어씁니다.');
+    return ok;
+  });
 }
 function addSel(x){
   var last=-1; SEL.forEach(function(y,i){ if(y.pkey===x.pkey) last=i; });
@@ -1275,8 +1309,10 @@ function hwSavedSame(teacher, code){
   if(!h||!h.data||!h.data.rd) return false;
   var rd=h.data.rd; return Object.keys(rd).length===SEL.length && SEL.every(function(x,i){return Number(rd[i+1])===x.id});
 }
-function saveHw(){
-  var teacher=$('#hTeacher').value.trim(), code=$('#pTitle').value.trim();
+function saveHw(opt){
+  opt=opt||{};
+  if(!opt.list && isUnitSel()){ var tt=$('#hTeacher').value.trim(); if(!tt){ toast('출제 선생님을 적어 주세요'); $('#hTeacher').focus(); return Promise.resolve(false); } return saveUnit(tt); }
+  var SEL=opt.list||window.__SELREAL(), teacher=$('#hTeacher').value.trim(), code=opt.code||$('#pTitle').value.trim();
   if(!SEL.length){ toast('문항을 먼저 담아 주세요'); return Promise.resolve(false); }
   if(!teacher){ toast('출제 선생님을 적어 주세요'); $('#hTeacher').focus(); return Promise.resolve(false); }
   if(!code){ toast('제목을 적어 주세요'); $('#pTitle').focus(); return Promise.resolve(false); }
@@ -1288,7 +1324,8 @@ function saveHw(){
   if(same){
     if(!(same.data&&same.data.rd)){ setMsg('bad','같은 선생님·제목의 다른 H WORK 과제가 이미 있습니다. 제목을 바꿔 주세요.'); return Promise.resolve(false); }
     pre=sb('/hwork_submissions?select=id&teacher=eq.'+encodeURIComponent(teacher)+'&code=eq.'+encodeURIComponent(code)+'&limit=1000').catch(function(){return []}).then(function(r){
-      return confirm(r.length?('이미 학생 '+r.length+'명이 제출한 과제입니다. 문항을 바꾸면 지난 제출과 번호가 어긋납니다.\n그래도 덮어쓸까요?'):'같은 제목의 과제를 이 문항으로 바꿀까요?'); });
+      if(!r.length && opt.quiet) return true;
+      return confirm(r.length?('「'+code+'」은(는) 이미 학생 '+r.length+'명이 제출한 과제입니다. 문항을 바꾸면 지난 제출과 번호가 어긋납니다.\n그래도 덮어쓸까요?'):'같은 제목의 과제를 이 문항으로 바꿀까요?'); });
   }
   var btn=$('#saveBtn');
   return pre.then(function(go){
@@ -1313,12 +1350,14 @@ function saveHw(){
       .then(function(){
         if(same) same.data=data; else ALLHW.push({teacher:teacher,code:code,data:data});
         rebuildUsed(); drawLoad(); if(CUR) drawList();
-        setMsg('ok','출제했습니다 — '+teacher+' / '+code+' ('+SEL.length+'문항)\n아래에서 바로 학생에게 배정할 수 있어요.');
-        if(window.shuegukActivity) shuegukActivity('Shuefit 독서', 'H WORK 출제', code, SEL.length+'문항', false);
+        if(!opt.quiet){
+          setMsg('ok','출제했습니다 — '+teacher+' / '+code+' ('+SEL.length+'문항)\n아래에서 바로 학생에게 배정할 수 있어요.');
+          if(window.shuegukActivity) shuegukActivity('Shuefit 독서', 'H WORK 출제', code, SEL.length+'문항', false);
+        }
         return true;
       })
       .catch(function(e){ setMsg('bad','출제하지 못했습니다. ('+e.message+')'); return false; })
-      .then(function(r){ btn.disabled=!SEL.length; btn.textContent='H WORK 과제로 출제'; return r; });
+      .then(function(r){ btn.disabled=!window.__SELREAL().length; btn.textContent='H WORK 과제로 출제'; return r; });
   });
 }
 $('#saveBtn').onclick=function(){ saveHw(); };
@@ -1347,6 +1386,7 @@ $('#hwAssignBtn').onclick=function(){
   var sel=HWP_SEL||(HWP&&HWP.getSelection());
   if(!sel){ hwaMsg('bad','배정할 학생을 먼저 골라 주세요.'); return; }
   var who=sel.summary||'고른 학생', btn=$('#hwAssignBtn'); hwaMsg('','');
+  if(isUnitSel()) return assignUnit(teacher, sel, who, btn);
   var pre;
   if(!hwSavedSame(teacher, code)){
     if(!confirm('아직 이 문항으로 출제하지 않았습니다.\nH WORK 과제로 출제한 뒤 '+who+'에게 배정할까요?')) return;
@@ -1367,6 +1407,34 @@ $('#hwAssignBtn').onclick=function(){
       .then(function(){ btn.disabled=!SEL.length; btn.textContent='이 학생들에게 배정'; });
   });
 };
+function assignUnit(teacher, sel, who, btn){
+  var pre;
+  if(!unitValid()){
+    if(!confirm('아직 이 단원을 구간별로 출제하지 않았습니다.\n구간 '+unitParts(SEL).length+'개로 나눠 출제한 뒤 '+who+'에게 배정할까요?')) return;
+    pre=saveUnit(teacher);
+  } else { if(!confirm('「'+unitBase(SEL)+'」 구간 과제 '+UNIT.parts.length+'개를 '+who+'에게 배정할까요?')) return; pre=Promise.resolve(true); }
+  pre.then(function(ok){
+    if(!ok){ hwaMsg('bad','출제하지 못해 배정하지 않았습니다. 위 안내를 확인해 주세요.'); return; }
+    btn.disabled=true; var parts=UNIT.parts, n=0, fail=[], chain=Promise.resolve();
+    parts.forEach(function(p,i){ chain=chain.then(function(){
+      btn.textContent='배정 중… ('+(i+1)+' / '+parts.length+')';
+      return fetch(REPORT_API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+        body:JSON.stringify({action:'addAssignment',pw:'sh',tool:'H WORK',item:teacher+' / '+p.code,type:sel.type,target:sel.target,due:$('#hwDue').value,memo:$('#hwMemo').value.trim()})})
+        .then(function(r){return r.json()}).then(function(j){ if(j.result==='success') n++; else fail.push(p.code); })
+        .catch(function(){ fail.push(p.code); });
+    }); });
+    return chain.then(function(){
+      if(n) hwResyncAssign();
+      if(fail.length) hwaMsg('bad','구간 '+n+'개는 배정했고 '+fail.length+'개는 배정하지 못했습니다:\n'+fail.join('\n')+'\n다시 누르면 같은 학생에게 한 번 더 배정되니 H WORK 배정하기에서 확인해 주세요.');
+      else {
+        hwaMsg('ok','✓ 구간 과제 '+n+'개를 배정했습니다 — '+who+'\n학생 페이지 H WORK 목록에 구간마다 따로 보여요.');
+        if(HWP) HWP.reset(); HWP_SEL=null; $('#hwMemo').value='';
+      }
+      if(n && window.shuegukActivity) shuegukActivity('Shuefit 독서', 'H WORK 배정', unitBase(SEL), '구간 '+n+'개 · '+who, false);
+    }).then(function(){ btn.disabled=!SEL.length; btn.textContent='이 학생들에게 배정'; });
+  });
+}
+window.__SELREAL=function(){return SEL};
 drawSel(); loadHw();
 (function(){ try{ if(window.shuegukTeacherName) shuegukTeacherName().then(function(n){ if(n&&!$('#hTeacher').value){ $('#hTeacher').value=n; rebuildUsed(); drawLoad(); drawPrint(); if(CUR) drawList(); } }).catch(function(){}); }catch(e){} })();
 
