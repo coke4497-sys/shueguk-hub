@@ -17,6 +17,11 @@ const P = [
   { id: '2103고2-가상진화', title: '가상 진화 이야기', src: '2103고2', srcname: '2021학년도 3월 고2', kind: '교육청', area: '인문', grade: '고2', ord: 0,
     plain: '가상 진화 이야기 진화는 천천히 일어난다.',
     data: { passage: { blocks: [{ p: '진화는 천천히 일어난다.' }] }, notes: [], blanks: { lines: [], answers: {} }, levels: ['기본'] }, imgs: {} },
+  { id: '교과서-가상교과서-5-1-1', title: '가상 교과서 글', src: '가상교과서5-(1)-1', srcname: '가상 교과서 5-(1)-1', kind: '교과서', area: '', grade: '', ord: 0,
+    plain: '가상 교과서 글 건축물은 문화를 담는다.',
+    data: { passage: { blocks: [{ p: '건축물은 문화를 담는다.' }, { p: '소제목', sub: 1 }, { tbl: [['木', '本'], ['나무 목', '근본 본']] }, { p: '그림 설명', cap: 1 }, { p: '- 작가, &lt;가상 글&gt;', src: 1 }] },
+            notes: [{ p: '[1문단] 건축물' }], analysis: [{ p: '1. 기본정보' }], keys: [{ p: '[맞는 선택지와 근거 모음]' }],
+            blanks: { lines: [{ p: '① 건축물은 ( 1      )를 담는다.' }], answers: { '1': '문화' } }, book: '가상 교과서', unit: '5-(1)-1', author: '작가', levels: ['교과서'] }, imgs: {} },
 ];
 const ch = (stem, ans, extra) => Object.assign({ stem, opts: ['가', '나', '다', '라', '마'], ans, expl: '해설입니다.' }, extra || {});
 const I = [
@@ -36,6 +41,13 @@ const I = [
   { passage_id: P[0].id, level: '기본', code: '99', sec_name: '독립 밑줄 고난도수능형', v: 1, ord: 1, kind: 'choice', data: ch('㉠의 기능은?', '③', { passage: { blocks: [{ p: '독립 지문 글' }] } }), plain: '' },
   { passage_id: P[0].id, level: '실력', code: '02', sec_name: 'OX', v: 1, ord: 1, kind: 'ox', data: { stem: '실력 OX 문항', ans: 'O', expl: '' }, plain: '' },
   { passage_id: P[1].id, level: '공통', code: '00', sec_name: '원 기출', v: 1, ord: 1, kind: 'choice', data: ch('진화 문항?', '①'), plain: '진화' },
+  { passage_id: P[2].id, level: '교과서', code: '11', sec_name: 'OX 쉬움', v: 1, ord: 1, kind: 'ox', data: { stem: '건축물은 문화를 담는다.', ans: 'O', expl: '맞다' }, plain: '' },
+  { passage_id: P[2].id, level: '교과서', code: '12', sec_name: 'OX 어려움', v: 1, ord: 1, kind: 'ox', data: { stem: '건축물은 문화와 무관하다.', ans: 'X', expl: '틀리다' }, plain: '' },
+  { passage_id: P[2].id, level: '교과서', code: '13', sec_name: '모의고사형', v: 1, ord: 1, kind: 'choice', data: ch('교과서 모의고사형?', '②'), plain: '' },
+  { passage_id: P[2].id, level: '교과서', code: '13', sec_name: '모의고사형', v: 1, ord: 2, kind: 'choice', data: ch('교과서 모의고사형 둘?', '③'), plain: '' },
+  { passage_id: P[2].id, level: '교과서', code: '15', sec_name: '고난도 보기형', v: 1, ord: 1, kind: 'choice', data: ch('교과서 고난도?', '④'), plain: '' },
+  { passage_id: P[2].id, level: '교과서', code: '16', sec_name: '1등급 보기형', v: 1, ord: 1, kind: 'choice', data: ch('교과서 1등급?', '⑤'), plain: '' },
+  { passage_id: P[2].id, level: '교과서', code: '19', sec_name: '키워드 빈칸', v: 1, ord: 1, kind: 'blank', data: { stem: '서술하시오.', model: '건축물은 (     )를 담는다.', ans: '문화', expl: '' }, plain: '' },
 ];
 
 (async () => {
@@ -69,10 +81,10 @@ const I = [
   });
   await pg.goto(PAGE);
   await pg.waitForSelector('#res .rc');
-  t('목록 카드 2개', (await pg.$$('#res .rc')).length === 2);
+  t('목록 카드 3개', (await pg.$$('#res .rc')).length === 3);
   t('교사 신분으로 읽음', reqs.every(r => r.auth === 'Bearer tok'));
   t('최근 출처 먼저(order=src.desc)', reqs[0].u.includes('order=src.desc'));
-  t('영역 알약', (await pg.$$eval('#areas .chip', a => a.map(x => x.innerText.replace(/\s+/g, '')))).join() === '전체영역2,인문1,사회1');
+  t('영역 알약', (await pg.$$eval('#areas .chip', a => a.map(x => x.innerText.replace(/\s+/g, '')))).join() === '전체영역3,인문1,사회1,교과서1');
   await pg.click('[data-area="인문"]');
   t('영역 거르기', (await pg.$$('#res .rc')).length === 1 && (await pg.textContent('#res')).includes('가상 진화'));
   await pg.click('[data-area=""]');
@@ -129,6 +141,31 @@ const I = [
   // 다른 지문(실력 없음) — 난도 알약 잠김
   await pg.click('#res .rc:nth-child(2)'); await pg.waitForFunction(() => /가상 진화/.test(document.querySelector('#pmeta').textContent));
   t('실력 없는 지문은 실력 잠김', await pg.$eval('[data-lv="실력"]', e => e.disabled));
+
+  // 교과서 지문(080) — 난도 없음, 교과서 유형, 시험지 문항 고르기
+  await pg.click('#areas [data-area="교과서"]');
+  t('교과서 알약으로 거름', (await pg.$$('#res .rc')).length === 1 && /교과서/.test(await pg.textContent('#res .rc')));
+  await pg.click('#res .rc'); await pg.waitForFunction(() => /가상 교과서 글/.test(document.querySelector('#pmeta').textContent));
+  t('교과서는 난도 알약 없음', (await pg.$$('#pmeta [data-lv]')).length === 0 && /작가/.test(await pg.textContent('#pmeta')));
+  t('교과서 유형 알약', (await pg.$$eval('#tchips .chip', a => a.map(x => x.dataset.t))).join() === 'notes,analysis,11,12,13,14,15,16,17,18,19,10,keys');
+  t('처음 유형 = OX 쉬움', await pg.$eval('#tchips .chip.on', e => e.dataset.t) === '11');
+  t('지문 소제목·그림 표·설명·출처', (await pg.$$('#pas p.sub')).length === 1 && (await pg.$$('#pas .gridt')).length === 1 && (await pg.$$('#pas p.cap')).length === 1 && (await pg.$$('#pas p.src')).length === 1);
+  await pg.click('#tchips [data-t="analysis"]'); t('지문 분석', /기본정보/.test(await pg.textContent('#list')));
+  await pg.click('#tchips [data-t="keys"]'); t('정오답 선지 근거', /근거 모음/.test(await pg.textContent('#list')));
+  t('시험지 문항 고르기 보임', await pg.$eval('#exsetw', e => e.classList.contains('on')));
+  await pg.evaluate(() => window.__printDoc('exam', false));
+  t('교과서 시험지 — 모의고사형 2', (await pg.$$('#print .q')).length === 2 && (await pg.textContent('#print .ins')).includes('[1~2]'));
+  await pg.evaluate(() => document.body.classList.remove('printing'));
+  await pg.selectOption('#exset', '15,16');
+  await pg.evaluate(() => window.__printDoc('exam', true));
+  t('교과서 시험지 — 고난도·1등급 2, 교사용 정답', (await pg.$$('#print .q')).length === 2 && (await pg.$$('#print .opts li.ok')).length === 2);
+  await pg.evaluate(() => document.body.classList.remove('printing'));
+  await pg.evaluate(() => window.__printDoc('study', true));
+  t('교과서 학습자료 — OX 2·키워드 빈칸·문단 정리 빈칸 답', (await pg.$$('#print .oxl')).length === 2 && /문화/.test(await pg.textContent('#print')));
+  await pg.evaluate(() => document.body.classList.remove('printing'));
+  await pg.click('#areas [data-area=""]'); await pg.click('#res .rc:nth-child(1)');
+  await pg.waitForFunction(() => /가상 시장/.test(document.querySelector('#pmeta').textContent));
+  t('모의고사 지문으로 돌아가면 난도·원 기출', (await pg.$$('#pmeta [data-lv]')).length === 2 && await pg.$eval('#tchips .chip.on', e => e.dataset.t) === 'orig' && !(await pg.$eval('#exsetw', e => e.classList.contains('on'))));
 
   const m = await b.newPage({ viewport: { width: 390, height: 844 } });
   await m.route('**/*', r => pg.context() && r.request().url().startsWith('file://') ? r.continue() : (/rest\/v1\/reading_passages/.test(r.request().url()) && !/id=eq/.test(r.request().url()) ? r.fulfill({ json: P }) : r.fulfill({ status: 200, body: /auth/.test(r.request().url()) ? '{"access_token":"tok"}' : '[]' })));
