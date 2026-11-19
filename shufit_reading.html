@@ -187,6 +187,8 @@ body.printing .toast{display:none}
 .q .qh .pick.on{background:#4a3f63;color:#fff}
 .q .qh .used{font-size:11px;color:#9b8046;background:#f9efd0;border-radius:999px;padding:2px 8px}
 .q.on{outline:1.5px solid var(--pu2);background:#faf7fc}
+.nqnote{background:#f3eff8;color:#4a3f63;border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.6;margin:0 0 10px}
+.nqnote .btn{margin-left:6px;padding:4px 12px;font-size:12px}
 .lhead{display:flex;justify-content:flex-end;margin:-4px 0 8px}
 .selc{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow:auto}
 .selc:empty::before{content:'아직 고른 문항이 없습니다. 위 문항 카드의 [+ 담기]를 누르세요. 다른 지문의 문항도 함께 담을 수 있어요.';font-size:13px;color:var(--ink2)}
@@ -381,9 +383,18 @@ body.printing .toast{display:none}
         <div class="chips" id="pchips"></div>
         <div class="ord" id="pord"></div>
         <div class="acts">
+          <button class="btn ghost" type="button" data-pkall="1">모두 고르기</button>
+          <button class="btn ghost" type="button" data-pkall="0">모두 빼기</button>
           <button class="btn" data-pr="pick" id="pkS">골라서 인쇄 (학생용)</button>
           <button class="btn" data-pr="pick" data-t="1" id="pkT">골라서 인쇄 (교사용)</button>
         </div>
+        <div class="pl" style="margin-top:12px"><b>이 단원 한 번에</b>이 지문에 있는 것을 한 번에 인쇄하거나 H WORK로 출제합니다. 따로 하려면 위 [골라서 인쇄]나 문항마다 [+ 담기]를 쓰세요.</div>
+        <div class="acts">
+          <button class="btn" data-pr="all" id="paS">모두 인쇄 (학생용)</button>
+          <button class="btn" data-pr="all" data-t="1" id="paT">모두 인쇄 (교사용)</button>
+          <button class="btn main" type="button" id="unitHw">모두 H WORK 출제</button>
+        </div>
+        <div class="ord" id="unitHwNote"></div>
       </div>
     </div>
   </div>
@@ -553,6 +564,7 @@ function drawP(){
   if(S.t!=='hits' && !types().some(function(t){return t[0]===S.t})) S.t=isTB()?'11':'orig';
   drawT();
   drawPick();
+  drawUnitHw();
 }
 function cnt(c){ if(NONQ.indexOf(c)>=0) return ''; return itemsOf(c).length; }
 function hitItems(){
@@ -584,6 +596,7 @@ function drawList(){
     if(c==='99') h='<div class="hint">이 유형은 밑줄 위치가 다른 독립 지문을 씁니다. 왼쪽 지문이 바뀌어요.</div>'+h;
   }
   $('#pas').innerHTML=passageHtml(P);
+  if(NONQ.indexOf(c)>=0) h='<div class="nqnote">'+esc(name)+'은(는) 문항이 아니어서 [+ 담기]로 문제지에 넣을 수 없어요. 아래 인쇄 칸의 [골라서 인쇄]나 [이 단원 모두 인쇄]로 함께 인쇄합니다. <button class="btn ghost" type="button" data-pkgo="'+c+'">'+(pickSel().indexOf(c)>=0?'골라서 인쇄로 가기':'골라서 인쇄에 넣기')+'</button></div>'+h;
   $('#list').innerHTML=(LIST_IDS.length?'<div class="lhead"><button class="btn ghost" type="button" id="allBtn"></button></div>':'')+h;
   drawAllBtn();
   var q=(Q.q||'').trim(); if(q){ markIn($('#pas'),q); markIn($('#list'),q); }
@@ -597,9 +610,12 @@ document.addEventListener('click',function(e){
   if(b.dataset.mv){ selMove(Number(b.dataset.i), Number(b.dataset.mv)); return; }
   if(b.dataset.rm!=null){ SEL.splice(Number(b.dataset.rm),1); selChanged(); return; }
   if(b.id==='allBtn'){ pickAll(); return; }
+  if(b.id==='unitHw'){ unitHw(); return; }
   if(b.dataset.lv){S.lv=b.dataset.lv;drawP();}
   else if(b.dataset.t && !b.dataset.pr){S.t=b.dataset.t;drawT();}
   else if(b.dataset.pk){ pickToggle(b.dataset.pk); }
+  else if(b.dataset.pkall){ pickAllTypes(b.dataset.pkall==='1'); }
+  else if(b.dataset.pkgo){ var sl=pickSel(); if(sl.indexOf(b.dataset.pkgo)<0) sl.push(b.dataset.pkgo); drawPick(); drawList(); var bx=$('.pkbox'); if(bx&&bx.scrollIntoView) bx.scrollIntoView({behavior:'smooth',block:'center'}); }
   else if(b.dataset.pr){ doPrint(b.dataset.pr, !!b.dataset.t); }
 });
 var PAGE_A4="@page{size:A4;margin:13mm 12mm 14mm;@bottom-center{content:counter(page) ' / ' counter(pages);font-family:'Gowun Dodum',sans-serif;font-size:8.5pt;color:#555}}", PAGE_BK='@page{size:A4;margin:0}';
@@ -617,6 +633,7 @@ function printDoc(kind, teacher){
   var g=CUR, h='', no=0;
   var o={print:1, teacher:teacher};
   if(kind==='pick') return printPick(teacher);
+  if(kind==='all') return printPick(teacher, true);
   if(isTB()) return printTB(kind, teacher);
   if(kind==='study'){
     h+=headHtml('study',teacher);
@@ -704,7 +721,7 @@ function pickHas(c){
 }
 function pickSel(){ var k=isTB()?'tb':'mg'; if(!PKSEL[k]) PKSEL[k]=pickDefault(); return PKSEL[k]; }
 function pickOn(){ var sel=pickSel(); return pickTypes().map(function(t){return t[0]}).filter(function(c){ return sel.indexOf(c)>=0 && pickHas(c); }); }
-function pickToggle(c){ var sel=pickSel(), i=sel.indexOf(c); if(i>=0) sel.splice(i,1); else sel.push(c); drawPick(); }
+function pickToggle(c){ var sel=pickSel(), i=sel.indexOf(c); if(i>=0) sel.splice(i,1); else sel.push(c); drawPick(); if(NONQ.indexOf(S.t)>=0) drawList(); }
 function drawPick(){
   if(!CUR || !$('#pchips')) return;
   var sel=pickSel();
@@ -714,8 +731,10 @@ function drawPick(){
   $('#pord').textContent=on.length?('인쇄 순서: '+on.map(pickName).join(' → ')+(isTB()?'':' · 난도 '+S.lv)):'넣을 것을 하나 이상 골라 주세요.';
   $('#pkS').disabled=$('#pkT').disabled=!on.length;
 }
-function printPick(teacher){
-  var g=CUR, on=pickOn(), h='', o={print:1, teacher:teacher}, ex=[];
+function pickEvery(){ return pickTypes().map(function(t){return t[0]}).filter(pickHas); }
+function pickAllTypes(on){ var k=isTB()?'tb':'mg'; PKSEL[k]=on?pickEvery():[]; drawPick(); }
+function printPick(teacher, all){
+  var g=CUR, on=all?pickEvery():pickOn(), h='', o={print:1, teacher:teacher}, ex=[];
   if(!on.length) return;
   h+=headHtml('study',teacher);
   on.forEach(function(c){
@@ -827,7 +846,7 @@ function doPrint(kind, teacher){
   if(!CUR) return;
   printDoc(kind, teacher);
   if(kind==='pick' && !pickOn().length) return;
-  document.title=('Shuefit 독서 '+CUR.title+' '+(isTB()?(kind==='exam'?exSetName():''):S.lv)+' '+(kind==='exam'?'시험지':kind==='pick'?pickOn().map(pickName).join('·'):'학습자료')+(teacher?' (교사용)':'')).replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim();
+  document.title=('Shuefit 독서 '+CUR.title+' '+(isTB()?(kind==='exam'?exSetName():''):S.lv)+' '+(kind==='exam'?'시험지':kind==='pick'?pickOn().map(pickName).join('·'):kind==='all'?'전체':'학습자료')+(teacher?' (교사용)':'')).replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim();
   Promise.all([waitImgs($('#print')), waitFonts()]).then(function(){ setTimeout(function(){ window.print(); },50); });
 }
 waitFonts();
@@ -871,6 +890,32 @@ function findEntry(g,id){
     out=mkEntry(g,it,tn,sx.code==='99'?(it.passage||sx.passage):null);
   }); }); });
   return out;
+}
+/* 이 단원 모두 출제 — 지문의 모든 문항(모의고사 지문은 고른 난도 + 원 기출)을 담아 H WORK 과제로 */
+function unitEntries(){
+  var g=CUR, out=[];
+  types().forEach(function(t){ if(NONQ.indexOf(t[0])>=0) return;
+    itemsOf(t[0]).forEach(function(x){ if(x.it.id!=null) out.push(mkEntry(g,x.it,t[1],t[0]==='99'?(x.it.passage||x.pas):null)); }); });
+  return out;
+}
+function drawUnitHw(){
+  var b=$('#unitHw'); if(!b||!CUR) return;
+  var n=unitEntries().length; b.disabled=!n;
+  $('#unitHwNote').textContent=n?('H WORK 출제 = 이 지문'+(isTB()?'':'('+S.lv+' + 원 기출)')+' 문항 '+n+'개를 고른 문항에 담아 한 과제로 냅니다. 제목·출제 선생님은 아래 5번 칸 그대로예요.'):'이 지문에는 출제할 문항이 없습니다.';
+}
+function unitHw(){
+  if(!CUR) return;
+  var es=unitEntries(); if(!es.length) return;
+  var others=SEL.filter(function(x){return x.gid!==CUR.id}).length;
+  if(others && !confirm('고른 문항에 다른 지문 문항 '+others+'개가 담겨 있습니다.\n비우고 이 단원 문항만 출제할까요?')) return;
+  SEL=[]; es.forEach(addSel); selChanged(); setMsg('','');
+  var tb=document.querySelector('#xTabs [data-x="hw"]'); if(tb) tb.click();
+  var xc=$('#xCard'); if(xc&&xc.scrollIntoView) xc.scrollIntoView({behavior:'smooth',block:'start'});
+  setTimeout(function(){
+    var t=$('#hTeacher').value.trim(), c=$('#pTitle').value.trim();
+    if(!t||!c){ toast(!t?'출제 선생님을 적은 뒤 [H WORK 과제로 출제]를 눌러 주세요':'제목을 적은 뒤 [H WORK 과제로 출제]를 눌러 주세요'); return; }
+    if(confirm('「'+CUR.title+'」 문항 '+SEL.length+'개를 H WORK 과제로 출제할까요?\n출제 선생님: '+t+'\n과제 이름: '+c)) saveHw();
+  }, 350);
 }
 function addSel(x){
   var last=-1; SEL.forEach(function(y,i){ if(y.pkey===x.pkey) last=i; });
