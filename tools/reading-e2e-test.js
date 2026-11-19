@@ -302,6 +302,7 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.waitForFunction(() => document.querySelectorAll('#print .sheet').length > 0, null, { timeout: 8000 });
   const usheets = (await pg.$$('#print .sheet')).length;
   t('단원 책자 — 표지·뒤표지·4의 배수', usheets % 4 === 0 && !!(await pg.$('#print .cover')) && !!(await pg.$('#print .bkback')) && /단원 전체/.test(await pg.textContent('#print .cover')), usheets);
+  t('단원 책자 앞표지 — 담긴 것 목록이 학교·이름 칸을 덮지 않음', await pg.evaluate(() => { const c = document.querySelector('#print .cover'); return c.querySelector('.cv-list').getBoundingClientRect().bottom <= c.querySelector('.cv-name').getBoundingClientRect().top; }));
   t('단원 책자 — 모든 묶음·문항·정답과 해설', (await pg.$$eval('#print .sech', a => a.map(x => x.textContent))).join() === '지문,문단별 정리,지문 분석,OX 쉬움,OX 어려움,모의고사형,고난도 보기형,1등급 보기형,키워드 빈칸,문단 정리 빈칸,정오답 선지 근거'
     && (await pg.$$('#print .sheet .q')).length === 5 && /정답과 해설/.test(await pg.textContent('#print')) && /문화/.test(await pg.textContent('#print')),
     JSON.stringify([await pg.$$eval('#print .sech', a => a.map(x => x.textContent)), (await pg.$$('#print .sheet .q')).length]));

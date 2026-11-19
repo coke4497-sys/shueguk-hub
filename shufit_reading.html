@@ -257,6 +257,9 @@ body.printing .toast{display:none}
 .cv-u i{font-style:normal;flex:none;min-width:8mm;height:6.5mm;border-radius:1.6mm;background:#8db8ad;color:#fff;display:flex;align-items:center;justify-content:center;font-size:8pt;padding:0 1.4mm}
 .cv-name{position:absolute;left:16mm;right:16mm;bottom:22mm;display:flex;gap:10mm;font-size:9pt;color:#5f7a73}
 .cv-name div{flex:1;border-bottom:.3mm solid #c3dcd5;padding-bottom:5mm}
+.cv-unit .cv-list{grid-template-columns:1fr 1fr 1fr;gap:2mm}
+.cv-unit .cv-u{padding:1.4mm 2.4mm;font-size:8.5pt;gap:2mm}
+.cv-unit .cv-u i{height:5.5mm;font-size:7.5pt}
 .bk .bpage.bkback{background:#e3efeb;display:flex;align-items:center;justify-content:center;text-align:center}
 .bk-in img{width:46mm;height:46mm;display:block;margin:0 auto 4mm}
 .bk-in b{display:block;font-family:'Sacramento',cursive;font-weight:400;font-size:44pt;color:#5f9488;line-height:1.4}
@@ -790,7 +793,7 @@ function unitBooklet(teacher){
       +'<div class="cv-tag">독서 · '+esc(isTB()?'교과서':(g.area||'단원'))+'</div><div class="cv-series">Shuefit 독서 시리즈 · 너에게 꼭 맞춘 독서 학습</div>'
       +'<div class="cv-title">Shuefit 독서<br>'+esc(g.title)+'</div><div class="cv-sub">'+esc(g.srcname)+(g.author?' · '+esc(g.author):'')+' · 단원 전체 · '+nq+'문항'+(teacher?' · 정답과 해설':'')+'</div>'
       +'<img class="cv-sk" src="assets/sk-study.png" alt=""></div>'
-      +'<div class="cv-bot"><h4>이 책에 담긴 것</h4><div class="cv-list">'+on.map(function(c){return '<div class="cv-u"><i>'+esc(pickName(c))+'</i>'+(NONQ.indexOf(c)<0&&c!=='pas'?cnt(c)+'문항':'')+'</div>'}).join('')+'</div></div>'
+      +'<div class="cv-bot cv-unit"><h4>이 책에 담긴 것</h4><div class="cv-list">'+on.map(function(c){return '<div class="cv-u"><i>'+esc(pickName(c))+'</i>'+(NONQ.indexOf(c)<0&&c!=='pas'?cnt(c)+'문항':'')+'</div>'}).join('')+'</div></div>'
       +'<div class="cv-name"><div>학교</div><div>이름</div></div>';
     return p;
   };
