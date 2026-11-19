@@ -163,8 +163,24 @@ const I = [
   await pg.evaluate(() => window.__printDoc('study', true));
   t('교과서 학습자료 — OX 2·키워드 빈칸·문단 정리 빈칸 답', (await pg.$$('#print .oxl')).length === 2 && /문화/.test(await pg.textContent('#print')));
   await pg.evaluate(() => document.body.classList.remove('printing'));
+  // 골라서 인쇄 — 기본은 지문·문단별 정리·OX 쉬움·OX 어려움·문단 정리 빈칸
+  const pk = async () => (await pg.$$eval('#pchips .chip.on', a => a.map(x => x.dataset.pk))).join();
+  t('골라서 인쇄 기본 선택(교과서)', await pk() === 'pas,notes,11,12,10', await pk());
+  t('문항 없는 유형은 잠김', await pg.$eval('#pchips [data-pk="14"]', e => e.disabled));
+  await pg.click('#pchips [data-pk="12"]'); await pg.click('#pchips [data-pk="13"]');
+  t('알약 켜고 끄기', await pk() === 'pas,notes,11,13,10' && /지문 → 문단별 정리 → OX 쉬움 → 모의고사형 → 문단 정리 빈칸/.test(await pg.textContent('#pord')));
+  await pg.evaluate(() => window.__printDoc('pick', false));
+  t('골라서 인쇄 — 고른 순서대로 한 파일', (await pg.$$eval('#print .sech', a => a.map(x => x.textContent))).join() === '지문,문단별 정리,OX 쉬움,모의고사형,문단 정리 빈칸'
+    && (await pg.$$('#print .oxl')).length === 1 && (await pg.$$('#print .q')).length === 2 && !(await pg.$$('#print .ansbox')).length);
+  await pg.evaluate(() => document.body.classList.remove('printing'));
+  await pg.evaluate(() => window.__printDoc('pick', true));
+  t('골라서 인쇄 교사용 — OX 답·빈칸 답·정답 표시·해설', /문화/.test(await pg.textContent('#print')) && (await pg.$$('#print .opts li.ok')).length === 2 && (await pg.$$('#print .ansbox')).length === 1);
+  await pg.evaluate(() => document.body.classList.remove('printing'));
+  for (const c of ['pas', 'notes', '11', '13', '10']) await pg.click('#pchips [data-pk="' + c + '"]');
+  t('하나도 안 고르면 버튼 잠김', await pg.$eval('#pkS', e => e.disabled) && /하나 이상/.test(await pg.textContent('#pord')));
   await pg.click('#areas [data-area=""]'); await pg.click('#res .rc:nth-child(1)');
   await pg.waitForFunction(() => /가상 시장/.test(document.querySelector('#pmeta').textContent));
+  t('모의고사 지문 골라서 인쇄 기본', (await pg.$$eval('#pchips .chip.on', a => a.map(x => x.dataset.pk))).join() === 'pas,notes,02,10');
   t('모의고사 지문으로 돌아가면 난도·원 기출', (await pg.$$('#pmeta [data-lv]')).length === 2 && await pg.$eval('#tchips .chip.on', e => e.dataset.t) === 'orig' && !(await pg.$eval('#exsetw', e => e.classList.contains('on'))));
 
   const m = await b.newPage({ viewport: { width: 390, height: 844 } });

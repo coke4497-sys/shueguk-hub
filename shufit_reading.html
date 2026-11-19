@@ -58,6 +58,15 @@ body{margin:0;background:var(--paper);color:var(--ink);font-family:'Gowun Dodum'
 .pas .gridt{width:auto;margin:6px auto 2px}
 .exset{display:none;align-items:center;gap:6px;font-size:13px;color:var(--ink2)}
 .exset.on{display:inline-flex}
+.pick{margin-top:14px;padding-top:12px;border-top:1px solid #E5EDE8}
+.pick .pl{font-size:13px;color:var(--ink2);margin-bottom:8px}
+.pick .pl b{font-family:'Do Hyeon';font-weight:400;font-size:15px;color:#2A332F;margin-right:6px}
+.pick .chips{margin-bottom:10px}
+.chip.pk{background:#fff;border:1px solid #DDE6E1}
+.chip.pk.on{background:#EDE4F4;color:#4a3f63;border-color:#D6C9E4}
+.chip.pk.on:before{content:'✓ '}
+.chip.pk:disabled{opacity:.4;cursor:default}
+.pick .ord{font-size:12px;color:#5C6A64;margin:-2px 0 10px}
 .exset select{font:inherit;padding:4px 6px;border:1px solid #cfd9d3;border-radius:8px;background:#fff}
 .q{background:var(--s3);border-radius:16px;padding:14px 16px;margin-bottom:10px;font-family:'Gowun Batang',serif;font-size:14.5px;line-height:1.75}
 .q .qh{display:flex;gap:6px;align-items:center;margin-bottom:6px;font-family:'Gowun Dodum';font-size:12px;color:var(--ink2)}
@@ -292,12 +301,22 @@ body.printing #print{display:block}
         <button class="btn" data-pr="exam">시험지 (학생용)</button>
         <button class="btn" data-pr="exam" data-t="1">시험지 (교사용)</button>
       </div>
+      <div class="pick">
+        <div class="pl"><b>골라서 인쇄</b>지문·OX·핵심정리·빈칸처럼 넣을 것을 골라 한 파일로 인쇄합니다. 고른 순서가 아니라 아래 줄 순서대로 실려요.</div>
+        <div class="chips" id="pchips"></div>
+        <div class="ord" id="pord"></div>
+        <div class="acts">
+          <button class="btn" data-pr="pick" id="pkS">골라서 인쇄 (학생용)</button>
+          <button class="btn" data-pr="pick" data-t="1" id="pkT">골라서 인쇄 (교사용)</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
 <div id="print"></div>
 <script>
 var S = {lv:'기본', t:'orig'};
+var PICK = {tb:null, mg:null};  /* 골라서 인쇄 — 지문 종류(교과서/모의고사)마다 고른 것 */
 var $ = function(s){return document.querySelector(s)};
 var CIRC = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
 var MG_TYPES = [
@@ -412,6 +431,7 @@ function drawP(){
   $('#exsetw').classList.toggle('on', isTB());
   if(S.t!=='hits' && !types().some(function(t){return t[0]===S.t})) S.t=isTB()?'11':'orig';
   drawT();
+  drawPick();
 }
 function cnt(c){ if(NONQ.indexOf(c)>=0) return ''; return itemsOf(c).length; }
 function hitItems(){
@@ -448,6 +468,7 @@ document.addEventListener('click',function(e){
   var b=e.target.closest('button'); if(!b) return;
   if(b.dataset.lv){S.lv=b.dataset.lv;drawP();}
   else if(b.dataset.t && !b.dataset.pr){S.t=b.dataset.t;drawT();}
+  else if(b.dataset.pk){ pickToggle(b.dataset.pk); }
   else if(b.dataset.pr){ doPrint(b.dataset.pr, !!b.dataset.t); }
 });
 window.addEventListener('afterprint',function(){document.body.classList.remove('printing'); document.title=PAGE_TITLE;});
@@ -461,6 +482,7 @@ function headHtml(kind, teacher){
 function printDoc(kind, teacher){
   var g=CUR, h='', no=0;
   var o={print:1, teacher:teacher};
+  if(kind==='pick') return printPick(teacher);
   if(isTB()) return printTB(kind, teacher);
   if(kind==='study'){
     h+=headHtml('study',teacher);
@@ -530,6 +552,57 @@ function printTB(kind, teacher){
     if(teacher) h+='<div class="ansbox" style="break-before:auto;margin-top:6mm"><h3>정답과 해설</h3><div class="anscols">'+list.map(function(x,i){return '<div class="ex1"><b>'+(i+1)+'. 정답 '+esc(x.it.ans)+'</b> '+esc(x.it.expl||'')+'</div>'}).join('')+'</div></div>';
   }
   $('#print').innerHTML='<div class="pr '+kind+'">'+h+'</div>';
+  document.body.classList.add('printing');
+}
+
+/* 골라서 인쇄 — 지문 + 유형을 골라 한 파일로 (2026-11-19 원장님 "지문, OX, 핵심정리, 빈칸 이렇게 선택해서 하나의 파일로") */
+function pickTypes(){ return [['pas','지문']].concat(types()); }
+function pickName(c){ var t=pickTypes().filter(function(x){return x[0]===c})[0]; return t?t[1]:c; }
+function pickDefault(){ return isTB()?['pas','notes','11','12','10']:['pas','notes','02','10']; }
+function pickHas(c){
+  var g=CUR;
+  if(c==='pas') return true;
+  if(c==='notes') return !!(g.notes||[]).length;
+  if(c==='analysis') return !!(g.analysis||[]).length;
+  if(c==='keys') return !!(g.keys||[]).length;
+  if(c==='10') return !!(g.blanks&&g.blanks.lines||[]).length;
+  return itemsOf(c).length>0;
+}
+function pickSel(){ var k=isTB()?'tb':'mg'; if(!PICK[k]) PICK[k]=pickDefault(); return PICK[k]; }
+function pickOn(){ var sel=pickSel(); return pickTypes().map(function(t){return t[0]}).filter(function(c){ return sel.indexOf(c)>=0 && pickHas(c); }); }
+function pickToggle(c){ var sel=pickSel(), i=sel.indexOf(c); if(i>=0) sel.splice(i,1); else sel.push(c); drawPick(); }
+function drawPick(){
+  if(!CUR || !$('#pchips')) return;
+  var sel=pickSel();
+  $('#pchips').innerHTML=pickTypes().map(function(t){ var ok=pickHas(t[0]), k=cnt(t[0]);
+    return '<button class="chip pk'+(ok&&sel.indexOf(t[0])>=0?' on':'')+'" data-pk="'+t[0]+'"'+(ok?'':' disabled')+'>'+t[1]+(t[0]!=='pas'&&k!==''?'<small>'+k+'</small>':'')+'</button>'; }).join('');
+  var on=pickOn();
+  $('#pord').textContent=on.length?('인쇄 순서: '+on.map(pickName).join(' → ')+(isTB()?'':' · 난도 '+S.lv)):'넣을 것을 하나 이상 골라 주세요.';
+  $('#pkS').disabled=$('#pkT').disabled=!on.length;
+}
+function printPick(teacher){
+  var g=CUR, on=pickOn(), h='', o={print:1, teacher:teacher}, ex=[];
+  if(!on.length) return;
+  h+=headHtml('study',teacher);
+  on.forEach(function(c){
+    var name=pickName(c);
+    h+='<div class="sech">'+name+'</div>';
+    if(c==='pas'){ h+=passageHtml(g.passage); return; }
+    if(c==='notes'){ h+=notesHtml(g.notes); return; }
+    if(c==='analysis'){ h+=notesHtml(g.analysis||[]); return; }
+    if(c==='keys'){ h+=notesHtml(g.keys||[]); return; }
+    if(c==='10'){ h+=blanksHtml(g.blanks,teacher); return; }
+    var arr=itemsOf(c);
+    if(c==='99' && arr.length && arr[0].pas) h+=passageHtml(arr[0].pas);
+    var allOx=arr.every(function(x){return x.it.kind==='ox'});
+    arr.forEach(function(x,i){
+      if(allOx) h+='<div class="oxl"><span class="k">'+(i+1)+'.</span><span>'+x.it.stem+'</span><span class="m">'+(teacher?'<b>'+esc(x.it.ans)+'</b>':'( O / X )')+'</span></div>';
+      else h+=itemHtml(x.it,i+1,o);
+      if(teacher && (x.it.expl||'').trim()) ex.push('<div class="ex1"><b>'+name+' '+(i+1)+'. 정답 '+esc(x.it.ans)+'</b> '+esc(x.it.expl)+'</div>');
+    });
+  });
+  if(teacher && ex.length) h+='<div class="ansbox"><h3>정답과 해설</h3><div class="anscols">'+ex.join('')+'</div></div>';
+  $('#print').innerHTML='<div class="pr study pick">'+h+'</div>';
   document.body.classList.add('printing');
 }
 
@@ -616,7 +689,8 @@ function waitImgs(el){ return Promise.all([].slice.call(el.querySelectorAll('img
 function doPrint(kind, teacher){
   if(!CUR) return;
   printDoc(kind, teacher);
-  document.title=('Shuefit 독서 '+CUR.title+' '+(isTB()?(kind==='exam'?exSetName():''):S.lv)+' '+(kind==='exam'?'시험지':'학습자료')+(teacher?' (교사용)':'')).replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim();
+  if(kind==='pick' && !pickOn().length) return;
+  document.title=('Shuefit 독서 '+CUR.title+' '+(isTB()?(kind==='exam'?exSetName():''):S.lv)+' '+(kind==='exam'?'시험지':kind==='pick'?pickOn().map(pickName).join('·'):'학습자료')+(teacher?' (교사용)':'')).replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim();
   Promise.all([waitImgs($('#print')), waitFonts()]).then(function(){ setTimeout(function(){ window.print(); },50); });
 }
 waitFonts();
