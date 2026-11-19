@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <script src="https://coke4497-sys.github.io/shueguk-hub/assets/teacher-gate.js"></script><!-- 교사 로그인 게이트 (허브 로그인 필요) -->
+<script src="https://coke4497-sys.github.io/shueguk-report/teacher-name.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Shuefit 독서</title>
 <link rel="icon" type="image/png" href="https://coke4497-sys.github.io/shueguk-h-work/icon-chulje.png">
@@ -58,15 +59,15 @@ body{margin:0;background:var(--paper);color:var(--ink);font-family:'Gowun Dodum'
 .pas .gridt{width:auto;margin:6px auto 2px}
 .exset{display:none;align-items:center;gap:6px;font-size:13px;color:var(--ink2)}
 .exset.on{display:inline-flex}
-.pick{margin-top:14px;padding-top:12px;border-top:1px solid #E5EDE8}
-.pick .pl{font-size:13px;color:var(--ink2);margin-bottom:8px}
-.pick .pl b{font-family:'Do Hyeon';font-weight:400;font-size:15px;color:#2A332F;margin-right:6px}
-.pick .chips{margin-bottom:10px}
+.pkbox{margin-top:14px;padding-top:12px;border-top:1px solid #E5EDE8}
+.pkbox .pl{font-size:13px;color:var(--ink2);margin-bottom:8px}
+.pkbox .pl b{font-family:'Do Hyeon';font-weight:400;font-size:15px;color:#2A332F;margin-right:6px}
+.pkbox .chips{margin-bottom:10px}
 .chip.pk{background:#fff;border:1px solid #DDE6E1}
 .chip.pk.on{background:#EDE4F4;color:#4a3f63;border-color:#D6C9E4}
 .chip.pk.on:before{content:'✓ '}
 .chip.pk:disabled{opacity:.4;cursor:default}
-.pick .ord{font-size:12px;color:#5C6A64;margin:-2px 0 10px}
+.pkbox .ord{font-size:12px;color:#5C6A64;margin:-2px 0 10px}
 .exset select{font:inherit;padding:4px 6px;border:1px solid #cfd9d3;border-radius:8px;background:#fff}
 .q{background:var(--s3);border-radius:16px;padding:14px 16px;margin-bottom:10px;font-family:'Gowun Batang',serif;font-size:14.5px;line-height:1.75}
 .q .qh{display:flex;gap:6px;align-items:center;margin-bottom:6px;font-family:'Gowun Dodum';font-size:12px;color:var(--ink2)}
@@ -119,10 +120,10 @@ mark{background:#fbe7a6;color:inherit;border-radius:3px;padding:0 1px}
 
 /* ---------- 인쇄 ---------- */
 #print{display:none}
-@page{size:A4;margin:13mm 12mm 12mm}
 body.printing .wrap{display:none}
 body.printing{background:#fff}
 body.printing #print{display:block}
+body.printing .toast{display:none}
 .pr{font-family:'Gowun Batang',serif;font-size:9.4pt;line-height:1.62;color:#111;column-count:2;column-gap:7mm;column-rule:.25mm solid #cfdcd8}
 .pr.exam{column-rule:.6pt solid #000;font-family:"Gowun Batang",serif}
 .pr .span{column-span:all}
@@ -181,6 +182,80 @@ body.printing #print{display:block}
 .err{font-size:13px;color:#b0525d;background:#fbeeea;border-radius:12px;padding:8px 12px;margin-top:8px}
 .back{display:inline-block;background:#fff;border-radius:999px;padding:6px 14px;font-size:13px;color:#4F5C56;text-decoration:none;margin-bottom:12px}
 #work[hidden]{display:none}
+/* 고른 문항 · 내보내기 (2026-11-19 — 문법처럼 담아서 인쇄·H WORK 출제) */
+.q .qh .pick{margin-left:auto;border:0;border-radius:999px;padding:4px 12px;font:inherit;font-size:12px;background:var(--lav);color:var(--lav-ink);cursor:pointer}
+.q .qh .pick.on{background:#4a3f63;color:#fff}
+.q .qh .used{font-size:11px;color:#9b8046;background:#f9efd0;border-radius:999px;padding:2px 8px}
+.q.on{outline:1.5px solid var(--pu2);background:#faf7fc}
+.lhead{display:flex;justify-content:flex-end;margin:-4px 0 8px}
+.selc{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow:auto}
+.selc:empty::before{content:'아직 고른 문항이 없습니다. 위 문항 카드의 [+ 담기]를 누르세요. 다른 지문의 문항도 함께 담을 수 있어요.';font-size:13px;color:var(--ink2)}
+.si{display:flex;gap:8px;align-items:center;background:var(--s3);border-radius:12px;padding:8px 10px;font-size:13px}
+.si .sn{font-family:'Do Hyeon';color:var(--pu);font-size:16px;flex:none;width:26px;text-align:center}
+.si .st{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.si .st small{color:var(--ink2);margin-right:6px}
+.si button{flex:none;border:0;background:#fff;border-radius:8px;width:28px;height:28px;cursor:pointer;color:#4F5C56;font:inherit}
+.sgh{font-size:12px;color:var(--mint-d);margin:6px 0 0}
+.fx{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-bottom:12px}
+.fx label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--ink2)}
+.fx input{border:1px solid #dfe5e1;border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;background:#fafbf9;min-width:0}
+.xsec{border-top:1px solid #E5EDE8;margin-top:14px;padding-top:14px}
+.xtabs{margin:4px 0 12px}
+.psave{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px}
+#paperMsg{font-size:12.5px;color:var(--ink2)}
+.ldl{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--ink2);margin-top:12px}
+.ldrow{display:flex;gap:6px}
+.ldrow select{flex:1;min-width:0;border:1px solid #dfe5e1;border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;background:#fafbf9}
+.xpane h3{font-family:'Do Hyeon';font-weight:400;font-size:16px;margin:10px 0 6px}
+.xpane[hidden]{display:none}
+.xsec h3{font-family:'Do Hyeon';font-weight:400;font-size:17px;margin:0 0 8px}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.main{background:#4a3f63;color:#fff}
+.msg{font-size:13px;white-space:pre-line;margin-top:8px}
+.msg:empty{display:none}.msg.ok{color:#2F7A57}.msg.bad{color:#B0525D}
+.dim{color:var(--muted)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#2b3a33;color:#fff;border-radius:999px;padding:10px 18px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
+.toast.show{opacity:1}
+@media print{ #bkm{display:none!important} }
+#bkm{position:absolute;left:-99999px;top:0}
+.bk.pr{column-count:auto;column-rule:none}
+.bk .bpage{width:210mm;height:297mm;padding:13mm 12mm 9mm;box-sizing:border-box;display:flex;flex-direction:column;background:#fff;overflow:hidden}
+.bk .bbody{flex:1;min-height:0;column-count:2;column-gap:7mm;column-rule:.25mm solid #e1ece9;column-fill:auto;overflow:hidden}
+.bk .bno{flex:none;text-align:center;font-size:8pt;color:#8a9a97;padding-top:2mm;height:6mm;font-family:'Gowun Dodum'}
+.bk .sheet{width:210mm;height:297mm;display:flex;overflow:hidden;break-after:page}
+.bk .sheet:last-child{break-after:auto}
+.bk .ph,.bk .bkhead{column-span:all}
+.bk .pas{border:0;padding:0;margin:0 0 1mm}
+.bk .q{break-inside:avoid}
+.bk .bkhead h3{font-family:'Gowun Batang';font-size:13pt;margin:0 0 3mm;border-bottom:.3mm solid #c3dcd5;padding-bottom:2mm}
+.bk .bpage.cover,.bk .bpage.bkback{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.bk .bpage.cover{padding:0;display:block;position:relative;font-family:'Gowun Dodum',sans-serif;color:#24443d}
+.cv-top{height:158mm;background:#e3efeb;padding:14mm 16mm 0;box-sizing:border-box;position:relative}
+.cv-brand{display:flex;justify-content:space-between;align-items:flex-start;font-size:9.5pt;color:#3d675d}
+.cv-logo{text-align:center}
+.cv-logo b{display:block;font-family:'Sacramento',cursive;font-weight:400;font-size:30pt;color:#5f9488;line-height:1.4}
+.cv-logo span{display:inline-block;border:.3mm solid #8db8ad;border-radius:99px;padding:.3mm 3.4mm;font-size:8.5pt;color:#3d675d;margin-top:1mm}
+.cv-tag{display:inline-block;background:#8db8ad;color:#fff;border-radius:2mm;padding:1.4mm 4mm;font-size:10pt;margin-top:22mm}
+.cv-series{font-size:10.5pt;color:#3d675d;margin-top:4mm}
+.cv-title{font-family:'Gowun Batang';font-size:26pt;line-height:1.3;margin-top:4mm;color:#1f2a27;max-width:120mm;word-break:keep-all}
+.cv-sub{font-size:9pt;color:#4f6a63;margin-top:5mm}
+.cv-sk{position:absolute;right:12mm;bottom:6mm;width:62mm;height:62mm}
+.cv-bot{padding:12mm 16mm 0}
+.cv-bot h4{margin:0 0 4mm;font-size:10.5pt;font-weight:700;color:#24443d}
+.cv-list{display:grid;grid-template-columns:1fr 1fr;gap:2.4mm}
+.cv-u{display:flex;align-items:center;gap:3mm;border:.3mm solid #8db8ad;border-radius:2.4mm;padding:2.2mm 3mm;font-size:9pt}
+.cv-u i{font-style:normal;flex:none;min-width:8mm;height:6.5mm;border-radius:1.6mm;background:#8db8ad;color:#fff;display:flex;align-items:center;justify-content:center;font-size:8pt;padding:0 1.4mm}
+.cv-name{position:absolute;left:16mm;right:16mm;bottom:22mm;display:flex;gap:10mm;font-size:9pt;color:#5f7a73}
+.cv-name div{flex:1;border-bottom:.3mm solid #c3dcd5;padding-bottom:5mm}
+.bk .bpage.bkback{background:#e3efeb;display:flex;align-items:center;justify-content:center;text-align:center}
+.bk-in img{width:46mm;height:46mm;display:block;margin:0 auto 4mm}
+.bk-in b{display:block;font-family:'Sacramento',cursive;font-weight:400;font-size:44pt;color:#5f9488;line-height:1.4}
+.bk-in .nm{letter-spacing:5mm;margin:4mm 0 0 5mm;font-size:11pt;color:#24443d}
+.bk-in .sr{font-size:9pt;color:#3d675d;margin-top:6mm}
+.bk-in .pl{display:inline-block;background:#fff;border-radius:99px;padding:1.6mm 6mm;font-size:9pt;color:#3d675d;margin-top:7mm}
+.pr .ansrow{column-span:all;margin-top:5mm;break-inside:avoid}
+.pr .ansrow table{border-collapse:collapse;width:100%;font-size:9pt;margin-bottom:2mm}
+.pr .ansrow td{border:.3mm solid #000;padding:1.2mm;text-align:center;width:10%}
 </style>
 </head>
 <body>
@@ -301,7 +376,7 @@ body.printing #print{display:block}
         <button class="btn" data-pr="exam">시험지 (학생용)</button>
         <button class="btn" data-pr="exam" data-t="1">시험지 (교사용)</button>
       </div>
-      <div class="pick">
+      <div class="pkbox">
         <div class="pl"><b>골라서 인쇄</b>지문·OX·핵심정리·빈칸처럼 넣을 것을 골라 한 파일로 인쇄합니다. 고른 순서가 아니라 아래 줄 순서대로 실려요.</div>
         <div class="chips" id="pchips"></div>
         <div class="ord" id="pord"></div>
@@ -312,11 +387,56 @@ body.printing #print{display:block}
       </div>
     </div>
   </div>
+  <div class="card" id="selCard">
+    <div class="ct"><i>4</i>고른 문항 <span class="tag lav" id="selN">0문항</span><span style="margin-left:auto;display:flex;gap:6px"><button class="btn ghost" id="selClear" type="button">비우기</button></span></div>
+    <div class="selc" id="sel"></div>
+    <label class="ldl">저장된 문제지 · 과제 불러오기 <span class="dim">· 고치거나 다시 인쇄</span>
+      <span class="ldrow"><select id="loadSel"><option value="">— 고르세요 —</option></select><button class="btn ghost" id="paperDel" type="button" disabled title="저장한 문제지를 고르면 지울 수 있어요">삭제</button></span></label>
+  </div>
+  <div class="card" id="xCard">
+    <div class="ct"><i>5</i>고른 문항 내보내기 <span class="dim" style="font-family:'Gowun Dodum';font-weight:400;font-size:12.5px" id="xHint">문항을 담으면 쓸 수 있어요</span></div>
+    <div class="fx">
+      <label>출제 선생님<input id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></label>
+      <label>제목 <span class="dim">· 문제지·PDF 파일·H WORK 과제 이름</span><input id="pTitle" maxlength="120" placeholder="문항을 담으면 자동으로 채워져요"></label>
+      <label>날짜 <span class="dim">· 인쇄에 들어가요</span><input type="date" id="pDate"></label>
+      <label>학교 <span class="dim">· 비우면 빈칸</span><input id="pSchool" maxlength="30" placeholder="예: 행신고등학교"></label>
+    </div>
+    <div class="psave"><button class="btn main" type="button" id="paperSave" disabled>문제지 저장</button><span id="paperMsg">저장해야 인쇄할 수 있어요</span></div>
+    <div class="seg xtabs" id="xTabs"><button type="button" data-x="pr" class="on">학습자료 인쇄</button><button type="button" data-x="ex">시험지 인쇄</button><button type="button" data-x="hw">H WORK 출제</button></div>
+    <div class="xpane" id="xp-pr">
+      <div class="hint">지문마다 '[1~3] 다음 글을 읽고…'와 지문을 한 번 싣고, 고른 순서대로 번호를 매깁니다. 교사용은 정답 표시와 맨 뒤 정답과 해설이 들어가요.</div>
+      <h3>A4 학습지</h3>
+      <div class="acts"><button class="btn" data-sp="study">학생용 인쇄</button><button class="btn" data-sp="study" data-t="1">교사용 인쇄 (정답·해설)</button></div>
+      <h3 style="margin-top:14px">중철 책자</h3>
+      <div class="acts"><button class="btn" data-bk="1">학생용 책자 PDF</button><button class="btn" data-bk="1" data-t="1">교사용 책자 PDF</button></div>
+      <div class="hint" style="margin:8px 0 0">앞표지·본문·뒤표지를 <b>A4 한 장에 한 쪽씩, 차례대로</b> 담습니다. 쪽 수는 4의 배수로 맞추고 남는 쪽은 뒤표지 앞에 비워 둬요. 복합기 '소책자 인쇄'로 중철하거나 A4 양면으로 그대로 찍으면 됩니다.</div>
+    </div>
+    <div class="xpane" id="xp-ex" hidden>
+      <div class="hint">학교 시험지처럼 흑백 2단 — 머리에 학교·이름 칸, 마지막에 답안 기록표. 교사용은 정답 표시와 정답과 해설이 붙어요.</div>
+      <div class="acts"><button class="btn" data-sp="exam">시험지 인쇄</button><button class="btn" data-sp="exam" data-t="1">교사용 시험지</button></div>
+    </div>
+    <div class="xpane" id="xp-hw" hidden>
+      <div class="hint" style="margin:0 0 8px">학생 H WORK 화면에 지문과 문제가 그대로 뜹니다. 5지선다·OX는 자동 채점, 키워드 빈칸은 단답(키워드 모두 들어가야 정답), 내신 서술형·다지선다는 예시 답과 비교해요.</div>
+      <button class="btn main" type="button" id="saveBtn">H WORK 과제로 출제</button>
+      <div class="msg" id="saveMsg"></div>
+      <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
+        <b style="font-family:'Do Hyeon';font-weight:400;font-size:16px">학생에게 바로 배정</b>
+        <div id="hwPicker"><span class="dim" style="font-size:13px">학생 고르기를 불러오는 중…</span></div>
+        <div class="fx" style="margin:0"><label>마감 <span class="dim">(선택)</span><input type="date" id="hwDue"></label><label>비고 <span class="dim">(선택)</span><input id="hwMemo" maxlength="60" placeholder="예: 1회차"></label></div>
+        <button class="btn main" type="button" id="hwAssignBtn">이 학생들에게 배정</button>
+        <div class="msg" id="hwAssignMsg"></div>
+      </div>
+    </div>
+    <div class="xsec"><button class="btn ghost" type="button" id="newBtn">새 문제지 만들기 <span class="dim">· 고른 문항·제목·날짜·학교를 비워요</span></button></div>
+  </div>
 </div>
+<div class="toast" id="toast"></div>
 <div id="print"></div>
+<div id="bkm" class="bk pr study" aria-hidden="true"></div>
+<style id="pageStyle"></style>
 <script>
 var S = {lv:'기본', t:'orig'};
-var PICK = {tb:null, mg:null};  /* 골라서 인쇄 — 지문 종류(교과서/모의고사)마다 고른 것 */
+var PKSEL = {tb:null, mg:null};  /* 골라서 인쇄 — 지문 종류(교과서/모의고사)마다 고른 것 */
 var $ = function(s){return document.querySelector(s)};
 var CIRC = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
 var MG_TYPES = [
@@ -347,7 +467,8 @@ function markIn(root,q){
     f.appendChild(document.createTextNode(v.slice(i))); t.parentNode.replaceChild(f,t);
   });
 }
-function img(name){ var g=CUR; return 'data:image/'+(/png$/.test(name)?'png':'jpeg')+';base64,'+g.imgs[name]; }
+var IMGCTX=null;
+function img(name){ var g={imgs:IMGCTX||CUR.imgs}; return 'data:image/'+(/png$/.test(name)?'png':'jpeg')+';base64,'+g.imgs[name]; }
 function esc(s){return String(s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]})}
 function blockHtml(b){
   if(b.img) return '<img src="'+img(b.img)+'" alt="">';
@@ -371,8 +492,8 @@ function itemsOf(code){
 function ansSet(it){ return (it.ans||'').match(/[①-⑳]/g)||[]; }
 function itemHtml(it, no, opt){
   opt=opt||{};
-  var h='<div class="q">';
-  if(opt.tag) h+='<div class="qh"><span class="tag">'+opt.tag+'</span>'+(opt.v?'<span class="tag lav">v'+opt.v+'</span>':'')+'</div>';
+  var h='<div class="q'+(opt.tag&&it.id!=null&&isSel(it.id)?' on':'')+'">';
+  if(opt.tag) h+='<div class="qh"><span class="tag">'+opt.tag+'</span>'+(opt.v?'<span class="tag lav">v'+opt.v+'</span>':'')+(it.id!=null&&USED[it.id]?'<span class="used" title="'+esc(USED[it.id].join(' · '))+'">낸 적 있음</span>':'')+(it.id!=null?'<button type="button" class="pick'+(isSel(it.id)?' on':'')+'" data-pick="'+it.id+'">'+(isSel(it.id)?'✓ 담음':'+ 담기')+'</button>':'')+'</div>';
   h+='<div class="stem"><span class="no">'+no+'.</span>'+it.stem+(it.kind==='ox'?' <span style="font-weight:400">( O / X )</span>':'')+'</div>';
   var box=(it.box||[]);
   if(box.length){
@@ -436,7 +557,7 @@ function drawP(){
 function cnt(c){ if(NONQ.indexOf(c)>=0) return ''; return itemsOf(c).length; }
 function hitItems(){
   var q=(Q.q||'').trim(), out=[]; if(!q) return out;
-  types().forEach(function(t){ if(NONQ.indexOf(t[0])>=0) return; itemsOf(t[0]).forEach(function(x){ if(countIn(itemText(x.it),q)) out.push({it:x.it,v:x.v,tag:t[1]}); }); });
+  types().forEach(function(t){ if(NONQ.indexOf(t[0])>=0) return; itemsOf(t[0]).forEach(function(x){ if(countIn(itemText(x.it),q)) out.push({it:x.it,v:x.v,tag:t[1],pas:t[0]==='99'?(x.it.passage||x.pas):null}); }); });
   return out;
 }
 function drawT(){
@@ -449,7 +570,8 @@ function drawList(){
   var g=CUR, c=S.t, name=c==='hits'?'찾은 문항':types().filter(function(t){return t[0]===c})[0][1];
   $('#lt').textContent=name;
   var P=g.passage, h='';
-  if(c==='hits'){ var hs=hitItems(); h=hs.map(function(x,i){return itemHtml(x.it,i+1,{tag:x.tag,v:isTB()?0:x.v})}).join('')||'<div class="hint">이 지문'+(isTB()?'':'('+S.lv+')')+'에는 그 낱말이 들어간 문항이 없습니다.</div>'; }
+  PICK={}; LIST_IDS=[];
+  if(c==='hits'){ var hs=hitItems(); hs.forEach(function(x){ reg(x.it,x.tag,x.pas); }); h=hs.map(function(x,i){return itemHtml(x.it,i+1,{tag:x.tag,v:isTB()?0:x.v})}).join('')||'<div class="hint">이 지문'+(isTB()?'':'('+S.lv+')')+'에는 그 낱말이 들어간 문항이 없습니다.</div>'; }
   else if(c==='notes'){ h=notesHtml(g.notes); }
   else if(c==='analysis'){ h=notesHtml(g.analysis||[]); }
   else if(c==='keys'){ h=notesHtml(g.keys||[]); }
@@ -457,21 +579,33 @@ function drawList(){
   else {
     var arr=itemsOf(c);
     if(c==='99' && arr.length && arr[0].pas) P=arr[0].pas;
+    arr.forEach(function(x){ reg(x.it,name,c==='99'?(x.it.passage||x.pas):null); });
     h=arr.map(function(x,i){return itemHtml(x.it,i+1,{tag:name,v:isTB()?0:x.v})}).join('')||'<div class="hint">이 난도에는 문항이 없습니다.</div>';
     if(c==='99') h='<div class="hint">이 유형은 밑줄 위치가 다른 독립 지문을 씁니다. 왼쪽 지문이 바뀌어요.</div>'+h;
   }
   $('#pas').innerHTML=passageHtml(P);
-  $('#list').innerHTML=h;
+  $('#list').innerHTML=(LIST_IDS.length?'<div class="lhead"><button class="btn ghost" type="button" id="allBtn"></button></div>':'')+h;
+  drawAllBtn();
   var q=(Q.q||'').trim(); if(q){ markIn($('#pas'),q); markIn($('#list'),q); }
 }
 document.addEventListener('click',function(e){
   var b=e.target.closest('button'); if(!b) return;
+  if(b.dataset.pick){ togglePick(Number(b.dataset.pick)); return; }
+  if(b.dataset.sp){ selPrint(b.dataset.sp, !!b.dataset.t); return; }
+  if(b.dataset.bk){ bookletDoc(!!b.dataset.t); return; }
+  if(b.dataset.x){ document.querySelectorAll('#xTabs [data-x]').forEach(function(y){ y.classList.toggle('on', y===b); }); ['pr','ex','hw'].forEach(function(k){ $('#xp-'+k).hidden=k!==b.dataset.x; }); if(b.dataset.x==='hw') hwPickerInit(); return; }
+  if(b.dataset.mv){ selMove(Number(b.dataset.i), Number(b.dataset.mv)); return; }
+  if(b.dataset.rm!=null){ SEL.splice(Number(b.dataset.rm),1); selChanged(); return; }
+  if(b.id==='allBtn'){ pickAll(); return; }
   if(b.dataset.lv){S.lv=b.dataset.lv;drawP();}
   else if(b.dataset.t && !b.dataset.pr){S.t=b.dataset.t;drawT();}
   else if(b.dataset.pk){ pickToggle(b.dataset.pk); }
   else if(b.dataset.pr){ doPrint(b.dataset.pr, !!b.dataset.t); }
 });
-window.addEventListener('afterprint',function(){document.body.classList.remove('printing'); document.title=PAGE_TITLE;});
+var PAGE_A4="@page{size:A4;margin:13mm 12mm 14mm;@bottom-center{content:counter(page) ' / ' counter(pages);font-family:'Gowun Dodum',sans-serif;font-size:8.5pt;color:#555}}", PAGE_BK='@page{size:A4;margin:0}';
+function setPage(css){ document.getElementById('pageStyle').textContent=css; }
+setPage(PAGE_A4);
+window.addEventListener('afterprint',function(){document.body.classList.remove('printing'); document.title=PAGE_TITLE; IMGCTX=null; setPage(PAGE_A4); $('#print').className='';});
 
 /* ---------- 인쇄 ---------- */
 function headHtml(kind, teacher){
@@ -568,7 +702,7 @@ function pickHas(c){
   if(c==='10') return !!(g.blanks&&g.blanks.lines||[]).length;
   return itemsOf(c).length>0;
 }
-function pickSel(){ var k=isTB()?'tb':'mg'; if(!PICK[k]) PICK[k]=pickDefault(); return PICK[k]; }
+function pickSel(){ var k=isTB()?'tb':'mg'; if(!PKSEL[k]) PKSEL[k]=pickDefault(); return PKSEL[k]; }
 function pickOn(){ var sel=pickSel(); return pickTypes().map(function(t){return t[0]}).filter(function(c){ return sel.indexOf(c)>=0 && pickHas(c); }); }
 function pickToggle(c){ var sel=pickSel(), i=sel.indexOf(c); if(i>=0) sel.splice(i,1); else sel.push(c); drawPick(); }
 function drawPick(){
@@ -660,7 +794,7 @@ function drawRes(){
 function shape(p, rows){
   var g={id:p.id,title:p.title,srcname:p.srcname,kind:p.kind,area:p.area,imgs:p.imgs||{},passage:p.data.passage,notes:p.data.notes||[],analysis:p.data.analysis||[],keys:p.data.keys||[],author:p.data.author||'',blanks:p.data.blanks||{lines:[],answers:{}},orig:[],levels:{}};
   rows.forEach(function(r){
-    var it=r.data; it.kind=r.kind;
+    var it=r.data; it.kind=r.kind; it.id=r.id; it.code=r.code; it.lv=r.level; it.v=r.v; it.gid=p.id;
     if(r.level==='공통'){ g.orig.push(it); return; }
     var L=g.levels[r.level]=g.levels[r.level]||[];
     var s=L.filter(function(x){return x.code===r.code&&x.v===r.v})[0];
@@ -670,18 +804,21 @@ function shape(p, rows){
   });
   return g;
 }
+function loadPassage(id){
+  if(CACHE[id]) return Promise.resolve(CACHE[id]);
+  return Promise.all([
+    sb('/reading_passages?select=id,title,srcname,kind,area,data,imgs&id=eq.'+encodeURIComponent(id)),
+    sb('/reading_items?select=id,level,code,sec_name,v,ord,kind,data&active=is.true&passage_id=eq.'+encodeURIComponent(id)+'&order=level,code,v,ord&limit=5000')
+  ]).then(function(r){
+    if(!r[0].length) throw new Error('지문 없음');
+    var g=shape(r[0][0], r[1]); CACHE[id]=g; return g;
+  });
+}
 function openP(id){
   var my=++SEQ;
   $('#work').hidden=false; $('#pas').innerHTML='<div class="load">지문을 불러오는 중…</div>'; $('#list').innerHTML='';
   var done=function(g){ if(my!==SEQ && CUR && CUR.id!==id) return; var wasTB=isTB(); CUR=g; if(isTB()!==wasTB && S.t!=='hits') S.t=isTB()?'11':'orig'; if(!g.levels[S.lv]) S.lv=Object.keys(g.levels)[0]||'기본'; drawP(); drawRes(); };
-  if(CACHE[id]){ done(CACHE[id]); return; }
-  Promise.all([
-    sb('/reading_passages?select=id,title,srcname,kind,area,data,imgs&id=eq.'+encodeURIComponent(id)),
-    sb('/reading_items?select=level,code,sec_name,v,ord,kind,data&active=is.true&passage_id=eq.'+encodeURIComponent(id)+'&order=level,code,v,ord&limit=5000')
-  ]).then(function(r){
-    if(!r[0].length) throw new Error('지문 없음');
-    var g=shape(r[0][0], r[1]); CACHE[id]=g; done(g);
-  }).catch(function(e){ $('#pas').innerHTML='<div class="err">지문을 불러오지 못했습니다('+esc(e.message)+').</div>'; });
+  loadPassage(id).then(done).catch(function(e){ $('#pas').innerHTML='<div class="err">지문을 불러오지 못했습니다('+esc(e.message)+').</div>'; });
 }
 /* 인쇄 — 글꼴·그림을 기다린 뒤(머리 로고 빈칸 방지), 파일 이름 = 지문 제목 + 종류 */
 function waitFonts(){ try{ if(!document.fonts) return Promise.resolve(); return Promise.race([Promise.all([document.fonts.load('20pt Sacramento','Shueguk'),document.fonts.load('10pt "Gowun Batang"','가'),document.fonts.load('10pt "Gowun Dodum"','가')]).then(function(){return document.fonts.ready}), new Promise(function(r){setTimeout(r,4000)})]).catch(function(){}); }catch(e){ return Promise.resolve(); } }
@@ -701,8 +838,440 @@ document.addEventListener('click',function(e){
   var a=e.target.closest('[data-area]'); if(a){ Q.area=a.dataset.area; drawAreas(); drawRes(); return; }
   var r=e.target.closest('[data-go]'); if(r){ if(safeQ(Q.q)) S.t='hits'; openP(r.dataset.go); setTimeout(function(){ var w=$('#work'); if(w.scrollIntoView) w.scrollIntoView({behavior:'smooth'}); },60); }
 });
-window.__printDoc=printDoc; window.__S=S;
+
+/* ══ 고른 문항 — 여러 지문의 문항을 담아 인쇄·H WORK 출제 (2026-11-19 원장님 "슈핏독서를 문법처럼 인쇄, h work 출제") ══
+ * SEL = 담은 순서. 같은 지문의 문항은 그 지문 묶음 뒤에 붙는다(인쇄·출제 때 지문을 한 번만 싣게).
+ * 출제 = H WORK 과제(data.rd {번호: reading_items.id}) + 문제 원문은 hwork_src_items·hwork_src_passages(068 — 교재 과제와 같은 길,
+ * 학생 화면은 style 'real'). hwork_src_items 는 과제 이름(code)이 열쇠라 다른 선생님의 같은 이름 과제와 겹치면 막는다. */
+var SEL=[], PICK={}, LIST_IDS=[], USED={}, ALLHW=[], SCHOOLS=[], TITLE_AUTO='';
+/* 문제지 저장(2026-11-19 원장님 "문제지 저장 기능도 문법처럼", 리포트 080 shufit_reading_papers) — 출제 선생님 + 제목이 열쇠.
+ * 저장한 문제지와 선생님·제목·문항 순서가 같아야 인쇄가 열린다(문법 canPrint 와 같은 규칙). H WORK 출제는 저장과 따로. */
+var PAPERS=[], PAPERS_OK=true, SAVED=null, LOADS=[];
+var H_API="https://script.google.com/macros/s/AKfycbyrc0j6EmVLrlfZeSchetAcEzWPEFAEV1RHStr6ZTJPDJeH6pcvRDemfWU64puojmSDPg/exec";
+var REPORT_API="https://script.google.com/macros/s/AKfycbzhCncBwn-JlqXARC3wfrWUCuNHzlNK2df0bdhx-w78Xr8mzYUcIYZOJdRi9N4bHtsb/exec";
+var LEFT_RE=/퇴원|휴원|졸업|아웃/;
+function toast(m){ var t=$('#toast'); t.textContent=m; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(function(){t.classList.remove('show')},2400); }
+function hstr(s){ var h=0; s=String(s); for(var i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))|0; } return (h>>>0).toString(36); }
+function isSel(id){ return SEL.some(function(x){return x.id===id}); }
+function mkEntry(g,it,tag,pas99){
+  var pas=pas99||g.passage, pkey=pas99?g.id+'#'+hstr(JSON.stringify(pas99)):g.id;
+  return {id:it.id,it:it,tag:tag,lv:it.lv||'공통',gid:g.id,title:g.title,srcname:g.srcname,pkey:pkey,pas:pas,imgs:g.imgs,indep:!!pas99};
+}
+function reg(it,tag,pas99){
+  if(it.id==null) return; LIST_IDS.push(it.id);
+  PICK[it.id]=mkEntry(CUR,it,tag,pas99);
+}
+/* 저장한 문제지·과제를 불러올 때 — 지문을 받아 그 안에서 문항을 찾는다(원 기출 · 기본/실력 유형, 99 는 독립 지문) */
+function findEntry(g,id){
+  var o=g.orig.filter(function(it){return it.id===id})[0]; if(o) return mkEntry(g,o,'원 기출',null);
+  var out=null;
+  Object.keys(g.levels).forEach(function(l){ g.levels[l].forEach(function(sx){ (sx.items||[]).forEach(function(it){
+    if(out||it.id!==id) return;
+    var tn=(MG_TYPES.concat(TB_TYPES).filter(function(t){return t[0]===sx.code})[0]||[0,sx.name])[1];
+    out=mkEntry(g,it,tn,sx.code==='99'?(it.passage||sx.passage):null);
+  }); }); });
+  return out;
+}
+function addSel(x){
+  var last=-1; SEL.forEach(function(y,i){ if(y.pkey===x.pkey) last=i; });
+  if(last<0) SEL.push(x); else SEL.splice(last+1,0,x);
+}
+function togglePick(id){
+  var i=SEL.findIndex(function(x){return x.id===id}); if(i>=0) SEL.splice(i,1); else if(PICK[id]) addSel(PICK[id]); selChanged();
+}
+function pickAll(){
+  var all=LIST_IDS.every(isSel);
+  if(all) SEL=SEL.filter(function(x){return LIST_IDS.indexOf(x.id)<0});
+  else LIST_IDS.forEach(function(id){ if(!isSel(id)&&PICK[id]) addSel(PICK[id]); });
+  selChanged();
+}
+function drawAllBtn(){ var b=$('#allBtn'); if(!b) return; var n=LIST_IDS.filter(function(id){return !isSel(id)}).length; b.textContent=n?('보이는 '+n+'문항 모두 담기'):'보이는 문항 모두 빼기'; }
+function selMove(i,d){
+  var j=i+d; if(j<0||j>=SEL.length) return;
+  if(SEL[i].pkey===SEL[j].pkey){ var t=SEL[i]; SEL[i]=SEL[j]; SEL[j]=t; }
+  else { // 지문 묶음째 옮긴다
+    var k=SEL[i].pkey, grp=SEL.filter(function(x){return x.pkey===k}), rest=SEL.filter(function(x){return x.pkey!==k});
+    var nb=SEL[j].pkey, idx=rest.findIndex(function(x){return x.pkey===nb});
+    if(d>0){ while(idx+1<rest.length && rest[idx+1].pkey===nb) idx++; idx++; }
+    rest.splice.apply(rest,[idx,0].concat(grp)); SEL=rest;
+  }
+  selChanged();
+}
+function selGroups(){ var g=[]; SEL.forEach(function(x,i){ var l=g[g.length-1]; if(l&&l.pkey===x.pkey) l.items.push(x); else g.push({pkey:x.pkey,first:i,items:[x],x:x}); }); return g; }
+function autoTitle(){
+  if(!SEL.length) return '';
+  var ts=[]; SEL.forEach(function(x){ if(ts.indexOf(x.title)<0) ts.push(x.title); });
+  return 'Shuefit 독서: '+ts[0].split(/\s*[\/,]\s*/)[0]+(ts.length>1?' 외 '+(ts.length-1)+'지문':'')+' ('+SEL.length+')';
+}
+function selChanged(){
+  var t=$('#pTitle'); if(!t.value.trim()||t.value===TITLE_AUTO){ TITLE_AUTO=autoTitle(); t.value=TITLE_AUTO; }
+  drawSel(); if(CUR) drawList();
+}
+function drawSel(){
+  $('#selN').textContent=SEL.length+'문항';
+  $('#sel').innerHTML=selGroups().map(function(g){
+    return '<div class="sgh">'+esc(g.x.srcname+' · '+g.x.title)+(g.x.indep?' · 독립 지문':'')+'</div>'+g.items.map(function(x,k){ var i=g.first+k;
+      return '<div class="si"><span class="sn">'+(i+1)+'</span><span class="st"><small>'+esc(x.tag)+(x.lv&&x.lv!=='공통'?' · '+x.lv:'')+'</small>'+esc(plain(x.it.stem))+'</span><button type="button" data-mv="-1" data-i="'+i+'" title="위로">▲</button><button type="button" data-mv="1" data-i="'+i+'" title="아래로">▼</button><button type="button" data-rm="'+i+'" title="빼기">×</button></div>'; }).join('');
+  }).join('');
+  var n=SEL.length;
+  document.querySelectorAll('#saveBtn,#hwAssignBtn').forEach(function(b){ b.disabled=!n; });
+  drawPrint();
+  $('#xHint').textContent=n?('· 지문 '+selGroups().length+'개 · '+n+'문항'):'문항을 담으면 쓸 수 있어요';
+}
+$('#selClear').onclick=function(){ if(SEL.length&&confirm('고른 문항 '+SEL.length+'개를 모두 뺄까요?')){ SEL=[]; selChanged(); } };
+$('#pTitle').addEventListener('input',drawPrint);
+function selSig(){ return SEL.map(function(x){return x.id}).join(','); }
+function canPrint(){ return !!SAVED && SAVED.teacher===$('#hTeacher').value.trim() && SAVED.title===$('#pTitle').value.trim() && SAVED.sig===selSig() && !!SAVED.sig; }
+function drawPrint(){
+  var n=SEL.length, ok=canPrint();
+  document.querySelectorAll('[data-sp],[data-bk]').forEach(function(b){ b.disabled=!n||!ok; });
+  $('#paperSave').disabled=!n;
+  $('#paperMsg').textContent=!n?'문항을 담으면 저장할 수 있어요':(ok?'저장한 문제지 그대로예요 · 인쇄할 수 있어요':(!PAPERS_OK?'문제지 표를 읽지 못했습니다(데이터베이스 080 확인)':(SAVED?'고친 내용이 있어요 · 다시 저장해야 인쇄할 수 있어요':'저장해야 인쇄할 수 있어요')));
+}
+function pmSaveRow(){
+  if(!SAVED) return;
+  var v=pmVal(), dd=$('#pDate').value||null, t=SAVED.teacher, ti=SAVED.title;
+  sbw('/shufit_reading_papers?teacher=eq.'+encodeURIComponent(t)+'&title=eq.'+encodeURIComponent(ti),'PATCH',{print_date:dd, school:v.school})
+    .then(function(){ var row=PAPERS.filter(function(p){return p.teacher===t&&p.title===ti})[0]; if(row){ row.print_date=dd; row.school=v.school; } $('#paperMsg').textContent='날짜·학교를 이 문제지에 저장했어요'; })
+    .catch(function(e){ toast('날짜·학교를 저장하지 못했습니다. ('+e.message+')'); });
+}
+['#pDate','#pSchool'].forEach(function(id){ $(id).addEventListener('change',pmSaveRow); });
+$('#paperSave').onclick=function(){
+  var teacher=$('#hTeacher').value.trim(), title=$('#pTitle').value.trim(), ids=SEL.map(function(x){return x.id});
+  if(!ids.length){ toast('문항을 먼저 담아 주세요'); return; }
+  if(!teacher){ toast('출제 선생님을 적어 주세요'); $('#hTeacher').focus(); return; }
+  if(!title){ toast('문제지 이름(제목)을 적어 주세요'); $('#pTitle').focus(); return; }
+  var same=PAPERS.filter(function(p){return p.teacher===teacher&&p.title===title})[0];
+  if(same && (same.ids||[]).join(',')!==ids.join(',') && !confirm(teacher+' 선생님의 「'+title+'」 문제지가 이미 있습니다.\n지금 고른 문항으로 바꿔 저장할까요?')) return;
+  var btn=$('#paperSave'); btn.disabled=true; btn.textContent='저장 중…';
+  var row={teacher:teacher, title:title, ids:ids, author:teacher, print_date:$('#pDate').value||null, school:pmVal().school};
+  fetch(SB+'/rest/v1/shufit_reading_papers?on_conflict=teacher,title',{method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=representation'},body:JSON.stringify([row])})
+    .then(function(r){ if(!r.ok) return r.text().then(function(t){ throw new Error(r.status+' '+t.slice(0,100)); }); return r.json(); })
+    .then(function(rows){
+      PAPERS=PAPERS.filter(function(p){return !(p.teacher===teacher&&p.title===title)}); PAPERS.unshift((rows&&rows[0])||row); PAPERS_OK=true;
+      SAVED={teacher:teacher,title:title,sig:ids.join(',')};
+      drawTeachers(); rebuildUsed(); drawLoad(); if(CUR) drawList();
+      toast('문제지를 저장했어요. 이제 인쇄할 수 있어요');
+      if(window.shuegukActivity) shuegukActivity('Shuefit 독서', '문제지 저장', title, teacher+' · '+ids.length+'문항', false);
+    })
+    .catch(function(e){ toast('저장하지 못했습니다. ('+e.message+')'); })
+    .then(function(){ btn.textContent='문제지 저장'; drawPrint(); });
+};
+function drawTeachers(){
+  $('#tList').innerHTML=Array.from(new Set(ALLHW.map(function(h){return h.teacher}).concat(PAPERS.map(function(p){return p.teacher})).filter(Boolean))).sort(function(a,b){return a.localeCompare(b,'ko')}).map(function(t){return '<option value="'+esc(t)+'">'}).join('');
+}
+function drawLoad(){
+  var t=$('#hTeacher').value.trim(), prev=loadPick();
+  var ps=PAPERS.filter(function(p){return !t||p.teacher===t}).map(function(p){return {kind:'paper',teacher:p.teacher,title:p.title,ids:(p.ids||[]).map(Number),print_date:p.print_date,school:p.school||''}});
+  var hs=ALLHW.filter(function(h){return h.data&&h.data.rd&&(!t||h.teacher===t)}).map(function(h){return {kind:'hw',teacher:h.teacher,title:h.code,ids:Object.keys(h.data.rd).sort(function(a,b){return a-b}).map(function(k){return Number(h.data.rd[k])})}});
+  LOADS=ps.concat(hs);
+  var opt=function(x,i){ return '<option value="'+i+'">'+esc(x.title)+' · '+esc(x.teacher)+' ('+x.ids.length+'문항)</option>'; };
+  $('#loadSel').innerHTML='<option value="">— 고르세요 —</option>'
+    +(ps.length?'<optgroup label="저장한 문제지">'+ps.map(function(x,i){return opt(x,i)}).join('')+'</optgroup>':'')
+    +(hs.length?'<optgroup label="H WORK 과제">'+hs.map(function(x,i){return opt(x,ps.length+i)}).join('')+'</optgroup>':'');
+  if(prev){ var k=LOADS.findIndex(function(x){return x.kind===prev.kind&&x.teacher===prev.teacher&&x.title===prev.title}); if(k>=0) $('#loadSel').value=String(k); }   // 다시 그려도 고른 것 유지
+  drawDel();
+}
+function loadPick(){ var v=$('#loadSel').value; return v===''?null:LOADS[Number(v)]; }
+function drawDel(){ var h=loadPick(); $('#paperDel').disabled=!(h&&h.kind==='paper'); }
+$('#loadSel').addEventListener('change',function(){
+  drawDel(); var h=loadPick(); if(!h) return;
+  if(SEL.length && !confirm('지금 고른 문항 '+SEL.length+'개 대신 「'+h.title+'」 문항을 불러올까요?')){ $('#loadSel').value=''; drawDel(); return; }
+  var ids=h.ids.slice(); if(!ids.length){ toast('문항이 없는 문제지입니다'); return; }
+  toast('불러오는 중…');
+  sb('/reading_items?select=id,passage_id&id=in.('+ids.join(',')+')').then(function(rows){
+    var pids=[]; rows.forEach(function(r){ if(pids.indexOf(r.passage_id)<0) pids.push(r.passage_id); });
+    return Promise.all(pids.map(loadPassage)).then(function(gs){
+      var byP={}; gs.forEach(function(g){ byP[g.id]=g; });
+      var pidOf={}; rows.forEach(function(r){ pidOf[r.id]=r.passage_id; });
+      var out=[], miss=0;
+      ids.forEach(function(id){ var g=byP[pidOf[id]], e=g&&findEntry(g,id); if(e) out.push(e); else miss++; });
+      SEL=out; $('#hTeacher').value=h.teacher; $('#pTitle').value=h.title; TITLE_AUTO='';
+      if(h.kind==='paper'){ $('#pDate').value=h.print_date||''; $('#pSchool').value=h.school||''; SAVED=miss?null:{teacher:h.teacher,title:h.title,sig:selSig()}; }
+      else SAVED=null;
+      rebuildUsed(); drawLoad();
+      selChanged();
+      toast(miss?('불러왔어요. 지금은 없는 문항 '+miss+'개는 뺐습니다 — 다시 저장해 주세요'):('「'+h.title+'」 '+out.length+'문항을 불러왔어요'));
+    });
+  }).catch(function(e){ toast('불러오지 못했습니다. ('+e.message+')'); });
+});
+$('#paperDel').onclick=function(){
+  var h=loadPick(); if(!h||h.kind!=='paper') return;
+  if(!confirm(h.teacher+' 선생님의 「'+h.title+'」 문제지를 지울까요?\n지금 고른 문항은 그대로 둡니다.')) return;
+  var btn=$('#paperDel'); btn.disabled=true; btn.textContent='지우는 중…';
+  sbw('/shufit_reading_papers?teacher=eq.'+encodeURIComponent(h.teacher)+'&title=eq.'+encodeURIComponent(h.title),'DELETE')
+    .then(function(){
+      PAPERS=PAPERS.filter(function(p){return !(p.teacher===h.teacher&&p.title===h.title)});
+      if(SAVED&&SAVED.teacher===h.teacher&&SAVED.title===h.title) SAVED=null;
+      drawTeachers(); rebuildUsed(); drawLoad(); if(CUR) drawList(); drawPrint();
+      toast('문제지를 지웠어요');
+      if(window.shuegukActivity) shuegukActivity('Shuefit 독서', '문제지 삭제', h.title, h.teacher+' · '+h.ids.length+'문항', false);
+    })
+    .catch(function(e){ toast('지우지 못했습니다. ('+e.message+')'); })
+    .then(function(){ btn.textContent='삭제'; drawDel(); });
+};
+$('#newBtn').onclick=function(){
+  if(SEL.length && !confirm('고른 문항·제목·날짜·학교를 비우고 새로 시작할까요?\n(저장한 H WORK 과제는 지우지 않아요)')) return;
+  SEL=[]; SAVED=null; $('#loadSel').value=''; drawDel(); TITLE_AUTO=''; ['#pTitle','#pDate','#pSchool','#hwDue','#hwMemo'].forEach(function(s){ $(s).value=''; });
+  setMsg('',''); hwaMsg('',''); if(HWP) HWP.reset(); HWP_SEL=null; selChanged(); window.scrollTo(0,0);
+};
+
+/* ── 고른 문항 인쇄 ── */
+function pmVal(){ var d=($('#pDate').value||'').match(/^(\d{4})-(\d{2})-(\d{2})$/); return { dot:d?d[1]+'. '+Number(d[2])+'. '+Number(d[3])+'.':'', school:($('#pSchool').value||'').trim() }; }
+function selDoc(kind, teacher){
+  var o={print:1, teacher:teacher}, h='', title=$('#pTitle').value.trim()||autoTitle(), m=pmVal(), no=0;
+  if(kind==='exam') h+='<div class="exh"><div class="t1">Shuefit 독서'+(m.dot?' · '+m.dot:'')+'<br>'+esc(title)+(teacher?' · 교사용':'')+'</div><div class="t2">국어 영역</div><div class="t3">학교 <span>'+esc(m.school)+'</span><br>이름 <span></span></div></div>';
+  else h+='<div class="ph span"><div><div class="lg">Shueguk</div></div><div class="tt">Shuefit 독서 · '+SEL.length+'문항'+(teacher?' · 교사용':'')+'<b>'+esc(title)+'</b></div><div class="nm">날짜<span>'+esc(m.dot)+'</span><br>학교<span>'+esc(m.school)+'</span><br>이름<span></span></div></div>';
+  selGroups().forEach(function(g){
+    var a=no+1, b=no+g.items.length;
+    IMGCTX=g.x.imgs;
+    h+='<div class="ins">['+(a===b?a:a+'~'+b)+'] 다음 글을 읽고 물음에 답하시오.</div>'+passageHtml(g.x.pas);
+    g.items.forEach(function(x){ h+=itemHtml(x.it,++no,o); });
+  });
+  IMGCTX=null;
+  var cells=SEL.map(function(x,i){ return [i+1, teacher?esc(x.it.ans||''):(x.it.kind==='choice'?'① ② ③ ④ ⑤':(x.it.kind==='ox'?'O · X':''))]; });
+  h+='<div class="ansrow"><h3 style="font-family:Gowun Batang;font-size:11pt;margin:0 0 2mm">'+(teacher?'빠른 정답':'답안 기록표')+'</h3>';
+  for(var i=0;i<cells.length;i+=10){ var c=cells.slice(i,i+10); h+='<table><tr>'+c.map(function(x){return '<td>'+x[0]+'</td>'}).join('')+'</tr><tr>'+c.map(function(x){return '<td style="height:7mm">'+x[1]+'</td>'}).join('')+'</tr></table>'; }
+  h+='</div>';
+  if(teacher) h+='<div class="ansbox"><h3>정답과 해설</h3><div class="anscols">'+SEL.map(function(x,i){return '<div class="ex1"><b>'+(i+1)+'. 정답 '+esc(x.it.ans||'')+'</b> '+esc(x.it.expl||'')+'</div>'}).join('')+'</div></div>';
+  IMGCTX=null;
+  $('#print').innerHTML='<div class="pr '+kind+'">'+h+'</div>';
+  // 지문 그림은 각 지문의 그림으로 — passageHtml 이 IMGCTX 를 읽은 뒤에 비웠다
+  document.body.classList.add('printing');
+}
+function selPrint(kind, teacher){
+  if(!SEL.length){ toast('문항을 먼저 담아 주세요'); return; }
+  if(!canPrint()){ toast('문제지를 먼저 저장해 주세요'); return; }
+  selDoc(kind, teacher);
+  document.title=(($('#pTitle').value.trim()||autoTitle())+' '+(kind==='exam'?'시험지':'학습지')+(teacher?' (교사용)':'')).replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim();
+  Promise.all([waitImgs($('#print')), waitFonts()]).then(function(){ setTimeout(function(){ window.print(); },50); });
+  if(window.shuegukActivity) shuegukActivity('Shuefit 독서', '인쇄', $('#pTitle').value.trim(), SEL.length+'문항 · '+(kind==='exam'?'시험지':'학습지')+(teacher?' 교사용':''), false);
+}
+
+/* ── 중철 책자 — 슈핏 문법 bookletDoc 과 같은 짜임: 보이지 않는 #bkm 에 A4 쪽 상자를 만들고 블록을 하나씩 흘려 넣는다(2단, 넘침은 옆으로).
+ * 지문은 문단 단위로 단·쪽을 넘어 잇고, 문항은 나누지 않는다. 앞표지 + 본문 + 빈 쪽 + 뒤표지 = 4의 배수, A4 한 장에 한 쪽씩 차례대로 ── */
+function bookParts(teacher){
+  var o={print:1, teacher:teacher}, no=0, m=pmVal(), title=$('#pTitle').value.trim()||autoTitle(), blocks=[], key=[];
+  var head='<div class="ph"><div><div class="lg">Shueguk</div></div><div class="tt">Shuefit 독서 · '+SEL.length+'문항'+(teacher?' · 교사용':'')+'<b>'+esc(title)+'</b></div><div class="nm">날짜<span>'+esc(m.dot)+'</span><br>학교<span>'+esc(m.school)+'</span><br>이름<span></span></div></div>';
+  selGroups().forEach(function(g){
+    var a=no+1, b=no+g.items.length; IMGCTX=g.x.imgs;
+    blocks.push('<div class="ins">['+(a===b?a:a+'~'+b)+'] 다음 글을 읽고 물음에 답하시오.</div>');
+    g.x.pas.blocks.forEach(function(bk){ blocks.push('<div class="pas">'+blockHtml(bk)+'</div>'); });
+    if(g.x.pas.vocab) blocks.push('<div class="pas"><div class="voc"><b>어휘 풀이</b><br>'+g.x.pas.vocab.join('<br>')+'</div></div>');
+    g.items.forEach(function(x){ blocks.push(itemHtml(x.it,++no,o)); });
+  });
+  IMGCTX=null;
+  if(teacher) SEL.forEach(function(x,i){ key.push('<div class="ex1"><b>'+(i+1)+'. 정답 '+esc(x.it.ans||'')+'</b> '+esc(x.it.expl||'')+'</div>'); });
+  return {title:title, head:head, blocks:blocks, keyHead:'<div class="bkhead"><h3>정답과 해설</h3></div>', keyBlocks:key};
+}
+function coverPage(d, teacher){
+  var ts=selGroups().map(function(g){return g.x}), uniq=[], areas=[];
+  ts.forEach(function(x){ if(!uniq.some(function(u){return u.gid===x.gid})) uniq.push(x); });
+  uniq.forEach(function(x){ var g=CACHE[x.gid]; if(g&&g.area&&areas.indexOf(g.area)<0) areas.push(g.area); });
+  var mm=d.title.match(/^(.*?):\s*(.+)$/), t1=mm?mm[1]:'Shuefit 독서', t2=mm?mm[2]:d.title, m=pmVal();
+  var p=document.createElement('div'); p.className='bpage cover';
+  p.innerHTML='<div class="cv-top"><div class="cv-brand"><span>이수경국어 · Shuefit 독서</span><div class="cv-logo"><b>Shueguk</b><span>'+(teacher?'교사용':'학생용')+'</span></div></div>'
+    +'<div class="cv-tag">독서'+(areas.length?' · '+esc(areas.join(' · ')):'')+'</div><div class="cv-series">Shuefit 독서 시리즈 · 너에게 꼭 맞춘 독서 학습</div>'
+    +'<div class="cv-title">'+esc(t1)+'<br>'+esc(t2)+'</div><div class="cv-sub">지문 '+uniq.length+'개 · '+SEL.length+'문항'+(teacher?' · 정답과 해설':'')+'</div>'
+    +'<img class="cv-sk" src="assets/sk-study.png" alt=""></div>'
+    +'<div class="cv-bot"><h4>이 책의 지문</h4><div class="cv-list">'+uniq.slice(0,12).map(function(x){return '<div class="cv-u"><i>'+esc(x.srcname.replace(/학년도\s*/,' ').replace(/\s+/g,' '))+'</i>'+esc(x.title)+'</div>'}).join('')+'</div></div>'
+    +'<div class="cv-name">'+(m.dot?'<div>날짜 '+esc(m.dot)+'</div>':'')+'<div>학교 '+esc(m.school)+'</div><div>이름</div></div>';
+  return p;
+}
+function backPage(){ var p=document.createElement('div'); p.className='bpage bkback';
+  p.innerHTML='<div class="bk-in"><img src="assets/sk-cheer.png" alt=""><b>Shueguk</b><div class="nm">이수경국어</div><div class="sr">Shuefit 독서</div><div class="pl">다르게 하기의 힘</div></div>'; return p; }
+function bookletDoc(teacher){
+  if(!SEL.length){ toast('문항을 먼저 담아 주세요'); return; }
+  if(!canPrint()){ toast('문제지를 먼저 저장해 주세요'); return; }
+  var d=bookParts(teacher), M=$('#bkm'), pages=[], content=[], body;
+  M.innerHTML='';
+  var newPage=function(){ var p=document.createElement('div'); p.className='bpage'; p.innerHTML='<div class="bbody"></div><div class="bno"></div>'; M.appendChild(p); pages.push(p); content.push(p); return p.firstChild; };
+  var over=function(b){ return b.scrollWidth > b.clientWidth+2; };
+  var tmp=document.createElement('div');
+  var flow=function(list, fixed, start){
+    return list.reduce(function(pr,h){ return pr.then(function(){
+      tmp.innerHTML=h; var el=tmp.firstElementChild; body.appendChild(el);
+      return waitImgs(el).then(function(){ if(over(body) && body.children.length > (content.length===start?fixed+1:1)){ el.remove(); body=newPage(); body.appendChild(el); } });
+    }); }, Promise.resolve());
+  };
+  waitFonts().then(function(){
+    var cv=coverPage(d, teacher); M.appendChild(cv); pages.push(cv);
+    body=newPage(); body.insertAdjacentHTML('beforeend', d.head);
+    return flow(d.blocks, body.children.length, 1);
+  }).then(function(){
+    if(!teacher) return;
+    body=newPage(); body.insertAdjacentHTML('beforeend', d.keyHead);
+    return flow(d.keyBlocks, body.children.length, content.length);
+  }).then(function(){
+    while((pages.length+1)%4) newPage();
+    var bk=backPage(); M.appendChild(bk); pages.push(bk);
+    pages.forEach(function(p,i){ var n=p.querySelector('.bno'); if(n) n.textContent=p.firstChild.children.length?'- '+(i+1)+' -':''; });
+    var html=pages.map(function(p){return '<div class="sheet">'+p.outerHTML+'</div>'}).join('');
+    M.innerHTML='';
+    $('#print').className='bk pr study'; $('#print').innerHTML=html;
+    document.body.classList.add('printing');
+    toast('표지 포함 A4 '+pages.length+'쪽 책자를 만들었어요');
+    setPage(PAGE_BK);
+    document.title=(d.title+' 중철 책자'+(teacher?' (교사용)':'')).replace(/[\\/:*?"<>|]/g,' ').replace(/\s+/g,' ').trim();
+    return waitImgs($('#print'));
+  }).then(function(){ setTimeout(function(){ window.print(); },80); });
+  if(window.shuegukActivity) shuegukActivity('Shuefit 독서', '중철 책자 인쇄', d.title, SEL.length+'문항'+(teacher?' · 교사용':''), false);
+}
+
+/* ── H WORK 출제 ── */
+function sbw(path, method, body, prefer){
+  return fetch(SB+'/rest/v1'+path,{method:method,headers:{apikey:SB_KEY,'Content-Type':'application/json',Prefer:prefer||'return=minimal'},body:body==null?undefined:JSON.stringify(body)})
+    .then(function(r){ if(!r.ok) return r.text().then(function(t){ throw new Error(path.split('?')[0]+' '+r.status+' '+t.slice(0,120)); }); return r.text(); });
+}
+function setMsg(k,t){ var m=$('#saveMsg'); m.className='msg '+(k||''); m.textContent=t||''; }
+function hwaMsg(k,t){ var m=$('#hwAssignMsg'); m.className='msg '+(k||''); m.textContent=t||''; }
+function rebuildUsed(){
+  var t=$('#hTeacher').value.trim(); USED={};
+  ALLHW.forEach(function(h){ if(!h.data||!h.data.rd||(t&&h.teacher!==t)) return;
+    Object.keys(h.data.rd).forEach(function(k){ var id=Number(h.data.rd[k]); (USED[id]=USED[id]||[]).push('H WORK · '+h.code+(t?'':' ('+h.teacher+')')); }); });
+  PAPERS.forEach(function(p){ if(t&&p.teacher!==t) return; (p.ids||[]).forEach(function(id){ id=Number(id); var lb='문제지 · '+p.title+(t?'':' ('+p.teacher+')'); var a=(USED[id]=USED[id]||[]); if(a.indexOf(lb)<0) a.push(lb); }); });
+}
+function loadHw(){
+  return Promise.all([sb('/hwork_homeworks?select=teacher,code,data&limit=5000'), sb('/students?select=school,enrolled&limit=5000').catch(function(){return []}),
+      sb('/shufit_reading_papers?select=id,teacher,title,ids,print_date,school,updated_at&order=updated_at.desc&limit=2000').catch(function(){ return null; })]).then(function(r){
+    ALLHW=r[0]||[]; PAPERS=r[2]||[]; PAPERS_OK=!!r[2];
+    SCHOOLS=Array.from(new Set(r[1].filter(function(s){return !LEFT_RE.test(s.enrolled||'')}).map(function(s){return (s.school||'').trim()}).filter(Boolean))).sort(function(a,b){return a.localeCompare(b,'ko')});
+    drawTeachers(); rebuildUsed(); drawLoad(); drawPrint(); if(CUR) drawList();
+  }).catch(function(e){ console.warn('H WORK 목록', e); });
+}
+$('#hTeacher').addEventListener('change',function(){ rebuildUsed(); drawLoad(); drawPrint(); if(CUR) drawList(); });
+$('#hTeacher').addEventListener('input',drawPrint);
+var BLK='<u class="bk">&nbsp;</u>';
+function srcBlock(b, imgs){
+  if(b.img) return '<div class="fig"><img src="data:image/'+(/png$/.test(b.img)?'png':'jpeg')+';base64,'+imgs[b.img]+'" alt=""></div>';
+  if(b.tbl) return '<table class="ot">'+b.tbl.map(function(r){return '<tr>'+r.map(function(c){return '<td>'+c+'</td>'}).join('')+'</tr>'}).join('')+'</table>';
+  if(b.label) return '<b>'+b.label+'</b>';
+  if(b.bracket) return '<b>'+b.bracket+'</b> '+b.p;
+  return b.p;
+}
+function srcPassage(x){
+  var P=x.pas, out=P.blocks.map(function(b){ var t=srcBlock(b,x.imgs); return /^<(div|table)/.test(t)?t:'<div class="psg">'+t+'</div>'; }).join('');
+  if(P.vocab) out+='<div class="voc"><b>어휘 풀이</b><br>'+P.vocab.join('<br>')+'</div>';
+  return out+'<div class="src">'+esc(x.srcname)+' · '+esc(x.title)+'</div>';
+}
+function srcItem(it, imgs){
+  var stem=it.stem.replace(/\s*\(\s*O\s*\/\s*X\s*\)\s*$/,''), h='<div class="stem">'+stem+'</div>';
+  if(it.box&&it.box.length) h+='<div class="bogi">'+(/보기/.test(plain(it.stem))?'<span class="bl">보 기</span>':'')+it.box.map(function(b){return '<div>'+srcBlock(b,imgs)+'</div>'}).join('')+'</div>';
+  if(it.grid) h+='<div class="chw"><table class="ot"><tr><td></td>'+it.grid.head.map(function(x){return '<td>'+x+'</td>'}).join('')+'</tr>'+it.grid.rows.map(function(r,i){return '<tr><td><span class="cn">'+CIRC[i]+'</span></td>'+r.map(function(c){return '<td>'+c+'</td>'}).join('')+'</tr>'}).join('')+'</table></div>';
+  else if(it.opts) h+='<div class="qb">'+it.opts.map(function(o,i){return '<div class="ch"><span class="cn">'+CIRC[i]+'</span> '+o+'</div>'}).join('')+'</div>';
+  if(it.cond&&it.cond.length) h+='<div class="frame"><b>&lt;조건&gt;</b><br>'+it.cond.map(function(b){return srcBlock(b,imgs)}).join('<br>')+'</div>';
+  if(it.model) h+='<div class="frame">'+it.model.replace(/\(\s{3,}\)/g,BLK)+'</div>';
+  return h;
+}
+function hwKind(it){
+  if(it.kind==='choice'){ var a=ansSet(it).map(function(c){return CIRC.indexOf(c)+1}); return {item:{type:'choice5',ans:a.join(',')}, type:'5지', ans:it.ans, essay:''}; }
+  if(it.kind==='ox') return {item:{type:'ox',ans:String(it.ans||'').trim().toUpperCase()}, type:'OX', ans:it.ans, essay:''};
+  if(it.kind==='blank') return {item:{type:'text',ans:it.ans}, type:'단답', ans:it.ans, essay:''};
+  return {item:{type:'essay',ans:it.ans}, type:'서술', ans:it.kind==='multi'?it.ans:'', essay:it.ans};
+}
+function hwSavedSame(teacher, code){
+  var h=ALLHW.filter(function(x){return x.teacher===teacher&&x.code===code})[0];
+  if(!h||!h.data||!h.data.rd) return false;
+  var rd=h.data.rd; return Object.keys(rd).length===SEL.length && SEL.every(function(x,i){return Number(rd[i+1])===x.id});
+}
+function saveHw(){
+  var teacher=$('#hTeacher').value.trim(), code=$('#pTitle').value.trim();
+  if(!SEL.length){ toast('문항을 먼저 담아 주세요'); return Promise.resolve(false); }
+  if(!teacher){ toast('출제 선생님을 적어 주세요'); $('#hTeacher').focus(); return Promise.resolve(false); }
+  if(!code){ toast('제목을 적어 주세요'); $('#pTitle').focus(); return Promise.resolve(false); }
+  if(SEL.length>300){ setMsg('bad','한 과제에 300문항까지 낼 수 있어요.'); return Promise.resolve(false); }
+  var other=ALLHW.filter(function(h){return h.code===code && h.teacher!==teacher})[0];
+  if(other){ setMsg('bad','「'+code+'」는 '+other.teacher+' 선생님 과제 이름과 같습니다. 문제 원문이 섞이지 않게 제목을 바꿔 주세요.'); return Promise.resolve(false); }
+  var same=ALLHW.filter(function(h){return h.code===code && h.teacher===teacher})[0];
+  var pre=Promise.resolve(true);
+  if(same){
+    if(!(same.data&&same.data.rd)){ setMsg('bad','같은 선생님·제목의 다른 H WORK 과제가 이미 있습니다. 제목을 바꿔 주세요.'); return Promise.resolve(false); }
+    pre=sb('/hwork_submissions?select=id&teacher=eq.'+encodeURIComponent(teacher)+'&code=eq.'+encodeURIComponent(code)+'&limit=1000').catch(function(){return []}).then(function(r){
+      return confirm(r.length?('이미 학생 '+r.length+'명이 제출한 과제입니다. 문항을 바꾸면 지난 제출과 번호가 어긋납니다.\n그래도 덮어쓸까요?'):'같은 제목의 과제를 이 문항으로 바꿀까요?'); });
+  }
+  var btn=$('#saveBtn');
+  return pre.then(function(go){
+    if(!go) return false;
+    btn.disabled=true; btn.textContent='출제 중…'; setMsg('','');
+    var data={teacher:teacher, code:code, count:SEL.length, schools:SCHOOLS, items:{}, rd:{}, src:'reading'};
+    var pas={}, rows=SEL.map(function(x,i){
+      var k=hwKind(x.it), pid='rd:'+hstr(x.pkey)+':'+x.pkey.slice(0,40);
+      if(!pas[pid]) pas[pid]=srcPassage(x);
+      data.items[i+1]=k.item; data.rd[i+1]=x.id;
+      return {code:code, no:i+1, qid:'rd'+x.id, book:'Shuefit 독서', html:srcItem(x.it,x.imgs), pid:pid, type:k.type, ans:String(k.ans||''), essay:String(k.essay||''),
+              src:x.srcname+' · '+x.title+' · '+x.tag+(x.lv!=='공통'?' '+x.lv:''), err:false, active:true, expl:String(x.it.expl||''), wrong:''};
+    });
+    return sbw('/hwork_src_passages?on_conflict=pid','POST',Object.keys(pas).map(function(k){return {pid:k,html:pas[k]}}),'resolution=merge-duplicates,return=minimal')
+      .then(function(){ return sbw('/hwork_src_items?code=eq.'+encodeURIComponent(code),'DELETE'); })
+      .then(function(){ return sbw('/hwork_src_items','POST',rows); })
+      .then(function(){ return fetch(H_API,{method:'POST',body:JSON.stringify({action:'saveHomework',data:data})}).then(function(r){return r.json()}); })
+      .then(function(j){
+        if(!j||!j.ok) throw new Error(j&&j.error||'H WORK 저장 실패');
+        return sbw('/hwork_homeworks?on_conflict=teacher,code','POST',[{teacher:teacher,code:code,data:data}],'resolution=merge-duplicates,return=minimal');
+      })
+      .then(function(){
+        if(same) same.data=data; else ALLHW.push({teacher:teacher,code:code,data:data});
+        rebuildUsed(); drawLoad(); if(CUR) drawList();
+        setMsg('ok','출제했습니다 — '+teacher+' / '+code+' ('+SEL.length+'문항)\n아래에서 바로 학생에게 배정할 수 있어요.');
+        if(window.shuegukActivity) shuegukActivity('Shuefit 독서', 'H WORK 출제', code, SEL.length+'문항', false);
+        return true;
+      })
+      .catch(function(e){ setMsg('bad','출제하지 못했습니다. ('+e.message+')'); return false; })
+      .then(function(r){ btn.disabled=!SEL.length; btn.textContent='H WORK 과제로 출제'; return r; });
+  });
+}
+$('#saveBtn').onclick=function(){ saveHw(); };
+var HWP=null, HWP_SEL=null, HWP_LOADING=false;
+function hwPickerInit(){
+  if(HWP||HWP_LOADING) return; HWP_LOADING=true;
+  var go=function(){ $('#hwPicker').innerHTML=''; HWP=StudentPicker.create($('#hwPicker'),{endpoint:REPORT_API,onChange:function(s){HWP_SEL=s}}); };
+  if(window.StudentPicker) return go();
+  var sc=document.createElement('script'); sc.src='https://coke4497-sys.github.io/shueguk-report/student-picker.js';
+  var fail=function(){ HWP_LOADING=false; $('#hwPicker').innerHTML='<span class="dim" style="font-size:13px">학생 고르기를 불러오지 못했습니다. 새로고침해 주세요.</span>'; };
+  sc.onload=function(){ if(window.StudentPicker) go(); else fail(); }; sc.onerror=function(){ HWP_LOADING=false; $('#hwPicker').innerHTML='<span class="dim" style="font-size:13px">학생 고르기를 불러오지 못했습니다. 새로고침해 주세요.</span>'; };
+  document.head.appendChild(sc);
+}
+function hwResyncAssign(){
+  return fetch(REPORT_API+'?action=assignList&pw=sh&tool='+encodeURIComponent('H WORK')+'&t='+Date.now(),{cache:'no-store'}).then(function(r){return r.json()}).then(function(d){
+    if(!d||d.result!=='success') return;
+    var ymd=function(v){ var s=String(v==null?'':v).trim(); if(!s||/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; var t=Date.parse(s); if(isNaN(t)) return s; var x=new Date(t+9*3600000); return x.getUTCFullYear()+'-'+String(x.getUTCMonth()+1).padStart(2,'0')+'-'+String(x.getUTCDate()).padStart(2,'0'); };
+    var rows=(d.assignments||[]).map(function(a){return {seq:a.rowIndex||0,date:ymd(a.date),tool:String(a.tool||'H WORK'),item:String(a.item||''),type:String(a.type||''),target:String(a.target||''),due:ymd(a.due),memo:String(a.memo||'')}});
+    return sbw('/assignments?tool=eq.'+encodeURIComponent('H WORK'),'DELETE').then(function(){ if(rows.length) return sbw('/assignments','POST',rows); });
+  }).catch(function(e){ console.warn('배정 미러 재동기화 실패 — 일일 점검이 복구', e); });
+}
+$('#hwAssignBtn').onclick=function(){
+  var teacher=$('#hTeacher').value.trim(), code=$('#pTitle').value.trim();
+  if(!SEL.length){ toast('문항을 먼저 담아 주세요'); return; }
+  if(!teacher||!code){ toast('출제 선생님과 제목을 적어 주세요'); return; }
+  var sel=HWP_SEL||(HWP&&HWP.getSelection());
+  if(!sel){ hwaMsg('bad','배정할 학생을 먼저 골라 주세요.'); return; }
+  var who=sel.summary||'고른 학생', btn=$('#hwAssignBtn'); hwaMsg('','');
+  var pre;
+  if(!hwSavedSame(teacher, code)){
+    if(!confirm('아직 이 문항으로 출제하지 않았습니다.\nH WORK 과제로 출제한 뒤 '+who+'에게 배정할까요?')) return;
+    pre=saveHw();
+  } else { if(!confirm('「'+code+'」을(를) '+who+'에게 배정할까요?')) return; pre=Promise.resolve(true); }
+  pre.then(function(ok){
+    if(!ok){ hwaMsg('bad','출제하지 못해 배정하지 않았습니다. 위 안내를 확인해 주세요.'); return; }
+    btn.disabled=true; btn.textContent='배정 중…';
+    return fetch(REPORT_API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body:JSON.stringify({action:'addAssignment',pw:'sh',tool:'H WORK',item:teacher+' / '+code,type:sel.type,target:sel.target,due:$('#hwDue').value,memo:$('#hwMemo').value.trim()})})
+      .then(function(r){return r.json()}).then(function(j){
+        if(j.result!=='success'){ hwaMsg('bad','배정하지 못했습니다: '+(j.message==='unauthorized'?'권한 없음':(j.message||'오류'))); return; }
+        hwaMsg('ok','✓ 배정했습니다 — '+code+' · '+who+'\n학생 페이지 H WORK 목록에 바로 보여요.');
+        if(window.shuegukActivity) shuegukActivity('Shuefit 독서', 'H WORK 배정', code, who, false);
+        if(HWP) HWP.reset(); HWP_SEL=null; $('#hwMemo').value='';
+        hwResyncAssign();
+      }).catch(function(){ hwaMsg('bad','배정하지 못했습니다. 인터넷 연결을 확인해 주세요.'); })
+      .then(function(){ btn.disabled=!SEL.length; btn.textContent='이 학생들에게 배정'; });
+  });
+};
+drawSel(); loadHw();
+(function(){ try{ if(window.shuegukTeacherName) shuegukTeacherName().then(function(n){ if(n&&!$('#hTeacher').value){ $('#hTeacher').value=n; rebuildUsed(); drawLoad(); drawPrint(); if(CUR) drawList(); } }).catch(function(){}); }catch(e){} })();
+
+window.__printDoc=printDoc; window.__S=S; window.__SEL=function(){return SEL};
 loadList();
 </script>
+<script src="https://coke4497-sys.github.io/shueguk-report/activity.js"></script>
 </body>
 </html>
