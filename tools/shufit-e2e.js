@@ -66,6 +66,16 @@ function fake(rt, u, method, body) {
   }
   if (rest.startsWith('/hwork_src_items')) { DB.calls.push({ fn: 'src', rest }); return rt.fulfill({ json: [{ no: '2', html: RQ(2), pid: 'wb-P1', type: '5지', ans: '③', essay: '', src: '건대부고3 24 1 중간', err: false, book: '문장 1권(기본·실력)' }] }); }
   if (rest.startsWith('/hwork_src_passages')) return rt.fulfill({ json: [{ pid: 'wb-P1', html: '<div class="psg">교재 지문 글 나랏 말ᄊᆞ미</div>' }] });
+  if (rest.startsWith('/students') && rest.includes('name')) return rt.fulfill({ json: rest.includes('offset=0') ? [
+    { name: '김가람', school: '화정고', grade: '2026 고등 2학년', enrolled: '재원' }, { name: '박나래', school: '화정고', grade: '2026 고등 2학년', enrolled: '재원' },
+    { name: '박나래', school: '능곡고', grade: '2026 고등 2학년', enrolled: '재원' }, { name: '최다솜', school: '화정고', grade: '2026 고등 2학년', enrolled: '재원' },
+    { name: '김가람', school: '화정고', grade: '2026 고등 1학년', enrolled: '퇴원' }] : [] });
+  if (rest.startsWith('/tt_classes')) { DB.ttq = rest; return rt.fulfill({ json: rest.includes('offset=0') ? [
+    { class_id: 'n009', name: '고2 화정A(비상 화언)', day: '수', start_time: '5:30', teacher: '주혜', roster: '김가람 (화정)박나래 최다솜(9/1부터)' },
+    { class_id: 'n024', name: '고2 화정B(비상 화언)', day: '목', start_time: '5:30', teacher: '현정', roster: '김가람 이없음' },
+    { class_id: 'n017', name: '고2 확인', day: '토', start_time: '2:00', teacher: '현정', roster: '김가람' },
+    { class_id: 'n030', name: '고1 능곡A(천재)', day: '금', start_time: '8:00', teacher: '슈', roster: '' }] : [] }); }
+  if (rest.startsWith('/assignments') && method === 'GET') return rt.fulfill({ json: [] });
   if (rest.startsWith('/students')) return rt.fulfill({ json: rest.includes('offset=0') ? [{ school: '화정고', enrolled: '재원' }, { school: '능곡고', enrolled: '재원' }, { school: '옛학교', enrolled: '퇴원' }] : [] });
   if (rest.startsWith('/hwork_submissions')) { const m = rest.match(/id=eq\.(\d+)/); return rt.fulfill({ json: m && DB.sub && DB.sub.id == m[1] ? [DB.sub] : [] }); }
   if (rest.startsWith('/hwork_retests')) return rt.fulfill({ json: [] });
@@ -341,6 +351,42 @@ function rpc(fn, p) {
     const seq = DB.posts.slice(nPost).map(x => x.action);
     ok(seq.join() === 'saveHomework,saveHomework,addAssignment,addAssignment' && DB.posts[DB.posts.length - 1].item === '이현지 / [슈핏 문법] 음운 연습 2 · 음운 (3)', '제목을 바꾸면 다시 출제한 뒤 단원 과제 모두 배정 ' + seq.join());
     if (SHOT) await p.locator('#xp-hw').screenshot({ path: path.join(SHOT, 'shufit-assign.png') });
+    // 저장한 문제지로 한 번에 출제·배정(2026-11-19 원장님 "화정고2의 내신 진도반을 불러오면 그 학생들에게 배정")
+    await p.click('#xTabs [data-x=hw]');
+    await p.waitForFunction(() => document.querySelectorAll('#baCls option').length > 1);
+    ok(DB.ttq && DB.ttq.includes('class_id=not.like.w*') && decodeURIComponent(DB.ttq).includes('book=eq.내신'), '진도반 = 내신 시간표, 이 주만 반 제외');
+    const opts = await p.$$eval('#baCls option', a => a.map(o => o.textContent));
+    ok(opts.some(t => t.startsWith('고2 화정 진도반 모두 (2반 · 3명)')) && !opts.some(t => t.includes('확인')) && !opts.some(t => t.includes('능곡')), '진도반 고르기 — 학교·학년 모두 + 반마다, 확인 반·빈 반 빼기 ' + JSON.stringify(opts));
+    // 문제지 학교가 '화정고2'면 그 진도반을 저절로 불러온다
+    await p.evaluate(() => { PAPERS.unshift({ id: 99, teacher: '이현지', title: 'Shuefit 문법: 음운 심화 (2)', ids: [101, 102], school: '화정고2' }); baDraw(); });
+    await p.check('[data-bap="99"]');
+    ok((await p.locator('#baClsOn span').count()) === 2 && (await p.locator('#baStu').textContent()).includes('받을 학생 3명'), '문제지 학교(화정고2)로 진도반 저절로 불러옴');
+    ok((await p.locator('#baStu .miss').textContent()).includes('이없음'), '명단에서 못 찾은 학생은 따로 알림');
+    await p.click('#baStu [data-bas^="최다솜"]');
+    ok((await p.locator('#baStu').textContent()).includes('받을 학생 2명') && (await p.locator('#baGo').textContent()).includes('문제지 1개를 2명에게'), '이름을 누르면 빼기');
+    await p.fill('#baDue', '2026-11-30');
+    let bn = DB.posts.length; await p.click('#baGo');
+    await p.waitForFunction(() => document.getElementById('baMsg').textContent.includes('끝났습니다'));
+    let bp = DB.posts.slice(bn);
+    const bsave = bp.filter(x => x.action === 'saveHomework'), basg = bp.filter(x => x.action === 'addAssignment');
+    ok(bsave.length === 1 && bsave[0].data.code === 'Shuefit 문법: 음운 심화 (2)' && JSON.stringify(bsave[0].data.bank) === '{"1":101,"2":102}', '한 번에 — 문제지를 그대로 출제 ' + JSON.stringify(bsave.map(x => x.data.code)));
+    ok(basg.length === 1 && basg[0].type === '일부' && basg[0].target === '김가람, 박나래|화정고|2026고등2학년' && basg[0].item === '이현지 / Shuefit 문법: 음운 심화 (2)' && basg[0].due === '2026-11-30', '한 번에 — 진도반 학생 토큰으로 배정(같은 이름은 학교·학년까지) ' + JSON.stringify(basg[0]));
+    await p.waitForFunction(() => !document.getElementById('baGo').textContent.includes('처리 중'));
+    ok((await p.locator('[data-bap="99"] + span .dn').count()) === 1, '출제한 문제지에 출제함 표시');
+    // 다시 누르면 이미 출제·배정한 것은 건너뜀
+    bn = DB.posts.length; await p.click('#baGo');
+    await p.waitForFunction(() => /건너뜀 1개/.test(document.getElementById('baMsg').textContent));
+    ok(!DB.posts.slice(bn).some(x => x.action === 'saveHomework' || x.action === 'addAssignment'), '같은 문제지·같은 학생은 다시 출제·배정하지 않음');
+    // 단원이 둘인 문제지는 단원마다 과제로
+    await p.uncheck('[data-bap="99"]');
+    const pid = await p.evaluate(() => (PAPERS.find(x => x.title === '음운 연습' && x.teacher === '이현지') || {}).id);
+    await p.check(`[data-bap="${pid}"]`);
+    bn = DB.posts.length; await p.click('#baGo');
+    await p.waitForFunction(() => /배정 2개/.test(document.getElementById('baMsg').textContent));
+    bp = DB.posts.slice(bn);
+    ok(bp.filter(x => x.action === 'saveHomework').map(x => x.data.code).join('|') === '음운 연습 · 품사 (1)|음운 연습 · 음운 (3)' && bp.filter(x => x.action === 'addAssignment').length === 2, '단원 둘 = 과제 둘로 출제·배정 ' + JSON.stringify(bp.map(x => x.data ? x.data.code : x.item)));
+    if (SHOT) await p.locator('#baBox').screenshot({ path: path.join(SHOT, 'shufit-batch.png') });
+    await p.evaluate(() => { PAPERS = PAPERS.filter(x => x.id !== 99); BA.papers.clear(); BA.cls = []; baDraw(); });
     // 새 문제지 만들기(2026-11-17)
     await p.fill('#pSchool', '행신고'); await p.fill('#hwMemo', '2회차');
     await p.evaluate(() => { window.__c = window.confirm; window.confirm = () => false; }); await p.click('#newBtn'); await p.evaluate(() => { window.confirm = window.__c; });
