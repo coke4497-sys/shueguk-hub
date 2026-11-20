@@ -1006,7 +1006,7 @@
   }
   /* ── 시작 ── */
   sbAll('/students?select=id,name,school,grade,code,enrolled,phone_student,phone_parent1,phone_parent2&order=seq,id').then(rows => {
-    STUS = rows.filter(r => String(r.name || '').trim() && !/^(퇴원|n|no|off|x|중단|비재원)$/i.test(String(r.enrolled || '').trim()))
+    STUS = rows.filter(r => String(r.name || '').trim() && !/^(퇴원|n|no|off|x|중단|비재원|졸업)$/i.test(String(r.enrolled || '').trim()))
       .map(r => ({ key: String(r.id), name: String(r.name).trim(), school: String(r.school || '').trim(), grade: String(r.grade || ''), code: String(r.code || '').trim(),
                    phone_student: r.phone_student, phone_parent1: r.phone_parent1, phone_parent2: r.phone_parent2 }));
     fillPickers(); refresh(); renderLog();   // 명단이 온 뒤 기록의 이름 설명(학교·연락처)을 채운다

@@ -145,7 +145,7 @@
       .then(rows => { rows.forEach(r => out.push(r)); return rows.length < LIM ? out : step(off + LIM); });
     return step(0);
   }
-  const LEFT_RE = /^(퇴원|n|no|off|x|중단|비재원)$/i;
+  const LEFT_RE = /^(퇴원|n|no|off|x|중단|비재원|졸업)$/i;
   function gradeOf(g){   // '2026 고등 1학년' → '고1' (학생 페이지 levelGrade·DB smock_grade_ 와 같은 뜻)
     const s = String(g || '').replace(/20\d{2}/g, '');
     if (/중/.test(s)) return '';

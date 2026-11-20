@@ -1200,7 +1200,7 @@
   $('sDue').value = new Date(Date.now() + 9 * 3600e3 + 7 * 864e5).toISOString().slice(0, 10);
   if (window.TeacherAuth && TeacherAuth.ready) TeacherAuth.ready.then(c => { ME = (c && c.profile && c.profile.display_name) || ''; }).catch(() => {});
   sbAll('/students?select=name,school,grade,student_id,code,enrolled&order=seq,id').then(rows => {
-    STUS = rows.filter(r => String(r.name || '').trim() && !/^(퇴원|n|no|off|x|중단|비재원)$/i.test(String(r.enrolled || '').trim()))
+    STUS = rows.filter(r => String(r.name || '').trim() && !/^(퇴원|n|no|off|x|중단|비재원|졸업)$/i.test(String(r.enrolled || '').trim()))
       .map(r => ({ name: String(r.name).trim(), school: String(r.school || '').trim(), grade: String(r.grade || ''), student_id: String(r.student_id || '').trim(), code: String(r.code || '').trim() }));
     fillPickers(); summary();
   }).catch(() => { $('sum').innerHTML = '<div class="warn">재원 명단을 불러오지 못했어요 — 새로고침해 주세요.</div>'; });
