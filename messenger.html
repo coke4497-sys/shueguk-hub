@@ -1615,7 +1615,7 @@
   // 받을 사람: @로 부른 사람(나는 빼고) → @가 없으면 글 속 학생 이름으로 찾은 담당 선생님(students.teacher).
   // 서버가 이 꼬리표 글의 할 일을 '확인만 하면 끝'(ack_only)으로 만들고 보낸 사람 본인은 늘 뺀다 — 선생님이 직접 올리면 업무 목록에 안 올라간다.
   var ATT_TAGS = { '결석': 1, '지각': 1, '이동': 1 }, STU = null, stuP = null;
-  var STU_LEFT = /^(퇴원|n|no|off|x|중단|비재원)$/i;
+  var STU_LEFT = /^(퇴원|n|no|off|x|중단|비재원|졸업)$/i;
   var PARTICLE = /^(학생|친구|이가|이는|이도|이의|이랑|이|가|은|는|의|도|와|과|랑|군|양)(?![가-힣])/;
   function loadStudents(){
     if (!stuP) stuP = api('/students?select=name,school,grade,teacher,enrolled&limit=5000').then(function(rows){
@@ -2310,7 +2310,7 @@
    * 고르고(인원 표시) 정원은 그 반 지금 인원으로 자동(고칠 수 있음) — 인원이 정원 아래로 내려가면 슈퍼스타 관리에서 줄 색이 바뀐다.
    * 대화에는 글을 남기지 않는다. */
   var WTM = { kind: '예비', book: '정규', stu: null, ttc: null, pick: null, capTouched: false, inited: false, busy: false, view: 'form', wl: null, wlBusy: false, fg: '', fs: '' };   // fg·fs = 명단 보기의 학년·학교 거르기('' = 전체)
-  var WT_LEFT = /^(퇴원|n|no|off|x|중단|비재원)$/i;
+  var WT_LEFT = /^(퇴원|n|no|off|x|중단|비재원|졸업)$/i;
   function wtmShortGrade(g){ g = String(g || '').trim(); var m = /(고등|중등)\s*(\d)/.exec(g); if (m) return (m[1] === '고등' ? '고' : '중') + m[2]; m = /^([중고])\s*(\d)/.exec(g); return m ? m[1] + m[2] : ''; }
   function wtmKey(s){ return String(s.name).trim() + ' · ' + (String(s.school || '').trim() || '학교 미상') + ' · ' + (wtmShortGrade(s.grade) || '학년 미상'); }
   function wtmCount(c){ return String(c && c.roster || '').split(/\s+/).filter(String).length; }
