@@ -574,7 +574,7 @@ body.printing .toast{display:none}
 <div class="wrap">
   <a class="back" href="study.html">← 학습 관리</a>
   <div class="hd">
-    <div><div class="brand">SHUEGUK · 슈핏</div><h1>Shuefit 독서</h1><div class="subt">너에게 꼭 맞춘 독서 학습</div></div>
+    <div><div class="brand">SHUEGUK · 슈핏</div><h1>Shuefit 독서</h1><div class="subt"><span id="subtTxt">너에게 꼭 맞춘 독서 학습</span> · <a href="shufit_guide.html#reading" target="_blank" rel="noopener" style="color:inherit">사용 안내</a></div></div>
     <div class="hdr"><div class="tot" id="tot"></div>
       <label class="hdT">출제 선생님<input id="hTeacher" list="tList" placeholder="예: 이현지"><datalist id="tList"></datalist></label></div>
   </div>
@@ -738,7 +738,7 @@ var SUBS={
   writing:{ s:'작문', src:'writing', area:'영역', order:['설득하는 글','정보 전달 글','자기 표현 글','고쳐쓰기','작문 복합'], q:'건의문, 고쳐쓰기, 자료 활용', none:'아직 올린 작문 지문이 없습니다. 자료를 받으면 지문마다 올려 드려요.' } };
 var SK=(location.search.match(/[?&]s=(lit|speech|writing)(?:&|$)/)||[])[1]||'', SC=SUBS[SK]||null;
 var LIT=!!SC, SUBJ=SC?SC.s:'독서', SFN='Shuefit '+SUBJ;   // LIT = 독서가 아닌 과목(문학·화법·작문 — 같은 짜임)
-if(LIT){ document.title=SFN; (function(){ var h=document.querySelector('h1'); if(h) h.textContent=SFN; var t=document.querySelector('.hd .subt, .subt'); if(t) t.textContent='너에게 꼭 맞춘 '+SUBJ+' 학습';
+if(LIT){ document.title=SFN; (function(){ var h=document.querySelector('h1'); if(h) h.textContent=SFN; var t=document.getElementById('subtTxt'); if(t) t.textContent='너에게 꼭 맞춘 '+SUBJ+' 학습';
   var q=document.getElementById('q'); if(q) q.placeholder='낱말로 찾기 — 예) '+SC.q;
   var e=document.getElementById('exSubj'); if(e) e.placeholder="비우면 '"+SUBJ+" · "+SC.area+"'"; })(); }
 var S = {t:'orig'};   /* 독서·문학은 난도 없음(2026-11-19 원장님) — 기본·실력 파일 문항을 한 목록으로 합친다 */
