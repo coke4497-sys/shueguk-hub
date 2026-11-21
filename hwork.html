@@ -178,6 +178,7 @@
 <script>
 (function(){
   var VIEWERS = ['parkeh'];   // 원장님(관리자) + 박언호 대표님 — 모든 선생님 카드를 본다 (staff.html STAFF_VIEWERS 와 같은 목록)
+    function tName(t){ return /(선생님|대표님)$/.test(t) ? t : t + ' 선생님'; }   // '박언호대표님'에는 '선생님'을 붙이지 않는다
   var SB = TeacherAuth.config.url + '/rest/v1';
   var $ = function(id){ return document.getElementById(id); };
   function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
@@ -194,7 +195,7 @@
     $('picker').hidden = true; $('menu').hidden = false;
     $('intro').hidden = false;
     $('who').hidden = false;
-    $('who').innerHTML = '<b>' + esc(t) + ' 선생님의 H WORK</b>' + (VIEW ? '<a href="hwork.html">다른 선생님 고르기</a>' : '');
+    $('who').innerHTML = '<b>' + esc(tName(t)) + '의 H WORK</b>' + (VIEW ? '<a href="hwork.html">다른 선생님 고르기</a>' : '');
     var as = document.querySelectorAll('a.hwgo');
     for (var i = 0; i < as.length; i++){
       var u = new URL(as[i].getAttribute('data-base') || as[i].getAttribute('href'));
@@ -210,7 +211,7 @@
       var desc = c.hw ? ('출제한 과제 ' + c.hw + '개 · 제출 ' + c.sub + '건') : '아직 출제한 과제가 없습니다. 눌러서 시작해요.';
       return '<button type="button" class="card tcard' + (t === ME ? ' me' : '') + '" data-t="' + esc(t) + '">'
         + '<span class="icon">' + esc(t === '이수경' ? '슈' : (t.replace(/(선생님|대표님)$/, '').slice(-2, -1) || t.charAt(0))) + '</span>'
-        + '<span class="body"><h2>' + esc(t) + ' 선생님' + (t === ME ? '<span class="mine">나</span>' : '') + '</h2>'
+        + '<span class="body"><h2>' + esc(tName(t)) + (t === ME ? '<span class="mine">나</span>' : '') + '</h2>'
         + '<p class="desc">' + esc(desc) + '</p>'
         + '<span class="actions"><span class="go">H WORK 열기 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span></span></button>';
     }).join('');

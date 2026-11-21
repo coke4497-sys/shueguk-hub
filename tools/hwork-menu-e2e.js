@@ -35,6 +35,10 @@ let ok = 0, bad = 0; const t = (c, m) => { if (c) { ok++; } else { bad++; consol
   pg = await open({ display_name: '박언호대표님', role: 'teacher', login_id: 'parkeh' });
   names = await pg.$$eval('#tcards [data-t]', a => a.map(x => x.dataset.t));
   t(names.length === 4 && names[0] === '박언호대표님', '대표님 ' + names);
+  const h2 = await pg.$eval('[data-t="박언호대표님"] h2', e => e.textContent);
+  t(h2.startsWith('박언호대표님') && !h2.includes('선생님'), '대표님 카드 이름 ' + h2);
+  await pg.click('[data-t="박언호대표님"]');
+  t((await pg.textContent('#who')).includes('박언호대표님의 H WORK'), '대표님 머리');
   await pg.close();
   // 선생님 — 본인 카드만, 남의 ?t= 는 본인으로
   pg = await open({ display_name: '김현지', role: 'teacher', login_id: 'kim' });
