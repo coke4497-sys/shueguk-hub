@@ -5,7 +5,7 @@
   "lang": "ko",
   "id": "./messenger.html",
   "start_url": "./messenger.html",
-  "scope": "./",
+  "scope": "./messenger.html",
   "display": "standalone",
   "background_color": "#F6F8F7",
   "theme_color": "#F6F8F7",
