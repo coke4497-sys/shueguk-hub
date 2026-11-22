@@ -14,6 +14,7 @@ GitHub Pages로 배포됩니다(`coke4497-sys.github.io/shueguk-hub/`). 자세�
 ## Code Review Rules
 
 ### 인증·데이터
+- 교사 페이지·도구에 공용 교사 계정(teachers@shueguk.internal)의 비밀번호나 password 로그인을 다시 넣으면 P1 — 2026-11-22부터 교사 페이지는 허브 개인 로그인(shueguk_teacher_session_v2), 클로드 도구는 클로슈 계정(CLOSHU_TOKEN 에서 만든 비밀번호)으로만 쓴다. 누가 했는지는 DB 트리거(audit_log)가 남긴다.
 - 교사용 HTML은 **첫 스크립트로** `<script src="assets/teacher-auth.js" data-mode="protected"></script>`를 불러야 합니다. 이 모듈은 교사별 Supabase Auth 세션과 `teacher_accounts.active`를 확인하고, REST 요청에 해당 교사의 JWT를 붙입니다. 공용 계정 이메일·비밀번호나 `T_PW`를 HTML에 다시 넣는 변경은 반드시 지적하세요. 학생용 `omr.html`과 공개 안내 `question_guide.html`·`alim_absent_guide.html`(선생님·조교에게 링크로 나눠 주는 안내문 — 데이터·키 없음)에는 교사 인증 모듈을 넣지 않습니다.
 - `assets/teacher-gate.js`는 허브 **밖** 저장소(리포트·클리닉·주말·어휘·문법·H WORK)의 교사 페이지가 절대 주소로 불러 쓰는 로그인 게이트입니다(2026-10-12). teacher-auth.js와 달리 window.fetch를 바꾸지 않고, github.io에서만 켜지며(로컬은 통과), 교사 확인 통신 실패는 막지 않습니다 — 이 셋을 바꾸는 변경, `safeNext`가 다른 출처나 `.html` 아닌 경로를 허용하게 되는 변경은 지적하세요.
 - 로그인 화면은 `login.html`, 계정·RLS 기준은 `supabase/migrations/202609290001_teacher_accounts.sql`과 `202609290002_teacher_access_gate.sql`, 운영 순서는 `교사계정-설정안내.md`가 원본입니다. 교사 권한은 수정 가능한 `user_metadata`가 아니라 `teacher_accounts`와 `private.is_active_teacher()`로 확인합니다.
