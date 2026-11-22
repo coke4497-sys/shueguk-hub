@@ -53,6 +53,16 @@
   .go svg{width:15px;height:15px;transition:transform .16s ease;}
   .card:hover .go svg{transform:translateX(4px);}
 
+  /* 선생님 카드 (2026-11-21 원장님 "H work 를 강사별로 분리") */
+  .tcard{width:100%;font:inherit;text-align:left;cursor:pointer;}
+  .tcard .icon{background:#EDE4F4;color:#6B5B7B;font-family:"Gowun Batang",serif;font-weight:700;font-size:1.2rem;}
+  .tcard.me{border-color:#D6C9E4;}
+  .tcard .mine{display:inline-block;margin-left:6px;padding:1px 9px;border-radius:999px;background:#EDE4F4;color:#6B5B7B;font-size:.74rem;font-family:"Gowun Dodum",sans-serif;vertical-align:middle;}
+  .who{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin:10px 0 0;}
+  .who b{display:inline-block;padding:3px 14px;border-radius:999px;background:#EDE4F4;color:#6B5B7B;font-size:.9rem;}
+  .who a{color:var(--ink-soft);font-size:.84rem;}
+  .note{color:var(--ink-soft);font-size:.86rem;text-align:center;margin:0 0 14px;}
+  [hidden]{display:none !important;}
   footer{text-align:center;margin-top:46px;color:var(--ink-soft);font-size:.82rem;line-height:2;}
 
   @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
@@ -67,13 +77,21 @@
 
   <header>
     <p class="tagline">H WORK</p>
-    <p class="intro">출제 → 배정하기 → 제출 현황 → 채점·질문 확인 순서로 써요.</p>
+    <p class="intro" id="intro">출제 → 배정하기 → 제출 현황 → 채점·질문 확인 순서로 써요.</p>
+    <p class="who" id="who" hidden></p>
   </header>
 
-  <div class="list">
+  <!-- 1단계: 선생님 카드 — 본인 카드만, 원장님·대표님은 모든 선생님 카드 (2026-11-21) -->
+  <div id="picker">
+    <p class="note" id="pnote">불러오는 중…</p>
+    <div class="list" id="tcards"></div>
+  </div>
+
+  <!-- 2단계: 그 선생님의 H WORK 메뉴 — 링크마다 ?t=선생님 -->
+  <div class="list" id="menu" hidden>
 
     <!-- 출제 -->
-    <a class="card" href="https://coke4497-sys.github.io/shueguk-h-work/homework_key.html" target="_blank" rel="noopener">
+    <a class="card hwgo" href="https://coke4497-sys.github.io/shueguk-h-work/homework_key.html" target="_blank" rel="noopener">
       <span class="icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
       </span>
@@ -89,7 +107,7 @@
     </a>
 
     <!-- 확인 -->
-    <a class="card" href="https://coke4497-sys.github.io/shueguk-h-work/hwork_assign.html" target="_blank" rel="noopener">
+    <a class="card hwgo" href="https://coke4497-sys.github.io/shueguk-h-work/hwork_assign.html" target="_blank" rel="noopener">
       <span class="icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
       </span>
@@ -105,7 +123,7 @@
     </a>
 
     <!-- 배정·현황 -->
-    <a class="card" href="https://coke4497-sys.github.io/shueguk-h-work/hwork_status.html" target="_blank" rel="noopener">
+    <a class="card hwgo" href="https://coke4497-sys.github.io/shueguk-h-work/hwork_status.html" target="_blank" rel="noopener">
       <span class="icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg>
       </span>
@@ -121,7 +139,7 @@
     </a>
 
     <!-- 배정 현황 (2026-11-11) -->
-    <a class="card" href="https://coke4497-sys.github.io/shueguk-h-work/hwork_teacher.html" target="_blank" rel="noopener">
+    <a class="card hwgo" href="https://coke4497-sys.github.io/shueguk-h-work/hwork_teacher.html" target="_blank" rel="noopener">
       <span class="icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M16 5h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/><path d="M9 14l2 2 4-4"/></svg>
       </span>
@@ -137,7 +155,7 @@
     </a>
     <!-- 문법 문항 은행 카드는 2026-11-17 '슈핏 문법'으로 바꿔 학습 관리 → 슈핏으로 옮겼다(H WORK 와 분리). 질문함 카드도 같은 날 없앴다. -->
 
-    <a class="card" href="https://coke4497-sys.github.io/shueguk-h-work/retest_make.html" target="_blank" rel="noopener">
+    <a class="card hwgo" href="https://coke4497-sys.github.io/shueguk-h-work/retest_make.html" target="_blank" rel="noopener">
       <span class="icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 13.7-5.6L20 8.5"/><path d="M20 4v4.5h-4.5"/><path d="M20 12a8 8 0 0 1-13.7 5.6L4 15.5"/><path d="M4 20v-4.5h4.5"/></svg>
       </span>
@@ -157,5 +175,100 @@
     <p>이수경국어 Shueguk · 교사용</p>
   </footer>
 </main>
+<script>
+(function(){
+  var VIEWERS = ['parkeh'];   // 원장님(관리자) + 박언호 대표님 — 모든 선생님 카드를 본다 (staff.html STAFF_VIEWERS 와 같은 목록)
+    function tName(t){ return /(선생님|대표님)$/.test(t) ? t : t + ' 선생님'; }   // '박언호대표님'에는 '선생님'을 붙이지 않는다
+  var SB = TeacherAuth.config.url + '/rest/v1';
+  var $ = function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function get(path){ return fetch(SB + path, { cache:'no-store' }).then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); }); }
+  function all(path){   // 1000줄씩 끝까지
+    var out = [];
+    function step(off){ return fetch(SB + path, { cache:'no-store', headers:{ Range: off + '-' + (off + 999) } }).then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function(rows){ out = out.concat(rows); return rows.length === 1000 ? step(off + 1000) : out; }); }
+    return step(0);
+  }
+  var ME = '', VIEW = false;
+
+  function showMenu(t){
+    $('picker').hidden = true; $('menu').hidden = false;
+    $('intro').hidden = false;
+    $('who').hidden = false;
+    $('who').innerHTML = '<b>' + esc(tName(t)) + '의 H WORK</b>' + (VIEW ? '<a href="hwork.html">다른 선생님 고르기</a>' : '');
+    var as = document.querySelectorAll('a.hwgo');
+    for (var i = 0; i < as.length; i++){
+      var u = new URL(as[i].getAttribute('data-base') || as[i].getAttribute('href'));
+      as[i].setAttribute('data-base', u.origin + u.pathname);
+      u.searchParams.set('t', t); as[i].href = u.href;
+    }
+    document.title = t + ' · H WORK · 교사용';
+  }
+
+  function cards(list, cnt){
+    $('tcards').innerHTML = list.map(function(t){
+      var c = cnt[t] || { hw:0, sub:0 };
+      var desc = c.hw ? ('출제한 과제 ' + c.hw + '개 · 제출 ' + c.sub + '건') : '아직 출제한 과제가 없습니다. 눌러서 시작해요.';
+      return '<button type="button" class="card tcard' + (t === ME ? ' me' : '') + '" data-t="' + esc(t) + '">'
+        + '<span class="icon">' + esc(t === '이수경' ? '슈' : (t.replace(/(선생님|대표님)$/, '').slice(-2, -1) || t.charAt(0))) + '</span>'
+        + '<span class="body"><h2>' + esc(tName(t)) + (t === ME ? '<span class="mine">나</span>' : '') + '</h2>'
+        + '<p class="desc">' + esc(desc) + '</p>'
+        + '<span class="actions"><span class="go">H WORK 열기 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></span></span></button>';
+    }).join('');
+  }
+  $('tcards').addEventListener('click', function(e){
+    var b = e.target.closest('[data-t]'); if (!b) return;
+    var t = b.getAttribute('data-t');
+    history.pushState(null, '', 'hwork.html?t=' + encodeURIComponent(t));
+    showMenu(t);
+  });
+  window.addEventListener('popstate', function(){ route(); });
+
+  var LIST = [], CNT = {};
+  function route(){
+    var t = (new URLSearchParams(location.search).get('t') || '').trim();
+    if (t && !VIEW && t !== ME) t = ME;   // 선생님은 본인 H WORK 만 연다
+    if (t){ showMenu(t); return; }
+    $('picker').hidden = false; $('menu').hidden = true; $('who').hidden = true;
+    $('intro').textContent = VIEW ? '선생님 카드를 누르면 그 선생님의 H WORK가 열립니다.' : '내 카드를 누르면 내 H WORK가 열립니다.';
+    document.title = 'H WORK · 교사용';
+  }
+
+  TeacherAuth.ready.then(function(ctx){
+    var p = (ctx && ctx.profile) || {};
+    ME = String(p.display_name || '').trim();
+    VIEW = p.role === 'admin' || VIEWERS.indexOf(p.login_id) >= 0;
+    route();
+    return Promise.all([
+      all('/hwork_homeworks?select=teacher').catch(function(){ return []; }),
+      all('/hwork_submissions?select=teacher').catch(function(){ return []; }),
+      VIEW ? fetch(SB + '/rpc/msg_members', { method:'POST', headers:{ 'Content-Type':'application/json' }, body:'{}' })
+               .then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }) : Promise.resolve([])
+    ]).then(function(rs){
+      rs[0].forEach(function(r){ var t = String(r.teacher || '').trim(); if (!t) return; (CNT[t] = CNT[t] || { hw:0, sub:0 }).hw++; });
+      rs[1].forEach(function(r){ var t = String(r.teacher || '').trim(); if (!t) return; (CNT[t] = CNT[t] || { hw:0, sub:0 }).sub++; });
+      var set = {};
+      if (ME) set[ME] = 1;
+      if (VIEW){
+        Object.keys(CNT).forEach(function(t){ set[t] = 1; });
+        (Array.isArray(rs[2]) ? rs[2] : []).forEach(function(m){
+          var n = String(m.name || m.display_name || '').trim();
+          if (n && m.role !== 'assistant') set[n] = 1;   // 조교는 H WORK 를 내지 않아 뺀다
+        });
+      }
+      LIST = Object.keys(set).sort(function(a, b){
+        if (a === ME) return -1; if (b === ME) return 1;
+        var ha = (CNT[a] || {}).hw || 0, hb = (CNT[b] || {}).hw || 0;
+        if (!!ha !== !!hb) return hb ? 1 : -1;
+        return a.localeCompare(b, 'ko');
+      });
+      cards(LIST, CNT);
+      $('pnote').textContent = VIEW ? '원장님·대표님 화면 — 모든 선생님의 카드가 보입니다.' : '';
+      $('pnote').hidden = !VIEW;
+      if (!LIST.length){ $('pnote').hidden = false; $('pnote').textContent = '로그인한 선생님 이름을 찾지 못했습니다. 다시 로그인해 주세요.'; }
+    });
+  }).catch(function(){ $('pnote').textContent = '불러오지 못했습니다. 새로고침해 주세요.'; });
+})();
+</script>
 </body>
 </html>
