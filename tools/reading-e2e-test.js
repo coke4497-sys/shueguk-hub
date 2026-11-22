@@ -75,6 +75,7 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
 (async () => {
   const b = await chromium.launch();
   const pg = await b.newPage({ viewport: { width: 1280, height: 1000 } });
+  await pg.addInitScript(() => { try { localStorage.setItem('shueguk_teacher_session_v2', JSON.stringify({ access_token: 'tok', refresh_token: 'R', expires_at: Math.floor(Date.now() / 1000) + 3600 })); } catch (e) {} });   // 허브 개인 로그인(2026-11-22 공용 교사 계정 폐지)
   // 두 화면(문제지 만들기 / 내 문제지함, 2026-11-19) — 누르기 전에 그 칸이 있는 화면·탭을 연다(사람은 탭을 눌러 간다)
   for (const m of ['click', 'fill', 'check', 'uncheck', 'selectOption']) { const o = pg[m].bind(pg); pg[m] = async (sel, ...a) => { await pg.evaluate(s => window.__sfReveal && window.__sfReveal(s), sel).catch(() => {}); return o(sel, ...a); }; }
   const errs = [], reqs = [], writes = [], gas = [];
