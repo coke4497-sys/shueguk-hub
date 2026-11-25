@@ -64,7 +64,8 @@ const GP2 = { blocks: [{ p: '별을 노래하는<br>마음으로' }], works: [{ 
  { level: '교과서', code: '30', sec_name: '내신 기출', kind: 'choice', data: Object.assign(ch('기출 1번?', '③'), { passage: GP1 }) },
  { level: '교과서', code: '30', sec_name: '내신 기출', kind: 'choice', data: Object.assign(ch('기출 2번?', '②'), { passage: GP1 }), ord: 2 },
  { level: '교과서', code: '30', sec_name: '내신 기출', kind: 'choice', data: Object.assign(ch('기출 3번?', '①'), { passage: GP2 }), ord: 3 },
- { level: '교과서', code: '31', sec_name: '시어 의미', kind: 'choice', data: ch('시어의 의미는?', '①') }]
+ { level: '교과서', code: '31', sec_name: '시어 의미', kind: 'choice', data: ch('시어의 의미는?', '①') },
+ { level: '교과서', code: '17', sec_name: '주관식', kind: 'essay', data: { stem: '시어의 뜻을 쓰시오.', ans: '별', expl: '' } }]
   .forEach((x, i) => I.push(Object.assign({ passage_id: '2409고3-가상문학', v: 1, ord: 1, plain: '', id: 2000 + i }, x)));
 // 검수 중인 작품(086) — 원장님(admin)에게만 보인다
 P.push({ id: '문학-검수중', subject: '문학', review: '검수 중', uploaded_by: '김선생', title: '검수 중 시', src: '26EBS', srcname: '2026 수능특강 문학 1', kind: 'EBS', area: '현대시', grade: '', ord: 0, plain: '',
@@ -542,6 +543,20 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await lp.evaluate(() => { selDoc('study', true); });
   t('문학 — 내신 기출 문제지 = 묶음마다 지문 한 번', (await lp.textContent('#selN')) === '3문항' && (await lp.$$('#print .pas')).length === 2, [await lp.textContent('#selN'), (await lp.$$('#print .pas')).length]);
   await lp.evaluate(() => { document.body.classList.remove('printing'); SEL = []; selChanged(); });
+  {
+    const mc = await lp.$$eval('#mchips button', a => a.map(b => [b.dataset.mt, b.classList.contains('on')]));
+    const on = Object.fromEntries(mc);
+    t('여러 유형 한 번에 — 유형 알약, 서술형뿐인 주관식은 처음부터 꺼짐', on['17'] === false && on['30'] === true && on['11'] === true && on['notes'] === true, JSON.stringify(mc));
+    await lp.click('#mchips [data-mt="30"]');
+    t('여러 유형 한 번에 — 끈 유형은 빼고 센다', /켠 유형 3문항 · 학습 자료 2 담기/.test(await lp.textContent('#mAdd')), await lp.textContent('#mAdd'));
+    await lp.click('#mAdd');
+    const ids = await lp.evaluate(() => SEL.map(x => String(x.id)));
+    t('여러 유형 한 번에 — 담김(주관식·내신 기출 없음)', (await lp.textContent('#selN')) === '3문항 · 학습 자료 2' && !ids.includes('2006') && !ids.includes('2002'), ids.join());
+    t('여러 유형 한 번에 — 다 담으면 단추 잠김', await lp.isDisabled('#mAdd'));
+    await lp.click('#mAll');
+    t('여러 유형 한 번에 — 모두 켜기', (await lp.$$eval('#mchips button.on', a => a.length)) === (await lp.$$eval('#mchips button', a => a.length)) && /켠 유형 4문항 담기/.test(await lp.textContent('#mAdd')), await lp.textContent('#mAdd'));
+    await lp.evaluate(() => { SEL = []; selChanged(); });
+  }
   await lp.click('#tchips [data-t="notes"]');
   await lp.click('[data-bundle="study"]');
   t('문학 — 학습자료 묶음 담기', (await lp.textContent('#selN')) === '1문항 · 학습 자료 2' && /^Shuefit 문학: 가상 시 모음/.test(await lp.inputValue('#pTitle')), await lp.textContent('#selN'));
