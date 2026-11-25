@@ -557,6 +557,16 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
     t('여러 유형 한 번에 — 모두 켜기', (await lp.$$eval('#mchips button.on', a => a.length)) === (await lp.$$eval('#mchips button', a => a.length)) && /켠 유형 4문항 담기/.test(await lp.textContent('#mAdd')), await lp.textContent('#mAdd'));
     await lp.evaluate(() => { SEL = []; selChanged(); });
   }
+  // 묶음 담기는 지문·문항 칸 위, 문항 칸은 따로 스크롤, 떠 있는 [지금 만드는 문제지 ↓] (2026-11-25 원장님)
+  {
+    const pos = await lp.evaluate(() => [document.querySelector('#bundleCard'), document.querySelector('#work .cols')].map(e => e.getBoundingClientRect().top + scrollY));
+    t('묶음 담기 카드가 지문·문항 칸보다 위', pos[0] < pos[1], JSON.stringify(pos));
+    await lp.evaluate(() => scrollTo(0, 0)); await lp.waitForTimeout(250);
+    t('지문을 열면 [지금 만드는 문제지 ↓] 단추', await lp.isVisible('#jumpSel'));
+    await lp.click('#jumpSel'); await lp.waitForTimeout(900);
+    t('단추를 누르면 문제지 칸으로 가고 단추는 숨음', await lp.evaluate(() => document.querySelector('#selCard').getBoundingClientRect().top < innerHeight) && !(await lp.isVisible('#jumpSel')));
+    await lp.evaluate(() => scrollTo(0, 0));
+  }
   await lp.click('#tchips [data-t="notes"]');
   await lp.click('[data-bundle="study"]');
   t('문학 — 학습자료 묶음 담기', (await lp.textContent('#selN')) === '1문항 · 학습 자료 2' && /^Shuefit 문학: 가상 시 모음/.test(await lp.inputValue('#pTitle')), await lp.textContent('#selN'));
