@@ -391,6 +391,7 @@
   .exd .omr{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 5mm}
   .exd .omr div{display:flex;align-items:center;gap:1.1mm;min-width:0;padding:1.8mm 0;border-bottom:.6pt solid #999;font-size:10pt}
   .exd .omr b{width:6mm;flex:none;font-family:var(--num);text-align:right}
+  .exd .omr u.oms{flex:1;min-width:0;height:5mm;border-bottom:.8pt solid #000;text-decoration:none}
   .exd .omr i{font-style:normal;width:5mm;height:5mm;border:.8pt solid #000;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:7.5pt}
   .exd .keybox{position:absolute;left:14mm;right:14mm;top:30mm}
   .exd .keybox h3{font-family:var(--sans);font-size:13pt;text-align:center;margin:0 0 4mm}
@@ -741,7 +742,8 @@ const F={ set:'', form:'', area:'', lvl:'', kind:'', q:'', unused:false, ans:fal
 /* 문항 묶음(2026-11-17 원장님 "2025 문항만 골라 보는 칸") — 작업 폴더의 번호로 가른다: 0~456 = 처음 올린 2026 묶음,
  * 457~1636 = 같은 날 더한 「SHUEGUK MOGO 2025」 검토본 1,110문항(번호 = 검토본 번호 + 457),
  * 1637부터 = 2026-11-18 더한 「SHUEGUK MOGO 2024」 검토본 381문항(번호 = 검토본 번호 + 1637). 묶음을 더하면 SETS 에 한 줄. */
-const SETS=[{v:'2026', l:'2026 묶음', from:0, to:456}, {v:'2025', l:'2025 묶음', from:457, to:1636}, {v:'2024', l:'2024 묶음', from:1637, to:1e9}];
+const SETS=[{v:'2026', l:'2026 묶음', from:0, to:456}, {v:'2025', l:'2025 묶음', from:457, to:1636}, {v:'2024', l:'2024 묶음', from:1637, to:99999},
+  {v:'슈국', l:'슈국 매뉴얼', from:100000, to:1e9}];   // 100000부터 = 슈국 자체 자료(리포트 tools/gbank_manual.py — OX·단답 포함, 093)
 function setOf(x){ const t=SETS.find(t=>x.id>=t.from && x.id<=t.to); return t?t.v:''; }
 function inSet(x){ return !F.set || setOf(x)===F.set; }
 /* 형태(2026-11-17 원장님) — 단독형 = 지문 없는 문항, 지문형 = 지문 세트에 딸린 문항 */
@@ -759,7 +761,8 @@ function isSel(id){ return selIds().includes(id); }
 async function boot(){
   try{
     const [items, pas, hws, stu, papers] = await Promise.all([
-      sbAll('/gbank_items?select=id,area,lvl,src,kind,year,pid,ord,html,ans,good,bad,plain&active=is.true&order=ord'),
+      sbAll('/gbank_items?select=id,area,lvl,src,kind,year,pid,ord,html,ans,qtype,answer,good,bad,plain&active=is.true&order=ord')
+        .catch(()=>sbAll('/gbank_items?select=id,area,lvl,src,kind,year,pid,ord,html,ans,good,bad,plain&active=is.true&order=ord')),
       sbAll('/gbank_passages?select=pid,html'),
       sbAll('/hwork_homeworks?select=teacher,code,data'),
       sbAll('/students?select=school,enrolled').catch(()=>[]),
@@ -801,7 +804,7 @@ function drawFilters(){
   const inArea=B.filter(x=>x.area===F.area), inLvl=inArea.filter(x=>x.lvl===F.lvl);
   $('rLvl').hidden=!F.area; $('rKind').hidden=!(F.area && F.lvl);
   if(F.area) chips('fLvl','lvl',['기본','실력','심화'], inArea);
-  if(F.area && F.lvl) chips('fKind','kind',['평가원','교육청','사설'], inLvl);
+  if(F.area && F.lvl) chips('fKind','kind',['평가원','교육청','사설','슈국'], inLvl);
   const sk='<img src="assets/sk-study.png" alt="">';
   $('fStep').innerHTML = !F.area ? sk+'<span>먼저 <b>단원</b>을 고르세요. 그 단원의 난도별 문항 수가 나타나요.</span>'
     : !F.lvl ? sk+'<span><b>난도</b>를 고르면 출처(평가원·교육청·사설)가 나타나요.</span>' : '';
@@ -839,13 +842,21 @@ function filteredGroups(){
   ITEMS.forEach(x=>{ if(!match(x)) return; const k=gkey(x); if(seen.has(k)) return; seen.add(k); out.push(groupOf(x.id)); });
   return out;
 }
-function markAns(html, ans){
+/* 문항 종류(2026-11-25, 리포트 093) — choice5 5지선다 · ox(ans 1=O, 2=X) · short 단답(답 칸 .sat 에 정답 글) */
+function qtOf(it){ return (it && it.qtype) || 'choice5'; }
+function ansText(it){ const t=qtOf(it); return t==='ox' ? (it.ans===1?'O':'X') : t==='short' ? (it.answer||'') : (CHS[it.ans-1]||''); }
+function ansHtml(it){ return qtOf(it)==='short' ? esc(ansText(it)) : ansText(it); }
+function markAns(html, ans, it){
   // 교사 보기 — 정답 번호에 민트 동그라미(.cn.ok). 선지가 표 안이라 번호 칸이 없으면 '정답' 줄로만.
-  return html.replace(new RegExp('<span class="cn" data-d="'+ans+'">'), '<span class="cn ok" data-d="'+ans+'">');
+  // OX 는 O·X 글자에 동그라미, 단답은 같은 크기의 답 칸 안에 정답 글(학생용과 쪽 구성이 같게)
+  const t=qtOf(it);
+  if(t==='short') return html.replace('<span class="sat"></span>', '<span class="sat">'+esc(it.answer||'')+'</span>');
+  const d = t==='ox' ? (ans===1?'O':'X') : ans;
+  return html.replace(new RegExp('<span class="cn" data-d="'+d+'">'), '<span class="cn ok" data-d="'+d+'">');
 }
 function exHtml(it){
   const bad=(it.bad||[]).map(b=>`<div>${b}</div>`).join('');
-  return `<div class="exb"><b>정답 · 해설</b>정답 ${CHS[it.ans-1]} ${it.good||''}${bad}</div>`;
+  return `<div class="exb"><b>정답 · 해설</b>정답 ${ansHtml(it)} ${it.good||''}${bad}</div>`;
 }
 function tagsHtml(it){
   const used=USED[it.id];
@@ -854,7 +865,7 @@ function tagsHtml(it){
 }
 function itemCard(id, head){
   const it=BYID[id];
-  return `${head?'':`<div class="ith">${tagsHtml(it)}</div>`}<div class="gq">${markAns(it.html, it.ans)}</div>${exHtml(it)}`;
+  return `${head?'':`<div class="ith">${tagsHtml(it)}</div>`}<div class="gq">${markAns(it.html, it.ans, it)}</div>${exHtml(it)}`;
 }
 function addLabel(on, n){ return on ? '✓ 담음' : (n>1 ? `+ 세트 ${n}문항 담기` : '+ 담기'); }
 function drawAllBtn(gs){
@@ -1075,7 +1086,9 @@ async function saveOne(teacher, code, ids, quiet){
     if(!nsub && !quiet && hwBank(same)!==ids.join(',') && !confirm('같은 제목의 과제를 이 문항으로 바꿀까요?')) return false;
   }
   const data={ teacher, code, count:ids.length, schools:SCHOOLS, items:{}, bank:{} };
-  ids.forEach((id,i)=>{ data.items[i+1]={ type:'choice5', ans:BYID[id].ans }; data.bank[i+1]=id; });
+  ids.forEach((id,i)=>{ const it=BYID[id], t=qtOf(it);
+    data.items[i+1] = t==='ox' ? { type:'ox', ans:ansText(it) } : t==='short' ? { type:'essay', ans:ansText(it) } : { type:'choice5', ans:it.ans };
+    data.bank[i+1]=id; });
   const res=await fetch(API_URL,{ method:'POST', body:JSON.stringify({ action:'saveHomework', data }) });
   const j=await res.json();
   if(!j.ok){ setMsg('bad','저장하지 못했습니다: '+(j.error||'')); return false; }
@@ -1198,16 +1211,16 @@ function docParts(teacher){
     }
     g.forEach(id=>{ n++; const it=BYID[id];
       let h=it.html.replace('<div class="qh">','<div class="qh"><span class="qn">'+String(n).padStart(2,'0')+'</span>');
-      if(teacher) h=markAns(h,it.ans);
+      if(teacher) h=markAns(h,it.ans,it);
       blocks.push(`<div class="blk gq"><div class="q">${h}<div class="psrc">${esc(it.src)}</div></div></div>`);
     });
   });
   /* 교사용 = 학생용과 같은 쪽 구성(2026-11-17 원장님 "페이지가 달라지면 채점할 때 오류") — 문항 쪽에는 정답 번호 동그라미만,
    * 빠른 정답과 문항별 정답·해설은 문항 뒤 새 쪽(.anshead + 블록)에 */
   const quick = '';
-  const keyHead = `<div class="anshead"><div class="at">정답과 해설</div><div class="quick"><div class="qt">빠른 정답</div>${ids.map((id,i)=>`<span><b>${i+1}</b>${CHS[BYID[id].ans-1]}</span>`).join('')}</div></div>`;
+  const keyHead = `<div class="anshead"><div class="at">정답과 해설</div><div class="quick"><div class="qt">빠른 정답</div>${ids.map((id,i)=>`<span><b>${i+1}</b>${ansHtml(BYID[id])}</span>`).join('')}</div></div>`;
   const keyBlocks = ids.map((id,i)=>{ const it=BYID[id];
-    return `<div class="kblk"><div class="kh"><b>${String(i+1).padStart(2,'0')}</b><span class="a">정답 ${CHS[it.ans-1]}</span><span class="ks">${esc(it.area)} · ${esc(it.lvl)}</span></div><div class="xbox">${it.good||''}${(it.bad||[]).map(b=>`<div>${b}</div>`).join('')}</div></div>`; });
+    return `<div class="kblk"><div class="kh"><b>${String(i+1).padStart(2,'0')}</b><span class="a">정답 ${ansHtml(it)}</span><span class="ks">${esc(it.area)} · ${esc(it.lvl)}</span></div><div class="xbox">${it.good||''}${(it.bad||[]).map(b=>`<div>${b}</div>`).join('')}</div></div>`; });
   const pm=pmVal();
   const head = `<div class="ph1"><div><div class="logo">Shueguk</div><div class="tt">${esc(title)}${teacher?' · 교사용':''}</div></div>
     <div class="nm">${pm.dot?esc(pm.dot)+' · ':''}${ids.length}문항 · 학교<span>${pm.school?`<b>${esc(pm.school)}</b>`:''}</span> 이름<span></span></div></div>`;
@@ -1363,7 +1376,7 @@ function exBlocks(teacher){
       out.push(ps);
     }
     g.forEach(id=>{ n++; const it=BYID[id];
-      let h=it.html.replace('<div class="qh">','<div class="qh"><span class="qn">'+n+'.</span>'); if(teacher) h=markAns(h,it.ans);
+      let h=it.html.replace('<div class="qh">','<div class="qh"><span class="qn">'+n+'.</span>'); if(teacher) h=markAns(h,it.ans,it);
       out.push(mk(`<div class="xb q gq" data-split="none">${h}</div>`)); });
   });
   out.forEach((el,i)=>{ if(el.classList.contains('passage')){ const nx=out[i+1]; if(!nx || !nx.classList.contains('passage')) el.classList.add('pend'); } });
@@ -1444,7 +1457,7 @@ function exLayout(host, M, teacher){
   const no=pages.length+1;
   const om=mk(`<section class="page omrpage ${no%2?'odd':'even'}"><div class="runhead"><div class="area">국어 영역</div><div class="pno">${no}</div></div>
     <div class="omrbox"><h3>답안 기록표</h3><div class="sub">학교<span>${esc(M.school)}</span>학년·반<span></span>이름<span></span></div>
-    <div class="omr">${selIds().map((id,i)=>`<div><b>${i+1}</b>${[...CHS].map(c=>`<i>${c}</i>`).join('')}</div>`).join('')}</div></div>
+    <div class="omr">${selIds().map((id,i)=>{ const t=qtOf(BYID[id]); return `<div><b>${i+1}</b>${t==='ox'?'<i>O</i><i>X</i>':t==='short'?'<u class="oms"></u>':[...CHS].map(c=>`<i>${c}</i>`).join('')}</div>`; }).join('')}</div></div>
     <div class="foot"><div class="frac"><span class="a">${no}</span><span class="b">__T__</span></div></div><div class="brandf"><b>Shueguk</b>다르게 하기의 힘</div></section>`);
   host.appendChild(om); pages.push(om);
   // 교사용 시험지(2026-11-17 원장님) — 문항 쪽·답안 기록표는 학생용과 똑같고(정답 번호만 검은 동그라미), 그 뒤 새 쪽에 정답과 해설
@@ -1452,9 +1465,9 @@ function exLayout(host, M, teacher){
     newPage();
     const ids=selIds();
     place(mk(`<div class="xb instr" data-keepnext="1">정답과 해설</div>`));
-    place(mk(`<div class="xb kquick" data-split="none">${ids.map((id,i)=>`<span><b>${i+1}</b>${CHS[BYID[id].ans-1]||''}</span>`).join('')}</div>`));
+    place(mk(`<div class="xb kquick" data-split="none">${ids.map((id,i)=>`<span><b>${i+1}</b>${ansHtml(BYID[id])}</span>`).join('')}</div>`));
     ids.forEach((id,i)=>{ const it=BYID[id];
-      place(mk(`<div class="xb kq" data-split="none"><div class="kh"><b>${i+1}.</b> 정답 ${CHS[it.ans-1]||''}<span>${esc(it.area)} · ${esc(it.lvl)}</span></div><div class="kx">${it.good||''}${(it.bad||[]).map(b=>`<div>${b}</div>`).join('')}</div></div>`)); });
+      place(mk(`<div class="xb kq" data-split="none"><div class="kh"><b>${i+1}.</b> 정답 ${ansHtml(it)}<span>${esc(it.area)} · ${esc(it.lvl)}</span></div><div class="kx">${it.good||''}${(it.bad||[]).map(b=>`<div>${b}</div>`).join('')}</div></div>`)); });
   }
   host.querySelectorAll('.frac .b').forEach(b=>b.textContent=pages.length);
   return pages.length;
@@ -1469,7 +1482,7 @@ async function examDoc(key, teacher){
     host.innerHTML=`<section class="page"><div class="coverB"><table><colgroup><col style="width:69%"><col style="width:31%"></colgroup>
       <tr><td class="g ttl">${esc(M.year)}학년도 ( ${M.sem?esc(M.sem):'&emsp;'} )학기 ( ${M.type?esc(M.type):'&emsp;'} )고사 · 정답표</td><td class="school">${esc(M.school)}</td></tr>
       <tr><td>${esc(M.subject)} · ${esc(title)}</td><td class="tot">총 ( ${n} )문항</td></tr></table></div>
-      <div class="keybox" style="top:32mm"><div class="kgrid">${selIds().map((id,i)=>{ const it=BYID[id]; return `<div><b>${i+1}</b>${CHS[it.ans-1]||''}<em>${esc(it.area)}</em></div>`; }).join('')}</div></div>
+      <div class="keybox" style="top:32mm"><div class="kgrid">${selIds().map((id,i)=>{ const it=BYID[id]; return `<div><b>${i+1}</b>${ansHtml(it)}<em>${esc(it.area)}</em></div>`; }).join('')}</div></div>
       <div class="brandf"><b>Shueguk</b>다르게 하기의 힘</div></section>`;
   }else{
     exLayout(host, M, teacher);
@@ -1655,7 +1668,7 @@ async function mpBooklet(teacher){
       const ids=p.ids.filter(id=>BYID[id]); SEL=baGroups(ids);
       const d=docParts(teacher);
       blocks.push(`<div class="bksec${i?'':' first'}"><b>${esc(p.title)}</b><span>${ids.length}문항</span></div>`, ...d.blocks);
-      keyBlocks.push(`<div class="ksec"><b>${esc(p.title)}</b>${ids.map((id,k)=>`${k+1} ${CHS[BYID[id].ans-1]||''}`).join(' · ')}</div>`, ...d.keyBlocks);
+      keyBlocks.push(`<div class="ksec"><b>${esc(p.title)}</b>${ids.map((id,k)=>`${k+1} ${ansHtml(BYID[id])}`).join(' · ')}</div>`, ...d.keyBlocks);
       all.push(...ids);
     });
   } finally { SEL=keep; }
