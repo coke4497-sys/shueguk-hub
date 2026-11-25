@@ -405,6 +405,7 @@ body.printing .toast{display:none}
 .ldrow select{flex:1;min-width:0;border:1px solid #dfe5e1;border-radius:10px;padding:9px 10px;font:inherit;font-size:14px;background:#fafbf9}
 .xpane h3{font-family:'Do Hyeon';font-weight:400;font-size:16px;margin:10px 0 6px}
 .xpane[hidden]{display:none}
+[data-wpane][hidden]{display:none!important}   /* 진도반 칸은 style display:flex 라 hidden 만으로 안 숨었다 — 두 배정 칸이 함께 보임 (2026-11-25) */
 .xsec h3{font-family:'Do Hyeon';font-weight:400;font-size:17px;margin:0 0 8px}
 .btn:disabled{opacity:.45;cursor:default}
 .btn.main{background:#4a3f63;color:#fff}

@@ -391,6 +391,7 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.waitForFunction(() => /구간 \d+개로 나눠 출제했습니다/.test(document.querySelector('#saveMsg').textContent), null, { timeout: 8000 });
   pg.off('dialog', onDlg);
   t('모두 출제 — 다른 지문 비울지·구간으로 나눠 출제할지 묻기', dlg.length === 2 && /다른 지문 문항 \d+개/.test(dlg[0]) && /문항 7개를 구간 \d+개로 나눠/.test(dlg[1]), JSON.stringify(dlg));
+  t('모두 출제 — 진도반 칸은 숨음(배정 칸 하나만)', !(await pg.isVisible('#baGo')) && !(await pg.isVisible('#baCls')));
   t('모두 출제 — 학생 직접 고르기 칸이 열려 진행·완료 안내가 보임', await pg.isVisible('#saveMsg') && await pg.isVisible('#hwAssignBtn') && await pg.$eval('#hwWho [data-w="pick"]', e => e.classList.contains('on')));
   await pg.waitForFunction(() => /H WORK 과제로 출제했습니다/.test(document.querySelector('#unitHwNote').textContent), null, { timeout: 8000 });
   t('모두 출제 — 지문 머리에도 완료·배정 안내', /학생 직접 고르기/.test(await pg.textContent('#unitHwNote')));
