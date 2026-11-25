@@ -710,6 +710,7 @@ body.printing .toast{display:none}
       <div class="xpane" id="xp-hw" hidden>
         <div class="seg two-seg" id="hwWho" style="margin-bottom:10px"><button type="button" data-w="cls" class="on">진도반으로</button><button type="button" data-w="pick">학생 직접 고르기</button></div>
         <div id="hwClass" data-wpane="cls" style="display:flex;flex-direction:column;gap:8px">
+          <div class="hint" id="baCur" hidden style="margin:0"></div>
           <select id="baCls"><option value="">— 진도반을 고르세요 —</option></select>
           <div class="ba-chips" id="baClsOn"></div>
           <div class="ba-stu" id="baStu"></div>
@@ -1262,17 +1263,19 @@ function unitHw(){
   var tb=document.querySelector('#xTabs [data-x="hw"]'); if(tb) tb.click();
   /* 단원 출제는 '학생 직접 고르기' 칸에서 진행·결과·배정을 보여 준다(2026-11-25 원장님 "배정으로 넘어가지 않습니다" —
    * 기본 칸 '진도반으로'(저장한 문제지용)가 열려 있어 출제 진행·완료 안내·학생 고르기가 모두 숨어 있었다) */
-  var wp=document.querySelector('#hwWho [data-w="pick"]'); if(wp) wp.click();
+  var wp=document.querySelector('#hwWho [data-w="cls"]'); if(wp) wp.click();   // 기본은 내신 진도반 배정 (2026-11-25 원장님)
   var xc=$('#xCard'); if(xc&&xc.scrollIntoView) xc.scrollIntoView({behavior:'smooth',block:'start'});
   setTimeout(function(){
     var t=$('#hTeacher').value.trim();
     if(!t){ toast('출제 선생님을 적은 뒤 [H WORK 과제로 출제]를 눌러 주세요'); return; }
     var parts=unitParts(SEL);
     if(!confirm('「'+CUR.title+'」 문항 '+SEL.length+'개를 구간 '+parts.length+'개로 나눠 H WORK 과제 '+parts.length+'개로 출제할까요?\n학생은 구간마다 따로 입력하고 채점합니다.\n출제 선생님: '+t+'\n과제 이름: '+parts[0].code+' …')) return;
+    var bm=$('#baMsg'); bm.className='msg'; bm.textContent='출제 중입니다 — 구간 '+parts.length+'개를 차례로 저장해요(1분쯤 걸릴 수 있어요).';
     var note=$('#unitHwNote'); note.textContent='출제 중입니다 — 구간 '+parts.length+'개를 차례로 저장해요(1분쯤 걸릴 수 있어요). 아래 H WORK 칸에 진행 상황이 보입니다.';
     saveUnit(t).then(function(ok){
-      note.textContent=ok?('✓ 구간 '+parts.length+'개를 H WORK 과제로 출제했습니다. 아래 [학생 직접 고르기]에서 학생을 고르고 [이 학생들에게 배정]을 눌러 주세요.'):'출제하지 못했습니다. 아래 H WORK 칸의 안내를 확인해 주세요.';
-      var pk=$('#hwPicker'); if(ok&&pk&&pk.scrollIntoView) pk.scrollIntoView({behavior:'smooth',block:'center'});
+      note.textContent=ok?('✓ 구간 '+parts.length+'개를 H WORK 과제로 출제했습니다. 아래 [진도반으로]에서 내신 진도반을 고르거나 [학생 직접 고르기]에서 학생을 골라 배정해 주세요.'):'출제하지 못했습니다. 아래 H WORK 칸의 안내를 확인해 주세요.';
+      bm.className='msg '+(ok?'ok':'bad'); bm.textContent=ok?('✓ 구간 '+parts.length+'개를 H WORK 과제로 출제했습니다.\n내신 진도반을 고르고 아래 [배정하기]를 누르면 배정만 합니다(다시 출제하지 않아요). 학생을 따로 고르려면 [학생 직접 고르기]로.'):$('#saveMsg').textContent;
+      baDraw(); var tg=$(HW_WHO==='pick'?'#hwPicker':'#baCls'); if(ok&&tg&&tg.scrollIntoView) tg.scrollIntoView({behavior:'smooth',block:'center'});
     });
   }, 350);
 }
@@ -1369,7 +1372,7 @@ function autoTitle(){
 }
 function selChanged(){
   var t=$('#pTitle'); if(!t.value.trim()||t.value===TITLE_AUTO){ TITLE_AUTO=autoTitle(); t.value=TITLE_AUTO; }
-  drawSel(); if(CUR) drawList();
+  drawSel(); if(CUR) drawList(); if(typeof baDraw==='function') baDraw();
 }
 function drawSel(){
   $('#selN').textContent=selCount();
@@ -1949,6 +1952,9 @@ function baLoad(){
 }
 function baMyPapers(){ var t=$('#hTeacher').value.trim(); return PAPERS.filter(function(p){ return p.teacher===t; }); }
 function baChosen(){ var mine=baMyPapers(); return BA.papers.map(function(id){ return mine.filter(function(p){ return p.id===id; })[0]; }).filter(Boolean); }
+/* 문제지를 고르지 않았으면 지금 고른 문항(모두 H WORK 출제한 단원 등)을 진도반에 배정한다 (2026-11-25 원장님 "내신 진도반으로 배정할 수 있어야") */
+function baCurSrc(){ if(BA.papers.length) return null; var q=selQ(SEL); if(!q.length) return null;
+  return { title:(CUR&&SEL.every(function(x){ return x.gid===CUR.id; }))?CUR.title:($('#pTitle').value.trim()||'지금 고른 문항'), qs:q }; }
 function baClassStudents(c){
   var k=baKeyOf(c.name), out=[], miss=[];
   String(c.roster||'').split(/\s+/).filter(Boolean).forEach(function(tok){
@@ -1998,9 +2004,10 @@ function baDraw(){
     var sel=baSelected(), on=sel.list.filter(function(x){ return !BA.off[baSk(x)]; });
     $('#baStu').innerHTML=BA.cls.length?'받을 학생 <b>'+on.length+'</b>명'+(sel.list.length-on.length?' (뺀 학생 '+(sel.list.length-on.length)+'명)':'')+' · 이름을 누르면 빼거나 다시 넣어요<div class="st">'+sel.list.map(function(x){ var k=baSk(x); return '<button type="button" data-bas="'+esc(k)+'" class="'+(BA.off[k]?'off':'')+'">'+esc(x.name)+'</button>'; }).join('')+'</div>'+(sel.miss.length?'<div class="miss">명단에서 찾지 못한 학생 '+sel.miss.length+'명 — '+esc(sel.miss.join(', '))+' (학생 고르기로 따로 배정해 주세요)</div>':''):'';
   }
-  var n=BA.papers.length, st=BA.ttc?baSelected().list.filter(function(x){ return !BA.off[baSk(x)]; }).length:0;
-  $('#baGo').disabled=!n || !st || BA.busy;
-  $('#baGo').textContent=n&&st?'문제지 '+n+'개를 '+st+'명에게 출제하고 배정하기':'출제하고 배정하기';
+  var n=BA.papers.length, st=BA.ttc?baSelected().list.filter(function(x){ return !BA.off[baSk(x)]; }).length:0, cur=baCurSrc();
+  var bc=$('#baCur'); if(bc){ bc.hidden=!cur; if(cur) bc.innerHTML='문제지를 고르지 않아 <b>「'+esc(cur.title)+'」 문항 '+cur.qs.length+'개</b>(구간 과제 '+unitParts(cur.qs).length+'개)를 배정합니다. 이미 같은 문항으로 낸 과제는 다시 내지 않고 배정만 해요.'; }
+  $('#baGo').disabled=!(n||cur) || !st || BA.busy;
+  $('#baGo').textContent=n&&st?'문제지 '+n+'개를 '+st+'명에게 출제하고 배정하기':(cur&&st?'「'+cur.title+'」 구간 과제를 '+st+'명에게 배정하기':'출제하고 배정하기');
   $('#mpBkS').disabled=$('#mpBkT').disabled=!n;
   $('#mpBkS').textContent=n?'문제지 '+n+'개 학생용 책자 PDF':'학생용 책자 PDF';
   if(typeof shDraw==='function'){ shDraw(); drawSteps(); }
@@ -2048,11 +2055,12 @@ $('#baBox').addEventListener('click', function(e){
 $('#baClear').onclick=function(){ BA.papers=[]; baDraw(); };
 $('#baGo').onclick=function(){
   var teacher=$('#hTeacher').value.trim(); if(!teacher){ toast('출제 선생님을 적어 주세요'); $('#hTeacher').focus(); return; }
-  var papers=baChosen(), stus=baSelected().list.filter(function(x){ return !BA.off[baSk(x)]; });
+  var papers=baChosen(), stus=baSelected().list.filter(function(x){ return !BA.off[baSk(x)]; }), cur=papers.length?null:baCurSrc();
+  if(cur) papers=[{ id:'cur', title:cur.title }];
   if(!papers.length || !stus.length) return;
   var target=stus.map(baToken).join(', '), clsNames=BA.cls.map(function(id){ return (BA.ttc.filter(function(c){ return c.class_id===id; })[0]||{}).name; }).filter(Boolean);
   var msg=$('#baMsg'), btn=$('#baGo'); msg.className='msg'; msg.textContent='문제지 문항을 불러오는 중…';
-  Promise.all(papers.map(baEnt)).then(function(ents){
+  Promise.all(papers.map(function(p){ return cur?Promise.resolve(cur.qs):baEnt(p); })).then(function(ents){
     var taken={}, plan=papers.map(function(p,i){ var qs=selQ(ents[i]); return { p:p, parts:qs.length?unitParts(qs, taken):[] }; });
     var nTask=plan.reduce(function(a,x){ return a+x.parts.length; },0); msg.textContent='';
     if(!confirm('문제지 '+papers.length+'개(H WORK 과제 '+nTask+'개)를 '+clsNames.join(', ')+' 학생 '+stus.length+'명에게 출제하고 배정할까요?\n출제 선생님: '+teacher+'\n'+plan.map(function(x){ return x.parts.map(function(t){ return '· '+t.code; }).join('\n'); }).join('\n')+($('#baDue').value?'\n마감: '+$('#baDue').value:''))) return;
