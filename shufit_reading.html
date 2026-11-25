@@ -268,7 +268,7 @@ body.printing .toast{display:none}
 .pr .bksec span{font-family:'Gowun Dodum';font-size:9.5pt;color:#fff;background:#8db8ad;border-radius:1.5mm;padding:.6mm 2.6mm}
 .bk .bksec,.bk .bksec.first{break-before:auto}
 .pr .sech{font-family:'Gowun Dodum';font-size:10pt;color:#fff;background:#8db8ad;border-radius:1.5mm;padding:.8mm 3mm;display:inline-block;margin:3mm 0 2mm;break-after:avoid}
-.pr .ins{font-weight:700;margin:2mm 0 1.5mm;break-after:avoid}
+.pr .ins{font-weight:700;margin:2mm 0 3mm;padding-bottom:1.6mm;border-bottom:.5mm solid #8db8ad;break-after:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pr .pas{font-size:9.4pt;line-height:1.66;border:.3mm solid #999;padding:2.5mm 3mm 1mm;margin-bottom:3mm}
 .pr.exam .pas{border:0;padding:0}
 .pr .pas .bwrap{margin-left:7mm}
@@ -296,6 +296,8 @@ body.printing .toast{display:none}
 .pr .pas.ln{position:relative;margin:0;padding:0 6mm 0 1em;text-indent:-1em;font-family:'Gowun Batang';font-size:9.6pt;line-height:1.85;break-inside:avoid}
 .pr .pas.ln i{position:absolute;right:0;top:0;font-style:normal;font-family:'Gowun Dodum';font-size:7pt;color:#8db8ad;text-indent:0}
 .pr .pas.lgap{height:2.4mm;margin:0}
+.pr .pas.llab{margin:2.4mm 0 .8mm;border:0;padding:0;font-family:'Gowun Batang';font-weight:700;font-size:9.6pt;color:#24443d;break-after:avoid}
+.pr .pas.lsrc{margin:1.6mm 0 3.4mm;border:0;padding:0;text-align:right;font-family:'Gowun Batang';font-weight:700;font-size:9.4pt;color:#5f9488;break-before:avoid}
 .pr .pas.dp{position:relative;padding-left:6mm}
 .pr .pas.dp .pn{position:absolute;left:0;top:.9mm;width:3.8mm;height:3.8mm;line-height:3.6mm;box-sizing:border-box;border:.25mm solid #8db8ad;border-radius:.4mm;text-align:center;font-family:'Gowun Dodum';font-size:6.8pt;color:#3d675d}
 .pr .pas.dp p{margin:0 0 1.6mm}
@@ -887,16 +889,17 @@ function blockHtml(b){
   if(b.bracket) return '<div class="bwrap"><span class="brk"></span><span class="bm">'+b.bracket+'</span><p>'+b.p+'</p></div>';
   return '<p'+(b.sub?' class="sub"':b.src?' class="src"':b.cap?' class="cap"':/<br>/.test(b.p)?' class="poem"':'')+'>'+b.p+'</p>';
 }
-/* 문학 인쇄 지문 = 작품 머리줄 + 5행마다 행 번호 + 넘어간 줄 들여쓰기(2026-11-25 원장님 B안)
- * 머리줄 = 갈래 알약 · 제목 · 작가(지문에 (가)(나) 이름표가 있으면 그 자리마다, 작품 목록과 수가 맞을 때만), 출처 줄('- 작가, 「제목」')은 머리로 올려 뺀다.
+/* 문학 인쇄 지문 = 행 번호 + 넘어간 줄 들여쓰기 + 작품마다 끝에 '작가, <제목>'(민트 굵게)(2026-11-25 원장님 지문 지침 —
+ * '[시작~끝] 다음 글을 읽고 물음에 답하시오.' 굵게 → 민트 줄 → 지문 → '작가, <제목>'. 옛 B안 머리줄(갈래 알약·제목·작가)은 없앴다).
+ * (가)(나) 이름표가 있으면 작품 앞에 이름표만 두고, 작품 목록과 수가 맞을 때 출처 줄('- 작가, 「제목」')은 끝줄로 바꾼다.
  * 시(<br> 행)는 행마다 한 덩어리(책자에서 쪽 사이로 나뉠 수 있게), 산문 문단은 그대로. 행 번호는 작품마다 1부터. */
 function litPasBlocks(P, works, genre){
   works=works||[]; var B=[], labs=P.blocks.filter(function(b){return b.label}), useW=works.length && (labs.length?labs.length===works.length:works.length===1);
-  var wi=0, n=0, first=true;
-  var head=function(w, lab){ return '<div class="pas lwh"><span class="lb">'+(lab?esc(lab)+' ':'')+'</span>'+((w&&(w.genre||genre))?'<span class="g">'+esc(w.genre||genre)+'</span>':'')+'<b>'+esc(w?w.title:'')+'</b>'+(w&&w.author?'<span class="au">'+esc(w.author)+'</span>':'')+'</div>'; };
-  if(useW && !labs.length){ B.push(head(works[0],'')); }
+  var wi=0, n=0, first=true, cur=null;
+  var tail=function(){ if(cur){ B.push('<div class="pas lsrc">'+(cur.author?esc(cur.author)+', ':'')+'&lt;'+esc(cur.title||'')+'&gt;</div>'); cur=null; } };
+  if(useW && !labs.length) cur=works[0];
   P.blocks.forEach(function(b){
-    if(b.label){ n=0; first=true; if(useW){ B.push(head(works[wi++], b.label)); } else B.push('<div class="pas">'+blockHtml(b)+'</div>'); return; }
+    if(b.label){ tail(); n=0; first=true; if(useW) cur=works[wi++]; B.push('<div class="pas llab">'+esc(b.label)+'</div>'); return; }
     if(b.src && useW) return;
     if(!b.src && b.p && /<br>/.test(b.p)){
       if(!first) B.push('<div class="pas lgap"></div>');
@@ -907,6 +910,7 @@ function litPasBlocks(P, works, genre){
     first=false;
     B.push('<div class="pas">'+blockHtml(b)+'</div>');
   });
+  tail();
   if(P.vocab) B.push('<div class="pas"><div class="voc"><b>어휘 풀이</b><br>'+P.vocab.join('<br>')+'</div></div>');
   return B;
 }
