@@ -252,11 +252,11 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.waitForFunction(() => document.querySelectorAll('#print .sheet').length > 0, null, { timeout: 8000 });
   const sheets = (await pg.$$('#print .sheet')).length;
   t('책자 쪽 수 4의 배수·표지·뒤표지', sheets % 4 === 0 && !!(await pg.$('#print .cover')) && !!(await pg.$('#print .bkback')), sheets);
-  t('책자 10문항 모두·쪽 번호', (await pg.$$('#print .sheet .q, #print .sheet .oxl')).length === 10 && /- 2 -/.test(await pg.textContent('#print')));
+  t('책자 10문항 모두·쪽 번호', (await pg.$$('#print .sheet .q, #print .sheet .oxl')).length === 10 && /Shueguk2/.test(await pg.textContent('#print .bno')) && (await pg.textContent('#print .bno')).includes('이수경국어 · Shuefit 독서'));
   t('책자 여백 0', (await pg.textContent('#pageStyle')).includes('margin:0'));
   if (process.env.SHOT) await pg.pdf({ path: process.env.SHOT + '/reading-booklet.pdf', preferCSSPageSize: true });
   await unprint();
-  t('인쇄 뒤 A4 쪽 번호로 되돌림', (await pg.textContent('#pageStyle')).includes('counter(pages)'));
+  t('인쇄 뒤 A4 쪽 번호로 되돌림', (await pg.textContent('#pageStyle')).includes('@bottom-right'));
   // 순서를 바꾸면 다시 저장해야 인쇄
   await pg.click('#sel .si:nth-of-type(2) [data-mv="-1"]').catch(() => {});
   await pg.evaluate(() => { const S = window.__SEL(); });
@@ -540,19 +540,22 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await lp.click('#res .rc'); await lp.waitForSelector('#list .notes');
   t('문학 — 기본 탭 작품 정리 · 작품 꼬리표', /작품 정리/.test(await lp.textContent('#lt')) && /가상 시 하나 · 시인 갑/.test(await lp.textContent('#pmeta')));
   const lchips = await lp.$$eval('#tchips .chip', a => a.map(x => x.textContent.replace(/\d+$/, '')));
-  t('문학 — 유형 알약(작품 정리·참고자료 보기형·내신 기출, 자료의 새 유형도)', lchips.includes('작품 정리') && lchips.includes('참고자료 보기형') && lchips.includes('내신 기출') && lchips.includes('시어 의미'), lchips.join());
-  t('문학 — 묶음 안내(시험지 = 내신 기출)', /학습자료 작품 정리 · OX 쉬움 · 핵심 정리 빈칸/.test(await lp.textContent('#bdlInfo')) && /시험지 내신 기출 \(3문항\)/.test(await lp.textContent('#bdlInfo')), await lp.textContent('#bdlInfo'));
-  await lp.click('#tchips [data-t="30"]'); await lp.waitForSelector('#list .gpas');
-  t('문학 — 내신 기출은 묶음마다 지문([1~2]·[3]) · 시는 줄바꿈', (await lp.$$('#list .gpas')).length === 2 && /\[1~2\]/.test(await lp.textContent('#list .gpas')) && (await lp.$$('#list .gpas p.poem')).length === 2);
+  t('문학 — 유형 알약(작품 정리·참고자료 보기형·내신 기출, 자료의 새 유형도)', lchips.includes('작품 정리') && lchips.includes('참고자료 보기형') && !!(await lp.$('#tchips [data-t="30a"]')) && /내신 기출 2/.test(await lp.textContent('#tchips [data-t="30b"]')) && lchips.includes('시어 의미'), lchips.join());
+  t('문학 — 묶음 안내(시험지 = 내신 기출)', /학습자료 작품 정리 · OX 쉬움 · 핵심 정리 빈칸/.test(await lp.textContent('#bdlInfo')) && /시험지 내신 기출 1 · 내신 기출 2 \(3문항\)/.test(await lp.textContent('#bdlInfo')), await lp.textContent('#bdlInfo'));
+  await lp.click('#tchips [data-t="30a"]'); await lp.waitForSelector('#list .gpas');
+  t('문학 — 내신 기출 1 = 앞 묶음([1~2]) · 시는 줄바꿈', (await lp.$$('#list .gpas')).length === 1 && /\[1~2\]/.test(await lp.textContent('#list .gpas')) && (await lp.$$('#list .gpas p.poem')).length === 1);
+  await lp.click('#tchips [data-t="30b"]'); await lp.waitForSelector('#list .gpas');
+  t('문학 — 내신 기출 2 = 뒤 묶음(번호 1부터)', (await lp.$$('#list .q')).length === 1 && /\[1\]/.test(await lp.textContent('#list .gpas')), await lp.textContent('#list .gpas'));
   await lp.click('[data-bundle="exam"]');
   await lp.evaluate(() => { selDoc('study', true); });
-  t('문학 — 내신 기출 문제지 = 묶음마다 지문 한 번', (await lp.textContent('#selN')) === '3문항' && (await lp.$$('#print .pas')).length === 2, [await lp.textContent('#selN'), (await lp.$$('#print .pas')).length]);
+  t('문학 — 내신 기출 문제지 = 묶음마다 지문 한 번', (await lp.textContent('#selN')) === '3문항' && (await lp.$$('#print .litp')).length === 2, [await lp.textContent('#selN'), (await lp.$$('#print .litp')).length]);
+  t('문학 지문 B안 — 시는 행마다 · 5행마다 번호 없음(짧은 시) · 넘어간 줄 들여쓰기', (await lp.$$('#print .pas.ln')).length > 0 && (await lp.$eval('#print .pas.ln', e => getComputedStyle(e).textIndent)) !== '0px');
   await lp.evaluate(() => { document.body.classList.remove('printing'); SEL = []; selChanged(); });
   {
     const mc = await lp.$$eval('#mchips button', a => a.map(b => [b.dataset.mt, b.classList.contains('on')]));
     const on = Object.fromEntries(mc);
-    t('여러 유형 한 번에 — 유형 알약, 서술형뿐인 주관식은 처음부터 꺼짐', on['17'] === false && on['30'] === true && on['11'] === true && on['notes'] === true, JSON.stringify(mc));
-    await lp.click('#mchips [data-mt="30"]');
+    t('여러 유형 한 번에 — 유형 알약, 서술형뿐인 주관식은 처음부터 꺼짐', on['17'] === false && on['30a'] === true && on['30b'] === true && on['11'] === true && on['notes'] === true, JSON.stringify(mc));
+    await lp.click('#mchips [data-mt="30a"]'); await lp.click('#mchips [data-mt="30b"]');
     t('여러 유형 한 번에 — 끈 유형은 빼고 센다', /켠 유형 3문항 · 학습 자료 2 담기/.test(await lp.textContent('#mAdd')), await lp.textContent('#mAdd'));
     await lp.click('#mAdd');
     const ids = await lp.evaluate(() => SEL.map(x => String(x.id)));
