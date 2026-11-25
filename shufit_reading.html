@@ -41,7 +41,11 @@ body{margin:0;background:var(--paper);color:var(--ink);font-family:'Gowun Dodum'
 .seg button.on{background:var(--lav);color:var(--lav-ink);font-weight:700}
 .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start}
 .pas-col{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;overscroll-behavior:contain}
-@media(max-width:920px){.cols{grid-template-columns:1fr}.pas-col{position:static;max-height:none}}
+/* 지문·문항 칸은 화면 한 장 높이에서 따로 스크롤 — 아래 [지금 만드는 문제지]로 가기 쉽게 (2026-11-25 원장님) */
+.cols>.card:not(.pas-col){max-height:calc(100vh - 24px);overflow:auto;overscroll-behavior:contain}
+.jumpsel{position:fixed;right:18px;bottom:18px;z-index:40;border:0;border-radius:999px;padding:11px 18px;background:#4a3f63;color:#fff;font:inherit;font-size:14px;cursor:pointer;box-shadow:0 4px 14px rgba(40,40,60,.18)}
+.jumpsel b{font-family:"Do Hyeon",sans-serif;font-weight:400;margin:0 2px}
+@media(max-width:920px){.cols{grid-template-columns:1fr}.pas-col{position:static;max-height:none}.cols>.card:not(.pas-col){max-height:none;overflow:visible}}
 .acts{display:flex;gap:8px;flex-wrap:wrap}
 .btn{border:0;border-radius:12px;padding:10px 14px;font:inherit;font-size:13px;background:var(--lav);color:var(--lav-ink);cursor:pointer}
 .btn.ghost{background:var(--s1);color:#4F5C56}
@@ -641,10 +645,6 @@ body.printing .toast{display:none}
         <div class="mact"><button class="btn lavb" type="button" id="mAll">모두 켜기</button><button class="btn lavb" type="button" id="mNone">모두 끄기</button><button class="btn main" type="button" id="mAdd">담기</button></div>
       </div>
     </div>
-    <div class="cols">
-      <div class="card pas-col"><div class="ct">지문</div><div id="pas"></div></div>
-      <div class="card"><div class="ct" id="lt">문항</div><div id="list"></div></div>
-    </div>
     <div class="card" id="bundleCard">
       <div class="ct">이 지문 묶음 담기 <span class="tag lav">지금 만드는 문제지에</span></div>
       <div class="hint">자주 쓰는 묶음을 한 번에 담습니다. 담은 뒤 아래 [지금 만드는 문제지]에서 빼거나 순서를 고치고 [문제지 저장] → 내 문제지함에서 인쇄해요. 핵심정리·빈칸 같은 학습 자료는 그 유형 탭의 [+ 문제지에 담기]로 하나씩 담을 수도 있어요.</div>
@@ -655,7 +655,12 @@ body.printing .toast{display:none}
         <button class="btn" type="button" data-bundle="exam">시험지 묶음 담기</button>
       </div>
     </div>
+    <div class="cols">
+      <div class="card pas-col"><div class="ct">지문</div><div id="pas"></div></div>
+      <div class="card"><div class="ct" id="lt">문항</div><div id="list"></div></div>
+    </div>
   </div>
+  <button type="button" class="jumpsel" id="jumpSel" hidden>지금 만드는 문제지 <b id="jumpN">0</b> ↓</button>
   <div class="card" id="selCard">
     <div class="ct"><i>3</i>지금 만드는 문제지 <span class="tag lav" id="selN">0문항</span><span style="margin-left:auto;display:flex;gap:6px"><button class="btn ghost" id="selClear" type="button">비우기</button></span></div>
     <div class="fx">
@@ -1178,7 +1183,7 @@ document.addEventListener('click', function(e){
 });
 function openP(id){
   var my=++SEQ;
-  $('#work').hidden=false; $('#pas').innerHTML='<div class="load">지문을 불러오는 중…</div>'; $('#list').innerHTML='';
+  $('#work').hidden=false; if(typeof jumpSync==='function') jumpSync(); $('#pas').innerHTML='<div class="load">지문을 불러오는 중…</div>'; $('#list').innerHTML='';
   var done=function(g){ if(my!==SEQ && CUR && CUR.id!==id) return; var wasTB=isTB(); CUR=g; if(isTB()!==wasTB && S.t!=='hits') S.t=defT(); drawP(); drawRes(); };
   loadPassage(id).then(done).catch(function(e){ $('#pas').innerHTML='<div class="err">지문을 불러오지 못했습니다('+esc(e.message)+').</div>'; });
 }
@@ -1411,12 +1416,22 @@ function autoTitle(){
   var nq=selQ().length;
   return ''+SFN+': '+ts[0].split(/\s*[\/,]\s*/)[0]+(ts.length>1?' 외 '+(ts.length-1)+'지문':'')+' ('+(nq||'학습 자료')+')';
 }
+/* [지금 만드는 문제지 n ↓] 떠 있는 단추 — 지문을 열어 둔 채 문제지 칸이 화면 아래에 있을 때만 (2026-11-25 원장님) */
+var JUMP_SEEN=false;
+function jumpSync(){
+  var b=$('#jumpSel'); if(!b) return;
+  var work=$('#work'), mk=$('#makeView');
+  b.hidden=!(work&&!work.hidden&&mk&&!mk.hidden&&!JUMP_SEEN);
+  $('#jumpN').textContent=selCount();
+}
+if(window.IntersectionObserver){ new IntersectionObserver(function(es){ es.forEach(function(e){ JUMP_SEEN=e.isIntersecting||e.boundingClientRect.top<0; }); jumpSync(); }).observe($('#selCard')); }
+$('#jumpSel').onclick=function(){ $('#selCard').scrollIntoView({behavior:'smooth',block:'start'}); };
 function selChanged(){
   var t=$('#pTitle'); if(!t.value.trim()||t.value===TITLE_AUTO){ TITLE_AUTO=autoTitle(); t.value=TITLE_AUTO; }
   drawSel(); if(CUR) drawList(); if(typeof baDraw==='function') baDraw();
 }
 function drawSel(){
-  $('#selN').textContent=selCount();
+  $('#selN').textContent=selCount(); jumpSync();
   var qn=0;
   $('#sel').innerHTML=selGroups().map(function(g){
     return '<div class="sgh">'+esc(g.x.srcname+' · '+g.x.title)+(g.x.indep?' · 독립 지문':'')+'</div>'+g.items.map(function(x,k){ var i=g.first+k;
@@ -2184,6 +2199,7 @@ function setMode(m){
   try{ sessionStorage.setItem('sf_mode_'+SFA.page, SF_MODE); }catch(e){}
   if(SF_MODE==='shelf'){ shAutoPick(); if(typeof baLoad==='function') baLoad(); baDraw(); }
   drawSteps(); shDraw();
+  if(typeof jumpSync==='function') jumpSync();
 }
 function sfSavedPaper(){ if(!SAVED || !canPrint()) return null; return PAPERS.filter(function(p){ return p.teacher===SAVED.teacher && p.title===SAVED.title; })[0] || null; }
 function shAutoPick(){ var p=sfSavedPaper(); if(p && !SFA.ids().length) SFA.setIds([p.id]); }
