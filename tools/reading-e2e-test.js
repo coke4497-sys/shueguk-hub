@@ -252,11 +252,11 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.waitForFunction(() => document.querySelectorAll('#print .sheet').length > 0, null, { timeout: 8000 });
   const sheets = (await pg.$$('#print .sheet')).length;
   t('책자 쪽 수 4의 배수·표지·뒤표지', sheets % 4 === 0 && !!(await pg.$('#print .cover')) && !!(await pg.$('#print .bkback')), sheets);
-  t('책자 10문항 모두·쪽 번호', (await pg.$$('#print .sheet .q, #print .sheet .oxl')).length === 10 && /- 2 -/.test(await pg.textContent('#print')));
+  t('책자 10문항 모두·쪽 번호', (await pg.$$('#print .sheet .q, #print .sheet .oxl')).length === 10 && /Shueguk2/.test(await pg.textContent('#print .bno')) && (await pg.textContent('#print .bno')).includes('이수경국어 · Shuefit 독서'));
   t('책자 여백 0', (await pg.textContent('#pageStyle')).includes('margin:0'));
   if (process.env.SHOT) await pg.pdf({ path: process.env.SHOT + '/reading-booklet.pdf', preferCSSPageSize: true });
   await unprint();
-  t('인쇄 뒤 A4 쪽 번호로 되돌림', (await pg.textContent('#pageStyle')).includes('counter(pages)'));
+  t('인쇄 뒤 A4 쪽 번호로 되돌림', (await pg.textContent('#pageStyle')).includes('@bottom-right'));
   // 순서를 바꾸면 다시 저장해야 인쇄
   await pg.click('#sel .si:nth-of-type(2) [data-mv="-1"]').catch(() => {});
   await pg.evaluate(() => { const S = window.__SEL(); });
@@ -548,7 +548,8 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   t('문학 — 내신 기출 2 = 뒤 묶음(번호 1부터)', (await lp.$$('#list .q')).length === 1 && /\[1\]/.test(await lp.textContent('#list .gpas')), await lp.textContent('#list .gpas'));
   await lp.click('[data-bundle="exam"]');
   await lp.evaluate(() => { selDoc('study', true); });
-  t('문학 — 내신 기출 문제지 = 묶음마다 지문 한 번', (await lp.textContent('#selN')) === '3문항' && (await lp.$$('#print .pas')).length === 2, [await lp.textContent('#selN'), (await lp.$$('#print .pas')).length]);
+  t('문학 — 내신 기출 문제지 = 묶음마다 지문 한 번', (await lp.textContent('#selN')) === '3문항' && (await lp.$$('#print .litp')).length === 2, [await lp.textContent('#selN'), (await lp.$$('#print .litp')).length]);
+  t('문학 지문 B안 — 시는 행마다 · 5행마다 번호 없음(짧은 시) · 넘어간 줄 들여쓰기', (await lp.$$('#print .pas.ln')).length > 0 && (await lp.$eval('#print .pas.ln', e => getComputedStyle(e).textIndent)) !== '0px');
   await lp.evaluate(() => { document.body.classList.remove('printing'); SEL = []; selChanged(); });
   {
     const mc = await lp.$$eval('#mchips button', a => a.map(b => [b.dataset.mt, b.classList.contains('on')]));
