@@ -227,6 +227,9 @@
   .ba-list{display:flex;flex-direction:column;gap:4px;max-height:220px;overflow:auto;background:#fafbf9;border-radius:12px;padding:6px}
   .ba-p{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-radius:10px;cursor:pointer;font-size:13px}
   .ba-p:hover{background:#f3eff8}
+  .ba-p>span{flex:1;min-width:0}
+  .ba-del{margin-left:auto;flex:none;border:0;background:#fbeeea;color:#a14c4c;border-radius:999px;padding:4px 11px;font:inherit;font-size:12.5px;cursor:pointer}
+  .ba-del:hover{background:#f6dcd6}
   .ba-p input{margin-top:3px;accent-color:#4a3f63}
   .ba-p small{display:block;color:var(--ink2);font-size:11.5px}
   .ba-p .dn{font-size:11px;background:#e3f0ec;color:#3d675d;border-radius:999px;padding:1px 7px;margin-left:4px}
@@ -1024,6 +1027,20 @@ $('paperDel').onclick=async()=>{
   }catch(e){ toast('지우지 못했습니다. ('+e.message+')'); }
   finally{ btn.textContent='삭제'; drawDel(); }
 };
+/* 문제지함 목록 줄마다 [삭제] (2026-11-25 원장님 — 독서와 같게) */
+async function paperDelById(id){
+  const h=PAPERS.find(p=>p.id===id); if(!h) return;
+  if(!confirm(`${h.teacher} 선생님의 「${h.title}」 문제지를 지울까요?\n지운 문제지는 되살릴 수 없습니다. 이 문제지에 담았던 문항은 '낸 적 있음'에서도 빠져요. 이미 낸 H WORK 과제는 그대로 남아요.`)) return;
+  try{
+    await sb('/shufit_papers?id=eq.'+id,{ method:'DELETE', headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, Prefer:'return=minimal' } });
+    PAPERS=PAPERS.filter(p=>p.id!==id); BA.papers.delete(id);
+    if(SAVED && SAVED.teacher===h.teacher && SAVED.title===h.title) SAVED=null;
+    const lp=loadPick(); if(lp && lp.kind==='paper' && lp.teacher===h.teacher && lp.title===h.title) $('loadSel').value='';
+    drawTeachers(); rebuildUsed(); drawLoad(); drawList(); drawPrint(); if(typeof baDraw==='function') baDraw();
+    toast(`「${h.title}」 문제지를 지웠어요`);
+    if(window.shuegukActivity) shuegukActivity('Shuefit 문법', '문제지 삭제', h.title, h.teacher+' · '+(h.ids||[]).length+'문항', false);
+  }catch(e){ toast('지우지 못했습니다. ('+e.message+')'); }
+}
 function teacherChanged(){ rebuildUsed(); drawLoad(); drawSel(); drawList(); if(typeof baDraw==='function') baDraw(); }
 $('hTeacher').addEventListener('change', teacherChanged);
 $('hTeacher').addEventListener('input', ()=>{ clearTimeout($('hTeacher')._t); $('hTeacher')._t=setTimeout(teacherChanged, 400); });
@@ -1580,7 +1597,7 @@ function baDraw(){
   }).filter(r=>SH_F!=='new' || !r.done);
   $('baPapers').innerHTML=rows.length?rows.map(({p,ids,parts,done})=>{
     const ord=[...BA.papers].indexOf(p.id), pd=String(p.print_date||'').match(/^\d{4}-(\d{2})-(\d{2})/);
-    return `<label class="ba-p${ord>=0?' on':''}"><input type="checkbox" data-bap="${p.id}"${BA.papers.has(p.id)?' checked':''}><span>${ord>=0?`<i class="ord">${ord+1}</i>`:''}${esc(p.title)}${done?'<span class="dn">H WORK 출제함</span>':''}<small>${ids.length}문항${pd?' · '+Number(pd[1])+'/'+Number(pd[2]):''}${p.school?' · '+esc(p.school):''}${parts.length>1?' · 단원 '+parts.length+'개 과제로':''}</small></span></label>`;
+    return `<label class="ba-p${ord>=0?' on':''}"><input type="checkbox" data-bap="${p.id}"${BA.papers.has(p.id)?' checked':''}><span>${ord>=0?`<i class="ord">${ord+1}</i>`:''}${esc(p.title)}${done?'<span class="dn">H WORK 출제함</span>':''}<small>${ids.length}문항${pd?' · '+Number(pd[1])+'/'+Number(pd[2]):''}${p.school?' · '+esc(p.school):''}${parts.length>1?' · 단원 '+parts.length+'개 과제로':''}</small></span><button type="button" class="ba-del" data-badel="${p.id}" title="이 문제지 삭제">삭제</button></label>`;
   }).join(''):`<span class="info">${mine.length?'아직 안 낸 문제지가 없어요.':'저장한 문제지가 없어요. [문제지 만들기]에서 문항을 고르고 [문제지 저장]을 눌러 주세요.'}</span>`;
   if(BA.ttc){
     const groups=new Map(); BA.ttc.forEach(c=>{ const k=baKeyOf(c.name); if(!k) return; if(!groups.has(k.key)) groups.set(k.key,[]); groups.get(k.key).push(c); });
@@ -1616,6 +1633,7 @@ $('baBox').addEventListener('change', e=>{
     baDraw(); }
 });
 $('baBox').addEventListener('click', e=>{
+  const dl=e.target.closest('[data-badel]'); if(dl){ e.preventDefault(); paperDelById(Number(dl.dataset.badel)); return; }
   const x=e.target.closest('[data-bacx]'); if(x){ BA.cls=BA.cls.filter(i=>i!==x.dataset.bacx); baDraw(); return; }
   const s=e.target.closest('[data-bas]'); if(s){ const k=s.dataset.bas; if(BA.off.has(k)) BA.off.delete(k); else BA.off.add(k); baDraw(); }
 });

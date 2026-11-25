@@ -499,6 +499,11 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.click('#shF [data-shf=new]');
   t('아직 안 낸 것 — 출제한 문제지는 빠짐', (await pg.$$('[data-bap="71"]')).length === 0);
   await pg.click('#shF [data-shf=all]');
+  // 문제지함 목록 줄마다 [삭제] (2026-11-25)
+  t('문제지함 목록 줄에 [삭제]', await pg.isVisible('[data-badel="72"]'));
+  pg.once('dialog', d => d.accept());
+  await pg.click('[data-badel="72"]'); await pg.waitForTimeout(200);
+  t('줄 [삭제] — id 로 지우고 목록에서 빠짐', writes.some(w => w.m === 'DELETE' && /shufit_reading_papers\?id=eq\.72$/.test(w.u)) && (await pg.$$('[data-bap="72"]')).length === 0);
   if (process.env.SHOT) await pg.screenshot({ path: process.env.SHOT + '/reading-shelf.png', fullPage: true });
   await pg.evaluate(() => setMode('make'));
   if (process.env.SHOT) await pg.screenshot({ path: process.env.SHOT + '/reading-make.png' });
