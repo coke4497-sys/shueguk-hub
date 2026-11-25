@@ -391,13 +391,29 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.waitForFunction(() => /구간 \d+개로 나눠 출제했습니다/.test(document.querySelector('#saveMsg').textContent), null, { timeout: 8000 });
   pg.off('dialog', onDlg);
   t('모두 출제 — 다른 지문 비울지·구간으로 나눠 출제할지 묻기', dlg.length === 2 && /다른 지문 문항 \d+개/.test(dlg[0]) && /문항 7개를 구간 \d+개로 나눠/.test(dlg[1]), JSON.stringify(dlg));
-  t('모두 출제 — 진도반 칸은 숨음(배정 칸 하나만)', !(await pg.isVisible('#baGo')) && !(await pg.isVisible('#baCls')));
-  t('모두 출제 — 학생 직접 고르기 칸이 열려 진행·완료 안내가 보임', await pg.isVisible('#saveMsg') && await pg.isVisible('#hwAssignBtn') && await pg.$eval('#hwWho [data-w="pick"]', e => e.classList.contains('on')));
+  await pg.waitForFunction(() => /H WORK 과제로 출제했습니다/.test(document.querySelector('#baMsg').textContent), null, { timeout: 8000 });
+  const unitSaved = gas.filter(Boolean).map(g => JSON.parse(g)).filter(g => g.action === 'saveHomework'); const ugasN = () => unitSaved.length;
+  t('모두 출제 — 진도반 칸이 열려 완료 안내·진도반 고르기가 보임(학생 고르기 칸은 숨음)', await pg.isVisible('#baCls') && await pg.isVisible('#baMsg') && !(await pg.isVisible('#hwAssignBtn')) && await pg.$eval('#hwWho [data-w="cls"]', e => e.classList.contains('on')));
+  t('모두 출제 — 문제지 없이도 지금 고른 문항을 진도반에 배정한다는 안내', await pg.isVisible('#baCur') && /문항 7개/.test(await pg.textContent('#baCur')), await pg.textContent('#baCur'));
   await pg.waitForFunction(() => /H WORK 과제로 출제했습니다/.test(document.querySelector('#unitHwNote').textContent), null, { timeout: 8000 });
-  t('모두 출제 — 지문 머리에도 완료·배정 안내', /학생 직접 고르기/.test(await pg.textContent('#unitHwNote')));
+  t('모두 출제 — 지문 머리에도 완료·배정 안내', /진도반/.test(await pg.textContent('#unitHwNote')));
+  {
+    await pg.waitForFunction(() => document.querySelectorAll('#baCls option').length > 1, null, { timeout: 8000 });
+    const v = await pg.$eval('#baCls', s => [...s.options].map(o => o.value).filter(x => /^c:/.test(x))[0]);
+    await pg.selectOption('#baCls', v);
+    t('모두 출제 — 진도반을 고르면 배정 단추가 열림', !(await pg.isDisabled('#baGo')) && /구간 과제를 \d+명에게 배정하기/.test(await pg.textContent('#baGo')), await pg.textContent('#baGo'));
+    gas.length = 0; const ok = d => d.accept(); pg.on('dialog', ok);
+    await pg.click('#baGo');
+    await pg.waitForFunction(() => /끝났습니다|하지 못했습니다/.test(document.querySelector('#baMsg').textContent), null, { timeout: 8000 });
+    pg.off('dialog', ok);
+    const g = gas.filter(Boolean).map(x => JSON.parse(x));
+    t('모두 출제 → 진도반 배정 — 다시 출제하지 않고 구간 과제 모두 배정', !g.some(x => x.action === 'saveHomework') && g.filter(x => x.action === 'addAssignment').length === ugasN(), await pg.textContent('#baMsg'));
+    await pg.click('#baClsOn [data-bacx]');
+  }
+  await pg.click('#hwWho [data-w="pick"]');
   t('모두 출제 — 고른 문항 7·H WORK 탭', (await pg.textContent('#selN')) === '7문항' && !(await pg.$eval('#xp-hw', e => e.hidden)));
   const uposts = writes.filter(w => w.m === 'POST' && /hwork_src_items$/.test(w.u.split('?')[0])).map(w => JSON.parse(w.b));
-  const ugas = gas.filter(Boolean).map(g => JSON.parse(g)).filter(g => g.action === 'saveHomework');
+  const ugas = unitSaved;
   t('모두 출제 — 구간마다 따로 과제', ugas.length > 1 && ugas.length === uposts.length && uposts.reduce((a, r) => a + r.length, 0) === 7
     && ugas.every((g, i) => /^Shuefit 독서: 가상 교과서 글 · \d\d .+ \(\d+\)$/.test(g.data.code) && g.data.count === uposts[i].length && uposts[i].every((r, k) => r.code === g.data.code && r.no === k + 1)),
     JSON.stringify(ugas.map(g => g.data.code)));
