@@ -1581,6 +1581,14 @@ function selDoc(kind, teacher){
   var o={print:1, teacher:teacher}, h='', title=$('#pTitle').value.trim()||autoTitle(), m=pmVal(), no=0;
   if(kind==='exam') h+='<div class="exh"><div class="t1">'+SFN+''+(m.dot?' · '+m.dot:'')+'<br>'+esc(title)+(teacher?' · 교사용':'')+'</div><div class="t2">국어 영역</div><div class="t3">학교 <span>'+esc(m.school)+'</span><br>이름 <span></span></div></div>';
   else h+='<div class="ph span"><div><div class="lg">Shueguk</div></div><div class="tt">'+SFN+' · '+selCount()+(teacher?' · 교사용':'')+'<b>'+esc(title)+'</b></div><div class="nm">날짜<span>'+esc(m.dot)+'</span><br>학교<span>'+esc(m.school)+'</span><br>이름<span></span></div></div>';
+  var SP=selSecParts(teacher, false);
+  if(kind!=='exam'){
+    h+=SP.blocks.join('');
+    if(teacher && SP.key.length) h+='<div class="ansbox"><h3>정답과 해설</h3><div class="anscols">'+SP.key.join('')+'</div></div>';
+    $('#print').innerHTML='<div class="pr study pick">'+h+'</div>';
+    document.body.classList.add('printing');
+    return;
+  }
   selGroups().forEach(function(g){
     var nq=selQ(g.items).length, a=no+1, b=no+nq;
     IMGCTX=g.x.imgs;
@@ -1775,19 +1783,45 @@ try{ exDesSet(localStorage.getItem('sf_exdes')||'A'); }catch(e){ exDesSet('A'); 
 
 /* ── 중철 책자 — 슈핏 문법 bookletDoc 과 같은 짜임: 보이지 않는 #bkm 에 A4 쪽 상자를 만들고 블록을 하나씩 흘려 넣는다(2단, 넘침은 옆으로).
  * 지문은 문단 단위로 단·쪽을 넘어 잇고, 문항은 나누지 않는다. 앞표지 + 본문 + 빈 쪽 + 뒤표지 = 4의 배수, A4 한 장에 한 쪽씩 차례대로 ── */
-function bookParts(teacher){
-  var o={print:1, teacher:teacher}, no=0, m=pmVal(), title=$('#pTitle').value.trim()||autoTitle(), blocks=[], key=[];
-  var head='<div class="ph"><div><div class="lg">Shueguk</div></div><div class="tt">'+SFN+' · '+selCount()+(teacher?' · 교사용':'')+'<b>'+esc(title)+'</b></div><div class="nm">날짜<span>'+esc(m.dot)+'</span><br>학교<span>'+esc(m.school)+'</span><br>이름<span></span></div></div>';
-  selGroups().forEach(function(g){
-    var nq=selQ(g.items).length, a=no+1, b=no+nq; IMGCTX=g.x.imgs;
-    blocks.push('<div class="ins pstart">'+(nq?'['+(a===b?a:a+'~'+b)+'] 다음 글을 읽고 물음에 답하시오.':'다음 글을 읽고 정리해 보세요.')+'</div>');
-    g.x.pas.blocks.forEach(function(bk){ blocks.push('<div class="pas">'+blockHtml(bk)+'</div>'); });
-    if(g.x.pas.vocab) blocks.push('<div class="pas"><div class="voc"><b>어휘 풀이</b><br>'+g.x.pas.vocab.join('<br>')+'</div></div>');
-    g.items.forEach(function(x){ if(x.mat) blocks.push.apply(blocks, matBlocks(x,teacher,true)); else blocks.push(itemHtml(x.it,++no,o)); });
+/* 문제지(SEL)도 '이 단원 모두 인쇄'(pickBlocks)와 같은 짜임으로 — 2026-11-25 원장님 "문제지함에서 인쇄할 때와 모두 한번에 인쇄할 때 조판이 다릅니다"
+ * 지문마다: [지문] 구간 → 담은 차례대로 같은 유형이 이어지는 동안 한 구간(구간 제목 + n문항, 번호는 구간마다 1번부터)
+ * 학습 자료는 문항 없는 구간, 독립 지문 문항(내신 기출·99)은 지문이 바뀔 때마다 '[1~2] 다음 글을…' + 지문(새 쪽 왼쪽 위) */
+function selSecParts(teacher, split, list){
+  var o={print:1, teacher:teacher}, B=[], ex=[], secs=[], gids=[];
+  list=list||SEL;
+  list.forEach(function(x){ if(gids.indexOf(x.gid)<0) gids.push(x.gid); });
+  var pasB=function(P){ if(!split){ B.push(passageHtml(P)); return; }
+    P.blocks.forEach(function(bk){ B.push('<div class="pas">'+blockHtml(bk)+'</div>'); });
+    if(P.vocab) B.push('<div class="pas"><div class="voc"><b>어휘 풀이</b><br>'+P.vocab.join('<br>')+'</div></div>'); };
+  gids.forEach(function(gid){
+    var es=list.filter(function(x){return x.gid===gid}), x0=es[0], many=gids.length>1;
+    IMGCTX=x0.imgs;
+    var title=many?' · '+esc(x0.title):'';
+    var hasMain=es.some(function(x){return x.mat||!x.indep});
+    if(hasMain){ B.push('<div class="bksec'+(B.length?'':' first')+'"><b>지문'+title+'</b></div>'); secs.push({name:'지문'+(many?' · '+x0.title:''), n:''}); pasB(x0.pas); }
+    var runs=[]; es.forEach(function(x){ var r=runs[runs.length-1]; if(r&&r.tag===x.tag&&!!r.mat===!!x.mat) r.items.push(x); else runs.push({tag:x.tag, mat:x.mat, items:[x]}); });
+    runs.forEach(function(r){
+      if(r.mat){ B.push('<div class="bksec'+(B.length?'':' first')+'"><b>'+esc(r.tag)+'</b></div>'); secs.push({name:r.tag, n:''});
+        r.items.forEach(function(x){ var mb=matBlocks(x,teacher,split); mb.shift(); B.push.apply(B, mb); }); return; }
+      B.push('<div class="bksec'+(B.length?'':' first')+'"><b>'+esc(r.tag)+'</b><span>'+r.items.length+'문항</span></div>'); secs.push({name:r.tag, n:r.items.length});
+      var allOx=r.items.every(function(x){return x.it.kind==='ox'}), lastP='';
+      r.items.forEach(function(x,i){
+        if(x.indep && x.pkey!==lastP){ lastP=x.pkey;
+          var nn=1; while(i+nn<r.items.length && r.items[i+nn].pkey===x.pkey) nn++;
+          B.push('<div class="ins pstart">['+(i+1)+(nn>1?'~'+(i+nn):'')+'] 다음 글을 읽고 물음에 답하시오.</div>'); pasB(x.pas); }
+        if(allOx) B.push('<div class="oxl"><span class="k">'+String(i+1).padStart(2,'0')+'</span><span>'+x.it.stem+'</span><span class="m">'+(teacher?'<b>'+esc(x.it.ans)+'</b>':'( O / X )')+'</span></div>');
+        else B.push(itemHtml(x.it,i+1,o));
+        if(teacher) ex.push('<div class="ex1"><b>'+esc(r.tag)+' '+(i+1)+'. 정답 '+esc(x.it.ans||'')+'</b> '+esc(x.it.expl||'')+'</div>');
+      });
+    });
   });
   IMGCTX=null;
-  if(teacher) selQ().forEach(function(x,i){ key.push('<div class="ex1"><b>'+(i+1)+'. 정답 '+esc(x.it.ans||'')+'</b> '+esc(x.it.expl||'')+'</div>'); });
-  return {title:title, head:head, blocks:blocks, keyHead:'<div class="bkhead"><h3>정답과 해설</h3></div>', keyBlocks:key};
+  return {blocks:B, key:ex, secs:secs};
+}
+function bookParts(teacher){
+  var m=pmVal(), title=$('#pTitle').value.trim()||autoTitle(), P=selSecParts(teacher, true);
+  var head='<div class="ph"><div><div class="lg">Shueguk</div></div><div class="tt">'+SFN+' · '+selCount()+(teacher?' · 교사용':'')+'<b>'+esc(title)+'</b></div><div class="nm">날짜<span>'+esc(m.dot)+'</span><br>학교<span>'+esc(m.school)+'</span><br>이름<span></span></div></div>';
+  return {title:title, head:head, blocks:P.blocks, secs:P.secs, keyHead:'<div class="bkhead"><h3>정답과 해설</h3></div>', keyBlocks:P.key};
 }
 function coverPage(d, teacher){
   var ts=selGroups().map(function(g){return g.x}), uniq=[], areas=[];
@@ -1799,7 +1833,8 @@ function coverPage(d, teacher){
     +'<div class="cv-tag">'+SUBJ+(areas.length?' · '+esc(areas.join(' · ')):'')+'</div><div class="cv-series">'+SFN+' 시리즈 · 너에게 꼭 맞춘 '+SUBJ+' 학습</div>'
     +'<div class="cv-title">'+esc(t1)+'<br>'+esc(t2)+'</div><div class="cv-sub">지문 '+uniq.length+'개 · '+selCount()+(teacher?' · 정답과 해설':'')+'</div>'
     +'<img class="cv-sk" src="assets/sk-study.png" alt=""></div>'
-    +'<div class="cv-bot"><h4>이 책의 지문</h4><div class="cv-list">'+uniq.slice(0,12).map(function(x){return '<div class="cv-u"><i>'+esc(x.srcname.replace(/학년도\s*/,' ').replace(/\s+/g,' '))+'</i>'+esc(x.title)+'</div>'}).join('')+'</div></div>'
+    +(uniq.length===1&&d.secs&&d.secs.length?'<div class="cv-bot cv-unit"><h4>이 책에 담긴 것</h4><div class="cv-list">'+d.secs.map(function(c){return '<div class="cv-u"><i>'+esc(c.name)+'</i>'+(c.n?c.n+'문항':'')+'</div>'}).join('')+'</div></div>'
+      :'<div class="cv-bot"><h4>이 책의 지문</h4><div class="cv-list">'+uniq.slice(0,12).map(function(x){return '<div class="cv-u"><i>'+esc(x.srcname.replace(/학년도\s*/,' ').replace(/\s+/g,' '))+'</i>'+esc(x.title)+'</div>'}).join('')+'</div></div>')
     +'<div class="cv-name">'+(m.dot?'<div>날짜 '+esc(m.dot)+'</div>':'')+'<div>학교 '+esc(m.school)+'</div><div>이름</div></div>';
   return p;
 }
@@ -1821,8 +1856,9 @@ function bookletRun(d, teacher, mkCover){
   var flow=function(list, fixed, start){
     return list.reduce(function(pr,h){ return pr.then(function(){
       tmp.innerHTML=h; var el=tmp.firstElementChild;
-      if(el.classList.contains('bksec') && !el.classList.contains('first') && body.children.length) body=newPage();
-      var lastEl=body.lastElementChild;   // 지문은 늘 새 쪽 왼쪽 위에서 시작(2026-11-25 원장님) — 바로 앞이 쪽 머리·구간 제목이면 그대로
+      var lastEl=body.lastElementChild;
+      if(el.classList.contains('bksec') && !el.classList.contains('first') && lastEl && !/(^| )(bksec|ph)( |$)/.test(lastEl.className)) body=newPage();
+      lastEl=body.lastElementChild;   // 지문은 늘 새 쪽 왼쪽 위에서 시작(2026-11-25 원장님) — 바로 앞이 쪽 머리·구간 제목이면 그대로
       if(el.classList.contains('pstart') && lastEl && !/(^| )(bksec|ph)( |$)/.test(lastEl.className)) body=newPage();
       body.appendChild(el);
       return waitImgs(el).then(function(){ if(over(body) && body.children.length > (content.length===start?fixed+1:1)){ el.remove(); body=newPage(); body.appendChild(el); } });

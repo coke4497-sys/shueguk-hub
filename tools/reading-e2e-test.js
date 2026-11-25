@@ -181,14 +181,14 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.evaluate(() => selDoc('study', true));
   const st = await pg.textContent('#print');
   t('학습지 교사용 — 지문·핵심정리·빈칸 답이 그 지문 뒤에', st.includes('시장에는') && st.includes('쉽게 요약') && /가격/.test(await pg.$$eval('#print .notes .blank', a => a.map(x => x.textContent).join()))
-    && (await pg.$$eval('#print .sech', a => a.map(x => x.textContent))).join() === '핵심정리,핵심 요약 빈칸', st.slice(0, 160));
+    && ['핵심정리','핵심 요약 빈칸'].every(n => st.includes(n)) && (await pg.$$eval('#print .bksec b', a => a.map(x => x.textContent)))[0] === '지문', st.slice(0, 160));
   await pg.evaluate(() => { document.body.classList.remove('printing'); SEL = []; selChanged(); });
   await pg.click('[data-bundle="exam"]');
   t('시험지 묶음 담기 — 원 기출 2 + 고난도 1 + 보기형 1', (await pg.textContent('#selN')) === '4문항');
   await pg.click('[data-bundle="exam"]');
   t('같은 묶음을 또 누르면 겹쳐 담지 않음', (await pg.textContent('#selN')) === '4문항');
   await pg.evaluate(() => selDoc('study', false));
-  t('학생용 — 답안 기록표·정답 표시 없음', (await pg.$$('#print .ansrow td')).length === 8 && (await pg.$$('#print .opts li.ok')).length === 0 && (await pg.textContent('#print .ins')).includes('[1~4]'));
+  t('학생용 — 모두 인쇄와 같은 짜임(구간 제목·구간마다 01부터)·정답 표시 없음', (await pg.$$('#print .opts li.ok')).length === 0 && (await pg.$$eval('#print .bksec b', a => a.map(x => x.textContent))).join() === '지문,원 기출,고난도 수능형,보기형' && (await pg.$$eval('#print .q .stem .no', a => a.map(x => x.textContent))).join() === '01,02,01,01', await pg.$$eval('#print .bksec b', a => a.map(x => x.textContent)));
   await pg.evaluate(() => { document.body.classList.remove('printing'); SEL = []; selChanged(); });
 
   // ── 고른 문항 — 여러 지문을 담아 인쇄·책자·H WORK 출제 (2026-11-19) ──
@@ -252,7 +252,7 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.waitForFunction(() => document.querySelectorAll('#print .sheet').length > 0, null, { timeout: 8000 });
   const sheets = (await pg.$$('#print .sheet')).length;
   t('책자 쪽 수 4의 배수·표지·뒤표지', sheets % 4 === 0 && !!(await pg.$('#print .cover')) && !!(await pg.$('#print .bkback')), sheets);
-  t('책자 10문항 모두·쪽 번호', (await pg.$$('#print .sheet .q')).length === 10 && /- 2 -/.test(await pg.textContent('#print')));
+  t('책자 10문항 모두·쪽 번호', (await pg.$$('#print .sheet .q, #print .sheet .oxl')).length === 10 && /- 2 -/.test(await pg.textContent('#print')));
   t('책자 여백 0', (await pg.textContent('#pageStyle')).includes('margin:0'));
   if (process.env.SHOT) await pg.pdf({ path: process.env.SHOT + '/reading-booklet.pdf', preferCSSPageSize: true });
   await unprint();
@@ -345,7 +345,7 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.evaluate(() => { document.body.classList.remove('printing'); SEL = []; selChanged(); });
   await pg.click('[data-bundle="study"]');
   await pg.evaluate(() => selDoc('study', true));
-  t('교과서 학습자료 묶음 — 문단별 정리·문단 정리 빈칸 답', / · 학습 자료 2$/.test(await pg.textContent('#selN')) && /문화/.test(await pg.textContent('#print')) && (await pg.$$eval('#print .sech', a => a.map(x => x.textContent))).join() === '문단별 정리,문단 정리 빈칸');
+  t('교과서 학습자료 묶음 — 문단별 정리·문단 정리 빈칸 답', / · 학습 자료 2$/.test(await pg.textContent('#selN')) && /문화/.test(await pg.textContent('#print')) && /문단별 정리[\s\S]*문단 정리 빈칸/.test((await pg.$$eval('#print .bksec b', a => a.map(x => x.textContent))).join()));
   await pg.evaluate(() => { document.body.classList.remove('printing'); SEL = []; selChanged(); });
   // 학습 자료만 담은 문제지 저장 — ids 는 문항만(빈 배열), seq 에 'm:지문:종류'
   await pg.click('#tchips [data-t="keys"]'); await pg.click('#list [data-mat="keys"]');
@@ -454,11 +454,11 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.click('#mpBkS');
   await pg.waitForFunction(() => document.querySelectorAll('#print .sheet').length > 0, null, { timeout: 8000 });
   const rmp = await pg.evaluate(() => { const secs = [...document.querySelectorAll('#print .bksec')];
-    return { n: document.querySelectorAll('#print .sheet').length, secs: secs.map(e => e.textContent), top: secs.slice(1).every(e => e.parentElement.classList.contains('bbody') && e.parentElement.firstElementChild === e),
-      ins: [...document.querySelectorAll('#print .bbody .ins')].map(e => e.textContent), cover: document.querySelector('#print .cover .cv-sub').textContent, title: document.title }; });
-  t('묶음 책자 — 고른 차례대로 소제목·문항 수', rmp.n % 4 === 0 && rmp.secs.join('|') === '진화 원 기출' + idB.length + '문항|시장 원 기출' + idA.length + '문항', rmp.secs);
+    return { n: document.querySelectorAll('#print .sheet').length, secs: secs.map(e => e.textContent), top: secs.filter(e => e.querySelector('b').textContent.includes(' 원 기출')).slice(1).every(e => e.parentElement.classList.contains('bbody') && e.parentElement.firstElementChild === e),
+      ins: [...document.querySelectorAll('#print .bbody .q .stem .no')].map(e => e.textContent).filter(x => x === '01'), cover: document.querySelector('#print .cover .cv-sub').textContent, title: document.title }; });
+  t('묶음 책자 — 고른 차례대로 소제목·문항 수', rmp.n % 4 === 0 && rmp.secs.join('|') === '진화 원 기출' + idB.length + '문항|지문|원 기출' + idB.length + '문항|시장 원 기출' + idA.length + '문항|지문|원 기출' + idA.length + '문항', rmp.secs);
   t('묶음 책자 — 둘째 문제지부터 새 쪽 맨 위', rmp.top);
-  t('묶음 책자 — 번호는 문제지마다 1번부터', rmp.ins.length === 2 && rmp.ins.every(x => /^\[1/.test(x)), rmp.ins);
+  t('묶음 책자 — 번호는 문제지마다 01부터', rmp.ins.length === 2, rmp.ins);
   t('묶음 책자 — 표지·파일 이름', /문제지 2개/.test(rmp.cover) && /문제지 2개 묶음/.test(rmp.title), [rmp.cover, rmp.title]);
   await pg.evaluate(() => window.dispatchEvent(new Event('afterprint')));
   await pg.click('#mpBkT');
