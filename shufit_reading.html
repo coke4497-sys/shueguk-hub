@@ -335,6 +335,14 @@ body.printing .toast{display:none}
 .tog input:checked{background:var(--pu);border-color:var(--pu)}
 .tog input:checked::after{content:'✓';color:#fff;font-size:11px;line-height:1}
 .tog:has(input:checked){background:#f3eff8;color:var(--pu)}
+.mrow{margin-top:12px;padding-top:12px;border-top:1px solid #E5EDE8}
+.mhd{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;font-size:13px;margin-bottom:8px}.mhd b{color:var(--ink)}.mhd .dim{font-size:12px}
+.mchips{display:flex;flex-wrap:wrap;gap:6px}
+.mchips button{border:0;border-radius:999px;padding:6px 12px;font:inherit;font-size:12.5px;background:#f2f5f3;color:#8a948f;cursor:pointer;text-decoration:line-through}
+.mchips button.on{background:#EDE4F4;color:#5A4A6A;text-decoration:none}.mchips button.on:before{content:'✓ '}
+.mchips button small{margin-left:4px;opacity:.75}
+.mact{display:flex;gap:6px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}
+.btn.lavb{background:#f6f2fa;color:#5A4A6A}
 .autoN{display:inline-flex;align-items:center;gap:6px;margin-left:auto}
 .autoN input{width:60px;padding:6px 8px;border:1px solid #dfe5e1;border-radius:10px;font:inherit;text-align:center}
 .selc{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow:auto}
@@ -627,6 +635,11 @@ body.printing .toast{display:none}
         <span class="autoN">모두 <input type="number" id="autoN" value="10" min="1" max="80" inputmode="numeric"> 문항이 되게</span>
         <button class="btn" type="button" id="autoBtn">이 지문에서 채우기</button>
       </div>
+      <div class="mrow">
+        <div class="mhd"><b>여러 유형 한 번에 담기</b><span class="dim">빼고 싶은 유형을 눌러 끄고 [담기]를 누르세요. 서술형만 있는 유형은 처음부터 꺼 둡니다.</span></div>
+        <div class="mchips" id="mchips"></div>
+        <div class="mact"><button class="btn lavb" type="button" id="mAll">모두 켜기</button><button class="btn lavb" type="button" id="mNone">모두 끄기</button><button class="btn main" type="button" id="mAdd">담기</button></div>
+      </div>
     </div>
     <div class="cols">
       <div class="card pas-col"><div class="ct">지문</div><div id="pas"></div></div>
@@ -916,7 +929,33 @@ function drawT(){
   $('#tchips').innerHTML=(q?'<button class="chip'+(S.t==='hits'?' on':'')+'" data-t="hits">‘'+esc(q)+'’ 들어간 문항<small>'+hitItems().length+'</small></button>':'')+types().map(function(t){var k=cnt(t[0]);return '<button class="chip'+(t[0]===S.t?' on':'')+'" data-t="'+t[0]+'">'+t[1]+(k!==''?'<small>'+k+'</small>':'')+'</button>'}).join('');
   drawList();
 }
+/* 여러 유형 한 번에 담기 (2026-11-25 원장님 "조건형 서술이나 주관식을 빼고 나머지를 모두 선택해 담기")
+ * MOFF = 끈 유형(과목마다 따로 기억, 이 화면에서만). 처음엔 문항이 모두 서술형인 유형을 끈다. */
+var MOFF={}, MOFF_INIT={};
+function mTypes(){ if(!CUR) return []; return types().filter(function(t){ return NONQ.indexOf(t[0])>=0 ? matHas(CUR,t[0]) : itemsOf(t[0]).length>0; }); }
+function mList(){
+  var out=[];
+  mTypes().forEach(function(t){ if(MOFF[t[0]]) return;
+    if(NONQ.indexOf(t[0])>=0){ var e=matEntry(CUR,t[0]); if(!isSel(e.id)) out.push(e); return; }
+    itemsOf(t[0]).forEach(function(x){ if(x.it.id==null || isSel(x.it.id) || !keepUnused(x.it)) return; out.push(mkEntry(CUR,x.it,t[1],IND(t[0])?(x.it.passage||x.pas):null)); }); });
+  return out;
+}
+function drawMulti(){
+  var box=$('#mchips'); if(!box||!CUR) return;
+  var ts=mTypes();
+  ts.forEach(function(t){ var k=SK+'|'+t[0]; if(MOFF_INIT[k]) return; MOFF_INIT[k]=1;
+    var its=NONQ.indexOf(t[0])>=0?[]:itemsOf(t[0]);
+    if(its.length && its.every(function(x){ return x.it.kind==='essay'; })) MOFF[t[0]]=1; });
+  box.innerHTML=ts.map(function(t){ var k=cnt(t[0]); return '<button type="button" data-mt="'+t[0]+'" class="'+(MOFF[t[0]]?'':'on')+'">'+t[1]+(k!==''?'<small>'+k+'</small>':'')+'</button>'; }).join('');
+  var l=mList(), b=$('#mAdd'); b.disabled=!l.length;
+  b.textContent=l.length?'켠 유형 '+selCount(l)+' 담기':(ts.some(function(t){return !MOFF[t[0]]})?'켠 유형은 이미 모두 담았어요':'켠 유형이 없습니다');
+}
+$('#mchips').addEventListener('click',function(e){ var b=e.target.closest('[data-mt]'); if(!b) return; var c=b.getAttribute('data-mt'); if(MOFF[c]) delete MOFF[c]; else MOFF[c]=1; drawMulti(); });
+$('#mAll').onclick=function(){ MOFF={}; drawMulti(); };
+$('#mNone').onclick=function(){ mTypes().forEach(function(t){ MOFF[t[0]]=1; }); drawMulti(); };
+$('#mAdd').onclick=function(){ var l=mList(); if(!l.length) return; l.forEach(addSel); selChanged(); toast(selCount(l)+'을(를) 담았어요'); };
 function drawList(){
+  if(typeof drawMulti==='function') drawMulti();
   var g=CUR, c=S.t, name=c==='hits'?'찾은 문항':types().filter(function(t){return t[0]===c})[0][1];
   $('#lt').textContent=name;
   var P=g.passage, h='';
