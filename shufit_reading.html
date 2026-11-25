@@ -296,6 +296,10 @@ body.printing .toast{display:none}
 .pr .pas.ln{position:relative;margin:0;padding:0 6mm 0 1em;text-indent:-1em;font-family:'Gowun Batang';font-size:9.6pt;line-height:1.85;break-inside:avoid}
 .pr .pas.ln i{position:absolute;right:0;top:0;font-style:normal;font-family:'Gowun Dodum';font-size:7pt;color:#8db8ad;text-indent:0}
 .pr .pas.lgap{height:2.4mm;margin:0}
+.pr .pas.dp{position:relative;padding-left:6mm}
+.pr .pas.dp .pn{position:absolute;left:0;top:.9mm;width:3.8mm;height:3.8mm;line-height:3.6mm;box-sizing:border-box;border:.25mm solid #8db8ad;border-radius:.4mm;text-align:center;font-family:'Gowun Dodum';font-size:6.8pt;color:#3d675d}
+.pr .pas.dp p{margin:0 0 1.6mm}
+.pr .litp .pas.dp{padding:0 0 0 6mm}
 .pr .litp{margin-bottom:3mm}.pr .litp .pas{border:0;padding:0}.pr .litp .pas.lwh{padding:0 0 1.4mm}.pr .litp .pas.ln{padding:0 6mm 0 1em}
 /* 〈보기〉 = 연한 민트 상자 + 위 가운데 이름표 · 작품 정리 = 민트 밑줄·작은 점(2026-11-25 원장님) */
 .pr .box{background:#f4f9f7;border:.3mm solid #c3dcd5;border-radius:1.5mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -906,6 +910,19 @@ function litPasBlocks(P, works, genre){
   if(P.vocab) B.push('<div class="pas"><div class="voc"><b>어휘 풀이</b><br>'+P.vocab.join('<br>')+'</div></div>');
   return B;
 }
+/* 독서 인쇄 지문(2026-11-25 원장님 "독서도 반영") — 문학 B안과 같은 머리줄(영역 알약 · 제목 · 출처) + 문단마다 네모 문단 번호
+ * (워크북 지침: 문단 번호는 네모 안 숫자, 테두리 #8db8ad). 번호는 (가)(나) 이름표마다 1부터. 독립 지문(99)은 머리줄 없이 번호만. */
+function dokPasBlocks(P, g){
+  var B=[], n=0;
+  if(g) B.push('<div class="pas lwh">'+(g.area?'<span class="g">'+esc(g.area)+'</span>':'')+'<b>'+esc(g.title)+'</b>'+(g.srcname?'<span class="au">'+esc(g.srcname)+'</span>':'')+'</div>');
+  P.blocks.forEach(function(b){
+    if(b.label){ n=0; B.push('<div class="pas">'+blockHtml(b)+'</div>'); return; }
+    if(b.bracket || (b.p && !b.sub && !b.src && !b.cap && !b.img && !b.tbl)){ n++; B.push('<div class="pas dp"><span class="pn">'+n+'</span>'+blockHtml(b)+'</div>'); return; }
+    B.push('<div class="pas">'+blockHtml(b)+'</div>');
+  });
+  if(P.vocab) B.push('<div class="pas"><div class="voc"><b>어휘 풀이</b><br>'+P.vocab.join('<br>')+'</div></div>');
+  return B;
+}
 function passageHtml(P){
   var h='<div class="pas">'+P.blocks.map(blockHtml).join('');
   if(P.vocab) h+='<div class="voc"><b>어휘 풀이</b><br>'+P.vocab.join('<br>')+'</div>';
@@ -1107,10 +1124,8 @@ function pickEvery(){ return pickTypes().map(function(t){return t[0]}).filter(pi
 function pickBlocks(on, teacher, split){
   var g=CUR, o={print:1, teacher:teacher}, B=[], ex=[];
   var lines=function(arr){ if(!split){ B.push(notesHtml(arr)); return; } arr.forEach(function(b){ B.push(notesHtml([b])); }); };
-  var pas=function(P, main){ if(LIT){ var lb=litPasBlocks(P, main?g.works:P.works, main?g.area:''); if(split) B.push.apply(B, lb); else B.push('<div class="litp">'+lb.join('')+'</div>'); return; }
-    if(!split){ B.push(passageHtml(P)); return; }
-    P.blocks.forEach(function(bk){ B.push('<div class="pas">'+blockHtml(bk)+'</div>'); });
-    if(P.vocab) B.push('<div class="pas"><div class="voc"><b>어휘 풀이</b><br>'+P.vocab.join('<br>')+'</div></div>'); };
+  var pas=function(P, main){ var lb=LIT?litPasBlocks(P, main?g.works:P.works, main?g.area:''):dokPasBlocks(P, main?g:null);
+    if(split) B.push.apply(B, lb); else B.push('<div class="litp">'+lb.join('')+'</div>'); };
   on.forEach(function(c){
     var name=pickName(c);
     var k=cnt(c), first=!B.length;
@@ -1843,10 +1858,8 @@ function selSecParts(teacher, split, list){
   var o={print:1, teacher:teacher}, B=[], ex=[], secs=[], gids=[];
   list=list||SEL;
   list.forEach(function(x){ if(gids.indexOf(x.gid)<0) gids.push(x.gid); });
-  var pasB=function(P, g0){ if(LIT){ var lb=litPasBlocks(P, g0?g0.works:P.works, g0?g0.area:''); if(split) B.push.apply(B, lb); else B.push('<div class="litp">'+lb.join('')+'</div>'); return; }
-    if(!split){ B.push(passageHtml(P)); return; }
-    P.blocks.forEach(function(bk){ B.push('<div class="pas">'+blockHtml(bk)+'</div>'); });
-    if(P.vocab) B.push('<div class="pas"><div class="voc"><b>어휘 풀이</b><br>'+P.vocab.join('<br>')+'</div></div>'); };
+  var pasB=function(P, g0){ var lb=LIT?litPasBlocks(P, g0?g0.works:P.works, g0?g0.area:''):dokPasBlocks(P, g0||null);
+    if(split) B.push.apply(B, lb); else B.push('<div class="litp">'+lb.join('')+'</div>'); };
   gids.forEach(function(gid){
     var es=list.filter(function(x){return x.gid===gid}), x0=es[0], many=gids.length>1;
     IMGCTX=x0.imgs;
