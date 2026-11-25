@@ -562,14 +562,16 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
     t('여러 유형 한 번에 — 모두 켜기', (await lp.$$eval('#mchips button.on', a => a.length)) === (await lp.$$eval('#mchips button', a => a.length)) && /켠 유형 4문항 담기/.test(await lp.textContent('#mAdd')), await lp.textContent('#mAdd'));
     await lp.evaluate(() => { SEL = []; selChanged(); });
   }
-  // 묶음 담기는 지문·문항 칸 위, 문항 칸은 따로 스크롤, 떠 있는 [지금 만드는 문제지 ↓] (2026-11-25 원장님)
+  // 묶음 담기·지금 만드는 문제지는 지문·문항 칸 위, 떠 있는 [지금 만드는 문제지 ↑] (2026-11-25 원장님)
   {
-    const pos = await lp.evaluate(() => [document.querySelector('#bundleCard'), document.querySelector('#work .cols')].map(e => e.getBoundingClientRect().top + scrollY));
-    t('묶음 담기 카드가 지문·문항 칸보다 위', pos[0] < pos[1], JSON.stringify(pos));
-    await lp.evaluate(() => scrollTo(0, 0)); await lp.waitForTimeout(250);
-    t('지문을 열면 [지금 만드는 문제지 ↓] 단추', await lp.isVisible('#jumpSel'));
+    const pos = await lp.evaluate(() => ['#bundleCard', '#selCard', '#workCols .cols'].map(q => document.querySelector(q).getBoundingClientRect().top + scrollY));
+    t('묶음 담기 → 지금 만드는 문제지 → 지문·문항 차례', pos[0] < pos[1] && pos[1] < pos[2], JSON.stringify(pos));
+    await lp.setViewportSize({ width: 1280, height: 420 });
+    await lp.evaluate(() => scrollTo(0, document.body.scrollHeight)); await lp.waitForTimeout(250);
+    t('문항까지 내려가면 [지금 만드는 문제지 ↑] 단추', await lp.isVisible('#jumpSel') && (await lp.textContent('#jumpA')) === '↑');
     await lp.click('#jumpSel'); await lp.waitForTimeout(900);
-    t('단추를 누르면 문제지 칸으로 가고 단추는 숨음', await lp.evaluate(() => document.querySelector('#selCard').getBoundingClientRect().top < innerHeight) && !(await lp.isVisible('#jumpSel')));
+    t('단추를 누르면 문제지 칸으로 가고 단추는 숨음', await lp.evaluate(() => { const r = document.querySelector('#selCard').getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }) && !(await lp.isVisible('#jumpSel')));
+    await lp.setViewportSize({ width: 1280, height: 1000 });
     await lp.evaluate(() => scrollTo(0, 0));
   }
   await lp.click('#tchips [data-t="notes"]');

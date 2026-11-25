@@ -323,7 +323,7 @@ body.printing .toast{display:none}
 .load{font-size:13px;color:var(--ink2);padding:6px 0}
 .err{font-size:13px;color:#b0525d;background:#fbeeea;border-radius:12px;padding:8px 12px;margin-top:8px}
 .back{display:inline-block;background:#fff;border-radius:999px;padding:6px 14px;font-size:13px;color:#4F5C56;text-decoration:none;margin-bottom:12px}
-#work[hidden]{display:none}
+#work[hidden],#workCols[hidden]{display:none}
 /* 고른 문항 · 내보내기 (2026-11-19 — 문법처럼 담아서 인쇄·H WORK 출제) */
 .q .qh .pick{margin-left:auto;border:0;border-radius:999px;padding:4px 12px;font:inherit;font-size:12px;background:var(--lav);color:var(--lav-ink);cursor:pointer}
 .q .qh .pick.on{background:#4a3f63;color:#fff}
@@ -658,12 +658,8 @@ body.printing .toast{display:none}
         <button class="btn" type="button" data-bundle="exam">시험지 묶음 담기</button>
       </div>
     </div>
-    <div class="cols">
-      <div class="card pas-col"><div class="ct">지문</div><div id="pas"></div></div>
-      <div class="card"><div class="ct" id="lt">문항</div><div id="list"></div></div>
-    </div>
   </div>
-  <button type="button" class="jumpsel" id="jumpSel" hidden>지금 만드는 문제지 <b id="jumpN">0</b> ↓</button>
+  <button type="button" class="jumpsel" id="jumpSel" hidden>지금 만드는 문제지 <b id="jumpN">0</b> <span id="jumpA">↑</span></button>
   <div class="card" id="selCard">
     <div class="ct"><i>3</i>지금 만드는 문제지 <span class="tag lav" id="selN">0문항</span><span style="margin-left:auto;display:flex;gap:6px"><button class="btn ghost" id="selClear" type="button">비우기</button></span></div>
     <div class="fx">
@@ -676,6 +672,12 @@ body.printing .toast{display:none}
     <button class="btn gotoshelf" type="button" id="goShelf" disabled>내 문제지함에서 인쇄 · 출제하기 →</button>
     <div class="hint" style="margin:0">저장하면 <b>내 문제지함</b>에 들어갑니다. 인쇄·책자·H WORK 출제는 문제지함에서 해요.</div>
     <div class="xsec"><button class="btn ghost" type="button" id="newBtn">새 문제지 만들기 <span class="dim">· 고른 문항·제목·날짜·학교를 비워요</span></button></div>
+  </div>
+  <div id="workCols" hidden>
+    <div class="cols">
+      <div class="card pas-col"><div class="ct">지문</div><div id="pas"></div></div>
+      <div class="card"><div class="ct" id="lt">문항</div><div id="list"></div></div>
+    </div>
   </div>
   </div>
   <div id="shelfView" hidden>
@@ -1186,7 +1188,7 @@ document.addEventListener('click', function(e){
 });
 function openP(id){
   var my=++SEQ;
-  $('#work').hidden=false; if(typeof jumpSync==='function') jumpSync(); $('#pas').innerHTML='<div class="load">지문을 불러오는 중…</div>'; $('#list').innerHTML='';
+  $('#work').hidden=false; $('#workCols').hidden=false; if(typeof jumpSync==='function') jumpSync(); $('#pas').innerHTML='<div class="load">지문을 불러오는 중…</div>'; $('#list').innerHTML='';
   var done=function(g){ if(my!==SEQ && CUR && CUR.id!==id) return; var wasTB=isTB(); CUR=g; if(isTB()!==wasTB && S.t!=='hits') S.t=defT(); drawP(); drawRes(); };
   loadPassage(id).then(done).catch(function(e){ $('#pas').innerHTML='<div class="err">지문을 불러오지 못했습니다('+esc(e.message)+').</div>'; });
 }
@@ -1419,15 +1421,15 @@ function autoTitle(){
   var nq=selQ().length;
   return ''+SFN+': '+ts[0].split(/\s*[\/,]\s*/)[0]+(ts.length>1?' 외 '+(ts.length-1)+'지문':'')+' ('+(nq||'학습 자료')+')';
 }
-/* [지금 만드는 문제지 n ↓] 떠 있는 단추 — 지문을 열어 둔 채 문제지 칸이 화면 아래에 있을 때만 (2026-11-25 원장님) */
-var JUMP_SEEN=false;
+/* [지금 만드는 문제지 n ↑] 떠 있는 단추 — 지문을 열어 둔 채 문제지 칸이 화면 밖에 있을 때 (2026-11-25 원장님 — 문제지 칸은 지문·문항 위, 문항을 내려 보다 돌아가는 용도) */
+var JUMP_SEEN=false, JUMP_UP=false;
 function jumpSync(){
   var b=$('#jumpSel'); if(!b) return;
   var work=$('#work'), mk=$('#makeView');
   b.hidden=!(work&&!work.hidden&&mk&&!mk.hidden&&!JUMP_SEEN);
-  $('#jumpN').textContent=selCount();
+  $('#jumpN').textContent=selCount(); $('#jumpA').textContent=JUMP_UP?'↑':'↓';
 }
-if(window.IntersectionObserver){ new IntersectionObserver(function(es){ es.forEach(function(e){ JUMP_SEEN=e.isIntersecting||e.boundingClientRect.top<0; }); jumpSync(); }).observe($('#selCard')); }
+if(window.IntersectionObserver){ new IntersectionObserver(function(es){ es.forEach(function(e){ JUMP_SEEN=e.isIntersecting; JUMP_UP=e.boundingClientRect.top<0; }); jumpSync(); }).observe($('#selCard')); }
 $('#jumpSel').onclick=function(){ $('#selCard').scrollIntoView({behavior:'smooth',block:'start'}); };
 function selChanged(){
   var t=$('#pTitle'); if(!t.value.trim()||t.value===TITLE_AUTO){ TITLE_AUTO=autoTitle(); t.value=TITLE_AUTO; }
