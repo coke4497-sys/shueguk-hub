@@ -280,8 +280,20 @@ body.printing .toast{display:none}
 .pr .pas .gridt{break-after:avoid}
 .pr .box img{break-inside:avoid}
 .pr .q .qh{display:none}
-.pr .q .stem .no{font-family:'Gowun Batang';font-weight:700;color:#111;font-size:9.6pt}
-.pr .box{padding:2mm 2.6mm;margin:1.6mm 0} .pr .box img{max-width:92%}
+.pr .q .stem{display:flex;gap:2mm;align-items:flex-start}
+.pr .q .stem .sx{flex:1;min-width:0}
+.pr .q .stem .no{flex:none;min-width:7.2mm;height:5.4mm;border-radius:1.2mm;background:#8db8ad;color:#fff;font-family:'Gowun Dodum';font-weight:400;font-size:8.6pt;text-align:center;line-height:5.4mm;margin-top:.2mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+/* 지문은 늘 새 쪽 왼쪽 위(2026-11-25 원장님) — A4 학습지는 쪽 나눔, 책자는 bookletRun 이 새 쪽 */
+.pr .pstart{break-before:page}
+.pr .bksec + .pstart,.pr .ph + .pstart,.bk .pstart,.pr.exam .pstart{break-before:auto}
+/* 〈보기〉 = 연한 민트 상자 + 위 가운데 이름표 · 작품 정리 = 민트 밑줄·작은 점(2026-11-25 원장님) */
+.pr .box{background:#f4f9f7;border:.3mm solid #c3dcd5;border-radius:1.5mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pr .box .bl{background:#fff;color:#3d675d;font-family:'Gowun Dodum';font-weight:400;font-size:8.5pt;top:-2.3mm;padding:0 1.5mm}
+.pr .notes .nh{font-family:'Gowun Batang';font-weight:700;color:#24443d}
+.pr .notes .l2.dot{padding-left:.9em;text-indent:-.9em}
+.pr .notes .l2.dot:before{content:'·';color:#8db8ad;font-weight:700;display:inline-block;width:.9em;text-indent:0}
+.pr .notes u{text-decoration:underline;text-decoration-color:#8db8ad;text-decoration-thickness:1.4pt;text-underline-offset:1.3pt;text-decoration-skip-ink:none}
+.pr .box{padding:3.6mm 2.6mm 2mm;margin:2.6mm 0 1.6mm} .pr .box img{max-width:92%}
 .pr .opts li.ok .n{background:#111;color:#fff;border-radius:50%;width:4.3mm;height:4.3mm;line-height:4.3mm;text-align:center;font-size:7pt;margin-top:.5mm;font-family:'Gowun Dodum'}
 .pr .ox span{border:0;padding:0 2mm}
 .pr details.ex{display:none}
@@ -289,7 +301,7 @@ body.printing .toast{display:none}
 .pr .notes .sum,.pr .notes .easy{padding:1mm 2mm;border-radius:1.2mm}
 .pr .notes .nh{font-size:9.4pt;margin:2.5mm 0 1mm}
 .pr .oxl{display:flex;gap:2mm;margin:0 0 1.6mm;break-inside:avoid}
-.pr .oxl .k{flex:none;font-weight:700}
+.pr .oxl .k{flex:none;align-self:flex-start;min-width:7.2mm;height:5.4mm;border-radius:1.2mm;background:#8db8ad;color:#fff;font-family:'Gowun Dodum';font-size:8.6pt;text-align:center;line-height:5.4mm;margin-top:.2mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pr .oxl .m{flex:none;margin-left:auto;font-family:'Gowun Dodum';color:#555;white-space:nowrap}
 .ansbox{column-span:all;break-before:page}
 .ansbox h3{font-family:'Gowun Batang';font-size:13pt;margin:0 0 3mm}
@@ -862,7 +874,7 @@ function itemHtml(it, no, opt){
   opt=opt||{};
   var h='<div class="q'+(opt.tag&&it.id!=null&&isSel(it.id)?' on':'')+'">';
   if(opt.tag) h+='<div class="qh"><span class="tag">'+opt.tag+'</span>'+(opt.v?'<span class="tag lav">v'+opt.v+'</span>':'')+(it.id!=null&&USED[it.id]?'<span class="used" title="'+esc(USED[it.id].join(' · '))+'">낸 적 있음</span>':'')+(it.id!=null?'<button type="button" class="pick'+(isSel(it.id)?' on':'')+'" data-pick="'+it.id+'">'+(isSel(it.id)?'✓ 담음':'+ 담기')+'</button>':'')+'</div>';
-  h+='<div class="stem"><span class="no">'+no+'.</span>'+it.stem+(it.kind==='ox'?' <span style="font-weight:400">( O / X )</span>':'')+'</div>';
+  h+='<div class="stem">'+(opt.print&&!opt.exam?'<span class="no">'+String(no).padStart(2,'0')+'</span><span class="sx">':'<span class="no">'+no+'.</span>')+it.stem+(it.kind==='ox'?' <span style="font-weight:400">( O / X )</span>':'')+(opt.print&&!opt.exam?'</span>':'')+'</div>';
   var box=(it.box||[]);
   if(box.length){
     var hasLabel = it.kind!=='essay' || true;
@@ -890,11 +902,12 @@ function notesHtml(lines){
     var t=b.p.replace(/<[^>]+>/g,'');
     var raw=b.p;
     if(/^\((가|나|다)\)$/.test(t)) h+='<div class="sec">'+raw+'</div>';
-    else if(/^\[\d+문단\]/.test(t)||/^(전체 요약|지문 간 비교 정리)/.test(t)) h+='<div class="nh">'+raw+'</div>';
+    else if(/^\[\d+문단\]/.test(t)||/^(전체 요약|지문 간 비교 정리)/.test(t)||/^\d+\.\s+\S/.test(t)&&t.length<=30) h+='<div class="nh">'+raw+'</div>';
     else if(/^주요 내용:?$/.test(t)) {}
     else if(/^문단 요약:/.test(t)) h+='<div class="sum"><span class="lbl">문단 요약</span> '+raw.replace(/^문단 요약:\s*/,'')+'</div>';
     else if(/^쉽게 요약:/.test(t)) h+='<div class="easy"><span class="lbl">쉽게 요약</span> '+raw.replace(/^쉽게 요약:\s*/,'')+'</div>';
     else if(/^\d+\)/.test(t)) h+='<div class="l1">'+raw+'</div>';
+    else if(/^\s*-\s/.test(t)) h+='<div class="l2 dot">'+raw.replace(/^(\s*(?:<[^>]+>)*)\s*-\s+/,'$1')+'</div>';
     else h+='<div class="l2">'+raw+'</div>';
   });
   return h+'</div>';
@@ -1056,14 +1069,14 @@ function pickBlocks(on, teacher, split){
     if(c==='keys'){ lines(g.keys||[]); return; }
     if(c==='10'){ var Bl=g.blanks; lines(Bl.lines.map(function(b){ return b.p?{p:b.p.replace(/\(\s*(\d+)\s+\)/g,function(m,n){return '<span class="blank">'+(teacher?(Bl.answers[n]||n):n)+'</span>'})}:b; })); return; }
     var arr=itemsOf(c);
-    if(c==='99' && arr.length && arr[0].pas) pas(arr[0].pas);
+    if(c==='99' && arr.length && arr[0].pas){ B.push('<div class="pstart"></div>'); pas(arr[0].pas); }
     var lastG='';
     var allOx=arr.every(function(x){return x.it.kind==='ox'});
     arr.forEach(function(x,i){
       if(c==='30' && x.it.passage){ var gk=JSON.stringify(x.it.passage); if(gk!==lastG){ lastG=gk;
         var nn=1; while(i+nn<arr.length && arr[i+nn].it.passage && JSON.stringify(arr[i+nn].it.passage)===gk) nn++;   // 같은 지문 묶음 문항 수 → '[1~2]' (2026-11-25 원장님 — 모두 인쇄에 번호가 빠졌다)
-        B.push('<div class="ins">['+(i+1)+(nn>1?'~'+(i+nn):'')+'] 다음 글을 읽고 물음에 답하시오.</div>'); pas(x.it.passage); } }
-      if(allOx) B.push('<div class="oxl"><span class="k">'+(i+1)+'.</span><span>'+x.it.stem+'</span><span class="m">'+(teacher?'<b>'+esc(x.it.ans)+'</b>':'( O / X )')+'</span></div>');
+        B.push('<div class="ins pstart">['+(i+1)+(nn>1?'~'+(i+nn):'')+'] 다음 글을 읽고 물음에 답하시오.</div>'); pas(x.it.passage); } }
+      if(allOx) B.push('<div class="oxl"><span class="k">'+String(i+1).padStart(2,'0')+'</span><span>'+x.it.stem+'</span><span class="m">'+(teacher?'<b>'+esc(x.it.ans)+'</b>':'( O / X )')+'</span></div>');
       else B.push(itemHtml(x.it,i+1,o));
       if(teacher && (x.it.expl||'').trim()) ex.push('<div class="ex1"><b>'+name+' '+(i+1)+'. 정답 '+esc(x.it.ans)+'</b> '+esc(x.it.expl)+'</div>');
     });
@@ -1571,7 +1584,7 @@ function selDoc(kind, teacher){
   selGroups().forEach(function(g){
     var nq=selQ(g.items).length, a=no+1, b=no+nq;
     IMGCTX=g.x.imgs;
-    h+='<div class="ins">'+(nq?'['+(a===b?a:a+'~'+b)+'] 다음 글을 읽고 물음에 답하시오.':'다음 글을 읽고 정리해 보세요.')+'</div>'+passageHtml(g.x.pas);
+    h+='<div class="ins pstart">'+(nq?'['+(a===b?a:a+'~'+b)+'] 다음 글을 읽고 물음에 답하시오.':'다음 글을 읽고 정리해 보세요.')+'</div>'+passageHtml(g.x.pas);
     g.items.forEach(function(x){ if(x.mat) h+=matBlocks(x,teacher,false).join(''); else h+=itemHtml(x.it,++no,o); });
   });
   IMGCTX=null;
@@ -1614,7 +1627,7 @@ function examMeta(n){
 }
 function exMk(h){ var t=document.createElement('template'); t.innerHTML=h.trim(); return t.content.firstElementChild; }
 function exItem(x, n, teacher){
-  var h=itemHtml(x.it, n, {print:1, teacher:teacher});
+  var h=itemHtml(x.it, n, {print:1, teacher:teacher, exam:1});
   if(teacher) h=h.replace(/<li class="ok"><span class="n">(\d+)<\/span>/g, function(m,d){ return '<li class="ok"><span class="n" data-d="'+d+'">'+CIRC[d-1]+'</span>'; });
   return h;
 }
@@ -1767,7 +1780,7 @@ function bookParts(teacher){
   var head='<div class="ph"><div><div class="lg">Shueguk</div></div><div class="tt">'+SFN+' · '+selCount()+(teacher?' · 교사용':'')+'<b>'+esc(title)+'</b></div><div class="nm">날짜<span>'+esc(m.dot)+'</span><br>학교<span>'+esc(m.school)+'</span><br>이름<span></span></div></div>';
   selGroups().forEach(function(g){
     var nq=selQ(g.items).length, a=no+1, b=no+nq; IMGCTX=g.x.imgs;
-    blocks.push('<div class="ins">'+(nq?'['+(a===b?a:a+'~'+b)+'] 다음 글을 읽고 물음에 답하시오.':'다음 글을 읽고 정리해 보세요.')+'</div>');
+    blocks.push('<div class="ins pstart">'+(nq?'['+(a===b?a:a+'~'+b)+'] 다음 글을 읽고 물음에 답하시오.':'다음 글을 읽고 정리해 보세요.')+'</div>');
     g.x.pas.blocks.forEach(function(bk){ blocks.push('<div class="pas">'+blockHtml(bk)+'</div>'); });
     if(g.x.pas.vocab) blocks.push('<div class="pas"><div class="voc"><b>어휘 풀이</b><br>'+g.x.pas.vocab.join('<br>')+'</div></div>');
     g.items.forEach(function(x){ if(x.mat) blocks.push.apply(blocks, matBlocks(x,teacher,true)); else blocks.push(itemHtml(x.it,++no,o)); });
@@ -1809,6 +1822,8 @@ function bookletRun(d, teacher, mkCover){
     return list.reduce(function(pr,h){ return pr.then(function(){
       tmp.innerHTML=h; var el=tmp.firstElementChild;
       if(el.classList.contains('bksec') && !el.classList.contains('first') && body.children.length) body=newPage();
+      var lastEl=body.lastElementChild;   // 지문은 늘 새 쪽 왼쪽 위에서 시작(2026-11-25 원장님) — 바로 앞이 쪽 머리·구간 제목이면 그대로
+      if(el.classList.contains('pstart') && lastEl && !/(^| )(bksec|ph)( |$)/.test(lastEl.className)) body=newPage();
       body.appendChild(el);
       return waitImgs(el).then(function(){ if(over(body) && body.children.length > (content.length===start?fixed+1:1)){ el.remove(); body=newPage(); body.appendChild(el); } });
     }); }, Promise.resolve());
