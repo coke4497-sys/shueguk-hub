@@ -1257,13 +1257,22 @@ function unitHw(){
   var others=SEL.filter(function(x){return x.gid!==CUR.id}).length;
   if(others && !confirm('고른 문항에 다른 지문 문항 '+others+'개가 담겨 있습니다.\n비우고 이 단원 문항만 출제할까요?')) return;
   SEL=[]; es.forEach(addSel); selChanged(); setMsg('','');
+  setMode('shelf');   // H WORK 출제·배정 칸은 [내 문제지함] 화면에 있다 — 만들기 화면에서 누르면 그 칸이 통째로 숨어 있었다
   var tb=document.querySelector('#xTabs [data-x="hw"]'); if(tb) tb.click();
+  /* 단원 출제는 '학생 직접 고르기' 칸에서 진행·결과·배정을 보여 준다(2026-11-25 원장님 "배정으로 넘어가지 않습니다" —
+   * 기본 칸 '진도반으로'(저장한 문제지용)가 열려 있어 출제 진행·완료 안내·학생 고르기가 모두 숨어 있었다) */
+  var wp=document.querySelector('#hwWho [data-w="pick"]'); if(wp) wp.click();
   var xc=$('#xCard'); if(xc&&xc.scrollIntoView) xc.scrollIntoView({behavior:'smooth',block:'start'});
   setTimeout(function(){
     var t=$('#hTeacher').value.trim();
     if(!t){ toast('출제 선생님을 적은 뒤 [H WORK 과제로 출제]를 눌러 주세요'); return; }
     var parts=unitParts(SEL);
-    if(confirm('「'+CUR.title+'」 문항 '+SEL.length+'개를 구간 '+parts.length+'개로 나눠 H WORK 과제 '+parts.length+'개로 출제할까요?\n학생은 구간마다 따로 입력하고 채점합니다.\n출제 선생님: '+t+'\n과제 이름: '+parts[0].code+' …')) saveUnit(t);
+    if(!confirm('「'+CUR.title+'」 문항 '+SEL.length+'개를 구간 '+parts.length+'개로 나눠 H WORK 과제 '+parts.length+'개로 출제할까요?\n학생은 구간마다 따로 입력하고 채점합니다.\n출제 선생님: '+t+'\n과제 이름: '+parts[0].code+' …')) return;
+    var note=$('#unitHwNote'); note.textContent='출제 중입니다 — 구간 '+parts.length+'개를 차례로 저장해요(1분쯤 걸릴 수 있어요). 아래 H WORK 칸에 진행 상황이 보입니다.';
+    saveUnit(t).then(function(ok){
+      note.textContent=ok?('✓ 구간 '+parts.length+'개를 H WORK 과제로 출제했습니다. 아래 [학생 직접 고르기]에서 학생을 고르고 [이 학생들에게 배정]을 눌러 주세요.'):'출제하지 못했습니다. 아래 H WORK 칸의 안내를 확인해 주세요.';
+      var pk=$('#hwPicker'); if(ok&&pk&&pk.scrollIntoView) pk.scrollIntoView({behavior:'smooth',block:'center'});
+    });
   }, 350);
 }
 /* 단원 한 번에 출제 = 구간(유형)마다 따로 H WORK 과제 (2026-11-19 원장님 "지문 단원을 한꺼번에 출제해도 구간별로 따로따로 입력하고 채점")

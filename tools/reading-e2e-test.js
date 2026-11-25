@@ -391,6 +391,9 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await pg.waitForFunction(() => /구간 \d+개로 나눠 출제했습니다/.test(document.querySelector('#saveMsg').textContent), null, { timeout: 8000 });
   pg.off('dialog', onDlg);
   t('모두 출제 — 다른 지문 비울지·구간으로 나눠 출제할지 묻기', dlg.length === 2 && /다른 지문 문항 \d+개/.test(dlg[0]) && /문항 7개를 구간 \d+개로 나눠/.test(dlg[1]), JSON.stringify(dlg));
+  t('모두 출제 — 학생 직접 고르기 칸이 열려 진행·완료 안내가 보임', await pg.isVisible('#saveMsg') && await pg.isVisible('#hwAssignBtn') && await pg.$eval('#hwWho [data-w="pick"]', e => e.classList.contains('on')));
+  await pg.waitForFunction(() => /H WORK 과제로 출제했습니다/.test(document.querySelector('#unitHwNote').textContent), null, { timeout: 8000 });
+  t('모두 출제 — 지문 머리에도 완료·배정 안내', /학생 직접 고르기/.test(await pg.textContent('#unitHwNote')));
   t('모두 출제 — 고른 문항 7·H WORK 탭', (await pg.textContent('#selN')) === '7문항' && !(await pg.$eval('#xp-hw', e => e.hidden)));
   const uposts = writes.filter(w => w.m === 'POST' && /hwork_src_items$/.test(w.u.split('?')[0])).map(w => JSON.parse(w.b));
   const ugas = gas.filter(Boolean).map(g => JSON.parse(g)).filter(g => g.action === 'saveHomework');
