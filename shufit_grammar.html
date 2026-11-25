@@ -209,6 +209,9 @@
   .seg.two-seg{grid-template-columns:repeat(2,minmax(0,1fr))}
   #xTabs button:disabled{opacity:.45;cursor:default}
   .gotoshelf{background:#EDE4F4;color:#5A4A6A;border:0}
+  /* [지금 만드는 문제지 n ↓] — 문제지 칸이 화면 밖일 때만 (좁은 화면에서 목록 아래로 내려갈 때, 2026-11-25 원장님) */
+  .jumpsel{position:fixed;right:18px;bottom:18px;z-index:40;border:0;border-radius:999px;padding:11px 18px;background:#4a3f63;color:#fff;font:inherit;font-size:14px;cursor:pointer;box-shadow:0 4px 14px rgba(40,40,60,.18)}
+  .jumpsel b{font-family:'Do Hyeon',sans-serif;font-weight:400;margin:0 2px}
   .gotoshelf:disabled{opacity:.5;cursor:default}
   .ba-h .lk{border:0;background:none;color:#8D83A8;font:inherit;font-size:12px;cursor:pointer;margin-left:6px;text-decoration:underline}
   .ba-p .ord{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:50%;background:#4a3f63;color:#fff;font-size:11px;margin-right:4px}
@@ -472,6 +475,7 @@
       <div id="list"><div class="empty">문항을 불러오는 중입니다…</div></div>
     </main>
     <aside class="side">
+      <button type="button" class="jumpsel" id="jumpSel" hidden>지금 만드는 문제지 <b id="jumpN">0</b>문항 ↓</button>
       <section class="card mkcard">
         <div class="ch2"><h2><span class="n">3</span>지금 만드는 문제지</h2><span class="cnt" id="selN"><b>0</b>문항</span></div>
         <label class="f"><span>제목 <span class="dim">· 문제지·PDF 파일·H WORK 과제 이름</span></span><input type="text" id="pTitle" placeholder="문항을 담으면 자동으로 채워져요"></label>
@@ -928,10 +932,19 @@ function applyAutoTitle(){
     if(!el.value.trim() || el.value===last){ el.value=t; el.dataset.auto=t; }
   });
 }
+/* 떠 있는 [지금 만드는 문제지 n ↓] (2026-11-25 원장님 — 독서·문학과 같게) */
+var JUMP_SEEN=true;
+function jumpSync(){
+  var b=$('jumpSel'); if(!b) return;
+  b.hidden = JUMP_SEEN || $('makeView').hidden;
+  $('jumpN').textContent = selIds().length;
+}
+if(window.IntersectionObserver){ new IntersectionObserver(function(es){ es.forEach(function(e){ JUMP_SEEN = e.isIntersecting || e.boundingClientRect.top < 0; }); jumpSync(); }).observe(document.querySelector('.mkcard')); }
+$('jumpSel').onclick=function(){ document.querySelector('.mkcard').scrollIntoView({behavior:'smooth', block:'start'}); };
 function drawSel(){
   applyAutoTitle();
   const n=selIds().length;
-  $('selN').innerHTML=`<b>${n}</b>문항`; $('selN').classList.toggle('has', n>0);
+  $('selN').innerHTML=`<b>${n}</b>문항`; $('selN').classList.toggle('has', n>0); jumpSync();
   $('xHint').textContent = n ? `고른 ${n}문항으로 만듭니다` : '문항을 담으면 쓸 수 있어요'; $('xHint').classList.toggle('has', n>0);
   $('saveBtn').disabled = !n; drawPrint();
   if(!SEL.length){ $('sel').innerHTML='<div class="empty"><img src="assets/sk-cheer.png" alt="">왼쪽에서 [담기]를 누르세요.</div>'; return; }
@@ -1699,6 +1712,7 @@ function setMode(m){
   try{ sessionStorage.setItem('sf_mode_'+SFA.page, SF_MODE); }catch(e){}
   if(SF_MODE==='shelf'){ shAutoPick(); if(typeof baLoad==='function') baLoad(); baDraw(); }
   drawSteps(); shDraw();
+  if(typeof jumpSync==='function') jumpSync();
 }
 function sfSavedPaper(){ if(!SAVED || !canPrint()) return null; return PAPERS.filter(function(p){ return p.teacher===SAVED.teacher && p.title===SAVED.title; })[0] || null; }
 function shAutoPick(){ var p=sfSavedPaper(); if(p && !SFA.ids().length) SFA.setIds([p.id]); }

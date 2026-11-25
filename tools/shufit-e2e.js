@@ -147,7 +147,12 @@ function rpc(fn, p) {
     await p.evaluate(() => { document.querySelector('.side').scrollTop = 0; });
     await p.setViewportSize({ width: 390, height: 900 });
     ok(await p.evaluate(() => getComputedStyle(document.getElementById('list')).overflowY === 'visible' && getComputedStyle(document.querySelector('.side')).overflowY === 'visible'), '휴대폰은 화면 스크롤 그대로');
-    await p.setViewportSize({ width: 1300, height: 900 });
+    await p.evaluate(() => scrollTo(0, 0)); await p.waitForTimeout(300);
+    ok(await p.isVisible('#jumpSel'), '휴대폰 — 문제지 칸이 아래에 있으면 [지금 만드는 문제지 ↓] 단추');
+    await p.click('#jumpSel'); await p.waitForTimeout(900);
+    ok(await p.evaluate(() => document.querySelector('.mkcard').getBoundingClientRect().top < innerHeight) && !(await p.isVisible('#jumpSel')), '단추를 누르면 문제지 칸으로 가고 단추는 숨음');
+    await p.setViewportSize({ width: 1300, height: 900 }); await p.evaluate(() => scrollTo(0, 0)); await p.waitForTimeout(300);
+    ok(!(await p.isVisible('#jumpSel')), '넓은 화면 — 문제지 칸이 늘 보여 단추 없음');
   }
   if (SHOT) { await p.setViewportSize({ width: 390, height: 900 }); await p.screenshot({ path: path.join(SHOT, 'shufit-phone.png'), fullPage: true }); await p.setViewportSize({ width: 1300, height: 900 }); }
   ok(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), '가로 넘침 없음');
