@@ -286,6 +286,17 @@ body.printing .toast{display:none}
 /* 지문은 늘 새 쪽 왼쪽 위(2026-11-25 원장님) — A4 학습지는 쪽 나눔, 책자는 bookletRun 이 새 쪽 */
 .pr .pstart{break-before:page}
 .pr .bksec + .pstart,.pr .ph + .pstart,.bk .pstart,.pr.exam .pstart{break-before:auto}
+/* 문학 지문 B안 — 작품 머리줄·행 번호·넘어간 줄 들여쓰기 */
+.pr .pas.lwh{display:flex;align-items:baseline;gap:2mm;border-bottom:.3mm solid #c3dcd5;padding:0 0 1.4mm;margin:0 0 2.4mm;break-after:avoid;font-family:'Gowun Dodum'}
+.pr .pas.lwh .lb{font-family:'Gowun Batang';font-weight:700;font-size:9.6pt;color:#24443d}
+.pr .pas.lwh .lb:empty{display:none}
+.pr .pas.lwh .g{font-size:7.4pt;color:#fff;background:#8db8ad;border-radius:1.2mm;padding:.2mm 1.6mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.pr .pas.lwh b{font-family:'Gowun Batang';font-size:11pt;color:#24443d}
+.pr .pas.lwh .au{font-size:8.2pt;color:#5f7a73}
+.pr .pas.ln{position:relative;margin:0;padding:0 6mm 0 1em;text-indent:-1em;font-family:'Gowun Batang';font-size:9.6pt;line-height:1.85;break-inside:avoid}
+.pr .pas.ln i{position:absolute;right:0;top:0;font-style:normal;font-family:'Gowun Dodum';font-size:7pt;color:#8db8ad;text-indent:0}
+.pr .pas.lgap{height:2.4mm;margin:0}
+.pr .litp{margin-bottom:3mm}.pr .litp .pas{border:0;padding:0}.pr .litp .pas.lwh{padding:0 0 1.4mm}.pr .litp .pas.ln{padding:0 6mm 0 1em}
 /* 〈보기〉 = 연한 민트 상자 + 위 가운데 이름표 · 작품 정리 = 민트 밑줄·작은 점(2026-11-25 원장님) */
 .pr .box{background:#f4f9f7;border:.3mm solid #c3dcd5;border-radius:1.5mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pr .box .bl{background:#fff;color:#3d675d;font-family:'Gowun Dodum';font-weight:400;font-size:8.5pt;top:-2.3mm;padding:0 1.5mm}
@@ -294,7 +305,7 @@ body.printing .toast{display:none}
 .pr .notes .l2.dot:before{content:'·';color:#8db8ad;font-weight:700;display:inline-block;width:.9em;text-indent:0}
 .pr .notes u{text-decoration:underline;text-decoration-color:#8db8ad;text-decoration-thickness:1.4pt;text-underline-offset:1.3pt;text-decoration-skip-ink:none}
 .pr .box{padding:3.6mm 2.6mm 2mm;margin:2.6mm 0 1.6mm} .pr .box img{max-width:92%}
-.pr .opts li.ok .n{background:#111;color:#fff;border-radius:50%;width:4.3mm;height:4.3mm;line-height:4.3mm;text-align:center;font-size:7pt;margin-top:.5mm;font-family:'Gowun Dodum'}
+.pr .opts li.ok .n{background:#8db8ad;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;border-radius:50%;width:4.3mm;height:4.3mm;line-height:4.3mm;text-align:center;font-size:7pt;margin-top:.5mm;font-family:'Gowun Dodum'}
 .pr .ox span{border:0;padding:0 2mm}
 .pr details.ex{display:none}
 .pr .notes{font-size:8.8pt;line-height:1.55}
@@ -303,6 +314,7 @@ body.printing .toast{display:none}
 .pr .oxl{display:flex;gap:2mm;margin:0 0 1.6mm;break-inside:avoid}
 .pr .oxl .k{flex:none;align-self:flex-start;min-width:7.2mm;height:5.4mm;border-radius:1.2mm;background:#8db8ad;color:#fff;font-family:'Gowun Dodum';font-size:8.6pt;text-align:center;line-height:5.4mm;margin-top:.2mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .pr .oxl .m{flex:none;margin-left:auto;font-family:'Gowun Dodum';color:#555;white-space:nowrap}
+.pr .oxl .m b{display:inline-block;min-width:5.4mm;height:5.4mm;line-height:5.4mm;text-align:center;border-radius:50%;background:#8db8ad;color:#fff;font-weight:400;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .ansbox{column-span:all;break-before:page}
 .ansbox h3{font-family:'Gowun Batang';font-size:13pt;margin:0 0 3mm}
 .ansbox .qa{display:grid;grid-template-columns:repeat(10,1fr);gap:1mm;font-size:9pt;margin-bottom:4mm}
@@ -468,7 +480,9 @@ body.printing .toast{display:none}
 .bk.pr{column-count:auto;column-rule:none}
 .bk .bpage{width:210mm;height:297mm;padding:13mm 12mm 9mm;box-sizing:border-box;display:flex;flex-direction:column;background:#fff;overflow:hidden}
 .bk .bbody{flex:1;min-height:0;column-count:2;column-gap:7mm;column-rule:.25mm solid #e1ece9;column-fill:auto;overflow:hidden}
-.bk .bno{flex:none;text-align:center;font-size:8pt;color:#8a9a97;padding-top:2mm;height:6mm;font-family:'Gowun Dodum'}
+.bk .bno{flex:none;display:flex;justify-content:space-between;align-items:center;border-top:.3mm solid #c3dcd5;margin-top:1.5mm;padding-top:1mm;height:6.5mm;font-size:8pt;color:#3d675d;font-family:'Gowun Dodum'}
+.bk .bno:empty{border-top:0}
+.bk .bno .fl{font-family:'Sacramento',cursive;font-size:13pt;color:#5f9488;line-height:1}.bk .bno .fl b{font-family:'Gowun Dodum';font-weight:400;font-size:8.5pt;color:#24443d;margin-left:1.5mm}
 .bk .sheet{width:210mm;height:297mm;display:flex;overflow:hidden;break-after:page}
 .bk .sheet:last-child{break-after:auto}
 .bk .ph,.bk .bkhead{column-span:all}
@@ -869,6 +883,29 @@ function blockHtml(b){
   if(b.bracket) return '<div class="bwrap"><span class="brk"></span><span class="bm">'+b.bracket+'</span><p>'+b.p+'</p></div>';
   return '<p'+(b.sub?' class="sub"':b.src?' class="src"':b.cap?' class="cap"':/<br>/.test(b.p)?' class="poem"':'')+'>'+b.p+'</p>';
 }
+/* 문학 인쇄 지문 = 작품 머리줄 + 5행마다 행 번호 + 넘어간 줄 들여쓰기(2026-11-25 원장님 B안)
+ * 머리줄 = 갈래 알약 · 제목 · 작가(지문에 (가)(나) 이름표가 있으면 그 자리마다, 작품 목록과 수가 맞을 때만), 출처 줄('- 작가, 「제목」')은 머리로 올려 뺀다.
+ * 시(<br> 행)는 행마다 한 덩어리(책자에서 쪽 사이로 나뉠 수 있게), 산문 문단은 그대로. 행 번호는 작품마다 1부터. */
+function litPasBlocks(P, works, genre){
+  works=works||[]; var B=[], labs=P.blocks.filter(function(b){return b.label}), useW=works.length && (labs.length?labs.length===works.length:works.length===1);
+  var wi=0, n=0, first=true;
+  var head=function(w, lab){ return '<div class="pas lwh"><span class="lb">'+(lab?esc(lab)+' ':'')+'</span>'+((w&&(w.genre||genre))?'<span class="g">'+esc(w.genre||genre)+'</span>':'')+'<b>'+esc(w?w.title:'')+'</b>'+(w&&w.author?'<span class="au">'+esc(w.author)+'</span>':'')+'</div>'; };
+  if(useW && !labs.length){ B.push(head(works[0],'')); }
+  P.blocks.forEach(function(b){
+    if(b.label){ n=0; first=true; if(useW){ B.push(head(works[wi++], b.label)); } else B.push('<div class="pas">'+blockHtml(b)+'</div>'); return; }
+    if(b.src && useW) return;
+    if(!b.src && b.p && /<br>/.test(b.p)){
+      if(!first) B.push('<div class="pas lgap"></div>');
+      first=false;
+      b.p.split('<br>').forEach(function(l){ n++; B.push('<div class="pas ln"><span class="tx">'+l+'</span>'+(n%5===0?'<i>'+n+'</i>':'')+'</div>'); });
+      return;
+    }
+    first=false;
+    B.push('<div class="pas">'+blockHtml(b)+'</div>');
+  });
+  if(P.vocab) B.push('<div class="pas"><div class="voc"><b>어휘 풀이</b><br>'+P.vocab.join('<br>')+'</div></div>');
+  return B;
+}
 function passageHtml(P){
   var h='<div class="pas">'+P.blocks.map(blockHtml).join('');
   if(P.vocab) h+='<div class="voc"><b>어휘 풀이</b><br>'+P.vocab.join('<br>')+'</div>';
@@ -1035,7 +1072,7 @@ document.addEventListener('click',function(e){
   if(b.dataset.t && !b.dataset.pr){S.t=b.dataset.t;drawT();}
   else if(b.dataset.pr){ doPrint(b.dataset.pr, !!b.dataset.t); }
 });
-var PAGE_A4="@page{size:A4;margin:13mm 12mm 14mm;@bottom-center{content:counter(page) ' / ' counter(pages);font-family:'Gowun Dodum',sans-serif;font-size:8.5pt;color:#555}}", PAGE_BK='@page{size:A4;margin:0}';
+var PAGE_A4="@page{size:A4;margin:13mm 12mm 14mm;@bottom-left{content:'이수경국어 · "+SFN+"';font-family:'Gowun Dodum',sans-serif;font-size:8pt;color:#3d675d}@bottom-right{content:'Shueguk  ' counter(page);font-family:'Sacramento','Gowun Dodum',cursive;font-size:12pt;color:#5f9488}}", PAGE_BK='@page{size:A4;margin:0}';
 function setPage(css){ document.getElementById('pageStyle').textContent=css; }
 setPage(PAGE_A4);
 window.addEventListener('afterprint',function(){document.body.classList.remove('printing'); document.title=PAGE_TITLE; IMGCTX=null; setPage(PAGE_A4); $('#print').className='';});
@@ -1070,14 +1107,15 @@ function pickEvery(){ return pickTypes().map(function(t){return t[0]}).filter(pi
 function pickBlocks(on, teacher, split){
   var g=CUR, o={print:1, teacher:teacher}, B=[], ex=[];
   var lines=function(arr){ if(!split){ B.push(notesHtml(arr)); return; } arr.forEach(function(b){ B.push(notesHtml([b])); }); };
-  var pas=function(P){ if(!split){ B.push(passageHtml(P)); return; }
+  var pas=function(P, main){ if(LIT){ var lb=litPasBlocks(P, main?g.works:P.works, main?g.area:''); if(split) B.push.apply(B, lb); else B.push('<div class="litp">'+lb.join('')+'</div>'); return; }
+    if(!split){ B.push(passageHtml(P)); return; }
     P.blocks.forEach(function(bk){ B.push('<div class="pas">'+blockHtml(bk)+'</div>'); });
     if(P.vocab) B.push('<div class="pas"><div class="voc"><b>어휘 풀이</b><br>'+P.vocab.join('<br>')+'</div></div>'); };
   on.forEach(function(c){
     var name=pickName(c);
     var k=cnt(c), first=!B.length;
     B.push('<div class="bksec'+(first?' first':'')+'"><b>'+name+'</b>'+(c!=='pas'&&k!==''?'<span>'+k+'문항</span>':'')+'</div>');
-    if(c==='pas'){ pas(g.passage); return; }
+    if(c==='pas'){ pas(g.passage, true); return; }
     if(c==='notes'){ lines(g.notes); return; }
     if(c==='analysis'){ lines(g.analysis||[]); return; }
     if(c==='keys'){ lines(g.keys||[]); return; }
@@ -1805,7 +1843,8 @@ function selSecParts(teacher, split, list){
   var o={print:1, teacher:teacher}, B=[], ex=[], secs=[], gids=[];
   list=list||SEL;
   list.forEach(function(x){ if(gids.indexOf(x.gid)<0) gids.push(x.gid); });
-  var pasB=function(P){ if(!split){ B.push(passageHtml(P)); return; }
+  var pasB=function(P, g0){ if(LIT){ var lb=litPasBlocks(P, g0?g0.works:P.works, g0?g0.area:''); if(split) B.push.apply(B, lb); else B.push('<div class="litp">'+lb.join('')+'</div>'); return; }
+    if(!split){ B.push(passageHtml(P)); return; }
     P.blocks.forEach(function(bk){ B.push('<div class="pas">'+blockHtml(bk)+'</div>'); });
     if(P.vocab) B.push('<div class="pas"><div class="voc"><b>어휘 풀이</b><br>'+P.vocab.join('<br>')+'</div></div>'); };
   gids.forEach(function(gid){
@@ -1813,7 +1852,7 @@ function selSecParts(teacher, split, list){
     IMGCTX=x0.imgs;
     var title=many?' · '+esc(x0.title):'';
     var hasMain=es.some(function(x){return x.mat||!x.indep});
-    if(hasMain){ B.push('<div class="bksec'+(B.length?'':' first')+'"><b>지문'+title+'</b></div>'); secs.push({name:'지문'+(many?' · '+x0.title:''), n:''}); pasB(x0.pas); }
+    if(hasMain){ B.push('<div class="bksec'+(B.length?'':' first')+'"><b>지문'+title+'</b></div>'); secs.push({name:'지문'+(many?' · '+x0.title:''), n:''}); pasB(x0.pas, CACHE[gid]||(CUR&&CUR.id===gid?CUR:null)); }
     var runs=[]; es.forEach(function(x){ var r=runs[runs.length-1]; if(r&&r.tag===x.tag&&!!r.mat===!!x.mat) r.items.push(x); else runs.push({tag:x.tag, mat:x.mat, items:[x]}); });
     runs.forEach(function(r){
       if(r.mat){ B.push('<div class="bksec'+(B.length?'':' first')+'"><b>'+esc(r.tag)+'</b></div>'); secs.push({name:r.tag, n:''});
@@ -1890,7 +1929,7 @@ function bookletRun(d, teacher, mkCover){
   }).then(function(){
     while((pages.length+1)%4) newPage();
     var bk=backPage(); M.appendChild(bk); pages.push(bk);
-    pages.forEach(function(p,i){ var n=p.querySelector('.bno'); if(n) n.textContent=p.firstChild.children.length?'- '+(i+1)+' -':''; });
+    pages.forEach(function(p,i){ var n=p.querySelector('.bno'); if(n) n.innerHTML=p.firstChild.children.length?'<span>이수경국어 · '+SFN+'</span><span class="fl">Shueguk<b>'+(i+1)+'</b></span>':''; });   // 바닥글(2026-11-25 원장님 — 워크북 지침: 왼쪽 '이수경국어 · …', 오른쪽 'Shueguk 쪽 번호')
     var html=pages.map(function(p){return '<div class="sheet">'+p.outerHTML+'</div>'}).join('');
     M.innerHTML='';
     $('#print').className='bk pr study'; $('#print').innerHTML=html;
