@@ -1011,7 +1011,9 @@ function pickBlocks(on, teacher, split){
     var lastG='';
     var allOx=arr.every(function(x){return x.it.kind==='ox'});
     arr.forEach(function(x,i){
-      if(c==='30' && x.it.passage){ var gk=JSON.stringify(x.it.passage); if(gk!==lastG){ lastG=gk; B.push('<div class="ins">다음 글을 읽고 물음에 답하시오.</div>'); pas(x.it.passage); } }
+      if(c==='30' && x.it.passage){ var gk=JSON.stringify(x.it.passage); if(gk!==lastG){ lastG=gk;
+        var nn=1; while(i+nn<arr.length && arr[i+nn].it.passage && JSON.stringify(arr[i+nn].it.passage)===gk) nn++;   // 같은 지문 묶음 문항 수 → '[1~2]' (2026-11-25 원장님 — 모두 인쇄에 번호가 빠졌다)
+        B.push('<div class="ins">['+(i+1)+(nn>1?'~'+(i+nn):'')+'] 다음 글을 읽고 물음에 답하시오.</div>'); pas(x.it.passage); } }
       if(allOx) B.push('<div class="oxl"><span class="k">'+(i+1)+'.</span><span>'+x.it.stem+'</span><span class="m">'+(teacher?'<b>'+esc(x.it.ans)+'</b>':'( O / X )')+'</span></div>');
       else B.push(itemHtml(x.it,i+1,o));
       if(teacher && (x.it.expl||'').trim()) ex.push('<div class="ex1"><b>'+name+' '+(i+1)+'. 정답 '+esc(x.it.ans)+'</b> '+esc(x.it.expl)+'</div>');
