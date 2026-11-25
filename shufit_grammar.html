@@ -261,7 +261,9 @@
   #bkm{position:absolute;left:-99999px;top:0}
   .bk .bpage{width:210mm;height:297mm;padding:13mm 12mm 9mm;box-sizing:border-box;display:flex;flex-direction:column;background:#fff;overflow:hidden}
   .bk .bbody{flex:1;min-height:0;column-count:2;column-gap:7mm;column-rule:.25mm solid #e1ece9;column-fill:auto;overflow:hidden;font-size:9.3pt}
-  .bk .bno{flex:none;text-align:center;font-size:8pt;color:#8a9a97;padding-top:2mm;height:6mm}
+  .bk .bno{flex:none;display:flex;justify-content:space-between;align-items:center;border-top:.3mm solid #c3dcd5;margin-top:1.5mm;padding-top:1mm;height:6.5mm;font-size:8pt;color:#3d675d;font-family:'Gowun Dodum'}
+  .bk .bno:empty{border-top:0}
+  .bk .bno .fl{font-family:'Sacramento',cursive;font-size:13pt;color:#5f9488;line-height:1}.bk .bno .fl b{font-family:'Gowun Dodum';font-weight:400;font-size:8.5pt;color:#24443d;margin-left:1.5mm}
   .bk .sheet{width:210mm;height:297mm;display:flex;overflow:hidden;break-after:page;page-break-after:always}
   .bk .sheet:last-child{break-after:auto;page-break-after:auto}
   .bk .ph1,.bk .quick,.bk .anshead{column-span:all}
@@ -417,7 +419,11 @@
   #print .quick, #bkm .quick{border:.3mm solid #c3dcd5;border-radius:2mm;padding:2.6mm 3mm;margin:0 0 5mm;display:grid;grid-template-columns:repeat(5,1fr);gap:1mm 2mm;font-size:9pt;background:#f4f9f7}
   #print .quick .qt, #bkm .quick .qt{grid-column:1/-1;color:#3d675d;margin-bottom:.6mm}
   #print .quick b, #bkm .quick b{color:#3d675d;font-weight:normal;margin-right:1mm}
-  #print .gq .cn, #bkm .gq .cn{position:relative;display:inline-block}   /* 학생용·교사용 같은 모양 — 동그라미가 줄바꿈을 바꾸지 않게 */
+  #print .gq .cn, #bkm .gq .cn{position:relative;display:inline-block}
+  /* Shuefit 인쇄 조판 지침(2026-11-25) — 교사용 정답 = 문항 번호와 같은 민트, 발문·선지 = 고운바탕 */
+  #print.teacher:not(.exd) .gq .cn.ok:before, #bkm.teacher .gq .cn.ok:before{background:#8db8ad;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #print:not(.exd) .gq, #bkm .gq{font-family:'Gowun Batang',serif}
+  #print:not(.exd) .gq .qn, #bkm .gq .qn, #print:not(.exd) .gq .bl span, #bkm .gq .bl span{font-family:'Gowun Dodum',sans-serif}   /* 학생용·교사용 같은 모양 — 동그라미가 줄바꿈을 바꾸지 않게 */
   #print .anspage{break-before:page;page-break-before:always}
   #print .anshead, #bkm .anshead{column-span:all}
   #print .anshead .at, #bkm .anshead .at{font-family:'Gowun Batang',serif;font-size:13pt;font-weight:700;color:#24443d;border-bottom:.3mm solid #c3dcd5;padding-bottom:2mm;margin-bottom:3mm}
@@ -1268,7 +1274,7 @@ function waitFonts(){ try{ if(!document.fonts) return Promise.resolve(); return 
 waitFonts();
 function waitImgs(el){ const imgs=[...el.querySelectorAll('img')].filter(i=>!i.complete); return Promise.all(imgs.map(i=>new Promise(r=>{ i.onload=i.onerror=r; }))); }
 function setPage(css){ $('pageStyle').textContent=css; }
-const PAGE_A4='@page{size:A4;margin:14mm 13mm 14mm 13mm}', PAGE_BK='@page{size:A4;margin:0}',
+const PAGE_A4="@page{size:A4;margin:14mm 13mm 14mm 13mm;@bottom-left{content:'이수경국어 · Shuefit 문법';font-family:'Gowun Dodum',sans-serif;font-size:8pt;color:#3d675d}@bottom-right{content:'Shueguk  ' counter(page);font-family:'Sacramento','Gowun Dodum',cursive;font-size:12pt;color:#5f9488}}", PAGE_BK='@page{size:A4;margin:0}',
   PAGE_EX='@page{size:A4;margin:14mm 13mm 16mm 13mm;@bottom-center{content:counter(page) " / " counter(pages);font-size:9pt;color:#000}'
     +'@bottom-left{content:"Shueguk  다르게 하기의 힘";font-size:7.5pt;color:#777}}';
 /* 'PDF로 저장' 파일 이름 = 시험지 제목 — 인쇄 창은 document.title 을 파일 이름으로 쓴다. 파일 이름에 못 쓰는 글자(: / \ 등)는 뺀다 */
@@ -1361,7 +1367,7 @@ async function bookletRun(d, teacher, c, pm){
   while((pages.length+1)%4) newPage();
   const back=backPage(c); M.appendChild(back); pages.push(back);
   const N=pages.length;
-  pages.forEach((p,i)=>{ if(p.lastChild && p.lastChild.className==='bno') p.lastChild.textContent = p.firstChild.children.length ? '- '+(i+1)+' -' : ''; });
+  pages.forEach((p,i)=>{ if(p.lastChild && p.lastChild.className==='bno') p.lastChild.innerHTML = p.firstChild.children.length ? '<span>이수경국어 · Shuefit 문법</span><span class="fl">Shueguk<b>'+(i+1)+'</b></span>' : ''; });   // 바닥글(2026-11-25 Shuefit 인쇄 조판 지침 8)
   // A4 한 장에 한 쪽, 1쪽부터 차례대로 — A4 양면으로 그대로 찍거나 복합기 '소책자 인쇄'로 중철
   const html=pages.map(p=>`<div class="sheet">${p.outerHTML}</div>`).join('');
   M.innerHTML='';
