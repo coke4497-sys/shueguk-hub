@@ -817,7 +817,17 @@ var WR_TYPES = [
 function subTypes(){ return SK==='speech'?SP_TYPES:(SK==='writing'?WR_TYPES:LIT_TYPES); }
 var NONQ = ['notes','analysis','keys','10'];
 /* 문항마다 제 지문을 가진 유형 — 독서 99(독립 밑줄)·문학 30(내신 기출 묶음) */
-function IND(c){ return c==='99'||c==='30'; }
+function IND(c){ return c==='99'||/^30/.test(c); }
+/* 내신 기출 2세트(2026-11-25 원장님 "내신기출을 2세트로 나누어 주세요") — 데이터는 code 30 하나 그대로,
+ * 화면에서 지문 묶음이 끊기지 않는 자리 가운데에서 둘로 나눠 '내신 기출 1'(30a)·'내신 기출 2'(30b) 탭으로 보인다 */
+function n30Split(){
+  var a=itemsOf('30'), cut=[], k=0;
+  for(var i=1;i<a.length;i++) if(JSON.stringify(a[i].it.passage)!==JSON.stringify(a[i-1].it.passage)) cut.push(i);
+  if(!cut.length) return [a,[]];
+  cut.forEach(function(c){ if(!k || Math.abs(c-a.length/2)<Math.abs(k-a.length/2)) k=c; });
+  return [a.slice(0,k), a.slice(k)];
+}
+function n30Tag(id){ var p=n30Split(); if(!p[1].length) return null; return p[0].some(function(x){return x.it.id===id})?'내신 기출 1':'내신 기출 2'; }
 function defT(){ return LIT?(SK==='lit'?'notes':'orig'):(isTB()?'11':'orig'); }
 /* 검수(086) — '검수 중' 지문은 원장님(admin)만 본다 */
 var ADMIN=false, ME='';
@@ -829,6 +839,7 @@ function litTypes(){
   var nm={};   /* 작품마다 구역 이름이 다를 수 있다(시 '표현법·시어의 의미' / 소설·수필 '모의고사형') — 그 작품 자료의 이름을 쓴다 */
   if(CUR) Object.keys(CUR.levels).forEach(function(l){ CUR.levels[l].forEach(function(sx){ if(sx.name) nm[sx.code]=sx.name; if(!have[sx.code]){ have[sx.code]=1; t.push([sx.code, sx.name||sx.code]); } }); });
   if(LIT) t=t.map(function(x){ return /^\d+$/.test(x[0])&&nm[x[0]]&&x[0]!=='30' ? [x[0], nm[x[0]]] : x; });
+  if(CUR && n30Split()[1].length){ var i30=t.findIndex(function(x){return x[0]==='30'}); if(i30>=0) t.splice(i30,1,['30a','내신 기출 1'],['30b','내신 기출 2']); }
   return t;
 }
 function plain(h){ return String(h||'').replace(/<[^>]+>/g,'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&').replace(/&#x27;/g,"'").replace(/&quot;/g,'"'); }
@@ -868,6 +879,7 @@ function sections(code){ var g=CUR, out=[]; lvOrder(g).forEach(function(l){ (g.l
 function itemsOf(code){
   var g=CUR;
   if(code==='orig') return g.orig.map(function(it){return {it:it, v:0}});
+  if(code==='30a'||code==='30b'){ var p30=n30Split(); return code==='30a'?p30[0]:p30[1]; }
   var out=[]; sections(code).forEach(function(s,k){ (s.items||[]).forEach(function(it){ out.push({it:it, v:k+1, pas:s.passage}); }); });   /* v = 합친 순서(기본 v1·v2 → 실력 v1·v2 = v1~v4) */
   return out;
 }
@@ -995,11 +1007,11 @@ function drawList(){
     arr.forEach(function(x){ reg(x.it,name,IND(c)?(x.it.passage||x.pas):null); });
     var lastP='';
     h=arr.map(function(x,i){ var pre='';
-        if(c==='30' && x.it.passage){ var k=JSON.stringify(x.it.passage); if(k!==lastP){ lastP=k; var nn=1; for(var j=i+1;j<arr.length && JSON.stringify(arr[j].it.passage)===k;j++) nn++;
+        if(/^30/.test(c) && x.it.passage){ var k=JSON.stringify(x.it.passage); if(k!==lastP){ lastP=k; var nn=1; for(var j=i+1;j<arr.length && JSON.stringify(arr[j].it.passage)===k;j++) nn++;
           pre='<div class="gpas"><div class="gpas-h">['+(i+1)+(nn>1?'~'+(i+nn):'')+'] 다음 글을 읽고 물음에 답하시오.'+((x.it.passage.works||[]).length?' <span class="dim">'+x.it.passage.works.map(function(w){return esc(w.title)}).join(' · ')+'</span>':'')+'</div>'+passageHtml(x.it.passage)+'</div>'; } }
         return pre+itemHtml(x.it,i+1,{tag:name,v:(isTB()||LIT)?0:x.v}); }).join('')||'<div class="hint">'+(UNUSED?'이 유형에는 아직 안 낸 문항이 없습니다.':'이 유형에는 문항이 없습니다.')+'</div>';
     if(c==='99') h='<div class="hint">이 유형은 밑줄 위치가 다른 독립 지문을 씁니다. 왼쪽 지문이 바뀌어요.</div>'+h;
-    if(c==='30') h='<div class="hint">내신 기출은 묶음마다 지문이 따로예요(다른 작품이 함께 나옵니다). 문제지에 담으면 묶음마다 지문이 한 번씩 실려요.</div>'+h;
+    if(/^30/.test(c)) h='<div class="hint">내신 기출은 묶음마다 지문이 따로예요(다른 작품이 함께 나옵니다). 문제지에 담으면 묶음마다 지문이 한 번씩 실려요.</div>'+h;
   }
   $('#pas').innerHTML=passageHtml(P);
   if(NONQ.indexOf(c)>=0 && matHas(g,c)){ var mon=isSel(matId(g.id,c)); h='<div class="nqnote'+(mon?' on':'')+'">'+esc(name)+'은(는) 문항이 아니라 학습 자료예요. 문제지에 담으면 이 지문 뒤에 그대로 실리고, 교사용에는 빈칸 답이 들어갑니다. <button class="btn'+(mon?' ghost':'')+'" type="button" data-mat="'+c+'">'+(mon?'✓ 문제지에 담음 · 빼기':'+ 문제지에 담기')+'</button></div>'+h; }
@@ -1075,7 +1087,7 @@ function pickBlocks(on, teacher, split){
     var lastG='';
     var allOx=arr.every(function(x){return x.it.kind==='ox'});
     arr.forEach(function(x,i){
-      if(c==='30' && x.it.passage){ var gk=JSON.stringify(x.it.passage); if(gk!==lastG){ lastG=gk;
+      if(/^30/.test(c) && x.it.passage){ var gk=JSON.stringify(x.it.passage); if(gk!==lastG){ lastG=gk;
         var nn=1; while(i+nn<arr.length && arr[i+nn].it.passage && JSON.stringify(arr[i+nn].it.passage)===gk) nn++;   // 같은 지문 묶음 문항 수 → '[1~2]' (2026-11-25 원장님 — 모두 인쇄에 번호가 빠졌다)
         B.push('<div class="ins pstart">['+(i+1)+(nn>1?'~'+(i+nn):'')+'] 다음 글을 읽고 물음에 답하시오.</div>'); pas(x.it.passage); } }
       if(allOx) B.push('<div class="oxl"><span class="k">'+String(i+1).padStart(2,'0')+'</span><span>'+x.it.stem+'</span><span class="m">'+(teacher?'<b>'+esc(x.it.ans)+'</b>':'( O / X )')+'</span></div>');
@@ -1269,7 +1281,7 @@ function bundleList(kind){
   var g=CUR, out=[];
   var q=function(c,v1){ itemsOf(c).forEach(function(x){ if(x.it.id!=null && (!v1||x.v===1)) out.push(mkEntry(g,x.it,typeName(c),IND(c)?(x.it.passage||x.pas):null)); }); };
   var m=function(k){ if(matHas(g,k)) out.push(matEntry(g,k)); };
-  if(LIT && SK==='lit'){ if(kind==='study'){ m('notes'); q('11'); q('12'); q('19'); m('10'); } else { if(itemsOf('30').length) q('30'); else { q('13'); q('15'); q('16'); } } return out; }
+  if(LIT && SK==='lit'){ if(kind==='study'){ m('notes'); q('11'); q('12'); q('19'); m('10'); } else { if(itemsOf('30').length) types().forEach(function(t){ if(/^30/.test(t[0])) q(t[0]); }); else { q('13'); q('15'); q('16'); } } return out; }
   if(kind==='study'){ if(isTB()){ m('notes'); q('11'); q('12'); q('19'); m('10'); } else { m('notes'); q('02',1); q('03',1); q('04',1); q('07',1); m('10'); } }
   else { if(isTB()) exSet().forEach(function(c){ q(c); }); else { q('orig'); q('05',1); q('06',1); } }
   return out;
@@ -1301,6 +1313,7 @@ function findEntry(g,id){
   Object.keys(g.levels).forEach(function(l){ g.levels[l].forEach(function(sx){ (sx.items||[]).forEach(function(it){
     if(out||it.id!==id) return;
     var tn=((LIT?subTypes():MG_TYPES.concat(TB_TYPES)).filter(function(t){return t[0]===sx.code})[0]||[0,sx.name])[1];
+    if(sx.code==='30'){ var keep30=CUR; CUR=g; tn=n30Tag(it.id)||tn; CUR=keep30; }
     out=mkEntry(g,it,tn,IND(sx.code)?(it.passage||sx.passage):null);
   }); }); });
   return out;
