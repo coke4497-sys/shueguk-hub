@@ -1124,7 +1124,7 @@ function pickEvery(){ return pickTypes().map(function(t){return t[0]}).filter(pi
 function pickBlocks(on, teacher, split){
   var g=CUR, o={print:1, teacher:teacher}, B=[], ex=[];
   var lines=function(arr){ if(!split){ B.push(notesHtml(arr)); return; } arr.forEach(function(b){ B.push(notesHtml([b])); }); };
-  var pas=function(P, main){ var lb=LIT?litPasBlocks(P, main?g.works:P.works, main?g.area:''):dokPasBlocks(P, main?g:null);
+  var pas=function(P, main){ var lb=(LIT&&SK==='lit')?litPasBlocks(P, main?g.works:P.works, main?g.area:''):dokPasBlocks(P, main?g:null);
     if(split) B.push.apply(B, lb); else B.push('<div class="litp">'+lb.join('')+'</div>'); };
   on.forEach(function(c){
     var name=pickName(c);
@@ -1858,7 +1858,7 @@ function selSecParts(teacher, split, list){
   var o={print:1, teacher:teacher}, B=[], ex=[], secs=[], gids=[];
   list=list||SEL;
   list.forEach(function(x){ if(gids.indexOf(x.gid)<0) gids.push(x.gid); });
-  var pasB=function(P, g0){ var lb=LIT?litPasBlocks(P, g0?g0.works:P.works, g0?g0.area:''):dokPasBlocks(P, g0||null);
+  var pasB=function(P, g0){ var lb=(LIT&&SK==='lit')?litPasBlocks(P, g0?g0.works:P.works, g0?g0.area:''):dokPasBlocks(P, g0||null);
     if(split) B.push.apply(B, lb); else B.push('<div class="litp">'+lb.join('')+'</div>'); };
   gids.forEach(function(gid){
     var es=list.filter(function(x){return x.gid===gid}), x0=es[0], many=gids.length>1;
