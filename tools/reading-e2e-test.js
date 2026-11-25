@@ -299,7 +299,7 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   const items = [].concat(...posts);
   const codes = gas.map(g => JSON.parse(g).data.code);
   t('언제나 구간마다 따로 과제 — 7개', gas.length === 7 && posts.length === 7, codes);
-  t('구간 이름 — 지문 · 번호 유형 (수)', codes[1] === 'Shuefit 독서: 가상 시장 이야기 · 02 OX (2)' && codes[5] === 'Shuefit 독서: 가상 시장 이야기 · 01 독립 밑줄 수능형 (1)' && codes[6] === 'Shuefit 독서: 가상 진화 이야기 · 01 원 기출 (1)', codes);
+  t('구간 이름 — 지문 · 번호 유형 (수)', codes[1] === 'Shuefit 독서: 가상 시장 이야기 · 02 OX (2)' && codes[5] === 'Shuefit 독서: 가상 시장 이야기 · 06 독립 밑줄 수능형 (1)' && codes[6] === 'Shuefit 독서: 가상 진화 이야기 · 01 원 기출 (1)', codes);
   t('같은 이름의 다른 과제가 있으면 뒤에 02', codes[0] === 'Shuefit 독서: 가상 시장 이야기 · 01 원 기출 (2) 02', codes[0]);
   t('src 문항 9줄·구간마다 번호 1부터', items.length === 9 && posts.every(r => r.map(x => x.no).join() === r.map((x, i) => i + 1).join()));
   t('src 종류', items.map(x => x.type).join() === '5지,5지,OX,OX,단답,서술,5지,5지,5지', items.map(x => x.type).join());
@@ -549,6 +549,8 @@ const PAPERS = [{ id: 1, teacher: '이선생', title: '지난 문제지', ids: [
   await lp.click('[data-bundle="exam"]');
   await lp.evaluate(() => { selDoc('study', true); });
   t('문학 — 내신 기출 문제지 = 묶음마다 지문 한 번', (await lp.textContent('#selN')) === '3문항' && (await lp.$$('#print .litp')).length === 2, [await lp.textContent('#selN'), (await lp.$$('#print .litp')).length]);
+  { const up = await lp.evaluate(() => unitParts(selQ()).map(p => p.code + '|' + p.list.length));
+    t('문학 — 내신 기출 H WORK 구간 = 내신 기출 1·2 하나씩(묶음마다 쪼개지 않음)', up.length === 2 && /내신 기출 1 \(2\)\|2$/.test(up[0]) && /내신 기출 2 \(1\)\|1$/.test(up[1]) && !up.some(c => / \d\d\|/.test(c)), up.join(' / ')); }
   t('문학 지문 B안 — 시는 행마다 · 5행마다 번호 없음(짧은 시) · 넘어간 줄 들여쓰기', (await lp.$$('#print .pas.ln')).length > 0 && (await lp.$eval('#print .pas.ln', e => getComputedStyle(e).textIndent)) !== '0px');
   await lp.evaluate(() => { document.body.classList.remove('printing'); SEL = []; selChanged(); });
   {
