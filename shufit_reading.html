@@ -1441,7 +1441,8 @@ function partLabel(x){ return x.tag; }
 function hwRd(h){ var rd=h&&h.data&&h.data.rd; if(!rd) return null; return Object.keys(rd).sort(function(a,b){return a-b}).map(function(k){return Number(rd[k])}).join(','); }
 function unitParts(es, taken){
   var t=$('#hTeacher').value.trim(), byP=[], seen={};
-  es.forEach(function(x){ var p=seen[x.pkey]; if(!p){ p=seen[x.pkey]={x:x,groups:[],by:{}}; byP.push(p); }
+  // 묶음마다 지문이 다른 유형(내신 기출·독립 지문 — pkey 'id#해시')도 그 지문(단원)의 한 구간으로 — 묶음마다 따로 과제가 되면 '내신 기출 2 (2) 02~07'처럼 쪼개진다 (2026-11-26 원장님 "왜 중복되나요?")
+  es.forEach(function(x){ var pk=String(x.pkey).split('#')[0], p=seen[pk]; if(!p){ p=seen[pk]={x:x,groups:[],by:{}}; byP.push(p); }
     var l=partLabel(x), g=p.by[l]; if(!g){ g=p.by[l]={label:l,list:[]}; p.groups.push(g); } g.list.push(x); });
   var out=[]; taken=taken||{};
   byP.forEach(function(p){ p.groups.forEach(function(g,i){
