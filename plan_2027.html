@@ -15,90 +15,115 @@
   민초센터 김현지·김덕기·이한슬 / 정리정독 이은지·박예솔 / 도래울센터 남주혜" → "계획으로 먼저")
   · 데이터 = tt_plan_config plan '27전체-정규' 한 줄(classes = 반 목록 {id, center, teacher, grade, part 가/나/문학/독서/수업, name, day, start, end, from}
     + '__meta' 한 칸) + tt_plan_students 학생마다 한 줄(ga = 가·문학·수업 반, na = 나·독서 반, 없으면 '').
-  · 처음 값(클로슈가 넣음): 본원 = 2027 예상 고3 정규안(27고3-5) · 민초 = 지금 정규 현지·덕기 고1 반(→고2), 지원 고1 반(→고2, 이한슬, 도래울고 학생 뺌)
-    · 도래울 = 지원 반의 도래울고 학생(남주혜, 지금 정규 시간 그대로) · 정리정독 = 지금 은지 중2 반(→중3). 화정센터·박예솔은 비어 있음.
+  · 보기 = 슈국 스케쥴 '전체 시간표'와 같은 짜임(같은 날 원장님 "현재 시간표와 동일한 구성으로 보고싶어요"):
+    월~일 개요(요일마다 센터 순 반 카드) → 요일 머리글·카드를 누르면 그 요일 확대(센터마다 선생님 열 × 30분 눈금, 카드에 학생 칩).
+    색은 timetable.html colorOf 와 같은 규칙(고1 연노랑·고2 연보라·고3 연녹·정리정독 연파랑·그 밖 연살구, 나·독서 반은 옅게).
   · 보는 사람 = 원장님(admin) + 박언호 대표님(parkeh) — plan_g3.html 과 같음. 실제 시간표(tt_classes)는 건드리지 않는다.
 -->
 <style>
   :root{
     --bg:#C6D5D2; --surface:#FFFFFF; --ink:#2A332F; --ink2:#4F5C56; --cap:#5C6A64;
     --accent:#4C6E66; --soft:#EEF1EF; --line:#E5EDE8;
-    --lav:#EDE4F4; --lavInk:#5A4A6A; --mint:#E2F4EC; --mintInk:#2F6B5A;
-    --wait:#F9EFD0; --waitInk:#6E5718; --late:#F7E2DE; --lateInk:#83413A;
+    --lav:#EDE4F4; --lavInk:#5A4A6A;
+    --g1:#FBF3DA; --g2:#EFE7F5; --g3:#DFEBE6; --mid:#E9EDF8; --etc:#F3EAE4;
+    --late:#F7E2DE; --lateInk:#83413A;
   }
   *{box-sizing:border-box;}
   [hidden]{display:none !important;}
   html,body{margin:0;}
   body{background:var(--bg);color:var(--ink);font-family:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:15px;line-height:1.55;-webkit-font-smoothing:antialiased;padding-bottom:80px;}
   button,select,input{font-family:inherit;}
-  .wrap{max-width:1280px;margin:0 auto;padding:0 16px;}
+  .wrap{max-width:1400px;margin:0 auto;padding:0 16px;}
   .back{display:inline-flex;align-items:center;gap:6px;margin:22px 0 0;color:var(--ink2);text-decoration:none;font-size:.86rem;}
   .back svg{width:16px;height:16px;}
   h1{font-family:"Gowun Batang",serif;font-size:1.5rem;color:var(--accent);margin:10px 0 2px;}
   .intro{margin:0 0 14px;color:var(--ink2);font-size:.92rem;}
-  .card{background:var(--surface);border-radius:18px;padding:16px 18px;margin-bottom:14px;}
-  .card h2{font-family:"Gowun Batang",serif;font-size:1.08rem;margin:0 0 8px;}
+  .card{background:var(--surface);border-radius:18px;padding:14px 16px;margin-bottom:14px;}
   .ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
-  .pill{border:0;background:var(--soft);color:var(--ink2);border-radius:999px;padding:7px 14px;font-size:.9rem;cursor:pointer;}
-  .pill.on{background:var(--lav);color:var(--lavInk);font-weight:700;}
-  .pill small{opacity:.75;margin-left:4px;}
   .btn{border:0;background:var(--lav);color:var(--lavInk);border-radius:10px;padding:7px 12px;font-size:.88rem;cursor:pointer;}
-  input[type=search]{border:1px solid var(--line);border-radius:10px;padding:7px 10px;font-size:.9rem;min-width:180px;}
-  .memo{color:var(--cap);font-size:.85rem;margin-top:8px;}
-  .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
-  .tile{background:var(--soft);border-radius:12px;padding:10px 12px;}
-  .tile .c{font-size:.76rem;color:var(--cap);}
-  .tile b{display:block;font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:1.15rem;}
-  .tile span{font-size:.84rem;color:var(--ink2);}
-  .tile.empty{background:#F6F7F4;color:var(--cap);}
-  .sec{margin-top:4px;}
-  .sec h3{font-family:"Gowun Batang",serif;font-size:1rem;margin:14px 0 6px;color:var(--accent);}
-  .grid{overflow-x:auto;}
-  table.tt{border-collapse:separate;border-spacing:4px;min-width:100%;}
-  table.tt th{font-size:.82rem;color:var(--ink2);font-weight:700;padding:4px;}
-  table.tt td{vertical-align:top;min-width:140px;}
-  table.tt td.t{min-width:56px;font-size:.8rem;color:var(--cap);white-space:nowrap;padding-top:6px;}
-  .cls{background:#F4F8F6;border-radius:10px;padding:6px 8px;margin-bottom:4px;cursor:pointer;font-size:.82rem;}
-  .cls.p-가,.cls.p-문학,.cls.p-수업{background:var(--mint);}
-  .cls.p-나,.cls.p-독서{background:var(--lav);}
-  .cls .h{display:flex;justify-content:space-between;gap:6px;}
-  .cls .h b{font-size:.82rem;}
-  .cls .n{font-family:"Do Hyeon",sans-serif;font-size:.95rem;}
-  .cls .s{color:var(--cap);font-size:.74rem;}
-  .cls.over .n{color:var(--lateInk);}
-  .cls.hit{outline:2px solid #D9485F;}
-  .cls.tgt{outline:2px dashed var(--lavInk);}
-  .chips{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px;}
-  .chip{border:0;background:#fff;border-radius:6px;padding:1px 6px;font-size:.76rem;cursor:pointer;color:var(--ink);}
+  select,input[type=search]{border:1px solid var(--line);border-radius:10px;padding:7px 10px;font-size:.9rem;background:#fff;}
+  input[type=search]{min-width:170px;}
+  .memo{color:var(--cap);font-size:.82rem;margin-top:8px;}
+  .res{font-size:.85rem;color:var(--ink2);margin-top:6px;}
+  .res button{border:0;background:none;color:var(--lavInk);text-decoration:underline;cursor:pointer;font-size:.85rem;padding:0 2px;}
+  details.sum{margin-top:8px;}
+  details.sum summary{cursor:pointer;font-size:.86rem;color:var(--ink2);}
+  .tsum{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px;margin-top:8px;}
+  .tsum div{background:var(--soft);border-radius:10px;padding:6px 10px;font-size:.82rem;}
+  .tsum b{font-family:"Do Hyeon",sans-serif;font-weight:400;font-size:1rem;margin-right:6px;}
+  .tsum .empty{color:var(--cap);background:#F6F7F4;}
+  .sheet{background:var(--surface);border-radius:18px;padding:14px;}
+  .sheet-title{display:flex;align-items:center;gap:10px;margin:0 0 10px;font-family:"Gowun Batang",serif;font-size:1.05rem;}
+  .sheet-title small{font-family:"Gowun Dodum",sans-serif;color:var(--cap);font-size:.8rem;}
+  /* 개요 — timetable.html .wk-ov 와 같은 모양 */
+  .wk-ov{display:grid;grid-template-columns:repeat(var(--nd,7),1fr);gap:8px;align-items:start;}
+  .wk-ov-col{display:flex;flex-direction:column;gap:6px;min-width:0;}
+  .wk-dayh{width:100%;font:inherit;font-size:.9rem;font-weight:700;color:#fff;background:#5F8377;border:0;border-radius:10px;padding:6px 4px;cursor:pointer;}
+  .wk-dayh small{display:block;font-weight:400;font-size:.68rem;opacity:.85;}
+  .wk-dayh:hover{filter:brightness(.93);}
+  .wk-ctr{font-size:.66rem;font-weight:700;color:var(--ink2);padding-left:2px;margin:4px 0 -2px;}
+  .wk-mini{font:inherit;text-align:left;border:1px solid rgba(0,0,0,.05);border-radius:9px;padding:6px 8px;cursor:pointer;display:block;width:100%;}
+  .wk-mini b{font-size:.74rem;display:block;letter-spacing:-.01em;line-height:1.35;overflow-wrap:anywhere;}
+  .wk-mini b .tt{color:var(--accent);}
+  .wk-mini small{color:var(--cap);font-size:.66rem;display:block;}
+  .wk-mini.hit,.blk.hit{outline:2px solid #D9485F;}
+  .c-g1{background:var(--g1);} .c-g2{background:var(--g2);} .c-g3{background:var(--g3);} .c-mid{background:var(--mid);} .c-etc{background:var(--etc);}
+  .c-b.c-g1{background:#F6F3EA;} .c-b.c-g2{background:#ECE9EE;} .c-b.c-g3{background:#E5E9E7;} .c-b.c-mid{background:#ECEDF1;} .c-b.c-etc{background:#EEEBE9;}
+  /* 요일 확대 */
+  .zhead{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px;}
+  .zday{border:0;border-radius:999px;padding:5px 12px;background:var(--soft);color:var(--ink2);cursor:pointer;font-size:.88rem;}
+  .zday.on{background:#5F8377;color:#fff;font-weight:700;}
+  .zback{border:0;background:none;color:var(--lavInk);cursor:pointer;font-size:.88rem;text-decoration:underline;}
+  .zsec{margin:4px 0 16px;}
+  .zsec h3{font-size:.92rem;margin:0 0 6px;color:var(--accent);font-family:"Gowun Batang",serif;}
+  .zgrid{overflow-x:auto;}
+  .zg{display:grid;min-width:100%;}
+  .zg .th{font-size:.8rem;font-weight:700;color:var(--ink2);text-align:center;padding:2px 4px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:2;}
+  .zg .tm{font-size:.72rem;color:var(--cap);text-align:right;padding-right:6px;border-top:1px solid #F1F4F2;}
+  .zg .cell{border-top:1px solid #F1F4F2;border-left:1px solid #F1F4F2;}
+  .blk{position:relative;z-index:1;border-radius:10px;border:1px solid rgba(0,0,0,.06);padding:5px 7px;margin:1px 2px;overflow:hidden;cursor:pointer;font-size:.78rem;}
+  .blk .h{display:flex;justify-content:space-between;gap:4px;}
+  .blk .h b{font-size:.78rem;}
+  .blk .n{font-family:"Do Hyeon",sans-serif;font-size:.9rem;white-space:nowrap;}
+  .blk .s{color:var(--cap);font-size:.7rem;}
+  .blk.over .n{color:var(--lateInk);}
+  .blk.tgt{outline:2px dashed var(--lavInk);}
+  .chips{display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;}
+  .chip{border:0;background:rgba(255,255,255,.78);border-radius:4px;padding:0 5px;font-size:.74rem;cursor:pointer;color:var(--ink);}
   .chip.sel{background:#5A4A6A;color:#fff;}
   .chip.lv{opacity:.55;}
   .bar{position:sticky;top:0;z-index:5;background:#5A4A6A;color:#fff;border-radius:12px;padding:9px 14px;margin-bottom:10px;font-size:.9rem;display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
   .bar button{border:0;border-radius:8px;padding:4px 10px;background:#fff;color:#5A4A6A;cursor:pointer;}
-  .empty-note{color:var(--cap);font-size:.88rem;padding:6px 0;}
-  #toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#2A332F;color:#fff;border-radius:999px;padding:8px 16px;font-size:.88rem;}
+  .empty-note{color:var(--cap);font-size:.86rem;padding:6px 0;}
+  #toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#2A332F;color:#fff;border-radius:999px;padding:8px 16px;font-size:.88rem;z-index:20;}
   #toast:empty{display:none;}
-  .res{font-size:.85rem;color:var(--ink2);margin-top:6px;}
+  @media (max-width:760px){
+    .wk-ov{display:flex;overflow-x:auto;}
+    .wk-ov-col{min-width:150px;}
+  }
 </style>
 </head>
 <body>
 <main class="wrap">
   <a class="back" href="ops.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>슈국 운영으로 가기</a>
   <h1>2027 전체 시간표 계획</h1>
-  <p class="intro">12/14 개편 계획입니다. 센터·선생님별 정규 반 배치를 보고, 학생 이름을 누른 뒤 다른 반을 누르면 옮길 수 있습니다. 실제 시간표와 학생 페이지에는 아무것도 바뀌지 않아요.</p>
+  <p class="intro">12/14 개편 계획입니다. 슈국 스케쥴 전체 시간표처럼 요일마다 센터 순으로 보여 줍니다. 요일을 누르면 선생님별 시간표가 펼쳐지고, 학생 이름을 누른 뒤 다른 반을 누르면 옮길 수 있어요. 실제 시간표와 학생 페이지에는 아무것도 바뀌지 않습니다.</p>
   <div id="deny" class="card" hidden>이 화면은 원장님과 대표님만 볼 수 있습니다.</div>
   <div id="app" hidden>
     <div class="card">
-      <div class="ctl" id="centers"></div>
-      <div class="ctl" style="margin-top:10px">
+      <div class="ctl">
+        <select id="fCen" aria-label="센터"></select>
+        <select id="fT" aria-label="선생님"></select>
         <input type="search" id="q" placeholder="학생 이름 찾기" />
         <button class="btn" type="button" id="copy">표 복사</button>
         <button class="btn" type="button" id="reload">다시 불러오기</button>
       </div>
       <div class="res" id="res"></div>
+      <details class="sum" id="sumBox"><summary>선생님별 반·학생 수 보기</summary><div class="tsum" id="tsum"></div></details>
       <div class="memo" id="memo"></div>
     </div>
     <div id="selbar"></div>
-    <div id="body"></div>
+    <div class="sheet" id="sheet"></div>
   </div>
 </main>
 <div id="toast"></div>
@@ -133,27 +158,39 @@
     });
   }
   function toast(m){ var t = $('toast'); t.textContent = m; clearTimeout(toast.h); toast.h = setTimeout(function(){ t.textContent = ''; }, 2600); }
+  // 슈국 시간 표기: 10시 전은 오후, '오전'·'밤' 접두 (timetable.html mins 와 같음)
   function mins(s){
     var m = String(s || '').match(/^(오전|밤)?\s*(\d{1,2}):(\d{2})/); if (!m) return 0;
     var h = +m[2], mm = +m[3];
     if (m[1] === '오전') return h * 60 + mm;
     if (m[1] === '밤') return (h === 12 ? 24 : h + 12) * 60 + mm;
-    if (h < 10) h += 12;   // 슈국 표기: 10시 전은 오후
+    if (h < 10) h += 12;
     return h * 60 + mm;
   }
+  function endMins(c){ var s = mins(c.start), e = mins(c.end); if (!c.end) return s + 90; if (e <= s) e += 12 * 60; return e; }
+  function hm(m){ var h = Math.floor(m / 60), mm = m % 60; var hh = h > 12 ? h - 12 : h; return hh + ':' + (mm < 10 ? '0' : '') + mm; }
   function tname(t){ return (FULL[t] || t) + 'T'; }
+  function colorOf(c){
+    var n = String(c.name || '');
+    var base = /^고1/.test(n) ? 'c-g1' : /^고2/.test(n) ? 'c-g2' : /^고3/.test(n) ? 'c-g3' : /정리정독/.test(n) ? 'c-mid' : 'c-etc';
+    return base + ((!GA[c.part] || /확인/.test(n)) ? ' c-b' : '');
+  }
 
-  var CFG = null, CLS = [], ROWS = [], CEN = '본원', OPEN = {}, SEL = '', Q = '', ME = '';
-  try { CEN = sessionStorage.getItem('p27all_cen') || '본원'; } catch(_){}
+  var CFG = null, CLS = [], ROWS = [], FC = '', FT = '', ZDAY = '', SEL = '', Q = '', ME = '';
+  try { FC = sessionStorage.getItem('p27all_fc') || ''; FT = sessionStorage.getItem('p27all_ft') || ''; ZDAY = sessionStorage.getItem('p27all_day') || ''; } catch(_){}
 
-  function leave(){ var m = (CFG && (CFG.classes || []).filter(function(c){ return c.id === META; })[0]) || {}; return m.leave || {}; }
   function meta(){ return (CFG && (CFG.classes || []).filter(function(c){ return c.id === META; })[0]) || {}; }
+  function leave(){ return meta().leave || {}; }
   function members(){
     var o = {};
     ROWS.forEach(function(r){ ['ga','na'].forEach(function(k){ if (r[k]) (o[r[k]] = o[r[k]] || []).push(r); }); });
     for (var k in o) o[k].sort(function(a, b){ return a.student.localeCompare(b.student, 'ko'); });
     return o;
   }
+  function cenIdx(c){ for (var i = 0; i < CENTERS.length; i++) if (CENTERS[i].k === c) return i; return 99; }
+  function tIdx(cen, t){ var o = CENTERS[cenIdx(cen)]; var i = o ? o.t.indexOf(t) : -1; return i < 0 ? 99 : i; }
+  function visible(c){ return (!FC || c.center === FC) && (!FT || c.teacher === FT); }
+
   function load(){
     return Promise.all([
       api('/tt_plan_config?plan=eq.' + enc(PLAN) + '&select=*'),
@@ -162,72 +199,124 @@
       CFG = (a[0] || [])[0] || null;
       CLS = CFG ? (CFG.classes || []).filter(function(c){ return c.id !== META; }) : [];
       ROWS = a[1] || [];
-      render();
-    }).catch(function(e){ $('body').innerHTML = '<div class="card">불러오지 못했습니다(' + esc(e.message) + '). 새로고침해 주세요.</div>'; });
+      drawFilters(); render();
+    }).catch(function(e){ $('sheet').innerHTML = '불러오지 못했습니다(' + esc(e.message) + '). 새로고침해 주세요.'; });
+  }
+
+  function drawFilters(){
+    var lv = leave(), mem = members();
+    var cnt = function(f){ var s = {}; CLS.forEach(function(c){ if (f(c)) (mem[c.id] || []).forEach(function(r){ if (!lv[r.student]) s[r.student] = 1; }); }); return Object.keys(s).length; };
+    $('fCen').innerHTML = '<option value="">모든 센터 · ' + cnt(function(){ return true; }) + '명</option>' + CENTERS.map(function(c){
+      var n = cnt(function(x){ return x.center === c.k; });
+      return '<option value="' + esc(c.k) + '"' + (FC === c.k ? ' selected' : '') + '>' + esc(c.k) + ' · ' + (n ? n + '명' : '비어 있음') + '</option>';
+    }).join('');
+    var ts = [];
+    CENTERS.forEach(function(c){ if (!FC || FC === c.k) c.t.forEach(function(t){ ts.push({ c: c.k, t: t }); }); });
+    if (FT && !ts.some(function(x){ return x.t === FT; })) FT = '';
+    $('fT').innerHTML = '<option value="">모든 선생님</option>' + ts.map(function(x){
+      var n = cnt(function(c){ return c.teacher === x.t; });
+      return '<option value="' + esc(x.t) + '"' + (FT === x.t ? ' selected' : '') + '>' + esc(tname(x.t)) + ' (' + esc(x.c) + ') · ' + (n ? n + '명' : '반 없음') + '</option>';
+    }).join('');
+    $('tsum').innerHTML = CENTERS.map(function(c){
+      return c.t.map(function(t){
+        var my = CLS.filter(function(x){ return x.center === c.k && x.teacher === t; });
+        var n = cnt(function(x){ return x.center === c.k && x.teacher === t; });
+        return '<div class="' + (my.length ? '' : 'empty') + '"><b>' + esc(tname(t)) + '</b>' + esc(c.k) + ' · ' + (my.length ? '반 ' + my.length + ' · 학생 ' + n + '명' : '아직 반이 없습니다') + '</div>';
+      }).join('');
+    }).join('');
+    var m = meta();
+    $('memo').textContent = [m.memo, Object.keys(lv).length ? '퇴원 예정(인원에서 뺌): ' + Object.keys(lv).join('·') : ''].filter(Boolean).join(' · ');
   }
 
   function render(){
-    try { sessionStorage.setItem('p27all_cen', CEN); } catch(_){}
-    if (!CFG){ $('body').innerHTML = '<div class="card">아직 계획 데이터가 없습니다.</div>'; return; }
+    try { sessionStorage.setItem('p27all_fc', FC); sessionStorage.setItem('p27all_ft', FT); sessionStorage.setItem('p27all_day', ZDAY); } catch(_){}
+    if (!CFG){ $('sheet').innerHTML = '아직 계획 데이터가 없습니다.'; return; }
     var lv = leave(), mem = members(), cap = CFG.cap || 15;
-    var stuOf = function(cen){ var s = {}; CLS.forEach(function(c){ if (c.center === cen) (mem[c.id] || []).forEach(function(r){ if (!lv[r.student]) s[r.student] = 1; }); }); return Object.keys(s).length; };
-    $('centers').innerHTML = '<button class="pill' + (CEN === '' ? ' on' : '') + '" data-cen="">전체<small>' + ROWS.filter(function(r){ return !lv[r.student]; }).length + '명</small></button>' +
-      CENTERS.map(function(c){ var n = stuOf(c.k); return '<button class="pill' + (CEN === c.k ? ' on' : '') + '" data-cen="' + esc(c.k) + '">' + esc(c.k) + '<small>' + (n ? n + '명' : '비어 있음') + '</small></button>'; }).join('');
-    var m = meta();
-    $('memo').textContent = [m.memo, Object.keys(lv).length ? '퇴원 예정(인원에서 뺌): ' + Object.keys(lv).join('·') : ''].filter(Boolean).join(' · ');
-    // 찾기
-    var hits = {};
+    var hits = {}, byId = {};
+    CLS.forEach(function(c){ byId[c.id] = c; });
     if (Q){
       var found = ROWS.filter(function(r){ return r.student.indexOf(Q) >= 0; });
       found.forEach(function(r){ ['ga','na'].forEach(function(k){ if (r[k]) hits[r[k]] = 1; }); });
-      var byId = {}; CLS.forEach(function(c){ byId[c.id] = c; });
       $('res').innerHTML = found.length ? found.slice(0, 20).map(function(r){
-        var parts = ['ga','na'].map(function(k){ var c = byId[r[k]]; return c ? esc(c.center + ' ' + tname(c.teacher) + ' ' + c.part + ' ' + c.day + ' ' + c.start) : ''; }).filter(Boolean);
+        var parts = ['ga','na'].map(function(k){ var c = byId[r[k]]; return c ? '<button type="button" data-go="' + esc(c.day) + '">' + esc(c.day + ' ' + c.start + ' ' + tname(c.teacher) + ' ' + c.part) + '</button>' : ''; }).filter(Boolean);
         return '<div><b>' + esc(r.student) + '</b> ' + esc(r.school || '') + ' — ' + parts.join(' / ') + '</div>';
       }).join('') : '찾는 학생이 없습니다.';
     } else $('res').innerHTML = '';
-    // 선택 줄
     var selRow = SEL && ROWS.filter(function(r){ return r.student === SEL; })[0];
-    $('selbar').innerHTML = selRow ? '<div class="bar"><b>' + esc(SEL) + '</b> 선택 — 옮길 반을 누르세요(가·문학 자리는 가·문학·수업 반으로, 나·독서 자리는 나·독서 반으로). <button type="button" id="selx">취소</button></div>' : '';
+    $('selbar').innerHTML = selRow ? '<div class="bar"><b>' + esc(SEL) + '</b> 선택 — 옮길 반을 누르세요(가·문학 자리는 가·문학·수업 반으로, 나·독서 자리는 나·독서 반으로). 다른 요일 반으로 옮기려면 위 요일을 바꿔 주세요. <button type="button" id="selx">취소</button></div>' : '';
     if (selRow) $('selx').onclick = function(){ SEL = ''; render(); };
-
-    var list = CEN ? CENTERS.filter(function(c){ return c.k === CEN; }) : CENTERS;
-    $('body').innerHTML = list.map(function(c){
-      var cls = CLS.filter(function(x){ return x.center === c.k; });
-      var tiles = c.t.map(function(t){
-        var my = cls.filter(function(x){ return x.teacher === t; }), s = {};
-        my.forEach(function(x){ (mem[x.id] || []).forEach(function(r){ if (!lv[r.student]) s[r.student] = 1; }); });
-        var n = Object.keys(s).length;
-        return '<div class="tile' + (my.length ? '' : ' empty') + '"><div class="c">' + esc(c.k) + '</div><b>' + esc(tname(t)) + '</b><span>' + (my.length ? '반 ' + my.length + ' · 학생 ' + n + '명' : '아직 반이 없습니다') + '</span></div>';
-      }).join('');
-      var grid = cls.length ? gridHtml(cls, mem, lv, cap, hits, selRow) : '<div class="empty-note">아직 배치된 반이 없습니다. 데이터를 받으면 넣겠습니다.</div>';
-      return '<div class="card sec"><h2>' + esc(c.k) + '</h2><div class="tiles">' + tiles + '</div>' + grid + '</div>';
-    }).join('');
+    var cls = CLS.filter(visible);
+    var days = DAYS.filter(function(d){ return d !== '월' && d !== '화' || cls.some(function(c){ return c.day === d; }); });
+    if (ZDAY && days.indexOf(ZDAY) < 0) ZDAY = '';
+    var ctx = { lv: lv, mem: mem, cap: cap, hits: hits, selRow: selRow };
+    $('sheet').innerHTML = ZDAY ? zoomHtml(cls, days, ctx) : overviewHtml(cls, days, ctx);
   }
 
-  function gridHtml(cls, mem, lv, cap, hits, selRow){
-    var days = DAYS.filter(function(d){ return cls.some(function(x){ return x.day === d; }); });
-    var times = []; cls.forEach(function(x){ if (times.indexOf(x.start) < 0) times.push(x.start); });
-    times.sort(function(a, b){ return mins(a) - mins(b); });
-    var selKey = selRow ? null : null;
-    var h = '<div class="grid"><table class="tt"><tr><th></th>' + days.map(function(d){ return '<th>' + d + '</th>'; }).join('') + '</tr>';
-    times.forEach(function(t){
-      h += '<tr><td class="t">' + esc(t) + '</td>' + days.map(function(d){
-        var here = cls.filter(function(x){ return x.day === d && x.start === t; }).sort(function(a, b){ return String(a.teacher).localeCompare(String(b.teacher)) || String(a.part).localeCompare(String(b.part)); });
-        return '<td>' + here.map(function(x){
-          var ms = mem[x.id] || [], n = ms.filter(function(r){ return !lv[r.student]; }).length, gone = ms.length - n;
-          var tgt = selRow && ((GA[x.part] && selRow.ga !== x.id) || (!GA[x.part] && selRow.na !== x.id));
-          var open = OPEN[x.id] || (Q && hits[x.id]);
-          var chips = open ? '<div class="chips">' + ms.map(function(r){
-            return '<button type="button" class="chip' + (r.student === SEL ? ' sel' : '') + (lv[r.student] ? ' lv' : '') + '" data-stu="' + esc(r.student) + '" title="' + esc(r.school || '') + '">' + esc(lv[r.student] ? '(' + r.student + ')' : r.student) + '</button>';
-          }).join('') + '</div>' : '';
-          return '<div class="cls p-' + esc(x.part) + (n > cap ? ' over' : '') + (hits[x.id] ? ' hit' : '') + (tgt ? ' tgt' : '') + '" data-cls="' + esc(x.id) + '" title="' + esc(x.from || '') + '">' +
-            '<div class="h"><b>' + esc(tname(x.teacher)) + ' · ' + esc(x.part) + '</b><span class="n">' + n + (gone ? '<small>(−' + gone + ')</small>' : '') + '명</span></div>' +
-            '<div class="s">' + esc(x.name) + ' · ~' + esc(x.end || '') + '</div>' + chips + '</div>';
-        }).join('') + '</td>';
-      }).join('') + '</tr>';
-    });
-    return h + '</table></div>';
+  function sortCls(a, b){ return cenIdx(a.center) - cenIdx(b.center) || mins(a.start) - mins(b.start) || tIdx(a.center, a.teacher) - tIdx(b.center, b.teacher) || String(a.part).localeCompare(String(b.part)); }
+  function count(ctx, id){ var ms = ctx.mem[id] || []; var n = ms.filter(function(r){ return !ctx.lv[r.student]; }).length; return { n: n, gone: ms.length - n, ms: ms }; }
+
+  function overviewHtml(cls, days, ctx){
+    var title = '<div class="sheet-title">전체 시간표 <small>' + esc((FC || '모든 센터') + (FT ? ' · ' + tname(FT) : '')) + ' · 요일을 누르면 선생님별 시간표</small></div>';
+    if (!cls.length) return title + '<div class="empty-note">이 범위에는 아직 배치된 반이 없습니다. 데이터를 받으면 넣겠습니다.</div>';
+    return title + '<div class="wk-ov" style="--nd:' + days.length + '">' + days.map(function(d){
+      var list = cls.filter(function(c){ return c.day === d; }).sort(sortCls), last = '', h = '';
+      list.forEach(function(c){
+        if (c.center !== last){ h += '<div class="wk-ctr">' + esc(c.center) + '</div>'; last = c.center; }
+        var k = count(ctx, c.id);
+        h += '<button type="button" class="wk-mini ' + colorOf(c) + (ctx.hits[c.id] ? ' hit' : '') + '" data-day="' + esc(d) + '" title="' + esc(c.from || '') + '">' +
+          '<b><span class="tt">' + esc(tname(c.teacher)) + '</span> ' + esc(c.name) + '</b>' +
+          '<small>' + esc(c.start + '~' + (c.end || '')) + ' · ' + esc(c.part) + ' · ' + k.n + '명' + (k.gone ? ' (−' + k.gone + ')' : '') + '</small></button>';
+      });
+      var n = list.length;
+      return '<div class="wk-ov-col"><button type="button" class="wk-dayh" data-day="' + esc(d) + '">' + esc(d) + '<small>' + n + '반</small></button>' + (h || '<div class="empty-note">수업 없음</div>') + '</div>';
+    }).join('') + '</div>';
+  }
+
+  function zoomHtml(cls, days, ctx){
+    var head = '<div class="zhead"><button type="button" class="zback" data-day="">← 한 주 전체</button>' + days.map(function(d){
+      return '<button type="button" class="zday' + (d === ZDAY ? ' on' : '') + '" data-day="' + esc(d) + '">' + esc(d) + '</button>';
+    }).join('') + '</div>';
+    var today = cls.filter(function(c){ return c.day === ZDAY; });
+    if (!today.length) return head + '<div class="empty-note">' + esc(ZDAY) + '요일에는 수업이 없습니다.</div>';
+    var secs = CENTERS.filter(function(c){ return today.some(function(x){ return x.center === c.k; }); });
+    return head + secs.map(function(cen){
+      var list = today.filter(function(x){ return x.center === cen.k; });
+      var ts = cen.t.filter(function(t){ return list.some(function(x){ return x.teacher === t; }); });
+      list.forEach(function(x){ if (ts.indexOf(x.teacher) < 0) ts.push(x.teacher); });
+      var lo = Math.min.apply(null, list.map(function(x){ return mins(x.start); })), hi = Math.max.apply(null, list.map(endMins));
+      lo = Math.floor(lo / 30) * 30; hi = Math.ceil(hi / 30) * 30;
+      var rows = (hi - lo) / 30, ROWH = 54;
+      var g = '<div class="zg" style="grid-template-columns:58px repeat(' + ts.length + ',minmax(150px,1fr));grid-template-rows:auto repeat(' + rows + ',' + ROWH + 'px)">';
+      g += '<div class="th"></div>' + ts.map(function(t, i){ return '<div class="th" style="grid-column:' + (i + 2) + '">' + esc(tname(t)) + '</div>'; }).join('');
+      for (var r = 0; r < rows; r++){
+        g += '<div class="tm" style="grid-row:' + (r + 2) + ';grid-column:1">' + (((lo + r * 30) % 60 === 0 || r === 0) ? esc(hm(lo + r * 30)) : '') + '</div>';
+        for (var i = 0; i < ts.length; i++) g += '<div class="cell" style="grid-row:' + (r + 2) + ';grid-column:' + (i + 2) + '"></div>';
+      }
+      ts.forEach(function(t, i){
+        var mine = list.filter(function(x){ return x.teacher === t; }).sort(function(a, b){ return mins(a.start) - mins(b.start); });
+        // 겹치는 반은 폭을 나눠 나란히(timetable spreadOverlaps 와 같은 뜻)
+        var lanes = [];
+        mine.forEach(function(x){
+          var s = mins(x.start), l = 0;
+          while (lanes[l] && lanes[l] > s) l++;
+          lanes[l] = endMins(x); x._lane = l;
+        });
+        var nl = Math.max(1, lanes.length);
+        mine.forEach(function(x){
+          var r1 = Math.round((mins(x.start) - lo) / 30) + 2, r2 = Math.round((endMins(x) - lo) / 30) + 2;
+          var k = count(ctx, x.id);
+          var tgt = ctx.selRow && ((GA[x.part] && ctx.selRow.ga !== x.id) || (!GA[x.part] && ctx.selRow.na !== x.id));
+          var w = 100 / nl;
+          g += '<div class="blk ' + colorOf(x) + (k.n > ctx.cap ? ' over' : '') + (ctx.hits[x.id] ? ' hit' : '') + (tgt ? ' tgt' : '') + '" data-cls="' + esc(x.id) + '" title="' + esc(x.from || '') + '" style="grid-row:' + r1 + '/' + r2 + ';grid-column:' + (i + 2) + ';width:calc(' + w + '% - 4px);margin-left:calc(' + (w * x._lane) + '% + 2px)">' +
+            '<div class="h"><b>' + esc(x.name) + '</b><span class="n">' + k.n + (k.gone ? '<small>(−' + k.gone + ')</small>' : '') + '명</span></div>' +
+            '<div class="s">' + esc(x.start + '~' + (x.end || '')) + ' · ' + esc(x.part) + '</div>' +
+            '<div class="chips">' + k.ms.map(function(rw){
+              return '<button type="button" class="chip' + (rw.student === SEL ? ' sel' : '') + (ctx.lv[rw.student] ? ' lv' : '') + '" data-stu="' + esc(rw.student) + '" title="' + esc(rw.school || '') + '">' + esc(ctx.lv[rw.student] ? '(' + rw.student + ')' : rw.student) + '</button>';
+            }).join('') + '</div></div>';
+        });
+      });
+      return '<div class="zsec"><h3>' + esc(cen.k) + '</h3><div class="zgrid">' + g + '</div></div></div>';
+    }).join('');
   }
 
   function moveTo(cid){
@@ -238,26 +327,27 @@
     var body = {}; body[key] = cid; body.author = ME || '원장님'; body.updated_at = new Date().toISOString();
     api('/tt_plan_students?id=eq.' + r.id, { method: 'PATCH', body: JSON.stringify(body), prefer: 'return=representation' }).then(function(d){
       if (!d || !d.length) throw new Error('저장된 줄이 없습니다');
-      r[key] = cid; toast(SEL + ' → ' + tname(c.teacher) + ' ' + c.part + ' ' + c.day + ' ' + c.start + '로 옮겼습니다'); SEL = ''; render();
+      r[key] = cid; toast(SEL + ' → ' + tname(c.teacher) + ' ' + c.part + ' ' + c.day + ' ' + c.start + '로 옮겼습니다'); SEL = ''; drawFilters(); render();
     }).catch(function(e){ toast('저장하지 못했습니다 — ' + e.message); });
   }
 
   function copyTable(){
     var lv = leave(), mem = members(), out = [['센터','선생님','구분','요일','시간','반','인원','학생'].join('\t')];
-    CENTERS.forEach(function(cen){
-      CLS.filter(function(x){ return x.center === cen.k; }).sort(function(a, b){ return String(a.teacher).localeCompare(String(b.teacher)) || DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || mins(a.start) - mins(b.start); }).forEach(function(x){
-        var ms = (mem[x.id] || []).map(function(r){ return lv[r.student] ? '(' + r.student + ')' : r.student; });
-        out.push([cen.k, tname(x.teacher), x.part, x.day, x.start + '~' + (x.end || ''), x.name, ms.filter(function(s){ return s[0] !== '('; }).length, ms.join(' ')].join('\t'));
-      });
+    CLS.slice().sort(function(a, b){ return cenIdx(a.center) - cenIdx(b.center) || tIdx(a.center, a.teacher) - tIdx(b.center, b.teacher) || DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || mins(a.start) - mins(b.start); }).forEach(function(x){
+      var ms = (mem[x.id] || []).map(function(r){ return lv[r.student] ? '(' + r.student + ')' : r.student; });
+      out.push([x.center, tname(x.teacher), x.part, x.day, x.start + '~' + (x.end || ''), x.name, ms.filter(function(s){ return s[0] !== '('; }).length, ms.join(' ')].join('\t'));
     });
     navigator.clipboard.writeText(out.join('\n')).then(function(){ toast('표를 복사했습니다 — 구글 시트에 붙여 넣으세요'); }, function(){ toast('복사하지 못했습니다'); });
   }
 
   document.addEventListener('click', function(ev){
-    var b = ev.target.closest('[data-cen]'); if (b){ CEN = b.getAttribute('data-cen'); render(); return; }
     var s = ev.target.closest('[data-stu]'); if (s){ ev.stopPropagation(); var nm = s.getAttribute('data-stu'); SEL = SEL === nm ? '' : nm; render(); return; }
-    var c = ev.target.closest('[data-cls]'); if (c){ var id = c.getAttribute('data-cls'); if (SEL) moveTo(id); else { OPEN[id] = !OPEN[id]; render(); } }
+    var c = ev.target.closest('[data-cls]'); if (c){ if (SEL) moveTo(c.getAttribute('data-cls')); return; }
+    var g = ev.target.closest('[data-go]'); if (g){ ZDAY = g.getAttribute('data-go'); render(); return; }
+    var d = ev.target.closest('[data-day]'); if (d){ ZDAY = d.getAttribute('data-day'); render(); window.scrollTo({ top: $('sheet').offsetTop - 10 }); }
   });
+  $('fCen').onchange = function(){ FC = this.value; drawFilters(); render(); };
+  $('fT').onchange = function(){ FT = this.value; render(); };
   $('q').oninput = function(){ Q = this.value.trim(); render(); };
   $('copy').onclick = copyTable;
   $('reload').onclick = function(){ load(); };
